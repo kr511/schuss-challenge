@@ -3051,11 +3051,12 @@
       // Sicherstellen, dass Feedback-Plan initialisiert ist
       ensureFeedbackSchedule();
       
-      if (shouldShowFeedback(totalDuels)) {
-        showFeedbackScreen(totalDuels);
-        return;
-      }
+      // Zuerst screenOver anzeigen, dann dynamisch zur Umfrage wechseln, falls nötig
       showScreen('screenOver');
+      
+      if (shouldShowFeedback(totalDuels)) {
+        setTimeout(() => showFeedbackScreen(totalDuels), 800);
+      }
     }
 
     function toggleSoundSetting(btn) {
