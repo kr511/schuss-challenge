@@ -207,6 +207,9 @@
       probeActive: false,    // Probezeit ist aktiv
       probeSecsLeft: 0,      // Verbleibende Sekunden in Probezeit
       botStarted: false,     // Bot hat bereits zu schießen angefangen
+      // 3x20 Übergangsphasen (Positionswechsel / Umbau / Probe)
+      transitionSecsLeft: 0, // verbleibende Sekunden in Übergangsphase
+      transitionLabel: '',   // Label für aktuelle Übergangsphase
     };
 
     /* ─── DISZIPLIN CONFIG ───────────────────── */
@@ -235,9 +238,9 @@
       },
       kk3x20: {
         name: '3×20 KK', weapon: 'kk', shots: 60, dist: '50', is3x20: true,
-        timeMins: 160, desc: '3 × 20 Schuss · 160 Min', icon: '🏆',
+        timeMins: 105, desc: '3 x 20 Schuss · 105 Min', icon: '🏆',
         positions: ['Kniend', 'Liegend', 'Stehend'], posIcons: ['🦵', '🛏️', '🧍'],
-        info: '<b>3×20 KK</b> – Je 20 Schuss kniend, liegend und stehend mit KK auf 50 m. Zeitlimit: 160 Minuten.'
+        info: '<b>3×20 KK</b> – Je 20 Schuss kniend, liegend und stehend mit KK auf 50 m. Zeitlimit: 105 Minuten inkl. Positionswechsel.'
       },
     };
 
@@ -1693,6 +1696,31 @@
       if (G._timerInterval) { clearInterval(G._timerInterval); G._timerInterval = null; }
     }
 
+    const KK3X20_CFG = {
+      probeSecs: 10 * 60,
+      transitionPhases: [
+        { secs: 18 * 60, label: 'Pause + Probe Liegend' }, // 10 Min Pause + ~8 Min Probe
+        { secs: 12 * 60, label: 'Pause vor Stehend' }      // ca. 10-15 Min
+      ],
+      positionTimings: [
+        { baseSecs: 72, min: 58, max: 88 },  // Kniend: 24 Min / 20 Schuss
+        { baseSecs: 36, min: 28, max: 48 },  // Liegend: 12 Min / 20 Schuss
+        { baseSecs: 84, min: 68, max: 102 }  // Stehend: 28 Min / 20 Schuss
+      ]
+    };
+
+    function getKK3x20TimingByPos() {
+      const idx = Math.max(0, Math.min(KK3X20_CFG.positionTimings.length - 1, G.posIdx || 0));
+      return KK3X20_CFG.positionTimings[idx];
+    }
+
+    function beginKK3x20Transition(nextPosIdx) {
+      const phase = KK3X20_CFG.transitionPhases[nextPosIdx - 1];
+      if (!phase) return;
+      G.transitionSecsLeft = phase.secs;
+      G.transitionLabel = phase.label;
+    }
+
     function startMatchTimer(totalSecs) {
       G._timerSecsLeft = totalSecs;
       const box = document.getElementById('matchTimerBox');
@@ -1701,7 +1729,18 @@
       function tick() {
         // Probezeit-Info
         let timerDisp = '';
-        if (G.probeActive && G.probeSecsLeft > 0) {
+        if (G.is3x20 && G.transitionSecsLeft > 0) {
+          const tm = Math.floor(G.transitionSecsLeft / 60);
+          const ts = G.transitionSecsLeft % 60;
+          timerDisp = `${tm}:${String(ts).padStart(2, '0')} (${G.transitionLabel || 'Pause'})`;
+          G.transitionSecsLeft--;
+          G._timerSecsLeft--;
+          if (G.transitionSecsLeft <= 0) {
+            const nextPos = G.positions[G.posIdx] || '';
+            DOM.lastShotTxt.innerHTML = `▶️ <b>${G.transitionLabel || 'Pause'}</b> beendet – weiter mit <b>${nextPos}</b>.`;
+            G.transitionLabel = '';
+          }
+        } else if (G.probeActive && G.probeSecsLeft > 0) {
           const pm = Math.floor(G.probeSecsLeft / 60);
           const ps = G.probeSecsLeft % 60;
           timerDisp = `${pm}:${String(ps).padStart(2, '0')} (Probe)`;
@@ -1760,8 +1799,14 @@
           elite: { ratio: 0.92, rangeRatio: 0.06 }   // 6% Streuung, extrem konsistent (Profi)
         };
 
-        const timing = DISCIPLINE_TIMINGS[G.discipline] || DISCIPLINE_TIMINGS.lg40;
+        let timing = DISCIPLINE_TIMINGS[G.discipline] || DISCIPLINE_TIMINGS.lg40;
+        if (G.discipline === 'kk3x20') timing = getKK3x20TimingByPos();
         const difficulty = DIFFICULTY_VARIANCE[G.diff] || DIFFICULTY_VARIANCE.real;
+
+        if (G.is3x20 && G.transitionSecsLeft > 0) {
+          G._botInterval = setTimeout(scheduleNextShot, 1000);
+          return;
+        }
 
         // Basis-Schießzeit für diese Disziplin
         let baseSecs = timing.baseSecs * difficulty.ratio;
@@ -1778,6 +1823,10 @@
 
         G._botInterval = setTimeout(() => {
           if (G.shotsLeft <= 0) return; // Spiel schon vorbei
+          if (G.is3x20 && G.transitionSecsLeft > 0) {
+            scheduleNextShot();
+            return;
+          }
           // Bot schießt automatisch einen Schuss (ohne Player-FX)
           botAutoFire();
           scheduleNextShot();
@@ -1816,7 +1865,14 @@
         pr.shots.push({ dx: bRes.dx ?? 0, dy: bRes.dy ?? 0 });
         G.botTotalInt += Math.floor(bRes.pts);
         if (G.posShots >= G.perPos && G.posIdx < G.positions.length - 1) {
-          G.posIdx++; G.posShots = 0;
+          const nextPosIdx = G.posIdx + 1;
+          const nextPosName = G.positions[nextPosIdx];
+          G.posIdx = nextPosIdx;
+          G.posShots = 0;
+          beginKK3x20Transition(nextPosIdx);
+          if (G.transitionSecsLeft > 0) {
+            DOM.lastShotTxt.innerHTML = `⏸ <b>${G.transitionLabel}</b> (${Math.round(G.transitionSecsLeft / 60)} Min) · danach <b>${nextPosName}</b>.`;
+          }
           setTimeout(() => updatePosBar(), 200);
         } else { updatePosBar(); }
         DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
@@ -1862,7 +1918,9 @@
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.dnf = false;
       G.probeActive = true;  // Probezeit ist aktiv
-      G.probeSecsLeft = 15 * 60;  // 15 Minuten Probezeit
+      G.probeSecsLeft = (G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
+      G.transitionSecsLeft = 0;
+      G.transitionLabel = '';
 
       // Vorherige Timer/Intervalle aufräumen
       clearBattleTimers();
@@ -1938,7 +1996,7 @@
       startMatchTimer(timeMins * 60);
 
       // Bot-Auto-Shoot startet NACH Probezeit (15 Min später)
-      const probeDelayMs = (15 * 60 + 5) * 1000; // 15 Min Probezeit + 5 Sek Delay
+      const probeDelayMs = ((G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60) + 5) * 1000; // Probezeit + 5 Sek Delay
       G._botStartTimeout = setTimeout(() => {
         if (!G.botStarted) {
           G.botStarted = true;
@@ -2036,8 +2094,9 @@
           : `◆ SCHUSS ${fired + 1} / ${G.maxShots} ◆`;
       }
 
-      if (G.burst) DOM.battleBurstBtn.disabled = G.shotsLeft <= 0;
-      else DOM.battleFireBtn.disabled = G.shotsLeft <= 0;
+      const transitionLock = G.is3x20 && G.transitionSecsLeft > 0;
+      if (G.burst) DOM.battleBurstBtn.disabled = G.shotsLeft <= 0 || transitionLock;
+      else DOM.battleFireBtn.disabled = G.shotsLeft <= 0 || transitionLock;
     }
 
     function updatePosBar() {
@@ -2168,7 +2227,12 @@
 
     function doBattleFire() {
       if (G.shotsLeft <= 0) return;
-
+      if (G.is3x20 && G.transitionSecsLeft > 0) {
+        const tm = Math.floor(G.transitionSecsLeft / 60);
+        const ts = G.transitionSecsLeft % 60;
+        DOM.lastShotTxt.innerHTML = `⏸ <b>${G.transitionLabel || 'Pause'}</b> läuft noch ${tm}:${String(ts).padStart(2, '0')}.`;
+        return;
+      }
       // Probezeit beenden und Bot starten, wenn beim Schießen noch Probezeit aktiv ist
       if (G.probeActive) {
         G.probeActive = false;
@@ -2252,15 +2316,27 @@
           if (G.posShots >= G.perPos && G.posIdx < G.positions.length - 1) {
             const donePos = G.positions[G.posIdx];
             const doneRes = G.posResults[G.posIdx];
-            DOM.lastShotTxt.innerHTML =
-              `✅ <b>${donePos}</b> abgeschlossen! Teilergebnis: <b>${fmtPts(doneRes.total)} Pkt</b><br>` +
-              `➡️ Weiter mit <b>${G.positions[G.posIdx + 1]}</b>`;
-            const nextEl = DOM[`posItem${G.posIdx + 1}`];
+            const nextPosIdx = G.posIdx + 1;
+            const nextPosName = G.positions[nextPosIdx];
+            const nextEl = DOM[`posItem${nextPosIdx}`];
             if (nextEl) { nextEl.classList.add('transition'); setTimeout(() => nextEl.classList.remove('transition'), 450); }
             if (typeof Sounds !== 'undefined') Sounds.positionChange();
             if (typeof Haptics !== 'undefined') Haptics.positionChange();
-            G.posIdx++;
+
+            G.posIdx = nextPosIdx;
             G.posShots = 0;
+            beginKK3x20Transition(nextPosIdx);
+
+            if (G.transitionSecsLeft > 0) {
+              DOM.lastShotTxt.innerHTML =
+                `✅ <b>${donePos}</b> abgeschlossen! Teilergebnis: <b>${fmtPts(doneRes.total)} Pkt</b><br>` +
+                `⏸ <b>${G.transitionLabel}</b> (${Math.round(G.transitionSecsLeft / 60)} Min) · danach <b>${nextPosName}</b>`;
+            } else {
+              DOM.lastShotTxt.innerHTML =
+                `✅ <b>${donePos}</b> abgeschlossen! Teilergebnis: <b>${fmtPts(doneRes.total)} Pkt</b><br>` +
+                `➡️ Weiter mit <b>${nextPosName}</b>`;
+            }
+
             setTimeout(() => updatePosBar(), 200);
           } else {
             updatePosBar();
@@ -2880,6 +2956,8 @@
       G.probeActive = false;
       G.probeSecsLeft = 0;
       G.botStarted = false;
+      G.transitionSecsLeft = 0;
+      G.transitionLabel = '';
       G.is3x20 = false;
       G.posIdx = 0; G.posShots = 0; G.posResults = [];
       G.positions = []; G.posIcons = [];
