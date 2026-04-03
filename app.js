@@ -1,4 +1,4 @@
-    /* ─── AUDIO ENGINE (Procedural Web Audio) ── */
+﻿    /* â”€â”€â”€ AUDIO ENGINE (Procedural Web Audio) â”€â”€ */
     const Sfx = {
       ctx: null,
       muted: false,
@@ -30,7 +30,7 @@
           osc.start(t);
           osc.stop(t + 0.05);
         }
-        else if (type === 'start') { // Tiefer Swoosh für Duell Start
+        else if (type === 'start') { // Tiefer Swoosh fÃ¼r Duell Start
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(100, t);
           osc.frequency.exponentialRampToValueAtTime(350, t + 0.4);
@@ -119,7 +119,7 @@
           osc.stop(t + 0.4);
         }
         else if (type === 'win') {
-          osc.disconnect(); // BUG-FIX: Haupt-Oscillator nicht benötigt, vom Graph trennen
+          osc.disconnect(); // BUG-FIX: Haupt-Oscillator nicht benÃ¶tigt, vom Graph trennen
           const notes = [440, 554, 659, 880]; // A Major Arpeggio
           g.gain.setValueAtTime(0.5, t);
           notes.forEach((freq, i) => {
@@ -133,7 +133,7 @@
           g.gain.linearRampToValueAtTime(0.01, t + 0.6);
         }
         else if (type === 'lose') {
-          osc.disconnect(); // BUG-FIX: Haupt-Oscillator nicht benötigt, vom Graph trennen
+          osc.disconnect(); // BUG-FIX: Haupt-Oscillator nicht benÃ¶tigt, vom Graph trennen
           const notes = [300, 250, 200]; // Descending
           g.gain.setValueAtTime(0.5, t);
           notes.forEach((freq, i) => {
@@ -161,12 +161,12 @@
     function toggleMute() {
       Sfx.init();
       Sfx.muted = !Sfx.muted;
-      document.getElementById('muteBtn').textContent = Sfx.muted ? '🔇' : '🔊';
+      document.getElementById('muteBtn').textContent = Sfx.muted ? 'ðŸ”‡' : 'ðŸ”Š';
       if (!Sfx.muted) Sfx.play('click');
     }
 
-    /* ─── DATA MIGRATION v3 ─── */
-    // Alte Daten-Keys bereinigen ohne Username zu löschen
+    /* â”€â”€â”€ DATA MIGRATION v3 â”€â”€â”€ */
+    // Alte Daten-Keys bereinigen ohne Username zu lÃ¶schen
     // v3: neue Schwierigkeitsnamen (Elite/Profi) + KK-Zehntel-Fix
     if (!localStorage.getItem('sd_reset_v3')) {
       const keepName = localStorage.getItem('sd_username');
@@ -177,7 +177,7 @@
       if (keepXP) localStorage.setItem('sd_xp', keepXP);
     }
 
-    /* ─── STATE ──────────────────────────────── */
+    /* â”€â”€â”€ STATE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     const G = {
       dist: '10', diff: 'easy',
       weapon: 'lg',          // 'lg' | 'kk'
@@ -188,59 +188,59 @@
       botShots: [], botTotal: 0, botTotalInt: 0, _botTotalTenths: 0,
       shotsLeft: 40, maxShots: 40,
       xp: 0,                 // XP-Stand
-      streak: 0,             // Aktueller Streak (für Firebase)
-      // 3×20 position tracking
+      streak: 0,             // Aktueller Streak (fÃ¼r Firebase)
+      // 3Ã—20 position tracking
       is3x20: false,
       positions: [],         // ['Kniend','Liegend','Stehend']
       posIcons: [],          // emoji per position
       posIdx: 0,             // aktueller Positions-Index
-      posShots: 0,           // Schüsse in aktueller Position
-      perPos: 20,            // Schüsse pro Position
+      posShots: 0,           // SchÃ¼sse in aktueller Position
+      perPos: 20,            // SchÃ¼sse pro Position
       posResults: [],        // Summe pro Position [{total, int, shots}]
       // Timer & Bot-Auto-Shoot
-      _botInterval: null,    // setTimeout handle für Auto-Bot
-      _timerInterval: null,  // setInterval handle für Countdown
+      _botInterval: null,    // setTimeout handle fÃ¼r Auto-Bot
+      _timerInterval: null,  // setInterval handle fÃ¼r Countdown
       _timerSecsLeft: 0,     // verbleibende Sekunden
-      _botStartTimeout: null, // setTimeout für verzögerter Bot-Start nach Probe
+      _botStartTimeout: null, // setTimeout fÃ¼r verzÃ¶gerter Bot-Start nach Probe
       dnf: false,            // Did Not Finish (Zeit abgelaufen)
       // Probezeit
       probeActive: false,    // Probezeit ist aktiv
       probeSecsLeft: 0,      // Verbleibende Sekunden in Probezeit
-      botStarted: false,     // Bot hat bereits zu schießen angefangen
-      // 3x20 Übergangsphasen (Positionswechsel / Umbau / Probe)
-      transitionSecsLeft: 0, // verbleibende Sekunden in Übergangsphase
-      transitionLabel: '',   // Label für aktuelle Übergangsphase
+      botStarted: false,     // Bot hat bereits zu schieÃŸen angefangen
+      // 3x20 Ãœbergangsphasen (Positionswechsel / Umbau / Probe)
+      transitionSecsLeft: 0, // verbleibende Sekunden in Ãœbergangsphase
+      transitionLabel: '',   // Label fÃ¼r aktuelle Ãœbergangsphase
     };
 
-    /* ─── DISZIPLIN CONFIG ───────────────────── */
+    /* â”€â”€â”€ DISZIPLIN CONFIG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     const DISC = {
       // Luftgewehr
       lg40: {
         name: 'LG 40', weapon: 'lg', shots: 40, dist: '10', is3x20: false,
-        timeMins: 50, desc: '40 Schuss · 50 Min', icon: '🎯',
-        info: '<b>LG 40</b> – Klassische Luftgewehr-Disziplin. 40 Schuss auf 10 m. Zeitlimit: 50 Minuten.'
+        timeMins: 50, desc: '40 Schuss Â· 50 Min', icon: 'ðŸŽ¯',
+        info: '<b>LG 40</b> â€“ Klassische Luftgewehr-Disziplin. 40 Schuss auf 10 m. Zeitlimit: 50 Minuten.'
       },
       lg60: {
         name: 'LG 60', weapon: 'lg', shots: 60, dist: '10', is3x20: false,
-        timeMins: 70, desc: '60 Schuss · 70 Min', icon: '⭐',
-        info: '<b>LG 60</b> – Erweiterte Luftgewehr-Disziplin. 60 Schuss auf 10 m. Zeitlimit: 70 Minuten.'
+        timeMins: 70, desc: '60 Schuss Â· 70 Min', icon: 'â­',
+        info: '<b>LG 60</b> â€“ Erweiterte Luftgewehr-Disziplin. 60 Schuss auf 10 m. Zeitlimit: 70 Minuten.'
       },
       // KK
       kk50: {
         name: 'KK 50m', weapon: 'kk', shots: 60, dist: '50', is3x20: false,
-        timeMins: 50, desc: '60 Schuss · 50 Min', icon: '🎯',
-        info: '<b>KK 60 / 50m</b> – 60 Schuss KK auf 50 Meter. Zeitlimit: 50 Minuten.'
+        timeMins: 50, desc: '60 Schuss Â· 50 Min', icon: 'ðŸŽ¯',
+        info: '<b>KK 60 / 50m</b> â€“ 60 Schuss KK auf 50 Meter. Zeitlimit: 50 Minuten.'
       },
       kk100: {
         name: 'KK 100m', weapon: 'kk', shots: 60, dist: '100', is3x20: false,
-        timeMins: 70, desc: '60 Schuss · 70 Min', icon: '🎯',
-        info: '<b>KK 60 / 100m</b> – 60 Schuss KK auf 100 Meter. Extreme Präzision. Zeitlimit: 70 Minuten.'
+        timeMins: 70, desc: '60 Schuss Â· 70 Min', icon: 'ðŸŽ¯',
+        info: '<b>KK 60 / 100m</b> â€“ 60 Schuss KK auf 100 Meter. Extreme PrÃ¤zision. Zeitlimit: 70 Minuten.'
       },
       kk3x20: {
-        name: '3×20 KK', weapon: 'kk', shots: 60, dist: '50', is3x20: true,
-        timeMins: 105, desc: '3 x 20 Schuss · 105 Min', icon: '🏆',
-        positions: ['Kniend', 'Liegend', 'Stehend'], posIcons: ['🦵', '🛏️', '🧍'],
-        info: '<b>3×20 KK</b> – Je 20 Schuss kniend, liegend und stehend mit KK auf 50 m. Zeitlimit: 105 Minuten inkl. Positionswechsel.'
+        name: '3Ã—20 KK', weapon: 'kk', shots: 60, dist: '50', is3x20: true,
+        timeMins: 105, desc: '3 x 20 Schuss Â· 105 Min', icon: 'ðŸ†',
+        positions: ['Kniend', 'Liegend', 'Stehend'], posIcons: ['ðŸ¦µ', 'ðŸ›ï¸', 'ðŸ§'],
+        info: '<b>3Ã—20 KK</b> â€“ Je 20 Schuss kniend, liegend und stehend mit KK auf 50 m. Zeitlimit: 105 Minuten inkl. Positionswechsel.'
       },
     };
 
@@ -250,68 +250,68 @@
       kk: ['kk50', 'kk100', 'kk3x20'],
     };
 
-    /* ─── CONFIG ─────────────────────────────── */
+    /* â”€â”€â”€ CONFIG â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     const DIST_INFO = {
       lg: {
-        '10': '<b>10 Meter</b> – Luftgewehr-Standarddistanz. Höchste Präzision gefordert.'
+        '10': '<b>10 Meter</b> â€“ Luftgewehr-Standarddistanz. HÃ¶chste PrÃ¤zision gefordert.'
       },
       kk: {
-        '50': '<b>50 Meter</b> – KK-Standarddistanz. Klassische Königsdisziplin!',
-        '100': '<b>100 Meter</b> – Extreme KK-Distanz. Maximale Konzentration und Technik gefordert!'
+        '50': '<b>50 Meter</b> â€“ KK-Standarddistanz. Klassische KÃ¶nigsdisziplin!',
+        '100': '<b>100 Meter</b> â€“ Extreme KK-Distanz. Maximale Konzentration und Technik gefordert!'
       }
     };
 
-    // Lebendige Dist-Info: wird von Disziplin überschrieben wenn vorhanden
+    // Lebendige Dist-Info: wird von Disziplin Ã¼berschrieben wenn vorhanden
     function getDistInfo() { return DIST_INFO[G.weapon]?.[G.dist] || ''; }
 
     const SIGMA = { '10': 18, '50': 46, '100': 72 };
     const DIFF = {
       easy: {
-        mult: 0.88, noise: 5, lbl: '😊 EINFACH', cls: 'easy',
-        info: '<b>Einfach</b> – Solider Einstieg. ~360–375 Pkt. Schaffbar mit Konzentration!'
+        mult: 0.88, noise: 5, lbl: 'ðŸ˜Š EINFACH', cls: 'easy',
+        info: '<b>Einfach</b> â€“ Solider Einstieg. ~360â€“375 Pkt. Schaffbar mit Konzentration!'
       },
       real: {
-        mult: 0.60, noise: 3.0, lbl: '🎯 MITTEL', cls: 'real',
-        info: '<b>Mittel</b> – Fast nur 9er und 10er. ~380–390 Pkt. Kein Spaziergang!'
+        mult: 0.60, noise: 3.0, lbl: 'ðŸŽ¯ MITTEL', cls: 'real',
+        info: '<b>Mittel</b> â€“ Fast nur 9er und 10er. ~380â€“390 Pkt. Kein Spaziergang!'
       },
       hard: {
-        mult: 0.22, noise: 0.5, lbl: '💪 ELITE', cls: 'hard',
-        info: '<b>Elite</b> – Trifft sehr präzise. ~395–405 Pkt. Kaum zu schlagen!'
+        mult: 0.22, noise: 0.5, lbl: 'ðŸ’ª ELITE', cls: 'hard',
+        info: '<b>Elite</b> â€“ Trifft sehr prÃ¤zise. ~395â€“405 Pkt. Kaum zu schlagen!'
       },
       elite: {
-        mult: 0.11, noise: 0.08, lbl: '💫 PROFI', cls: 'elite',
-        info: '<b>Profi</b> – Immer ≥410 Zehntel. Extrem präzise. Viel Glück!'
+        mult: 0.11, noise: 0.08, lbl: 'ðŸ’« PROFI', cls: 'elite',
+        info: '<b>Profi</b> â€“ Immer â‰¥410 Zehntel. Extrem prÃ¤zise. Viel GlÃ¼ck!'
       }
     };
 
     // Disziplinspezifische Schwierigkeits-Infos
     const DIFF_INFO_BY_DISC = {
-      // LG 60 hat höhere Punktwerte (60 Schuss, Zehntel)
+      // LG 60 hat hÃ¶here Punktwerte (60 Schuss, Zehntel)
       lg60: {
-        easy: '<b>Einfach</b> – Solider Einstieg. ~575–585 Pkt. Schaffbar mit Konzentration!',
-        real: '<b>Mittel</b> – Fast nur 9er und 10er. ~590–605 Pkt. Kein Spaziergang!',
-        hard: '<b>Elite</b> – Trifft sehr präzise. ~610–618 Pkt. Kaum zu schlagen!',
-        elite: '<b>Profi</b> – Schießt immer ≥620 Pkt. Extrem präzise. Viel Glück!'
+        easy: '<b>Einfach</b> â€“ Solider Einstieg. ~575â€“585 Pkt. Schaffbar mit Konzentration!',
+        real: '<b>Mittel</b> â€“ Fast nur 9er und 10er. ~590â€“605 Pkt. Kein Spaziergang!',
+        hard: '<b>Elite</b> â€“ Trifft sehr prÃ¤zise. ~610â€“618 Pkt. Kaum zu schlagen!',
+        elite: '<b>Profi</b> â€“ SchieÃŸt immer â‰¥620 Pkt. Extrem prÃ¤zise. Viel GlÃ¼ck!'
       },
       // KK 50m / 100m: 60 Schuss Liegend mit Zehntel-Wertung
       kk50: {
-        easy: '<b>Einfach</b> – Solider Einstieg. ~580–588 Zehntel. Schaffbar mit Konzentration!',
-        real: '<b>Mittel</b> – Starke Präzision. ~590–600 Zehntel. Kein Spaziergang!',
-        hard: '<b>Elite</b> – Trifft sehr präzise. ~602–610 Zehntel. Kaum zu schlagen!',
-        elite: '<b>Profi</b> – Schießt ≥612 Zehntel. Extrem präzise. Viel Glück!'
+        easy: '<b>Einfach</b> â€“ Solider Einstieg. ~580â€“588 Zehntel. Schaffbar mit Konzentration!',
+        real: '<b>Mittel</b> â€“ Starke PrÃ¤zision. ~590â€“600 Zehntel. Kein Spaziergang!',
+        hard: '<b>Elite</b> â€“ Trifft sehr prÃ¤zise. ~602â€“610 Zehntel. Kaum zu schlagen!',
+        elite: '<b>Profi</b> â€“ SchieÃŸt â‰¥612 Zehntel. Extrem prÃ¤zise. Viel GlÃ¼ck!'
       },
       kk100: {
-        easy: '<b>Einfach</b> – Solider Einstieg. ~580–588 Zehntel. Schaffbar mit Konzentration!',
-        real: '<b>Mittel</b> – Starke Präzision. ~590–600 Zehntel. Kein Spaziergang!',
-        hard: '<b>Elite</b> – Trifft sehr präzise. ~602–610 Zehntel. Kaum zu schlagen!',
-        elite: '<b>Profi</b> – Schießt ≥612 Zehntel. Extrem präzise. Viel Glück!'
+        easy: '<b>Einfach</b> â€“ Solider Einstieg. ~580â€“588 Zehntel. Schaffbar mit Konzentration!',
+        real: '<b>Mittel</b> â€“ Starke PrÃ¤zision. ~590â€“600 Zehntel. Kein Spaziergang!',
+        hard: '<b>Elite</b> â€“ Trifft sehr prÃ¤zise. ~602â€“610 Zehntel. Kaum zu schlagen!',
+        elite: '<b>Profi</b> â€“ SchieÃŸt â‰¥612 Zehntel. Extrem prÃ¤zise. Viel GlÃ¼ck!'
       },
-      // 3×20 KK: Gesamt 60 Schuss, nur ganze Zahlen
+      // 3Ã—20 KK: Gesamt 60 Schuss, nur ganze Zahlen
       kk3x20: {
-        easy: '<b>Einfach</b> – Solider Einstieg. Gesamt ~530–542 Ringe. Schaffbar mit Konzentration!',
-        real: '<b>Mittel</b> – Fast nur 9er und 10er. Gesamt ~544–555 Ringe. Kein Spaziergang!',
-        hard: '<b>Elite</b> – Trifft sehr präzise. Gesamt ~557–565 Ringe. Kaum zu schlagen!',
-        elite: '<b>Profi</b> – Gesamt ≥567 Ringe. Extrem präzise. Viel Glück!'
+        easy: '<b>Einfach</b> â€“ Solider Einstieg. Gesamt ~530â€“542 Ringe. Schaffbar mit Konzentration!',
+        real: '<b>Mittel</b> â€“ Fast nur 9er und 10er. Gesamt ~544â€“555 Ringe. Kein Spaziergang!',
+        hard: '<b>Elite</b> â€“ Trifft sehr prÃ¤zise. Gesamt ~557â€“565 Ringe. Kaum zu schlagen!',
+        elite: '<b>Profi</b> â€“ Gesamt â‰¥567 Ringe. Extrem prÃ¤zise. Viel GlÃ¼ck!'
       }
     };
 
@@ -326,26 +326,26 @@
 
     const WEAPON_CFG = {
       lg: {
-        icon: '🌬️', name: 'Luftgewehr', badgeCls: 'lg', defaultDist: '10',
+        icon: 'ðŸŒ¬ï¸', name: 'Luftgewehr', badgeCls: 'lg', defaultDist: '10',
         allowedDists: ['10'],
-        setupTag: (disc, dist) => `◆ LUFTGEWEHR · ${DISC[disc]?.name || disc} · ${dist} METER ◆`
+        setupTag: (disc, dist) => `â—† LUFTGEWEHR Â· ${DISC[disc]?.name || disc} Â· ${dist} METER â—†`
       },
       kk: {
-        icon: '🎯', name: 'KK', badgeCls: 'kk', defaultDist: '50',
+        icon: 'ðŸŽ¯', name: 'KK', badgeCls: 'kk', defaultDist: '50',
         allowedDists: ['50', '100'],
-        setupTag: (disc, dist) => `◆ KK · ${DISC[disc]?.name || disc} · ${dist} METER ◆`
+        setupTag: (disc, dist) => `â—† KK Â· ${DISC[disc]?.name || disc} Â· ${dist} METER â—†`
       }
     };
 
-    /* ─── XP / RANKS ─────────────────────────── */
+    /* â”€â”€â”€ XP / RANKS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     const XP_PER_WIN = { easy: 10, real: 20, hard: 40, elite: 75 };
     const RANKS = [
-      { name: 'Anfänger', min: 0, max: 99, icon: '🎯' },
-      { name: 'Schütze', min: 100, max: 299, icon: '🔫' },
-      { name: 'Fortgeschr.', min: 300, max: 599, icon: '⭐' },
-      { name: 'Meister', min: 600, max: 999, icon: '🏅' },
-      { name: 'Großmeister', min: 1000, max: 1999, icon: '🏆' },
-      { name: 'Legende', min: 2000, max: Infinity, icon: '💫' }
+      { name: 'AnfÃ¤nger', min: 0, max: 99, icon: 'ðŸŽ¯' },
+      { name: 'SchÃ¼tze', min: 100, max: 299, icon: 'ðŸ”«' },
+      { name: 'Fortgeschr.', min: 300, max: 599, icon: 'â­' },
+      { name: 'Meister', min: 600, max: 999, icon: 'ðŸ…' },
+      { name: 'GroÃŸmeister', min: 1000, max: 1999, icon: 'ðŸ†' },
+      { name: 'Legende', min: 2000, max: Infinity, icon: 'ðŸ’«' }
     ];
 
     function getRank(xp) {
@@ -396,17 +396,17 @@
 
       DOM.spRankName.textContent = rank.icon + ' ' + rank.name;
       DOM.spRankCur.textContent = rank.name;
-      DOM.spRankNext.textContent = nextRank ? '→ ' + nextRank.name : '✦ MAX';
+      DOM.spRankNext.textContent = nextRank ? 'â†’ ' + nextRank.name : 'âœ¦ MAX';
       DOM.spFillBar.style.width = pct + '%';
       DOM.spXpCur.textContent = G.xp - rank.min;
-      DOM.spXpNext.textContent = nextRank ? (nextRank.min - rank.min) : '∞';
+      DOM.spXpNext.textContent = nextRank ? (nextRank.min - rank.min) : 'âˆž';
 
       // Update profile button, menu & XP corner
       updateProfileMenu();
       updateXPCorner();
     }
 
-    /* ─── PROFILE OVERLAY ────────────────────── */
+    /* â”€â”€â”€ PROFILE OVERLAY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function toggleProfileMenu() {
       const ov = DOM.profileOverlay || document.getElementById('profileOverlay');
       if (!ov) return;
@@ -453,11 +453,11 @@
       if (el('psRankName')) el('psRankName').textContent = rank.name;
       if (el('psLevel')) el('psLevel').textContent = idx + 1;
       if (el('psTotalXP')) el('psTotalXP').textContent = G.xp;
-      if (el('psUsername')) el('psUsername').textContent = G.username || 'Schütze';
+      if (el('psUsername')) el('psUsername').textContent = G.username || 'SchÃ¼tze';
 
       // XP bar
       if (el('psXpCur')) el('psXpCur').textContent = xpInRank;
-      if (el('psXpNext')) el('psXpNext').textContent = nextRank ? (nextRank.min - rank.min) : '∞';
+      if (el('psXpNext')) el('psXpNext').textContent = nextRank ? (nextRank.min - rank.min) : 'âˆž';
       if (el('psXpFill')) el('psXpFill').style.width = pct + '%';
 
       // Legacy header button
@@ -475,19 +475,19 @@
       setEl('psStat-wins', wins);
       setEl('psStat-losses', losses);
       setEl('psStat-games', games);
-      setEl('psStat-winrate', wr !== null ? wr + '%' : '–');
+      setEl('psStat-winrate', wr !== null ? wr + '%' : 'â€“');
 
       const bestLG = parseInt(localStorage.getItem('sd_lg_best') || '0') || 0;
       const bestKK = parseInt(localStorage.getItem('sd_kk_best') || '0') || 0;
       const bestAll = Math.max(bestLG, bestKK);
-      setEl('psStat-streak', bestAll > 0 ? '🔥 ' + bestAll : '–');
+      setEl('psStat-streak', bestAll > 0 ? 'ðŸ”¥ ' + bestAll : 'â€“');
 
       const lgStats = loadWeaponStats('lg');
       const kkStats = loadWeaponStats('kk');
-      setEl('psLGDetail', `${lgStats.wins} Siege · ${lgStats.wins + lgStats.losses} Spiele`);
-      setEl('psKKDetail', `${kkStats.wins} Siege · ${kkStats.wins + kkStats.losses} Spiele`);
-      setEl('psLGStreak', bestLG > 0 ? '🔥 ' + bestLG : '–');
-      setEl('psKKStreak', bestKK > 0 ? '🔥 ' + bestKK : '–');
+      setEl('psLGDetail', `${lgStats.wins} Siege Â· ${lgStats.wins + lgStats.losses} Spiele`);
+      setEl('psKKDetail', `${kkStats.wins} Siege Â· ${kkStats.wins + kkStats.losses} Spiele`);
+      setEl('psLGStreak', bestLG > 0 ? 'ðŸ”¥ ' + bestLG : 'â€“');
+      setEl('psKKStreak', bestKK > 0 ? 'ðŸ”¥ ' + bestKK : 'â€“');
 
       // Active tab refresh
       const activeTab = document.querySelector('.ps-tab.active');
@@ -498,7 +498,7 @@
       }
     }
 
-    /* ─── GAME STATS (localStorage) ─────────── */
+    /* â”€â”€â”€ GAME STATS (localStorage) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function loadGameStats() {
       try { return JSON.parse(localStorage.getItem('sd_gamestats') || '{}'); }
       catch (e) { return {}; }
@@ -506,6 +506,91 @@
 
     function saveGameStats(s) {
       try { localStorage.setItem('sd_gamestats', JSON.stringify(s)); } catch (e) { }
+    }
+
+    const FEEDBACK_MIN_DUELS = 3;
+    const FEEDBACK_MAX_DUELS = 5;
+
+    function getTotalDuels(stats = null) {
+      const gs = stats || loadGameStats();
+      return (gs.wins || 0) + (gs.losses || 0) + (gs.draws || 0);
+    }
+
+    function randomFeedbackInterval() {
+      return FEEDBACK_MIN_DUELS + Math.floor(Math.random() * (FEEDBACK_MAX_DUELS - FEEDBACK_MIN_DUELS + 1));
+    }
+
+    function loadFeedbackMeta() {
+      try { return JSON.parse(localStorage.getItem('sd_feedback_meta') || '{}'); }
+      catch (e) { return {}; }
+    }
+
+    function saveFeedbackMeta(meta) {
+      try { localStorage.setItem('sd_feedback_meta', JSON.stringify(meta)); } catch (e) { }
+    }
+
+    function ensureFeedbackSchedule() {
+      const totalDuels = getTotalDuels();
+      const meta = loadFeedbackMeta();
+      if (!Number.isInteger(meta.nextAt) || meta.nextAt <= 0) {
+        meta.nextAt = totalDuels + randomFeedbackInterval();
+        saveFeedbackMeta(meta);
+      }
+    }
+
+    function shouldShowFeedback(totalDuels) {
+      if (totalDuels < FEEDBACK_MIN_DUELS) return false;
+      const meta = loadFeedbackMeta();
+      if (!Number.isInteger(meta.nextAt) || meta.nextAt <= 0) {
+        meta.nextAt = totalDuels + randomFeedbackInterval();
+        saveFeedbackMeta(meta);
+        return false;
+      }
+      return totalDuels >= meta.nextAt;
+    }
+
+    function scheduleNextFeedback(totalDuels) {
+      const meta = loadFeedbackMeta();
+      meta.lastPromptAt = totalDuels;
+      meta.nextAt = totalDuels + randomFeedbackInterval();
+      saveFeedbackMeta(meta);
+    }
+
+    function showFeedbackScreen(totalDuels) {
+      if (DOM.feedbackCount) DOM.feedbackCount.textContent = `â—† DUELL #${totalDuels} â—†`;
+      showScreen('screenFeedback');
+    }
+
+    function submitSiteFeedback(rating) {
+      const score = parseInt(rating);
+      const totalDuels = getTotalDuels();
+
+      if (Number.isInteger(score) && score >= 1 && score <= 5) {
+        let entries = [];
+        try {
+          entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]');
+          if (!Array.isArray(entries)) entries = [];
+        } catch (e) { entries = []; }
+
+        entries.unshift({
+          score,
+          totalDuels,
+          weapon: G.weapon,
+          discipline: G.discipline,
+          ts: Date.now()
+        });
+        while (entries.length > 100) entries.pop();
+        try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
+      }
+
+      scheduleNextFeedback(totalDuels);
+      showScreen('screenOver');
+    }
+
+    function skipSiteFeedback() {
+      const totalDuels = getTotalDuels();
+      scheduleNextFeedback(totalDuels);
+      showScreen('screenOver');
     }
 
     function loadWeaponStats(w) {
@@ -543,7 +628,7 @@
         AdaptiveBotSystem.trackGame(playerPts, botPts, G.discipline, diff, weapon);
       }
 
-      // NEU: Erweiterte Analytics - Spiel-Daten hinzufügen
+      // NEU: Erweiterte Analytics - Spiel-Daten hinzufÃ¼gen
       if (typeof EnhancedAnalytics !== 'undefined') {
         const gameData = {
           result: result,
@@ -552,16 +637,16 @@
           discipline: G.discipline,
           weapon: weapon,
           difficulty: diff,
-          shots: G.playerShots || [], // Spieler-Schüsse falls verfügbar
-          maxDeficit: Math.max(0, botPts - playerPts), // Größter Rückstand
-          duration: G.gameDuration || 0, // Spieldauer falls verfügbar
+          shots: G.playerShots || [], // Spieler-SchÃ¼sse falls verfÃ¼gbar
+          maxDeficit: Math.max(0, botPts - playerPts), // GrÃ¶ÃŸter RÃ¼ckstand
+          duration: G.gameDuration || 0, // Spieldauer falls verfÃ¼gbar
           timestamp: Date.now()
         };
         
         EnhancedAnalytics.addGameData(gameData);
       }
 
-      // NEU: Erweiterte Achievements prüfen
+      // NEU: Erweiterte Achievements prÃ¼fen
       if (typeof EnhancedAchievements !== 'undefined') {
         const gameData = {
           result: result,
@@ -579,7 +664,7 @@
         
         const unlockedAchievements = EnhancedAchievements.checkAchievementsAfterGame(gameData, stats);
         
-        // Benachrichtigung für neue Achievements
+        // Benachrichtigung fÃ¼r neue Achievements
         if (unlockedAchievements.length > 0 && typeof MobileFeatures !== 'undefined') {
           unlockedAchievements.forEach(achievement => {
             MobileFeatures.sendAchievementNotification(achievement);
@@ -606,7 +691,7 @@
       setTimeout(() => pushProfileToFirebase(), 300);
     }
 
-    /* ─── HISTORY ────────────────────────────── */
+    /* â”€â”€â”€ HISTORY â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function addHistoryEntry(result, diff, weapon, playerPts, botPts) {
       try {
         const hist = JSON.parse(localStorage.getItem('sd_history') || '[]');
@@ -638,12 +723,12 @@
         }
         el.innerHTML = hist.map(h => {
           const resLabel = h.result === 'win' ? 'S' : h.result === 'lose' ? 'N' : 'U';
-          const pPts = h.playerPts != null ? parseFloat(h.playerPts).toFixed(1) : '–';
-          const bPts = h.botPts != null ? parseFloat(h.botPts).toFixed(1) : '–';
+          const pPts = h.playerPts != null ? parseFloat(h.playerPts).toFixed(1) : 'â€“';
+          const bPts = h.botPts != null ? parseFloat(h.botPts).toFixed(1) : 'â€“';
           return `<div class="ps-history-item">
             <div class="phi-result ${h.result}">${resLabel}</div>
             <div class="phi-info">
-              <div class="phi-title">${h.weaponName} · ${h.diffName}</div>
+              <div class="phi-title">${h.weaponName} Â· ${h.diffName}</div>
               <div class="phi-sub">${h.date}</div>
             </div>
             <div class="phi-score ${h.result}">${pPts} <span style="opacity:.4;font-size:.7em">vs</span> ${bPts}</div>
@@ -654,9 +739,9 @@
       }
     }
 
-    /* ─── SUN SYSTEM ─────────────────────────── */
-    /* ─── LEISTUNGSKURVE (Chart.js) ─────────────────────────────────────── */
-    let _perfChart = null;   // Chart.js Instanz (wird bei jedem Redraw zerstört)
+    /* â”€â”€â”€ SUN SYSTEM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    /* â”€â”€â”€ LEISTUNGSKURVE (Chart.js) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+    let _perfChart = null;   // Chart.js Instanz (wird bei jedem Redraw zerstÃ¶rt)
     let _perfWeapon = 'lg';   // aktiver Toggle: 'lg' | 'kk'
 
     function setPerfWeapon(w) {
@@ -666,7 +751,7 @@
       renderPerformanceChart();
     }
 
-    // Datum-String aus sd_history → kurzes "DD.MM." Format
+    // Datum-String aus sd_history â†’ kurzes "DD.MM." Format
     function _fmtChartDate(raw) {
       if (!raw) return '?';
       // Format aus addHistoryEntry: "12.02., 14:30" oder "12.2.2026, 14:30"
@@ -681,10 +766,10 @@
       const emptyEl = document.getElementById('perfChartEmpty');
       if (!canvas) return;
 
-      // Immer alten Chart zerstören – verhindert Overlay-Bugs bei Resize/Toggle
+      // Immer alten Chart zerstÃ¶ren â€“ verhindert Overlay-Bugs bei Resize/Toggle
       if (_perfChart) { _perfChart.destroy(); _perfChart = null; }
 
-      // Daten laden, filtern, auf 15 begrenzen, älteste links
+      // Daten laden, filtern, auf 15 begrenzen, Ã¤lteste links
       let hist = [];
       try { hist = JSON.parse(localStorage.getItem('sd_history') || '[]'); } catch (e) { }
 
@@ -693,18 +778,18 @@
         .slice(0, 15)
         .reverse();
 
-      // Empty-State — zeige auch wenn keine Daten, aber mit Hinweis
+      // Empty-State â€” zeige auch wenn keine Daten, aber mit Hinweis
       if (filtered.length === 0) {
         canvas.style.display = 'none';
         if (emptyEl) {
           emptyEl.style.display = 'flex';
-          // Zeige ob überhaupt History-Daten vorhanden sind
+          // Zeige ob Ã¼berhaupt History-Daten vorhanden sind
           const totalHist = hist.length;
           const otherWeapon = _perfWeapon === 'lg' ? 'KK' : 'LG';
           const otherCount = hist.filter(h => h.weapon !== _perfWeapon && h.playerPts != null).length;
           emptyEl.innerHTML = totalHist === 0
             ? 'Noch keine Daten.<br><span style="font-size:.6rem;opacity:.5;">Spiel ein Duell und gib dein Ergebnis ein!</span>'
-            : `Keine ${_perfWeapon.toUpperCase()}-Daten.<br><span style="font-size:.6rem;opacity:.5;">${otherCount} ${otherWeapon}-Einträge vorhanden → Toggle wechseln</span>`;
+            : `Keine ${_perfWeapon.toUpperCase()}-Daten.<br><span style="font-size:.6rem;opacity:.5;">${otherCount} ${otherWeapon}-EintrÃ¤ge vorhanden â†’ Toggle wechseln</span>`;
         }
         return;
       }
@@ -736,7 +821,7 @@
         return accent;
       });
 
-      // Gradient-Fill — feste Höhe 160 damit er auch vor erstem Paint funktioniert
+      // Gradient-Fill â€” feste HÃ¶he 160 damit er auch vor erstem Paint funktioniert
       const ctx2d = canvas.getContext('2d');
       const boxH = canvas.parentElement?.offsetHeight || 160;
       const grad = ctx2d.createLinearGradient(0, 0, 0, boxH);
@@ -787,8 +872,8 @@
                 afterLabel: item => {
                   const h = filtered[item.dataIndex];
                   if (!h) return '';
-                  const res = h.result === 'win' ? '✓ Sieg' : h.result === 'lose' ? '✗ Niederlage' : '= Unentschieden';
-                  return ` ${res} · ${h.diffName || h.diff || ''}`;
+                  const res = h.result === 'win' ? 'âœ“ Sieg' : h.result === 'lose' ? 'âœ— Niederlage' : '= Unentschieden';
+                  return ` ${res} Â· ${h.diffName || h.diff || ''}`;
                 }
               }
             }
@@ -824,23 +909,23 @@
 
     const SUN_ACHIEVEMENTS = [
       // Basic
-      { id: 'first_game', group: 'basic', icon: '🎯', name: 'Erster Schuss', desc: '1 Duell gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 1 },
-      { id: 'first_win', group: 'basic', icon: '🏆', name: 'Erster Sieg', desc: '1 Duell gewonnen', check: () => (loadGameStats().wins || 0) >= 1 },
-      { id: 'five_games', group: 'basic', icon: '🔢', name: 'Fünf Duelle', desc: '5 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 5 },
-      { id: 'xp_100', group: 'basic', icon: '⭐', name: '100 XP', desc: '100 XP verdient', check: () => G.xp >= 100 },
-      { id: 'streak_3', group: 'basic', icon: '🔥', name: 'Heiß!', desc: '3er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 3 },
+      { id: 'first_game', group: 'basic', icon: 'ðŸŽ¯', name: 'Erster Schuss', desc: '1 Duell gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 1 },
+      { id: 'first_win', group: 'basic', icon: 'ðŸ†', name: 'Erster Sieg', desc: '1 Duell gewonnen', check: () => (loadGameStats().wins || 0) >= 1 },
+      { id: 'five_games', group: 'basic', icon: 'ðŸ”¢', name: 'FÃ¼nf Duelle', desc: '5 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 5 },
+      { id: 'xp_100', group: 'basic', icon: 'â­', name: '100 XP', desc: '100 XP verdient', check: () => G.xp >= 100 },
+      { id: 'streak_3', group: 'basic', icon: 'ðŸ”¥', name: 'HeiÃŸ!', desc: '3er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 3 },
       // Battle
-      { id: 'beat_hard', group: 'battle', icon: '💀', name: 'Harter Brocken', desc: 'WM-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_hard')) },
-      { id: 'beat_elite', group: 'battle', icon: '💫', name: 'Legende', desc: 'Elite-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_elite')) },
-      { id: 'ten_wins', group: 'battle', icon: '🥇', name: '10 Siege', desc: '10 Duelle gewonnen', check: () => (loadGameStats().wins || 0) >= 10 },
-      { id: 'both_weapons', group: 'battle', icon: '⚔️', name: 'Allrounder', desc: 'LG & KK je 1 Sieg', check: () => (loadWeaponStats('lg').wins || 0) >= 1 && (loadWeaponStats('kk').wins || 0) >= 1 },
-      { id: 'streak_7', group: 'battle', icon: '🌟', name: 'Unaufhaltsam', desc: '7er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 7 },
+      { id: 'beat_hard', group: 'battle', icon: 'ðŸ’€', name: 'Harter Brocken', desc: 'WM-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_hard')) },
+      { id: 'beat_elite', group: 'battle', icon: 'ðŸ’«', name: 'Legende', desc: 'Elite-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_elite')) },
+      { id: 'ten_wins', group: 'battle', icon: 'ðŸ¥‡', name: '10 Siege', desc: '10 Duelle gewonnen', check: () => (loadGameStats().wins || 0) >= 10 },
+      { id: 'both_weapons', group: 'battle', icon: 'âš”ï¸', name: 'Allrounder', desc: 'LG & KK je 1 Sieg', check: () => (loadWeaponStats('lg').wins || 0) >= 1 && (loadWeaponStats('kk').wins || 0) >= 1 },
+      { id: 'streak_7', group: 'battle', icon: 'ðŸŒŸ', name: 'Unaufhaltsam', desc: '7er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 7 },
       // Master
-      { id: 'xp_500', group: 'master', icon: '🏅', name: 'Meister', desc: '500 XP verdient', check: () => G.xp >= 500 },
-      { id: 'xp_1000', group: 'master', icon: '🏆', name: 'Großmeister', desc: '1000 XP verdient', check: () => G.xp >= 1000 },
-      { id: 'streak_14', group: 'master', icon: '🔥🔥', 'name': '14er Streak', desc: '14er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 14 },
-      { id: 'fifty_games', group: 'master', icon: '🎖️', name: '50 Duelle', desc: '50 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 50 },
-      { id: 'xp_2000', group: 'master', icon: '💫', name: 'Legende', desc: '2000 XP – Legendenstatus', check: () => G.xp >= 2000 },
+      { id: 'xp_500', group: 'master', icon: 'ðŸ…', name: 'Meister', desc: '500 XP verdient', check: () => G.xp >= 500 },
+      { id: 'xp_1000', group: 'master', icon: 'ðŸ†', name: 'GroÃŸmeister', desc: '1000 XP verdient', check: () => G.xp >= 1000 },
+      { id: 'streak_14', group: 'master', icon: 'ðŸ”¥ðŸ”¥', 'name': '14er Streak', desc: '14er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 14 },
+      { id: 'fifty_games', group: 'master', icon: 'ðŸŽ–ï¸', name: '50 Duelle', desc: '50 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 50 },
+      { id: 'xp_2000', group: 'master', icon: 'ðŸ’«', name: 'Legende', desc: '2000 XP â€“ Legendenstatus', check: () => G.xp >= 2000 },
     ];
 
     function checkSunAchievements() {
@@ -876,7 +961,7 @@
         box-shadow:0 4px 24px rgba(0,0,0,.6);animation:sheetUp .3s ease;
         font-family:'Outfit',sans-serif;max-width:280px;`;
       el.innerHTML = `<span style="font-size:1.6rem">${achievement.icon}</span>
-        <div><div style="font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(220,180,80,.6);font-weight:700;">⭐ SUN-Stern verdient!</div>
+        <div><div style="font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(220,180,80,.6);font-weight:700;">â­ SUN-Stern verdient!</div>
         <div style="font-size:.85rem;font-weight:700;color:#ffc840;margin-top:2px;">${achievement.name}</div>
         <div style="font-size:.65rem;color:rgba(200,180,100,.5);margin-top:1px;">${achievement.desc}</div></div>`;
       document.body.appendChild(el);
@@ -896,7 +981,7 @@
           const isEarned = !!earned[a.id];
           if (isEarned) totalEarned++;
           return `<div class="sun-card ${isEarned ? 'earned' : 'locked'}">
-            ${isEarned ? '<span class="sun-check">✓</span>' : ''}
+            ${isEarned ? '<span class="sun-check">âœ“</span>' : ''}
             <div class="sun-icon">${a.icon}</div>
             <div class="sun-name">${a.name}</div>
             <div class="sun-desc">${a.desc}</div>
@@ -930,12 +1015,12 @@
       if (DOM.pmRank) DOM.pmRank.textContent = rank.icon + ' ' + rank.name;
       if (DOM.pmLevel) DOM.pmLevel.textContent = (getRank(G.xp).idx + 1);
       if (DOM.pmXP) DOM.pmXP.textContent = G.xp;
-      if (DOM.pmStreak) DOM.pmStreak.textContent = bestStreak > 0 ? '🔥 ' + bestStreak : '–';
+      if (DOM.pmStreak) DOM.pmStreak.textContent = bestStreak > 0 ? 'ðŸ”¥ ' + bestStreak : 'â€“';
     }
 
-    /* ─── FIREBASE ───────────────────────────────────────────────────────
-       SICHERHEITSHINWEIS: Der API-Key ist für Web-Apps öffentlich sichtbar.
-       Schutz erfolgt ausschließlich über Firebase Security Rules (nicht über
+    /* â”€â”€â”€ FIREBASE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+       SICHERHEITSHINWEIS: Der API-Key ist fÃ¼r Web-Apps Ã¶ffentlich sichtbar.
+       Schutz erfolgt ausschlieÃŸlich Ã¼ber Firebase Security Rules (nicht Ã¼ber
        den Key selbst). Stelle sicher, dass in der Firebase Console folgende
        Realtime Database Rules gesetzt sind:
 
@@ -952,10 +1037,10 @@
          }
        }
 
-       Außerdem: In der Firebase Console → Authentication → Settings →
+       AuÃŸerdem: In der Firebase Console â†’ Authentication â†’ Settings â†’
        "Authorized domains" nur deine eigene Domain eintragen (kein localhost
        in Produktion). Das verhindert Missbrauch des Keys von fremden Domains.
-    ─────────────────────────────────────────────────────────────────────── */
+    â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     const FB_CONFIG = {
       apiKey: "AIzaSyDiwpW30GJW8da04A8ga9zOlj72PLXrUUk",
       authDomain: "burnished-block-402111.firebaseapp.com",
@@ -994,20 +1079,20 @@
       const el1 = document.getElementById('lbMyBest');
       const el2 = document.getElementById('lbMyXP');
       const el3 = document.getElementById('lbMyScore');
-      if (el1) el1.textContent = myBest > 0 ? '🔥 ' + myBest : '–';
+      if (el1) el1.textContent = myBest > 0 ? 'ðŸ”¥ ' + myBest : 'â€“';
       if (el2) el2.textContent = G.xp || '0';
-      if (el3) el3.textContent = myScore || '–';
+      if (el3) el3.textContent = myScore || 'â€“';
 
       // Status-Badge
       updateLbStatusBadge();
 
-      list.innerHTML = '<div class="lb-loading">⏳ Lade Rangliste...</div>';
+      list.innerHTML = '<div class="lb-loading">â³ Lade Rangliste...</div>';
 
       // Warte bis Firebase bereit (max. 3s), dann lade
       const tryLoad = (attempts) => {
         if (!fbReady) {
           if (attempts > 0) { setTimeout(() => tryLoad(attempts - 1), 300); return; }
-          list.innerHTML = '<div class="lb-empty">🔌 Offline – Bestenliste nicht verfügbar.</div>';
+          list.innerHTML = '<div class="lb-empty">ðŸ”Œ Offline â€“ Bestenliste nicht verfÃ¼gbar.</div>';
           return;
         }
         fbDb.ref('leaderboard_v2').limitToLast(50).once('value')
@@ -1020,7 +1105,7 @@
           })
           .catch(err => {
             console.error('Leaderboard load error:', err?.code, err?.message);
-            list.innerHTML = '<div class="lb-empty">⚠️ Fehler beim Laden.<br><span style="font-size:.6rem;opacity:.5;">' + (err?.code || '') + '</span></div>';
+            list.innerHTML = '<div class="lb-empty">âš ï¸ Fehler beim Laden.<br><span style="font-size:.6rem;opacity:.5;">' + (err?.code || '') + '</span></div>';
           });
       };
       tryLoad(10);
@@ -1030,24 +1115,24 @@
       const list = document.getElementById('lbList');
       if (!list) return;
       if (!entries.length) {
-        list.innerHTML = '<div class="lb-empty">Noch keine Einträge. Sei der Erste! 🏆</div>';
+        list.innerHTML = '<div class="lb-empty">Noch keine EintrÃ¤ge. Sei der Erste! ðŸ†</div>';
         return;
       }
-      const medals = ['🥇', '🥈', '🥉'];
+      const medals = ['ðŸ¥‡', 'ðŸ¥ˆ', 'ðŸ¥‰'];
       list.innerHTML = entries.map((e, i) => {
         const cls = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
         const pos = i < 3 ? medals[i] : (i + 1);
-        const weapon = e.weapon === 'kk' ? '🎯 KK' : '🌬️ LG';
+        const weapon = e.weapon === 'kk' ? 'ðŸŽ¯ KK' : 'ðŸŒ¬ï¸ LG';
         const rankDisp = e.rankIcon ? `${e.rankIcon} ${e.rank || ''}` : (e.rank || '');
         const isMe = G.username && e.name === G.username;
         return `<div class="lb-row ${cls}" style="${isMe ? 'border-color:rgba(140,200,60,.4);background:rgba(80,140,20,.08);' : ''}">
       <div class="lb-pos">${pos}</div>
       <div class="lb-info">
         <div class="lb-name">${escHtml(e.name || 'Anonym')}${isMe ? ' <span style="font-size:.6rem;color:rgba(140,200,60,.6);font-weight:700;">(Du)</span>' : ''}</div>
-        <div class="lb-meta">${rankDisp ? rankDisp + ' · ' : ''}${weapon} · ${e.date || ''}</div>
+        <div class="lb-meta">${rankDisp ? rankDisp + ' Â· ' : ''}${weapon} Â· ${e.date || ''}</div>
       </div>
       <div style="text-align:center;min-width:52px;">
-        <div style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:#c880ff;line-height:1;">🔥${e.streak || 0}</div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:#c880ff;line-height:1;">ðŸ”¥${e.streak || 0}</div>
         <div style="font-size:.42rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(190,140,255,.35);">Streak</div>
       </div>
       <div class="lb-xp" style="min-width:52px;text-align:right;">
@@ -1060,7 +1145,7 @@
 
     function escHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
-    /* ─── FIREBASE SYNC (zentral) ────────────── */
+    /* â”€â”€â”€ FIREBASE SYNC (zentral) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function buildFirebaseEntry() {
       const bestLG = parseInt(localStorage.getItem('sd_lg_best') || '0') || 0;
       const bestKK = parseInt(localStorage.getItem('sd_kk_best') || '0') || 0;
@@ -1097,11 +1182,11 @@
     function updateLbStatusBadge() {
       const el = document.getElementById('lbStatusBadge');
       if (!el || !G.username) return;
-      el.textContent = `✓ Eingetragen als "${G.username}"`;
+      el.textContent = `âœ“ Eingetragen als "${G.username}"`;
       el.style.color = 'rgba(140,200,60,.8)';
     }
 
-    // Legacy: wird noch vom HTML-Button aufgerufen → jetzt nur noch Sync
+    // Legacy: wird noch vom HTML-Button aufgerufen â†’ jetzt nur noch Sync
     function submitToLeaderboard() {
       if (!G.username) {
         document.getElementById('welcomeOverlay').classList.add('active');
@@ -1110,7 +1195,7 @@
       }
       pushProfileToFirebase(ok => {
         if (ok) loadLeaderboard();
-        else alert('Offline – Eintrag konnte nicht gespeichert werden.');
+        else alert('Offline â€“ Eintrag konnte nicht gespeichert werden.');
       });
     }
     const DOM = {};
@@ -1127,11 +1212,12 @@
         'botFinalPts', 'botFinalPtsCol', 'botFinalDivider', 'botFinalInt', 'botFinalDetail',
         'playerInp', 'playerInpInt', 'inpHint', 'autoInt', 'autoIntVal', 'entryTag',
         'goP', 'goB', 'goPInt', 'goBInt', 'goPUnit', 'goTitle', 'goSub', 'goEmoji', 'goReason', 'goMargin', 'analysisResult',
+        'feedbackCount',
         'wTabLG', 'wTabKK', 'discTabs',
         'posBar', 'posItem0', 'posItem1', 'posItem2', 'posShots0', 'posShots1', 'posShots2',
         'scFire', 'scN', 'scLbl',
         'burstBtn', 'burstBtnTxt', 'burstBadge',
-        // Schützenpass elements
+        // SchÃ¼tzenpass elements
         'spRankName', 'spRankCur', 'spRankNext', 'spFillBar', 'spXpCur', 'spXpNext',
         // Profil Menu elements (legacy)
         'profileBtn', 'profileMenu', 'profileIcon', 'profileRank', 'pmRank', 'pmLevel', 'pmXP', 'pmStreak',
@@ -1147,15 +1233,15 @@
         'streakCorner'
       ];
       ids.forEach(id => { DOM[id] = document.getElementById(id); });
-      // slPills containers built dynamically — cached on startBattle
+      // slPills containers built dynamically â€” cached on startBattle
       DOM.slPills = [null, null, null];
     }
 
-    /* ─── CANVAS ─────────────────────────────── */
+    /* â”€â”€â”€ CANVAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     const canvas = document.getElementById('targetCanvas');
     const ctx = canvas.getContext('2d', { alpha: false });
 
-    // Offscreen canvas: static target (rings, numbers, crosshairs) — drawn once per resize
+    // Offscreen canvas: static target (rings, numbers, crosshairs) â€” drawn once per resize
     const _offCanvas = document.createElement('canvas');
     const _offCtx = _offCanvas.getContext('2d', { alpha: false });
     let _staticReady = false;
@@ -1174,8 +1260,8 @@
       _kk50Ready = false;
     }
 
-    /* Rings: [relR, fill, stroke, basePts, label] – outer → inner
-       Radien stimmen exakt mit LG_RINGS / KK_RINGS in den Build-Funktionen überein */
+    /* Rings: [relR, fill, stroke, basePts, label] â€“ outer â†’ inner
+       Radien stimmen exakt mit LG_RINGS / KK_RINGS in den Build-Funktionen Ã¼berein */
     const RINGS = [
       [1.00, '#ffffff', '#111111', 1, 'Ring 1'],
       [0.90, '#ffffff', '#111111', 2, 'Ring 2'],
@@ -1189,31 +1275,31 @@
       [0.10, '#111111', '#ffffff', 10, 'Innenzehner']
     ];
 
-    // Separate offscreen canvas für KK 50m realistisches Zielschirmfoto
+    // Separate offscreen canvas fÃ¼r KK 50m realistisches Zielschirmfoto
     const _offCanvasKK50 = document.createElement('canvas');
     const _offCtxKK50 = _offCanvasKK50.getContext('2d', { alpha: false });
     let _kk50Ready = false;
 
-    // Deutsche Kleinkaliber-Scheibe — exakt nach Vorlage
-    // Ringe 1–3 weiß (schmal, ~30% Radius), Ringe 4–10 schwarz (~70% Radius)
-    // Zahlen auf weißen Ringen: oben+unten+links+rechts (schwarz)
-    // Zahlen auf schwarzen Ringen: oben+unten+links+rechts (weiß)
+    // Deutsche Kleinkaliber-Scheibe â€” exakt nach Vorlage
+    // Ringe 1â€“3 weiÃŸ (schmal, ~30% Radius), Ringe 4â€“10 schwarz (~70% Radius)
+    // Zahlen auf weiÃŸen Ringen: oben+unten+links+rechts (schwarz)
+    // Zahlen auf schwarzen Ringen: oben+unten+links+rechts (weiÃŸ)
     function buildKK50Target() {
       const W = _offCanvasKK50.width, H = _offCanvasKK50.height;
       const cx = W / 2, cy = H / 2, maxR = W / 2 - 3;
       const oc = _offCtxKK50;
 
-      // Weißer Papierhintergrund
+      // WeiÃŸer Papierhintergrund
       oc.fillStyle = '#ffffff';
       oc.fillRect(0, 0, W, H);
 
-      // Echte KK-Scheibe: schwarze Fläche = 70% des Radius (Ringe 4–10)
-      // Weiße Ringe 1–3 = je ~10% des Radius (schmal)
-      // Radien von außen nach innen:
+      // Echte KK-Scheibe: schwarze FlÃ¤che = 70% des Radius (Ringe 4â€“10)
+      // WeiÃŸe Ringe 1â€“3 = je ~10% des Radius (schmal)
+      // Radien von auÃŸen nach innen:
       const KK_RINGS = [
-        { r: 1.000, fill: '#ffffff' },  // Ring 1 — äußerste weiße Linie
+        { r: 1.000, fill: '#ffffff' },  // Ring 1 â€” Ã¤uÃŸerste weiÃŸe Linie
         { r: 0.900, fill: '#ffffff' },  // Ring 2
-        { r: 0.800, fill: '#ffffff' },  // Ring 3 — Grenze weiß/schwarz
+        { r: 0.800, fill: '#ffffff' },  // Ring 3 â€” Grenze weiÃŸ/schwarz
         { r: 0.700, fill: '#0d0d0d' },  // Ring 4
         { r: 0.600, fill: '#0d0d0d' },  // Ring 5
         { r: 0.500, fill: '#0d0d0d' },  // Ring 6
@@ -1223,7 +1309,7 @@
         { r: 0.100, fill: '#0d0d0d' },  // Ring 10
       ];
 
-      // 1. Alle Ringe füllen (außen → innen)
+      // 1. Alle Ringe fÃ¼llen (auÃŸen â†’ innen)
       for (const ring of KK_RINGS) {
         oc.beginPath();
         oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
@@ -1231,7 +1317,7 @@
         oc.fill();
       }
 
-      // 2. Schwarze Trennlinien für weiße Ringe (1–3)
+      // 2. Schwarze Trennlinien fÃ¼r weiÃŸe Ringe (1â€“3)
       for (const ring of KK_RINGS.slice(0, 3)) {
         oc.beginPath();
         oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
@@ -1240,7 +1326,7 @@
         oc.stroke();
       }
 
-      // 3. Weiße Trennlinien zwischen schwarzen Ringen (4–10)
+      // 3. WeiÃŸe Trennlinien zwischen schwarzen Ringen (4â€“10)
       for (const ring of KK_RINGS.slice(3)) {
         oc.beginPath();
         oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
@@ -1249,7 +1335,7 @@
         oc.stroke();
       }
 
-      // 4. Innenzehner-Kreis (X-Ring) — deutlicher weißer Kreis im 10er
+      // 4. Innenzehner-Kreis (X-Ring) â€” deutlicher weiÃŸer Kreis im 10er
       const xR = KK_RINGS[9].r * maxR * 0.50;
       oc.beginPath();
       oc.arc(cx, cy, xR, 0, Math.PI * 2);
@@ -1257,21 +1343,21 @@
       oc.lineWidth = 1.5;
       oc.stroke();
 
-      // 5. Mittelpunkt (kleiner weißer Punkt)
+      // 5. Mittelpunkt (kleiner weiÃŸer Punkt)
       oc.beginPath();
       oc.arc(cx, cy, 2, 0, Math.PI * 2);
       oc.fillStyle = '#ffffff';
       oc.fill();
 
-      // 6. Zahlen — wie auf der echten Scheibe
-      // Weiße Ringe (1–3): schwarze Zahl, nur oben+unten+links+rechts
-      // Schwarze Ringe (4–9): weiße Zahl, alle 4 Richtungen
+      // 6. Zahlen â€” wie auf der echten Scheibe
+      // WeiÃŸe Ringe (1â€“3): schwarze Zahl, nur oben+unten+links+rechts
+      // Schwarze Ringe (4â€“9): weiÃŸe Zahl, alle 4 Richtungen
       const fs = Math.max(6, maxR * 0.052);
       oc.font = `bold ${fs}px Arial, sans-serif`;
       oc.textAlign = 'center';
       oc.textBaseline = 'middle';
 
-      // Ringmitte = Mitte zwischen äußerem und innerem Rand
+      // Ringmitte = Mitte zwischen Ã¤uÃŸerem und innerem Rand
       const numData = [
         { mid: 0.950, num: 1, white: true },
         { mid: 0.850, num: 2, white: true },
@@ -1294,7 +1380,7 @@
         oc.fillText(num, cx + r, cy);
       });
 
-      // 7. Äußerer Rand (doppelte schwarze Linie wie auf der Vorlage)
+      // 7. Ã„uÃŸerer Rand (doppelte schwarze Linie wie auf der Vorlage)
       oc.beginPath();
       oc.arc(cx, cy, maxR, 0, Math.PI * 2);
       oc.strokeStyle = '#0d0d0d';
@@ -1304,19 +1390,19 @@
       _kk50Ready = true;
     }
 
-    // Luftgewehr-Scheibe (10m) — authentisch schwarz-weiß
-    // Ringe 1–3 weiß, Ringe 4–10 schwarz (wie echte ISSF LG-Scheibe)
+    // Luftgewehr-Scheibe (10m) â€” authentisch schwarz-weiÃŸ
+    // Ringe 1â€“3 weiÃŸ, Ringe 4â€“10 schwarz (wie echte ISSF LG-Scheibe)
     function buildStaticTarget() {
       const W = _offCanvas.width, H = _offCanvas.height;
       const cx = W / 2, cy = H / 2, maxR = W / 2 - 3;
       const oc = _offCtx;
 
-      // Weißer Papierhintergrund
+      // WeiÃŸer Papierhintergrund
       oc.fillStyle = '#ffffff';
       oc.fillRect(0, 0, W, H);
 
-      // LG-Scheibe: 10 Ringe, gleichmäßig aufgeteilt
-      // Ringe 1–3: weiß; Ringe 4–10: schwarz
+      // LG-Scheibe: 10 Ringe, gleichmÃ¤ÃŸig aufgeteilt
+      // Ringe 1â€“3: weiÃŸ; Ringe 4â€“10: schwarz
       const LG_RINGS = [
         { r: 1.000, fill: '#ffffff', pts: 1 },
         { r: 0.900, fill: '#ffffff', pts: 2 },
@@ -1330,7 +1416,7 @@
         { r: 0.100, fill: '#111111', pts: 10 },
       ];
 
-      // Ringe von außen nach innen füllen
+      // Ringe von auÃŸen nach innen fÃ¼llen
       for (const ring of LG_RINGS) {
         oc.beginPath();
         oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
@@ -1338,7 +1424,7 @@
         oc.fill();
       }
 
-      // Schwarze Außenränder für weiße Ringe (1–3)
+      // Schwarze AuÃŸenrÃ¤nder fÃ¼r weiÃŸe Ringe (1â€“3)
       for (const ring of LG_RINGS.slice(0, 3)) {
         oc.beginPath();
         oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
@@ -1347,7 +1433,7 @@
         oc.stroke();
       }
 
-      // Weiße Trennlinien zwischen den schwarzen Ringen (4–10)
+      // WeiÃŸe Trennlinien zwischen den schwarzen Ringen (4â€“10)
       for (const ring of LG_RINGS.slice(3)) {
         oc.beginPath();
         oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
@@ -1370,7 +1456,7 @@
       oc.fillStyle = '#ffffff';
       oc.fill();
 
-      // Ring-Nummern — auf schwarzen Ringen: weiße Box mit schwarzer Zahl
+      // Ring-Nummern â€” auf schwarzen Ringen: weiÃŸe Box mit schwarzer Zahl
       const fs = Math.max(7, maxR * 0.055);
       oc.font = `bold ${fs}px Arial, sans-serif`;
       oc.textAlign = 'center';
@@ -1397,7 +1483,7 @@
         });
       });
 
-      // Fadenkreuz (nur im weißen Bereich sichtbar)
+      // Fadenkreuz (nur im weiÃŸen Bereich sichtbar)
       oc.strokeStyle = 'rgba(0,0,0,0.12)';
       oc.lineWidth = 0.5;
       oc.setLineDash([4, 8]);
@@ -1415,7 +1501,7 @@
       oc.stroke();
       oc.setLineDash([]);
 
-      // Äußerer Rand
+      // Ã„uÃŸerer Rand
       oc.beginPath();
       oc.arc(cx, cy, maxR, 0, Math.PI * 2);
       oc.strokeStyle = '#333333';
@@ -1447,7 +1533,7 @@
       ctx.drawImage(_offCanvas, 0, 0);
       if (shots && shots.length > 0) {
         for (const s of shots) {
-          // LG: etwas größeres Einschussloch (Diabolo-Geschoss)
+          // LG: etwas grÃ¶ÃŸeres Einschussloch (Diabolo-Geschoss)
           drawHole(cx + s.dx, cy + s.dy, maxR * .036, '#111111', '#444444', s.cracks);
         }
       }
@@ -1491,7 +1577,7 @@
       return s * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random());
     }
 
-    /* ─── SCORING ─────────────────────────────── */
+    /* â”€â”€â”€ SCORING â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function scoreHit(dx, dy) {
       const maxR = canvas.width / 2 - 3;
       const d = Math.sqrt(dx * dx + dy * dy);
@@ -1514,16 +1600,16 @@
       const xR = RINGS[9][0] * maxR * 0.50; // X-Ring = halber 10er-Ring, wie in buildTarget
       const isX = basePts === 10 && d <= xR;
 
-      const label = isX ? '✦ Innenzehner (X)' : RINGS[ringIdx][4];
+      const label = isX ? 'âœ¦ Innenzehner (X)' : RINGS[ringIdx][4];
       return { pts: finalPts, label, isX };
     }
 
     function fmtPts(v) {
       // Formatiere mit IMMER einer Dezimalstelle (z.B. "200.0", "200.5")
-      return typeof v === 'number' ? v.toFixed(1) : '–';
+      return typeof v === 'number' ? v.toFixed(1) : 'â€“';
     }
 
-    /* ─── WEAPON + DISCIPLINE SWITCH ────────── */
+    /* â”€â”€â”€ WEAPON + DISCIPLINE SWITCH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function switchWeapon(w) {
       if (G.weapon === w) return;
       G.weapon = w;
@@ -1567,26 +1653,26 @@
         btn.classList.toggle('hidden', !allowed);
         btn.classList.toggle('active', btn.dataset.dist === dc.dist);
       });
-      // Distanz ist immer durch die Disziplin fix → Card immer verstecken
+      // Distanz ist immer durch die Disziplin fix â†’ Card immer verstecken
       if (DOM.distCard) DOM.distCard.style.display = 'none';
 
-      // All disciplines have a fixed shot count — hide the manual selector always
+      // All disciplines have a fixed shot count â€” hide the manual selector always
       if (DOM.shotCountCard) DOM.shotCountCard.style.display = 'none';
 
       // Update info text
       if (DOM.distInfo) DOM.distInfo.querySelector('.info-txt').innerHTML = dc.info;
       DOM.setupTag.textContent = WEAPON_CFG[G.weapon].setupTag(discKey, dc.dist);
-      DOM.logoTag.textContent = `Du vs. Bot · ${dc.name} · ${dc.shots} Schuss · Wer trifft besser?`;
+      DOM.logoTag.textContent = `Du vs. Bot Â· ${dc.name} Â· ${dc.shots} Schuss Â· Wer trifft besser?`;
 
-      // Aktualisiere Schwierigkeitsinformation, falls bereits eine Schwierigkeit ausgewählt ist
+      // Aktualisiere Schwierigkeitsinformation, falls bereits eine Schwierigkeit ausgewÃ¤hlt ist
       if (G.diff) {
         DOM.diffInfoTxt.innerHTML = getDiffInfo(G.diff);
       }
     }
 
-    /* ─── SELECTORS ──────────────────────────── */
+    /* â”€â”€â”€ SELECTORS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     function selDist(btn) {
-      // Distanz wird immer durch die Disziplin bestimmt – kein manueller Wechsel
+      // Distanz wird immer durch die Disziplin bestimmt â€“ kein manueller Wechsel
       return;
     }
 
@@ -1601,20 +1687,20 @@
       document.querySelectorAll('#shotCountGroup .scb').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       G.shots = parseInt(btn.dataset.shots);
-      DOM.logoTag.textContent = `Du vs. Bot · ${DISC[G.discipline]?.name || G.discipline} · ${G.shots} Schuss · Wer trifft besser?`;
+      DOM.logoTag.textContent = `Du vs. Bot Â· ${DISC[G.discipline]?.name || G.discipline} Â· ${G.shots} Schuss Â· Wer trifft besser?`;
     }
 
     function toggleBurst() {
       G.burst = !G.burst;
       DOM.burstBtn.classList.toggle('on', G.burst);
-      DOM.burstBtnTxt.textContent = G.burst ? '🔫 5er-Salve: AN' : '🔫 5er-Salve: AUS';
+      DOM.burstBtnTxt.textContent = G.burst ? 'ðŸ”« 5er-Salve: AN' : 'ðŸ”« 5er-Salve: AUS';
       DOM.burstBadge.textContent = G.burst ? 'AKTIV' : 'OPTIONAL';
     }
 
-    /* ─── STREAK (getrennt per Waffe) ────────────
+    /* â”€â”€â”€ STREAK (getrennt per Waffe) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
        Keys: sd_lg_streak / sd_kk_streak  etc.
        Streak-Corner zeigt immer die aktive Waffe
-    ────────────────────────────────────────────*/
+    â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€*/
     // In-memory streak cache (avoid repeated localStorage reads)
     const STREAK_CACHE = { lg: null, kk: null };
 
@@ -1625,7 +1711,7 @@
 
     function loadAllStreaks() {
       ['lg', 'kk'].forEach(w => loadStreakForWeapon(w));
-      updateXPCorner(); // XP-Corner beim Start befüllen
+      updateXPCorner(); // XP-Corner beim Start befÃ¼llen
     }
 
     function loadStreakForWeapon(w) {
@@ -1654,7 +1740,7 @@
       // Farbe nach Rang-Stufe
       corner.classList.remove('silver', 'gold', 'red', 'purple');
       if (idx >= 5) corner.classList.add('purple'); // Legende
-      else if (idx >= 4) corner.classList.add('red');    // Großmeister
+      else if (idx >= 4) corner.classList.add('red');    // GroÃŸmeister
       else if (idx >= 3) corner.classList.add('gold');   // Meister
       else if (idx >= 2) corner.classList.add('silver'); // Fortgeschr.
       // idx 0-1: Standard-Lila (default CSS)
@@ -1685,11 +1771,11 @@
 
         STREAK_CACHE[w] = { streak, best: newBest };
         G.streak = streak;
-        // Sync wird von awardXP / recordGameResult ausgelöst
+        // Sync wird von awardXP / recordGameResult ausgelÃ¶st
       } catch (e) { }
     }
 
-    /* ─── TIMER & BOT-INTERVAL HELPERS ──────── */
+    /* â”€â”€â”€ TIMER & BOT-INTERVAL HELPERS â”€â”€â”€â”€â”€â”€â”€â”€ */
     function clearBattleTimers() {
       if (G._botStartTimeout) { clearTimeout(G._botStartTimeout); G._botStartTimeout = null; }
       if (G._botInterval) { clearTimeout(G._botInterval); G._botInterval = null; }
@@ -1737,12 +1823,12 @@
           const clockTxt = `${tm}:${String(ts).padStart(2, '0')}`;
           timerDisp = `${clockTxt} (Uebergang: ${transitionName})`;
           DOM.lastShotTxt.innerHTML =
-            `⏸ <b>Uebergang</b>: <b>${transitionName}</b> · noch <b>${clockTxt}</b><br>` +
-            `➡ Danach: <b>${nextPos}</b>`;
+            `â¸ <b>Uebergang</b>: <b>${transitionName}</b> Â· noch <b>${clockTxt}</b><br>` +
+            `âž¡ Danach: <b>${nextPos}</b>`;
           G.transitionSecsLeft--;
           G._timerSecsLeft--;
           if (G.transitionSecsLeft <= 0) {
-            DOM.lastShotTxt.innerHTML = `▶️ <b>${transitionName}</b> beendet - weiter mit <b>${nextPos}</b>.`;
+            DOM.lastShotTxt.innerHTML = `â–¶ï¸ <b>${transitionName}</b> beendet - weiter mit <b>${nextPos}</b>.`;
             G.transitionLabel = '';
           }
         } else if (G.probeActive && G.probeSecsLeft > 0) {
@@ -1750,12 +1836,12 @@
           const ps = G.probeSecsLeft % 60;
           timerDisp = `${pm}:${String(ps).padStart(2, '0')} (Probe)`;
           G.probeSecsLeft--;
-          G._timerSecsLeft--; // BUG-FIX: Gesamtzeit läuft auch während Probezeit ab
+          G._timerSecsLeft--; // BUG-FIX: Gesamtzeit lÃ¤uft auch wÃ¤hrend Probezeit ab
         } else {
-          // Probezeit beendet → reguläre Zeit starten
+          // Probezeit beendet â†’ regulÃ¤re Zeit starten
           if (G.probeActive) {
             G.probeActive = false;
-            DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit beendet!</b> – Reguläre Zeit gestartet.';
+            DOM.lastShotTxt.innerHTML = 'âœ… <b>Probezeit beendet!</b> â€“ RegulÃ¤re Zeit gestartet.';
             DOM.skipProbeBtn.style.display = 'none';
           }
           const m = Math.floor(G._timerSecsLeft / 60);
@@ -1763,10 +1849,10 @@
           timerDisp = `${m}:${String(s).padStart(2, '0')}`;
           if (G._timerSecsLeft <= 0) {
             clearBattleTimers();
-            // Zeit abgelaufen → DNF
+            // Zeit abgelaufen â†’ DNF
             G.dnf = true;
             if (val) val.textContent = '0:00';
-            DOM.lastShotTxt.innerHTML = '⏰ <b>Zeit abgelaufen!</b> DNF – Das Duell ist beendet.';
+            DOM.lastShotTxt.innerHTML = 'â° <b>Zeit abgelaufen!</b> DNF â€“ Das Duell ist beendet.';
             if (G.burst) DOM.battleBurstBtn.disabled = true;
             else DOM.battleFireBtn.disabled = true;
             setTimeout(() => goToEntry(), 1800);
@@ -1786,20 +1872,20 @@
       function scheduleNextShot() {
         if (G._botInterval) clearTimeout(G._botInterval);
 
-        // Realistische Schießzeiten pro Disziplin (in Sekunden pro Schuss)
-        // Basiert auf echten Sportschießen-Normen
+        // Realistische SchieÃŸzeiten pro Disziplin (in Sekunden pro Schuss)
+        // Basiert auf echten SportschieÃŸen-Normen
         const DISCIPLINE_TIMINGS = {
-          lg40: { baseSecs: 35, min: 25, max: 50 },        // Luftgewehr 40: 50min für 40 Schuss → 75s/Schuss, aber konzentriert
-          lg60: { baseSecs: 42, min: 30, max: 60 },        // Luftgewehr 60: 70min für 60 Schuss → 70s/Schuss
-          kk50: { baseSecs: 50, min: 35, max: 70 },        // KK 50m: 50min für 60 Schuss → 50s/Schuss durchschnitt
-          kk100: { baseSecs: 65, min: 45, max: 90 },       // KK 100m: 70min für 60 Schuss → 70s/Schuss, aber extremer konzentriert
-          kk3x20: { baseSecs: 85, min: 60, max: 120 }      // 3×20: 160min für 60 Schuss → 160s/Schuss mit Positionswechseln
+          lg40: { baseSecs: 35, min: 25, max: 50 },        // Luftgewehr 40: 50min fÃ¼r 40 Schuss â†’ 75s/Schuss, aber konzentriert
+          lg60: { baseSecs: 42, min: 30, max: 60 },        // Luftgewehr 60: 70min fÃ¼r 60 Schuss â†’ 70s/Schuss
+          kk50: { baseSecs: 50, min: 35, max: 70 },        // KK 50m: 50min fÃ¼r 60 Schuss â†’ 50s/Schuss durchschnitt
+          kk100: { baseSecs: 65, min: 45, max: 90 },       // KK 100m: 70min fÃ¼r 60 Schuss â†’ 70s/Schuss, aber extremer konzentriert
+          kk3x20: { baseSecs: 85, min: 60, max: 120 }      // 3Ã—20: 160min fÃ¼r 60 Schuss â†’ 160s/Schuss mit Positionswechseln
         };
 
         // Schwierigkeit beeinflusst die Streuung (Routine/Konsistenz)
         const DIFFICULTY_VARIANCE = {
-          easy: { ratio: 1.0, rangeRatio: 0.4 },     // 40% Streuung, nervöser Rhythmus (Einfach)
-          real: { ratio: 1.0, rangeRatio: 0.25 },    // 25% Streuung, natürlicher Rhythmus (Mittel)
+          easy: { ratio: 1.0, rangeRatio: 0.4 },     // 40% Streuung, nervÃ¶ser Rhythmus (Einfach)
+          real: { ratio: 1.0, rangeRatio: 0.25 },    // 25% Streuung, natÃ¼rlicher Rhythmus (Mittel)
           hard: { ratio: 0.95, rangeRatio: 0.10 },   // 10% Streuung, sehr konsistent (Elite)
           elite: { ratio: 0.92, rangeRatio: 0.06 }   // 6% Streuung, extrem konsistent (Profi)
         };
@@ -1813,10 +1899,10 @@
           return;
         }
 
-        // Basis-Schießzeit für diese Disziplin
+        // Basis-SchieÃŸzeit fÃ¼r diese Disziplin
         let baseSecs = timing.baseSecs * difficulty.ratio;
 
-        // Zufällige Streuung basierend auf Schwierigkeit
+        // ZufÃ¤llige Streuung basierend auf Schwierigkeit
         const rangeWidth = (timing.max - timing.min) * difficulty.rangeRatio;
         const randomSecs = (Math.random() * rangeWidth) - (rangeWidth / 2);
 
@@ -1832,7 +1918,7 @@
             scheduleNextShot();
             return;
           }
-          // Bot schießt automatisch einen Schuss (ohne Player-FX)
+          // Bot schieÃŸt automatisch einen Schuss (ohne Player-FX)
           botAutoFire();
           scheduleNextShot();
         }, delay);
@@ -1845,12 +1931,12 @@
       const bRes = fireSingleShot();
       if (!bRes) return;
 
-      // Füge Pill zum Log hinzu
+      // FÃ¼ge Pill zum Log hinzu
       const pillCls = bRes.isX ? 'x' : bRes.pts >= 9 ? 'hi' : bRes.pts >= 6 ? 'mid' : bRes.pts >= 1 ? 'lo' : 'miss';
       // KK 3x20: Pill zeigt nur ganze Ringe (keine Zehntel)
       const pillTxt = (G.is3x20 && G.weapon === 'kk')
         ? String(Math.floor(bRes.pts))
-        : (bRes.isX ? `✦${fmtPts(bRes.pts)}` : fmtPts(bRes.pts));
+        : (bRes.isX ? `âœ¦${fmtPts(bRes.pts)}` : fmtPts(bRes.pts));
       if (G.is3x20) {
         const container = DOM.slPills[G.posIdx];
         if (container) {
@@ -1876,7 +1962,7 @@
           G.posShots = 0;
           beginKK3x20Transition(nextPosIdx);
           if (G.transitionSecsLeft > 0) {
-            DOM.lastShotTxt.innerHTML = `⏸ <b>${G.transitionLabel}</b> (${Math.round(G.transitionSecsLeft / 60)} Min) · danach <b>${nextPosName}</b>.`;
+            DOM.lastShotTxt.innerHTML = `â¸ <b>${G.transitionLabel}</b> (${Math.round(G.transitionSecsLeft / 60)} Min) Â· danach <b>${nextPosName}</b>.`;
           }
           setTimeout(() => updatePosBar(), 200);
         } else { updatePosBar(); }
@@ -1884,7 +1970,7 @@
       } else {
         const pill = document.createElement('span');
         pill.className = 'sl-pill ' + pillCls;
-        pill.textContent = '🤖' + pillTxt;
+        pill.textContent = 'ðŸ¤–' + pillTxt;
         if (DOM.shotLog) {
           DOM.shotLog.appendChild(pill);
           while (DOM.shotLog.children.length > 10) DOM.shotLog.removeChild(DOM.shotLog.firstChild);
@@ -1896,7 +1982,7 @@
       const botScoreTxt = G.weapon === 'kk' ? G.botTotalInt : `${fmtPts(G.botTotal)} <span style="color:rgba(240,130,110,.45);font-size:.85em;">(${G.botTotalInt} ganze)</span>`;
       if (!(G.is3x20 && G.transitionSecsLeft > 0)) {
         DOM.lastShotTxt.innerHTML =
-          `🤖 <b>Bot schießt automatisch!</b> ${bRes.label} · ${G.weapon === 'kk' ? Math.floor(bRes.pts) : fmtPts(bRes.pts)} &nbsp;|&nbsp; Gesamt: <b>${botScoreTxt}</b>`;
+          `ðŸ¤– <b>Bot schieÃŸt automatisch!</b> ${bRes.label} Â· ${G.weapon === 'kk' ? Math.floor(bRes.pts) : fmtPts(bRes.pts)} &nbsp;|&nbsp; Gesamt: <b>${botScoreTxt}</b>`;
       }
 
       // Canvas + UI aktualisieren
@@ -1907,11 +1993,11 @@
           clearBattleTimers();
           if (G.burst) DOM.battleBurstBtn.disabled = true;
           else DOM.battleFireBtn.disabled = true;
-          DOM.battleTag.textContent = `◆ ${G.maxShots} SCHUSS ABGEFEUERT ◆`;
+          DOM.battleTag.textContent = `â—† ${G.maxShots} SCHUSS ABGEFEUERT â—†`;
           if (G.is3x20) {
-            DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
+            DOM.lastShotTxt.innerHTML = `ðŸ Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
           } else {
-            DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${G.weapon === 'kk' ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
+            DOM.lastShotTxt.innerHTML = `ðŸ Bot fertig! Gesamt: <b>${G.weapon === 'kk' ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
           }
           setTimeout(() => goToEntry(), 1400);
         }
@@ -1929,10 +2015,10 @@
       G.transitionSecsLeft = 0;
       G.transitionLabel = '';
 
-      // Vorherige Timer/Intervalle aufräumen
+      // Vorherige Timer/Intervalle aufrÃ¤umen
       clearBattleTimers();
 
-      // 3×20 init
+      // 3Ã—20 init
       G.is3x20 = dc.is3x20;
       G.positions = dc.is3x20 ? [...dc.positions] : [];
       G.posIcons = dc.is3x20 ? [...dc.posIcons] : [];
@@ -1964,8 +2050,8 @@
       }
 
       DOM.lastShotTxt.innerHTML = G.is3x20
-        ? `<b>Bereit!</b> Position 1: <b>${G.positions[0]}</b> · 20 Schüsse · Feuer frei!`
-        : '<b>Bereit!</b> Drück FEUER – du schießt in der echten Welt, der Bot schießt automatisch nach seinem Rhythmus.';
+        ? `<b>Bereit!</b> Position 1: <b>${G.positions[0]}</b> Â· 20 SchÃ¼sse Â· Feuer frei!`
+        : '<b>Bereit!</b> DrÃ¼ck FEUER â€“ du schieÃŸt in der echten Welt, der Bot schieÃŸt automatisch nach seinem Rhythmus.';
 
       const diffCfg = DIFF[G.diff];
       const weapCfg = WEAPON_CFG[G.weapon];
@@ -1974,7 +2060,7 @@
       DOM.battleBadge.className = 'diff-badge ' + diffCfg.cls;
       DOM.battleWeaponBadge.textContent = weapCfg.icon + ' ' + dc.name.toUpperCase();
       DOM.battleWeaponBadge.className = 'weapon-badge ' + weapCfg.badgeCls;
-      DOM.entryTag.textContent = `◆ ${G.dist} METER · ${dc.name} · ${G.maxShots} SCHUSS ◆`;
+      DOM.entryTag.textContent = `â—† ${G.dist} METER Â· ${dc.name} Â· ${G.maxShots} SCHUSS â—†`;
 
       DOM.posBar.classList.toggle('visible', G.is3x20);
       if (G.is3x20) updatePosBar();
@@ -2002,7 +2088,7 @@
       const timeMins = dc.timeMins || 50;
       startMatchTimer(timeMins * 60);
 
-      // Bot-Auto-Shoot startet NACH Probezeit (15 Min später)
+      // Bot-Auto-Shoot startet NACH Probezeit (15 Min spÃ¤ter)
       const probeDelayMs = ((G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60) + 5) * 1000; // Probezeit + 5 Sek Delay
       G._botStartTimeout = setTimeout(() => {
         if (!G.botStarted) {
@@ -2017,13 +2103,13 @@
       const low = G.shotsLeft <= lowThresh;
       const fired = G.maxShots - G.shotsLeft;
 
-      // Score — compute once, assign to both score chip and live bar
+      // Score â€” compute once, assign to both score chip and live bar
       DOM.shotsLeft.textContent = G.shotsLeft;
       DOM.shotsLeft.className = low ? 'chip-val low' : 'chip-val';
       DOM.botScoreChipInt.textContent = G.botTotalInt;
       DOM.lsbInt.textContent = G.botTotalInt;
 
-      // Nur KK 3×20: keine Zehntel anzeigen. KK 50m/100m zeigen Zehntel normal.
+      // Nur KK 3Ã—20: keine Zehntel anzeigen. KK 50m/100m zeigen Zehntel normal.
       const noTenths = G.is3x20 && G.weapon === 'kk';
       DOM.botScoreChipContainer.style.display = noTenths ? 'none' : 'flex';
       DOM.botScoreDivider.style.display = noTenths ? 'none' : 'block';
@@ -2070,7 +2156,7 @@
       if (fired > 0) {
         DOM.lsbProj.textContent = '~' + fmtPts(Math.round((G.botTotal / fired) * G.maxShots * 10) / 10);
       } else {
-        DOM.lsbProj.textContent = '–';
+        DOM.lsbProj.textContent = 'â€“';
       }
 
       // Overall progress bar
@@ -2079,7 +2165,7 @@
       DOM.spCount.textContent = fired + ' / ' + G.maxShots + ' Schuss';
       DOM.spCount.className = low ? 'sp-count low' : 'sp-count';
 
-      // 3×20: per-position sub-bar
+      // 3Ã—20: per-position sub-bar
       if (G.is3x20 && DOM.spPosRow) {
         const posLow = (G.perPos - G.posShots) <= 4;
         DOM.spPosLbl.textContent = `${G.posIcons[G.posIdx] || ''} ${G.positions[G.posIdx] || ''}`;
@@ -2097,18 +2183,17 @@
         const tm = Math.floor(G.transitionSecsLeft / 60);
         const ts = G.transitionSecsLeft % 60;
         const transitionName = G.transitionLabel || 'Pause';
-        DOM.battleTag.textContent = `◆ UEBERGANG: ${transitionName.toUpperCase()} · ${tm}:${String(ts).padStart(2, '0')} ◆`;
+        DOM.battleTag.textContent = `â—† UEBERGANG: ${transitionName.toUpperCase()} Â· ${tm}:${String(ts).padStart(2, '0')} â—†`;
       } else if (G.is3x20 && !allDone) {
-        DOM.battleTag.textContent = `◆ ${(G.positions[G.posIdx] || '').toUpperCase()} · SCHUSS ${G.posShots + 1} / ${G.perPos} ◆`;
+        DOM.battleTag.textContent = `â—† ${(G.positions[G.posIdx] || '').toUpperCase()} Â· SCHUSS ${G.posShots + 1} / ${G.perPos} â—†`;
       } else {
         DOM.battleTag.textContent = allDone
-          ? `◆ ${G.maxShots} SCHUSS ABGEFEUERT ◆`
-          : `◆ SCHUSS ${fired + 1} / ${G.maxShots} ◆`;
+          ? `â—† ${G.maxShots} SCHUSS ABGEFEUERT â—†`
+          : `â—† SCHUSS ${fired + 1} / ${G.maxShots} â—†`;
       }
 
-      const transitionLock = G.is3x20 && G.transitionSecsLeft > 0;
-      if (G.burst) DOM.battleBurstBtn.disabled = G.shotsLeft <= 0 || transitionLock;
-      else DOM.battleFireBtn.disabled = G.shotsLeft <= 0 || transitionLock;
+      if (G.burst) DOM.battleBurstBtn.disabled = G.shotsLeft <= 0;
+      else DOM.battleFireBtn.disabled = G.shotsLeft <= 0;
     }
 
     function updatePosBar() {
@@ -2120,7 +2205,7 @@
         el.classList.remove('active', 'done', 'transition');
         if (i < G.posIdx) {
           el.classList.add('done');
-          sh.textContent = G.posResults[i] ? fmtPts(G.posResults[i].total) : '✓';
+          sh.textContent = G.posResults[i] ? fmtPts(G.posResults[i].total) : 'âœ“';
         } else if (i === G.posIdx) {
           el.classList.add('active');
           sh.textContent = G.posShots + '/' + G.perPos;
@@ -2130,9 +2215,9 @@
       }
     }
 
-    // Positions-Multiplikatoren für KK 3x20 (relativ zu Liegend = 1.0)
+    // Positions-Multiplikatoren fÃ¼r KK 3x20 (relativ zu Liegend = 1.0)
     const POS_MULT = {
-      'Liegend': { mult: 0.70, noise: 0.05 }, // extrem präzise, fast nur 10er
+      'Liegend': { mult: 0.70, noise: 0.05 }, // extrem prÃ¤zise, fast nur 10er
       'Kniend': { mult: 1.10, noise: 0.20 }, // stark, konstant 9-10
       'Stehend': { mult: 1.80, noise: 0.50 }, // realistisch streut, 8-10
     };
@@ -2151,27 +2236,27 @@
         const pm = POS_MULT[posName] || POS_MULT['Stehend'];
         botSig = sig * dc.mult * pm.mult + (dc.noise * pm.mult + pm.noise) * Math.random();
       } else if (G.weapon === 'kk' && !G.is3x20) {
-        // KK 50m/100m (60 Schuss Liegend): kalibriert auf 580–620 Zehntel
+        // KK 50m/100m (60 Schuss Liegend): kalibriert auf 580â€“620 Zehntel
         const KK60_BASE  = { easy: 11.5, real: 9.5, hard: 7.5, elite: 6.5 };
         const KK60_NOISE = { easy: 2.5,  real: 1.5, hard: 0.8, elite: 0.2 };
         botSig = (KK60_BASE[G.diff] ?? 9.5) + (KK60_NOISE[G.diff] ?? 1.5) * Math.random();
       } else if (G.discipline === 'lg40') {
-        // LG 40 (40 Schuss, 10m): kalibriert auf 360–415 Zehntel
-        // Sigma in Pixel (canvas maxR≈132px, Ring10-Radius≈13.2px)
+        // LG 40 (40 Schuss, 10m): kalibriert auf 360â€“415 Zehntel
+        // Sigma in Pixel (canvas maxRâ‰ˆ132px, Ring10-Radiusâ‰ˆ13.2px)
         const LG40_BASE  = { easy: 17, real: 13, hard: 9, elite: 6 };
         const LG40_NOISE = { easy:  3, real:  2, hard: 1, elite: 0.2 };
         botSig = (LG40_BASE[G.diff] ?? 13) + (LG40_NOISE[G.diff] ?? 2) * Math.random();
       } else if (G.discipline === 'lg60') {
-        // LG 60 (60 Schuss, 10m): kalibriert auf 575–625 Zehntel
+        // LG 60 (60 Schuss, 10m): kalibriert auf 575â€“625 Zehntel
         const LG60_BASE  = { easy: 12, real: 9, hard: 6.5, elite: 5.5 };
         const LG60_NOISE = { easy:  2, real: 1.5, hard: 0.8, elite: 0.2 };
         botSig = (LG60_BASE[G.diff] ?? 9) + (LG60_NOISE[G.diff] ?? 1.5) * Math.random();
       } else {
-        // Fallback für andere Disziplinen
+        // Fallback fÃ¼r andere Disziplinen
         botSig = sig * dc.mult + dc.noise * Math.random();
       }
-      // KK 3x20: nur ganze Ringe → botSig so anpassen, dass Treffer ganzzahlig ausgewertet werden
-      // (die Zehntel werden beim Akkumulieren weggeschnitten – kein Extra-Sigma nötig)
+      // KK 3x20: nur ganze Ringe â†’ botSig so anpassen, dass Treffer ganzzahlig ausgewertet werden
+      // (die Zehntel werden beim Akkumulieren weggeschnitten â€“ kein Extra-Sigma nÃ¶tig)
 
       const bdx = gauss(botSig), bdy = gauss(botSig);
       const bRes = scoreHit(bdx, bdy);
@@ -2183,8 +2268,8 @@
           len: 1.4 + Math.random()
         }))
       });
-      // Akkumuliere als Integer-Zehntel (×10) um Fließkomma-Drift zu vermeiden
-      // KK 3x20: nur ganze Ringe – Zehntel werden verworfen
+      // Akkumuliere als Integer-Zehntel (Ã—10) um FlieÃŸkomma-Drift zu vermeiden
+      // KK 3x20: nur ganze Ringe â€“ Zehntel werden verworfen
       if (G.is3x20 && G.weapon === 'kk') {
         const wholeRing = Math.floor(bRes.pts);
         G._botTotalTenths = (G._botTotalTenths || 0) + wholeRing * 10;
@@ -2194,7 +2279,7 @@
         G.botTotal = G._botTotalTenths / 10;
       }
       // Ganze Ringe (jeder Schuss wird einzeln als Ganzer abgerundet und addiert)
-      // Nur für nicht-3x20 global akkumulieren; 3x20 macht das in botAutoFire() pro Position
+      // Nur fÃ¼r nicht-3x20 global akkumulieren; 3x20 macht das in botAutoFire() pro Position
       if (!G.is3x20) {
         G.botTotalInt += Math.floor(bRes.pts);
       }
@@ -2204,7 +2289,7 @@
       if (typeof MobileFeatures !== 'undefined') {
         MobileFeatures.hapticShot();
         
-        // Spezifisches Feedback basierend auf Trefferqualität
+        // Spezifisches Feedback basierend auf TrefferqualitÃ¤t
         if (bRes.pts >= 10) {
           MobileFeatures.hapticHit();
         } else if (bRes.pts <= 5) {
@@ -2220,10 +2305,10 @@
 
       G.probeActive = false;
       G.probeSecsLeft = 0;
-      DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit übersprungen!</b> – Bot schießt jetzt!';
+      DOM.lastShotTxt.innerHTML = 'âœ… <b>Probezeit Ã¼bersprungen!</b> â€“ Bot schieÃŸt jetzt!';
       DOM.skipProbeBtn.style.display = 'none';
 
-      // Abbrechen des verzögerten Bot-Starts vom startBattle()
+      // Abbrechen des verzÃ¶gerten Bot-Starts vom startBattle()
       if (G._botStartTimeout) {
         clearTimeout(G._botStartTimeout);
         G._botStartTimeout = null;
@@ -2240,20 +2325,19 @@
     function doBattleFire() {
       if (G.shotsLeft <= 0) return;
       if (G.is3x20 && G.transitionSecsLeft > 0) {
-        const tm = Math.floor(G.transitionSecsLeft / 60);
-        const ts = G.transitionSecsLeft % 60;
         const transitionName = G.transitionLabel || 'Pause';
-        DOM.lastShotTxt.innerHTML = `⏸ <b>Uebergang</b>: <b>${transitionName}</b> läuft noch <b>${tm}:${String(ts).padStart(2, '0')}</b>.`;
-        return;
+        G.transitionSecsLeft = 0;
+        G.transitionLabel = '';
+        DOM.lastShotTxt.innerHTML = `<b>${transitionName}</b> vorzeitig beendet - weiter schiessen.`;
       }
-      // Probezeit beenden und Bot starten, wenn beim Schießen noch Probezeit aktiv ist
+      // Probezeit beenden und Bot starten, wenn beim SchieÃŸen noch Probezeit aktiv ist
       if (G.probeActive) {
         G.probeActive = false;
         G.probeSecsLeft = 0;
-        DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit beendet!</b> – Reguläre Zeit gestartet. Bot schießt jetzt!';
+        DOM.lastShotTxt.innerHTML = 'âœ… <b>Probezeit beendet!</b> â€“ RegulÃ¤re Zeit gestartet. Bot schieÃŸt jetzt!';
         DOM.skipProbeBtn.style.display = 'none';
 
-        // Abbrechen des verzögerten Bot-Starts vom startBattle()
+        // Abbrechen des verzÃ¶gerten Bot-Starts vom startBattle()
         if (G._botStartTimeout) {
           clearTimeout(G._botStartTimeout);
           G._botStartTimeout = null;
@@ -2271,10 +2355,10 @@
       const results = [];
       for (let i = 0; i < count; i++) {
         const res = fireSingleShot();
-        if (res) results.push(res); // Nur gültige Shots sammeln
+        if (res) results.push(res); // Nur gÃ¼ltige Shots sammeln
       }
 
-      // FX — kein overflow-Toggle (verursachte hellgrünen Flackerstreifen unten)
+      // FX â€” kein overflow-Toggle (verursachte hellgrÃ¼nen Flackerstreifen unten)
       const f = DOM.muzzleFlash;
       f.style.transition = 'none'; f.style.opacity = '1';
       setTimeout(() => {
@@ -2288,7 +2372,7 @@
       if (typeof Sounds !== 'undefined') Sounds.shot();
       if (typeof Haptics !== 'undefined') Haptics.shot();
 
-      // ── Treffer-Sound je nach Ringzahl ──────────
+      // â”€â”€ Treffer-Sound je nach Ringzahl â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if (results.length > 0 && typeof Sounds !== 'undefined') {
         const best = results.reduce((a, b) => b.pts > a.pts ? b : a);
         if (best.isX || best.pts >= 10) Sounds.bullseye();
@@ -2296,13 +2380,13 @@
         else Sounds.lowHit();
       }
 
-      // ── Add pills to log ────────────────────────
+      // â”€â”€ Add pills to log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       results.forEach(bRes => {
         const pillCls = bRes.isX ? 'x' : bRes.pts >= 9 ? 'hi' : bRes.pts >= 6 ? 'mid' : bRes.pts >= 1 ? 'lo' : 'miss';
         // KK 3x20: nur ganze Ringe anzeigen
         const pillTxt = (G.is3x20 && G.weapon === 'kk')
           ? String(Math.floor(bRes.pts))
-          : (bRes.isX ? `✦${fmtPts(bRes.pts)}` : fmtPts(bRes.pts));
+          : (bRes.isX ? `âœ¦${fmtPts(bRes.pts)}` : fmtPts(bRes.pts));
 
         if (G.is3x20) {
           // Add pill to current position group via cache
@@ -2342,12 +2426,12 @@
 
             if (G.transitionSecsLeft > 0) {
               DOM.lastShotTxt.innerHTML =
-                `✅ <b>${donePos}</b> abgeschlossen! Teilergebnis: <b>${fmtPts(doneRes.total)} Pkt</b><br>` +
-                `⏸ <b>${G.transitionLabel}</b> (${Math.round(G.transitionSecsLeft / 60)} Min) · danach <b>${nextPosName}</b>`;
+                `âœ… <b>${donePos}</b> abgeschlossen! Teilergebnis: <b>${fmtPts(doneRes.total)} Pkt</b><br>` +
+                `â¸ <b>${G.transitionLabel}</b> (${Math.round(G.transitionSecsLeft / 60)} Min) Â· danach <b>${nextPosName}</b>`;
             } else {
               DOM.lastShotTxt.innerHTML =
-                `✅ <b>${donePos}</b> abgeschlossen! Teilergebnis: <b>${fmtPts(doneRes.total)} Pkt</b><br>` +
-                `➡️ Weiter mit <b>${nextPosName}</b>`;
+                `âœ… <b>${donePos}</b> abgeschlossen! Teilergebnis: <b>${fmtPts(doneRes.total)} Pkt</b><br>` +
+                `âž¡ï¸ Weiter mit <b>${nextPosName}</b>`;
             }
 
             setTimeout(() => updatePosBar(), 200);
@@ -2367,7 +2451,7 @@
         }
       });
 
-      // ── Info text ────────────────────────────────
+      // â”€â”€ Info text â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       const isKK = G.weapon === 'kk';
       const mkBotScore = () => isKK
         ? `${G.botTotalInt}`
@@ -2376,17 +2460,17 @@
       if (count > 1) {
         const sumPts = results.reduce((a, r) => a + r.pts, 0);
         const xCount = results.filter(r => r.isX).length;
-        const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
+        const xStr = xCount > 0 ? ` Â· ${xCount}Ã— âœ¦X` : '';
         const sumDisp = isKK ? Math.floor(sumPts) : fmtPts(Math.round(sumPts * 10) / 10);
         if (!G.is3x20) DOM.lastShotTxt.innerHTML =
-          `⚡ <b>5er-Salve</b>: +<b>${sumDisp}</b>${xStr} &nbsp;|&nbsp; Gesamt: <b>${mkBotScore()}</b>`;
+          `âš¡ <b>5er-Salve</b>: +<b>${sumDisp}</b>${xStr} &nbsp;|&nbsp; Gesamt: <b>${mkBotScore()}</b>`;
       } else {
         const bRes = results[0];
         const ptsDisp = isKK ? Math.floor(bRes.pts) : fmtPts(bRes.pts);
-        const emoji = bRes.isX ? '✦' : bRes.pts >= 9.5 ? '🔥' : bRes.pts >= 8 ? '💥' : bRes.pts >= 6 ? '🎯' : bRes.pts >= 4 ? '👌' : bRes.pts >= 2 ? '😬' : '😅';
+        const emoji = bRes.isX ? 'âœ¦' : bRes.pts >= 9.5 ? 'ðŸ”¥' : bRes.pts >= 8 ? 'ðŸ’¥' : bRes.pts >= 6 ? 'ðŸŽ¯' : bRes.pts >= 4 ? 'ðŸ‘Œ' : bRes.pts >= 2 ? 'ðŸ˜¬' : 'ðŸ˜…';
         const scoreDisp = bRes.isX
-          ? `<b style="color:#ffd040;">${bRes.label} · ${ptsDisp}</b>`
-          : `<b>${bRes.label} · ${ptsDisp}</b>`;
+          ? `<b style="color:#ffd040;">${bRes.label} Â· ${ptsDisp}</b>`
+          : `<b>${bRes.label} Â· ${ptsDisp}</b>`;
         if (!G.is3x20 || G.posShots < G.perPos)
           DOM.lastShotTxt.innerHTML =
             `${emoji} ${scoreDisp} &nbsp;|&nbsp; Gesamt: <b>${mkBotScore()}</b>`;
@@ -2399,12 +2483,12 @@
           clearBattleTimers();
           if (G.burst) DOM.battleBurstBtn.disabled = true;
           else DOM.battleFireBtn.disabled = true;
-          DOM.battleTag.textContent = `◆ ${G.maxShots} SCHUSS ABGEFEUERT ◆`;
+          DOM.battleTag.textContent = `â—† ${G.maxShots} SCHUSS ABGEFEUERT â—†`;
           if (G.is3x20) {
             updatePosBar();
-            DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
+            DOM.lastShotTxt.innerHTML = `ðŸ Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
           } else {
-            DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${G.weapon === 'kk' ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
+            DOM.lastShotTxt.innerHTML = `ðŸ Bot fertig! Gesamt: <b>${G.weapon === 'kk' ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
           }
           setTimeout(() => goToEntry(), 1400);
         }
@@ -2419,9 +2503,9 @@
       DOM.botFinalInt.textContent = G.botTotalInt;
       const avg = G.botShots.length > 0
         ? (isKK ? (G.botTotalInt / G.botShots.length).toFixed(1) : (G.botTotal / G.botShots.length).toFixed(1))
-        : '–';
+        : 'â€“';
       const xCount = G.botShots.filter(s => s.isX).length;
-      const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
+      const xStr = xCount > 0 ? ` Â· ${xCount}Ã— âœ¦X` : '';
 
       // Zehntel-Spalte und Trennstrich bei KK 3x20 verstecken
       // KK 50m/100m zeigen Zehntel weiterhin an
@@ -2442,15 +2526,15 @@
 
       if (G.is3x20) {
         const parts = G.posResults.map((r, i) => `${G.posIcons[i]} ${G.botTotalInt > 0 ? r.int : fmtPts(r.total)}`).join('  ');
-        DOM.botFinalDetail.textContent = `${parts} · Ø ${avg} Pkt${xStr}`;
+        DOM.botFinalDetail.textContent = `${parts} Â· Ã˜ ${avg} Pkt${xStr}`;
       } else {
-        DOM.botFinalDetail.textContent = `aus ${G.botShots.length} Schuss · Ø ${avg} Pkt${xStr}`;
+        DOM.botFinalDetail.textContent = `aus ${G.botShots.length} Schuss Â· Ã˜ ${avg} Pkt${xStr}`;
       }
       DOM.playerInp.value = '';
       if (DOM.playerInpInt) DOM.playerInpInt.value = '';
       clearInpState();
       if (DOM.autoInt) {
-        DOM.autoIntVal.textContent = '–';
+        DOM.autoIntVal.textContent = 'â€“';
         DOM.autoInt.className = 'auto-int';
       }
 
@@ -2459,19 +2543,19 @@
       DOM.playerInp.style.display = kk3x20Only ? 'none' : '';
       const ecLbl = DOM.playerInp.closest('.ec-row')?.previousElementSibling;
       if (ecLbl) ecLbl.textContent = kk3x20Only
-        ? '◈ Dein Ergebnis eingeben (Ganze Ringe)'
-        : '◈ Dein Ergebnis eingeben (Zehntel & Ganze)';
+        ? 'â—ˆ Dein Ergebnis eingeben (Ganze Ringe)'
+        : 'â—ˆ Dein Ergebnis eingeben (Zehntel & Ganze)';
 
-      // Foto-Button einfügen (immer sichtbar, auch wenn ImageCompare fehlt)
+      // Foto-Button einfÃ¼gen (immer sichtbar, auch wenn ImageCompare fehlt)
       const icSlot = document.getElementById('icGameOverSlot');
       if (icSlot) {
         icSlot.innerHTML = '';
         const btn = document.createElement('button');
         btn.className = 'ic-go-upload-btn';
-        btn.innerHTML = '<span class="ic-go-upload-ico">📸</span> Wettkampf-Foto vergleichen';
+        btn.innerHTML = '<span class="ic-go-upload-ico">ðŸ“¸</span> Wettkampf-Foto vergleichen';
         btn.onclick = () => {
           if (typeof ImageCompare !== 'undefined') {
-            // NEU: Multi-Score Detection aktivieren, falls verfügbar
+            // NEU: Multi-Score Detection aktivieren, falls verfÃ¼gbar
             if (typeof MultiScoreDetection !== 'undefined' && MultiScoreDetection.CONFIG.enableRegionDetection) {
               ImageCompare.openWithMultiScore(isKK ? G.botTotalInt : G.botTotal, isKK, G.discipline);
             } else {
@@ -2506,7 +2590,7 @@
       if (isNaN(val) || val < 0 || val > maxVal) {
         DOM.playerInp.classList.add('inp-error');
         DOM.playerInp.classList.remove('inp-ok');
-        setInpHint(`Max. ${maxVal.toFixed(1)} Zehntel (${G.maxShots} × 10.9)`, true);
+        setInpHint(`Max. ${maxVal.toFixed(1)} Zehntel (${G.maxShots} Ã— 10.9)`, true);
       } else {
         DOM.playerInp.classList.remove('inp-error');
         DOM.playerInp.classList.add('inp-ok');
@@ -2522,7 +2606,7 @@
       if (isNaN(val) || val < 0 || val > maxVal) {
         DOM.playerInpInt.classList.add('inp-error');
         DOM.playerInpInt.classList.remove('inp-ok');
-        setInpHint(`Max. ${maxVal} ganze Ringe (${G.maxShots} × 10)`, true);
+        setInpHint(`Max. ${maxVal} ganze Ringe (${G.maxShots} Ã— 10)`, true);
       } else {
         DOM.playerInpInt.classList.remove('inp-error');
         DOM.playerInpInt.classList.add('inp-ok');
@@ -2540,12 +2624,12 @@
         const maxInt = G.maxShots * 10;
         if (isNaN(valInt) || valInt < 0) {
           DOM.playerInpInt.classList.add('inp-error');
-          setInpHint('Bitte eine gültige Ringzahl eingeben', true);
+          setInpHint('Bitte eine gÃ¼ltige Ringzahl eingeben', true);
           DOM.playerInpInt.focus(); return;
         }
         if (valInt > maxInt) {
           DOM.playerInpInt.classList.add('inp-error');
-          setInpHint(`Max. ${maxInt} Ringe möglich`, true);
+          setInpHint(`Max. ${maxInt} Ringe mÃ¶glich`, true);
           DOM.playerInpInt.focus(); return;
         }
         showGameOver(valInt, G.botTotalInt, null, valInt);
@@ -2564,7 +2648,7 @@
         }
         if (val > maxVal) {
           DOM.playerInp.classList.add('inp-error');
-          setInpHint(`Max. ${maxVal.toFixed(1)} Zehntel möglich`, true);
+          setInpHint(`Max. ${maxVal.toFixed(1)} Zehntel mÃ¶glich`, true);
           DOM.playerInp.focus(); return;
         }
         if (isNaN(valInt) || valInt < 0) {
@@ -2574,10 +2658,10 @@
         }
         if (valInt > maxInt) {
           DOM.playerInpInt.classList.add('inp-error');
-          setInpHint(`Max. ${maxInt} ganze Ringe möglich`, true);
+          setInpHint(`Max. ${maxInt} ganze Ringe mÃ¶glich`, true);
           DOM.playerInpInt.focus(); return;
         }
-        // Auto-Format: Ganzzahl → .0 ergänzen
+        // Auto-Format: Ganzzahl â†’ .0 ergÃ¤nzen
         const finalVal = Math.round(val * 10) / 10;
         showGameOver(finalVal, G.botTotal, null, valInt);
       }
@@ -2599,7 +2683,7 @@
       );
     }
 
-    // ── Trefferbild-Analyse: eine Gruppe (Stellung oder Gesamt) ──────────────
+    // â”€â”€ Trefferbild-Analyse: eine Gruppe (Stellung oder Gesamt) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     function analyzeShotGroup(shots, positionName) {
       if (!shots || shots.length < 3) return null;
 
@@ -2623,85 +2707,85 @@
           : 10; // Liegend / LG / KK
       const isSpread = spread > spreadThresh;
 
-      // ── Diopter-Korrektur (MPI = Mean Point of Impact) ──────────────────
+      // â”€â”€ Diopter-Korrektur (MPI = Mean Point of Impact) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       // Canvas-Koordinaten: +dx = rechts, +dy = unten
-      // Schießsport-Konvention: Schwerpunkt links → Diopter nach RECHTS
-      const BIAS_THRESH = 8; // px — unter diesem Wert kein Hinweis
+      // SchieÃŸsport-Konvention: Schwerpunkt links â†’ Diopter nach RECHTS
+      const BIAS_THRESH = 8; // px â€” unter diesem Wert kein Hinweis
       let diopterLines = [];
       if (Math.abs(meanX) > BIAS_THRESH) {
         const dir = meanX < 0 ? 'RECHTS' : 'LINKS';
-        const arrow = meanX < 0 ? '→' : '←';
+        const arrow = meanX < 0 ? 'â†’' : 'â†';
         diopterLines.push(`${arrow} Diopter nach <b>${dir}</b> drehen`);
       }
       if (Math.abs(meanY) > BIAS_THRESH) {
         const dir = meanY < 0 ? 'HOCH' : 'TIEF';
-        const arrow = meanY < 0 ? '↑' : '↓';
+        const arrow = meanY < 0 ? 'â†‘' : 'â†“';
         diopterLines.push(`${arrow} Diopter nach <b>${dir}</b> drehen`);
       }
       const hasDiopter = diopterLines.length > 0;
 
-      // ── Muster-Klassifikation je nach Stellung ──────────────────────────
+      // â”€â”€ Muster-Klassifikation je nach Stellung â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       let icon, shape, tip, boxCls, stabilityAdvice = '';
 
       if (positionName === 'Kniend') {
         if (isVert) {
-          icon = '↕️'; boxCls = 'ab-vert';
-          shape = 'Vertikales Oval – typisch für Kniend';
-          tip = 'Das <b>vertikale Oval</b> ist für die Kniendstellung normal und entsteht durch Atem- und Pulsbewegung. Achte auf eine gleichmäßige Atemtechnik.';
-          if (isSpread) stabilityAdvice = 'Die Streuung ist jedoch zu groß – <b>Trockentraining</b> für mehr Stabilität empfohlen.';
+          icon = 'â†•ï¸'; boxCls = 'ab-vert';
+          shape = 'Vertikales Oval â€“ typisch fÃ¼r Kniend';
+          tip = 'Das <b>vertikale Oval</b> ist fÃ¼r die Kniendstellung normal und entsteht durch Atem- und Pulsbewegung. Achte auf eine gleichmÃ¤ÃŸige Atemtechnik.';
+          if (isSpread) stabilityAdvice = 'Die Streuung ist jedoch zu groÃŸ â€“ <b>Trockentraining</b> fÃ¼r mehr StabilitÃ¤t empfohlen.';
         } else if (isHoriz) {
-          icon = '↔️'; boxCls = 'ab-horiz';
-          shape = 'Horizontales Oval – ungewöhnlich für Kniend';
-          tip = 'Ein <b>horizontales Oval</b> in der Kniendstellung deutet auf seitliches Kippen des Oberkörpers hin. Überprüfe deine Seitenbalance und Fußstellung.';
-          stabilityAdvice = '<b>Achte mehr auf die Stabilität</b> deines seitlichen Gleichgewichts.';
+          icon = 'â†”ï¸'; boxCls = 'ab-horiz';
+          shape = 'Horizontales Oval â€“ ungewÃ¶hnlich fÃ¼r Kniend';
+          tip = 'Ein <b>horizontales Oval</b> in der Kniendstellung deutet auf seitliches Kippen des OberkÃ¶rpers hin. ÃœberprÃ¼fe deine Seitenbalance und FuÃŸstellung.';
+          stabilityAdvice = '<b>Achte mehr auf die StabilitÃ¤t</b> deines seitlichen Gleichgewichts.';
         } else if (isSpread) {
-          icon = '🌐'; boxCls = 'ab-wide';
-          shape = 'Breite Streuung – Stabilität prüfen';
-          tip = 'Die Streuung ist für Kniend zu groß. Überprüfe deinen Anschlag und die Körperspannung.';
-          stabilityAdvice = '<b>Trockentraining nötig</b> – übe den Kniend-Anschlag ohne Munition.';
+          icon = 'ðŸŒ'; boxCls = 'ab-wide';
+          shape = 'Breite Streuung â€“ StabilitÃ¤t prÃ¼fen';
+          tip = 'Die Streuung ist fÃ¼r Kniend zu groÃŸ. ÃœberprÃ¼fe deinen Anschlag und die KÃ¶rperspannung.';
+          stabilityAdvice = '<b>Trockentraining nÃ¶tig</b> â€“ Ã¼be den Kniend-Anschlag ohne Munition.';
         } else {
-          icon = '🎯'; boxCls = 'ab-compact';
-          shape = 'Kompakter Kreis – ausgezeichnet für Kniend!';
-          tip = 'Für Kniend ein <b>hervorragendes Trefferbild</b>. Deine Balance und Atemtechnik sind sehr stabil.';
+          icon = 'ðŸŽ¯'; boxCls = 'ab-compact';
+          shape = 'Kompakter Kreis â€“ ausgezeichnet fÃ¼r Kniend!';
+          tip = 'FÃ¼r Kniend ein <b>hervorragendes Trefferbild</b>. Deine Balance und Atemtechnik sind sehr stabil.';
         }
       } else if (positionName === 'Stehend') {
         if (isSpread) {
-          icon = '🌐'; boxCls = 'ab-wide';
-          shape = 'Breites, unregelmäßiges Oval – typisch für Stehend';
-          tip = 'Die <b>breite Streuung</b> ist für die Stehendstellung normal. Fokussiere dich auf eine ruhige Abzugstechnik und gleichmäßige Körperspannung.';
-          if (spread > spreadThresh * 1.6) stabilityAdvice = '<b>Trockentraining nötig</b> – die Streuung ist für Wettkampfniveau zu groß.';
+          icon = 'ðŸŒ'; boxCls = 'ab-wide';
+          shape = 'Breites, unregelmÃ¤ÃŸiges Oval â€“ typisch fÃ¼r Stehend';
+          tip = 'Die <b>breite Streuung</b> ist fÃ¼r die Stehendstellung normal. Fokussiere dich auf eine ruhige Abzugstechnik und gleichmÃ¤ÃŸige KÃ¶rperspannung.';
+          if (spread > spreadThresh * 1.6) stabilityAdvice = '<b>Trockentraining nÃ¶tig</b> â€“ die Streuung ist fÃ¼r Wettkampfniveau zu groÃŸ.';
         } else if (isHoriz) {
-          icon = '↔️'; boxCls = 'ab-horiz';
-          shape = 'Horizontales Oval – Herzschlag-Einfluss';
-          tip = 'Ein <b>horizontales Oval</b> beim Stehend-Schießen deutet auf Herzschlag-Einfluss hin. Schieß in der <b>Pulspause</b>.';
+          icon = 'â†”ï¸'; boxCls = 'ab-horiz';
+          shape = 'Horizontales Oval â€“ Herzschlag-Einfluss';
+          tip = 'Ein <b>horizontales Oval</b> beim Stehend-SchieÃŸen deutet auf Herzschlag-Einfluss hin. SchieÃŸ in der <b>Pulspause</b>.';
         } else if (isVert) {
-          icon = '↕️'; boxCls = 'ab-vert';
-          shape = 'Vertikales Oval – Atemeinfluss';
-          tip = 'Ein <b>vertikales Oval</b> beim Stehend-Schießen entsteht durch Atemschwankungen. Halte den Atem kurz an oder schieß am Ende der Ausatmung.';
+          icon = 'â†•ï¸'; boxCls = 'ab-vert';
+          shape = 'Vertikales Oval â€“ Atemeinfluss';
+          tip = 'Ein <b>vertikales Oval</b> beim Stehend-SchieÃŸen entsteht durch Atemschwankungen. Halte den Atem kurz an oder schieÃŸ am Ende der Ausatmung.';
         } else {
-          icon = '🎯'; boxCls = 'ab-compact';
-          shape = 'Überraschend kompakt für Stehend!';
-          tip = 'Ein <b>kompaktes Trefferbild</b> in der Stehendstellung ist eine starke Leistung. Deine Körperstabilität ist ausgezeichnet.';
+          icon = 'ðŸŽ¯'; boxCls = 'ab-compact';
+          shape = 'Ãœberraschend kompakt fÃ¼r Stehend!';
+          tip = 'Ein <b>kompaktes Trefferbild</b> in der Stehendstellung ist eine starke Leistung. Deine KÃ¶rperstabilitÃ¤t ist ausgezeichnet.';
         }
       } else {
         // Liegend / LG / KK 50m / KK 100m
         if (isHoriz) {
-          icon = '↔️'; boxCls = 'ab-horiz';
-          shape = 'Horizontales Oval – Herzschlag-Einfluss?';
-          tip = 'Ein <b>horizontales Oval</b> deutet oft auf <b>Herzschlag-Einfluss</b> hin. Schieß in der <b>Pulspause</b> zwischen zwei Herzschlägen.';
-          if (isSpread) stabilityAdvice = '<b>Achte mehr auf die Stabilität</b> – die Streuung ist zu groß für Liegend.';
+          icon = 'â†”ï¸'; boxCls = 'ab-horiz';
+          shape = 'Horizontales Oval â€“ Herzschlag-Einfluss?';
+          tip = 'Ein <b>horizontales Oval</b> deutet oft auf <b>Herzschlag-Einfluss</b> hin. SchieÃŸ in der <b>Pulspause</b> zwischen zwei HerzschlÃ¤gen.';
+          if (isSpread) stabilityAdvice = '<b>Achte mehr auf die StabilitÃ¤t</b> â€“ die Streuung ist zu groÃŸ fÃ¼r Liegend.';
         } else if (isVert) {
-          icon = '↕️'; boxCls = 'ab-vert';
-          shape = 'Vertikales Oval – Atemeinfluss?';
-          tip = 'Ein <b>vertikales Oval</b> entsteht häufig durch <b>Atemschwankungen</b>. Halte den Atem kurz an oder schieß am Ende einer natürlichen Ausatmung.';
+          icon = 'â†•ï¸'; boxCls = 'ab-vert';
+          shape = 'Vertikales Oval â€“ Atemeinfluss?';
+          tip = 'Ein <b>vertikales Oval</b> entsteht hÃ¤ufig durch <b>Atemschwankungen</b>. Halte den Atem kurz an oder schieÃŸ am Ende einer natÃ¼rlichen Ausatmung.';
         } else if (isSpread) {
-          icon = '🌐'; boxCls = 'ab-wide';
-          shape = 'Breite Streuung – Technik prüfen';
-          tip = 'Die <b>breite Streuung</b> deutet auf wechselnde Einflüsse hin (Atem, Abzug, Anschlag). Achte auf eine konstante Anschlagsposition.';
-          stabilityAdvice = '<b>Trockentraining nötig</b> – übe den Liegend-Anschlag für mehr Konstanz.';
+          icon = 'ðŸŒ'; boxCls = 'ab-wide';
+          shape = 'Breite Streuung â€“ Technik prÃ¼fen';
+          tip = 'Die <b>breite Streuung</b> deutet auf wechselnde EinflÃ¼sse hin (Atem, Abzug, Anschlag). Achte auf eine konstante Anschlagsposition.';
+          stabilityAdvice = '<b>Trockentraining nÃ¶tig</b> â€“ Ã¼be den Liegend-Anschlag fÃ¼r mehr Konstanz.';
         } else {
-          icon = '🎯'; boxCls = 'ab-compact';
-          shape = 'Kompakter Kreis – sauberes Trefferbild!';
+          icon = 'ðŸŽ¯'; boxCls = 'ab-compact';
+          shape = 'Kompakter Kreis â€“ sauberes Trefferbild!';
           tip = 'Ein <b>kompakter, runder Kreis</b> ist das Ziel. Anschlag, Atem und Abzug sind gut aufeinander abgestimmt.';
         }
       }
@@ -2712,11 +2796,11 @@
       };
     }
 
-    // ── Haupt-Analyse-Funktion: rendert #analysisResult ─────────────────────
+    // â”€â”€ Haupt-Analyse-Funktion: rendert #analysisResult â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     function analyzeHitPattern(shots) {
       if (!DOM.analysisResult) return;
 
-      // ── KK 3×20: drei separate Boxen pro Stellung ───────────────────────
+      // â”€â”€ KK 3Ã—20: drei separate Boxen pro Stellung â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if (G.is3x20 && G.posResults.length > 0) {
         const boxes = G.positions.map((posName, i) => {
           const pr = G.posResults[i];
@@ -2724,8 +2808,8 @@
           const res = analyzeShotGroup(posShots, posName);
           if (!res) return `<div class="analysis-box ab-neutral ab-pos-box">
             <div class="ab-header">
-              <span class="ab-icon">${G.posIcons[i] || '🎯'}</span>
-              <span class="ab-label">◈ ${posName}</span>
+              <span class="ab-icon">${G.posIcons[i] || 'ðŸŽ¯'}</span>
+              <span class="ab-label">â—ˆ ${posName}</span>
             </div>
             <div class="ab-shape" style="color:rgba(255,255,255,.35);">Zu wenig Daten</div>
           </div>`;
@@ -2740,9 +2824,9 @@
 
           return `<div class="analysis-box ${res.boxCls} ab-pos-box">
             <div class="ab-header">
-              <span class="ab-icon">${G.posIcons[i] || '🎯'}</span>
-              <span class="ab-label">◈ ${posName.toUpperCase()}</span>
-              ${res.hasDiopter ? '<span class="ab-diopter-badge">⚙️ Diopter</span>' : ''}
+              <span class="ab-icon">${G.posIcons[i] || 'ðŸŽ¯'}</span>
+              <span class="ab-label">â—ˆ ${posName.toUpperCase()}</span>
+              ${res.hasDiopter ? '<span class="ab-diopter-badge">âš™ï¸ Diopter</span>' : ''}
             </div>
             <div class="ab-shape">${res.shape}</div>
             <div class="ab-tip">${res.tip}</div>
@@ -2759,7 +2843,7 @@
               </div>
               <div class="ab-stat">
                 <div class="ab-stat-val">${res.spread.toFixed(1)}</div>
-                <div class="ab-stat-lbl">Ø Radius</div>
+                <div class="ab-stat-lbl">Ã˜ Radius</div>
               </div>
               <div class="ab-stat">
                 <div class="ab-stat-val">${res.n}</div>
@@ -2770,12 +2854,12 @@
         });
 
         DOM.analysisResult.innerHTML = `
-          <div class="ab-section-title">◈ STELLUNGSANALYSE · KK 3×20</div>
+          <div class="ab-section-title">â—ˆ STELLUNGSANALYSE Â· KK 3Ã—20</div>
           <div class="ab-pos-grid">${boxes.join('')}</div>`;
         return;
       }
 
-      // ── Einzeldisziplin (LG / KK 50m / KK 100m) ─────────────────────────
+      // â”€â”€ Einzeldisziplin (LG / KK 50m / KK 100m) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       if (!shots || shots.length < 3) {
         DOM.analysisResult.innerHTML = '';
         return;
@@ -2796,8 +2880,8 @@
         <div class="analysis-box ${res.boxCls}">
           <div class="ab-header">
             <span class="ab-icon">${res.icon}</span>
-            <span class="ab-label">◈ Trefferbild-Analyse</span>
-            ${res.hasDiopter ? '<span class="ab-diopter-badge">⚙️ Diopter</span>' : ''}
+            <span class="ab-label">â—ˆ Trefferbild-Analyse</span>
+            ${res.hasDiopter ? '<span class="ab-diopter-badge">âš™ï¸ Diopter</span>' : ''}
           </div>
           <div class="ab-shape">${res.shape}</div>
           <div class="ab-tip">${res.tip}</div>
@@ -2814,7 +2898,7 @@
             </div>
             <div class="ab-stat">
               <div class="ab-stat-val">${res.spread.toFixed(1)}</div>
-              <div class="ab-stat-lbl">Ø Radius</div>
+              <div class="ab-stat-lbl">Ã˜ Radius</div>
             </div>
             <div class="ab-stat">
               <div class="ab-stat-val">${res.n}</div>
@@ -2826,9 +2910,9 @@
 
     function showGameOver(pp, bp, reason, ppInt) {
       const isKK = G.weapon === 'kk';
-      DOM.goP.textContent = pp >= 0 ? (isKK ? Math.floor(pp) : fmtPts(pp)) : '–';
+      DOM.goP.textContent = pp >= 0 ? (isKK ? Math.floor(pp) : fmtPts(pp)) : 'â€“';
       DOM.goB.textContent = isKK ? G.botTotalInt : fmtPts(bp);
-      DOM.goPInt.textContent = ppInt != null ? ppInt : (pp >= 0 ? Math.floor(pp) : '–');
+      DOM.goPInt.textContent = ppInt != null ? ppInt : (pp >= 0 ? Math.floor(pp) : 'â€“');
       DOM.goBInt.textContent = G.botTotalInt;
       DOM.goPUnit.textContent = pp >= 0 ? (isKK ? '' : 'Zehntel') : '';
 
@@ -2839,7 +2923,7 @@
       document.querySelectorAll('.gs-unit').forEach(el => {
         if (el.textContent === 'Zehntel') el.style.display = hideZehntel ? 'none' : '';
       });
-      // Ganze-Zahlen immer hell (KK größer, LG normal)
+      // Ganze-Zahlen immer hell (KK grÃ¶ÃŸer, LG normal)
       DOM.goPInt.style.color = 'rgba(180,230,100,1)';
       DOM.goBInt.style.color = 'rgba(240,130,110,1)';
       DOM.goPInt.style.fontSize = isKK ? '2.2rem' : '1.2rem';
@@ -2851,10 +2935,10 @@
       const diffCfg = DIFF[G.diff];
       const discCfg = DISC[G.discipline];
       const xCount = G.botShots.filter(s => s.isX).length;
-      const xStr = xCount > 0 ? ` · Bot: ${xCount}× ✦X` : '';
-      const dnfStr = G.dnf ? ' · ⏰ DNF' : '';
+      const xStr = xCount > 0 ? ` Â· Bot: ${xCount}Ã— âœ¦X` : '';
+      const dnfStr = G.dnf ? ' Â· â° DNF' : '';
       DOM.goReason.textContent = reason ||
-        `${discCfg.name} · ${G.dist} m · ${diffCfg.lbl.replace(/[^\w\s✦]/gi, '').trim()} · ${G.maxShots} Schuss${xStr}${dnfStr}`;
+        `${discCfg.name} Â· ${G.dist} m Â· ${diffCfg.lbl.replace(/[^\w\sâœ¦]/gi, '').trim()} Â· ${G.maxShots} Schuss${xStr}${dnfStr}`;
 
       const useInt = isKK;
       const ppCmp = useInt ? (ppInt != null ? ppInt : Math.floor(pp)) : pp;
@@ -2871,12 +2955,12 @@
         gameResult = 'win';
         if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.win(), 300);
         if (typeof Haptics !== 'undefined') setTimeout(() => Haptics.win(), 300);
-        DOM.goEmoji.textContent = isElite ? '🌟' : '🏆';
+        DOM.goEmoji.textContent = isElite ? 'ðŸŒŸ' : 'ðŸ†';
         DOM.goTitle.textContent = 'DU GEWINNST!';
         DOM.goTitle.className = 'go-title win';
         DOM.goSub.textContent = isElite
-          ? '🤯 Weltrekord-Bot geschlagen! Absolut legendär!'
-          : 'Scharfschützin! Der Bot hatte keine Chance.';
+          ? 'ðŸ¤¯ Weltrekord-Bot geschlagen! Absolut legendÃ¤r!'
+          : 'ScharfschÃ¼tzin! Der Bot hatte keine Chance.';
         DOM.goMargin.textContent = useInt
           ? `+${absDiff} Ringe Vorsprung`
           : `+${fmtPts(absDiff)} Punkte Vorsprung`;
@@ -2891,15 +2975,15 @@
         gameResult = 'lose';
         if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.lose(), 300);
         if (typeof Haptics !== 'undefined') setTimeout(() => Haptics.lose(), 300);
-        DOM.goEmoji.textContent = isElite ? '💫' : '🤖';
+        DOM.goEmoji.textContent = isElite ? 'ðŸ’«' : 'ðŸ¤–';
         DOM.goTitle.textContent = 'BOT GEWINNT!';
         DOM.goTitle.className = 'go-title lose';
         DOM.goSub.textContent = isElite
-          ? 'Weltrekord-Niveau – kaum zu schlagen. Respekt fürs Versuchen!'
-          : 'Nicht aufgeben – ruf zur Revanche!';
+          ? 'Weltrekord-Niveau â€“ kaum zu schlagen. Respekt fÃ¼rs Versuchen!'
+          : 'Nicht aufgeben â€“ ruf zur Revanche!';
         DOM.goMargin.textContent = useInt
-          ? `−${absDiff} Ringe Rückstand`
-          : `−${fmtPts(absDiff)} Punkte Rückstand`;
+          ? `âˆ’${absDiff} Ringe RÃ¼ckstand`
+          : `âˆ’${fmtPts(absDiff)} Punkte RÃ¼ckstand`;
         DOM.goMargin.className = 'go-margin lose';
         DOM.goMargin.style.display = '';
         updateWinStreak(false);
@@ -2907,10 +2991,10 @@
         gameResult = 'draw';
         if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.draw(), 300);
         if (typeof Haptics !== 'undefined') setTimeout(() => Haptics.draw(), 300);
-        DOM.goEmoji.textContent = '🎖️';
+        DOM.goEmoji.textContent = 'ðŸŽ–ï¸';
         DOM.goTitle.textContent = 'UNENTSCHIEDEN!';
         DOM.goTitle.className = 'go-title draw';
-        DOM.goSub.textContent = isElite ? 'Weltrekord-Bot auf Augenhöhe – bist du ein Roboter?!' : 'Was für ein ausgeglichenes Duell!';
+        DOM.goSub.textContent = isElite ? 'Weltrekord-Bot auf AugenhÃ¶he â€“ bist du ein Roboter?!' : 'Was fÃ¼r ein ausgeglichenes Duell!';
         DOM.goMargin.textContent = 'Punktgleich!';
         DOM.goMargin.className = 'go-margin draw';
         DOM.goMargin.style.display = '';
@@ -2925,24 +3009,28 @@
       updateSchuetzenpass();
 
       if (DOM.analysisResult) DOM.analysisResult.innerHTML = '';
-
+      const totalDuels = getTotalDuels();
+      if (shouldShowFeedback(totalDuels)) {
+        showFeedbackScreen(totalDuels);
+        return;
+      }
       showScreen('screenOver');
     }
 
     function toggleSoundSetting(btn) {
       if (typeof Sounds === 'undefined') return;
       const on = Sounds.toggle();
-      if (btn) btn.textContent = on ? '🔊 \u00a0Sound: AN' : '🔇 \u00a0Sound: AUS';
+      if (btn) btn.textContent = on ? 'ðŸ”Š \u00a0Sound: AN' : 'ðŸ”‡ \u00a0Sound: AUS';
     }
 
     function initSoundToggleBtn() {
       const btn = document.getElementById('soundToggleBtn');
       if (!btn || typeof Sounds === 'undefined') return;
-      btn.textContent = Sounds.enabled ? '🔊 \u00a0Sound: AN' : '🔇 \u00a0Sound: AUS';
+      btn.textContent = Sounds.enabled ? 'ðŸ”Š \u00a0Sound: AN' : 'ðŸ”‡ \u00a0Sound: AUS';
     }
 
     function hardResetProgress() {
-      if (!confirm("Möchtest du wirklich deinen gesamten Fortschritt (XP, Siege, Erfolge und Streaks) löschen? Dies kann nicht rückgängig gemacht werden!")) return;
+      if (!confirm("MÃ¶chtest du wirklich deinen gesamten Fortschritt (XP, Siege, Erfolge und Streaks) lÃ¶schen? Dies kann nicht rÃ¼ckgÃ¤ngig gemacht werden!")) return;
 
       const backupName = G.username;
       localStorage.clear();
@@ -2956,8 +3044,8 @@
       updateSchuetzenpass();
       checkSunAchievements();
 
-      alert("Alle lokalen Daten wurden zurückgesetzt.");
-      location.reload(); // Am sichersten für einen kompletten Reset
+      alert("Alle lokalen Daten wurden zurÃ¼ckgesetzt.");
+      location.reload(); // Am sichersten fÃ¼r einen kompletten Reset
     }
 
     function restartGame() {
@@ -2965,7 +3053,7 @@
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.shotsLeft = G.shots; G.maxShots = G.shots;
       G.dnf = false;
-      // BUG-FIX: Spiel-Zustand komplett zurücksetzen
+      // BUG-FIX: Spiel-Zustand komplett zurÃ¼cksetzen
       G.probeActive = false;
       G.probeSecsLeft = 0;
       G.botStarted = false;
@@ -2989,14 +3077,14 @@
       document.getElementById(id).classList.add('active');
     }
 
-    /* ─── INIT ───────────────────────────────── */
+    /* â”€â”€â”€ INIT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
     initDOMCache();
     setSz();
     drawTarget([]);
     loadXP();
     updateSchuetzenpass();
 
-    // Firebase SDK könnte noch nicht geladen sein → mit Retry initialisieren
+    // Firebase SDK kÃ¶nnte noch nicht geladen sein â†’ mit Retry initialisieren
     function initFirebaseWithRetry(attempts) {
       if (typeof firebase !== 'undefined' && firebase.apps !== undefined) {
         initFirebase();
@@ -3012,16 +3100,16 @@
     // NEU: Fallback-System zuerst initialisieren
     if (typeof FeatureFallback !== 'undefined') {
       FeatureFallback.init();
-      console.log('🛡️ Feature Fallback System geladen');
+      console.log('ðŸ›¡ï¸ Feature Fallback System geladen');
     }
     
     // NEU: Neue Features initialisieren (mit Fallback-Schutz)
     if (typeof AdaptiveBotSystem !== 'undefined') {
       try {
         AdaptiveBotSystem.init();
-        console.log('🤖 Adaptive Bot System geladen');
+        console.log('ðŸ¤– Adaptive Bot System geladen');
       } catch (error) {
-        console.error('❌ Adaptive Bot System Fehler:', error);
+        console.error('âŒ Adaptive Bot System Fehler:', error);
         if (typeof FeatureFallback !== 'undefined') {
           FeatureFallback.safelyExecute('adaptiveBot', () => {}, () => {});
         }
@@ -3031,9 +3119,9 @@
     if (typeof ContextualOCR !== 'undefined') {
       try {
         ContextualOCR.init();
-        console.log('🔍 Contextual OCR System geladen');
+        console.log('ðŸ” Contextual OCR System geladen');
       } catch (error) {
-        console.error('❌ Contextual OCR Fehler:', error);
+        console.error('âŒ Contextual OCR Fehler:', error);
         if (typeof FeatureFallback !== 'undefined') {
           FeatureFallback.safelyExecute('contextualOCR', () => {}, () => {});
         }
@@ -3043,9 +3131,9 @@
     if (typeof MultiScoreDetection !== 'undefined') {
       try {
         MultiScoreDetection.init();
-        console.log('📊 Multi-Score Detection System geladen');
+        console.log('ðŸ“Š Multi-Score Detection System geladen');
       } catch (error) {
-        console.error('❌ Multi-Score Detection Fehler:', error);
+        console.error('âŒ Multi-Score Detection Fehler:', error);
         if (typeof FeatureFallback !== 'undefined') {
           FeatureFallback.safelyExecute('multiScoreDetection', () => {}, () => {});
         }
@@ -3066,7 +3154,7 @@
     }
 
     window.addEventListener('difficultyAdapted', function(event) {
-      console.log('🎯 Schwierigkeit angepasst:', event.detail.oldDifficulty, '→', event.detail.newDifficulty);
+      console.log('ðŸŽ¯ Schwierigkeit angepasst:', event.detail.oldDifficulty, 'â†’', event.detail.newDifficulty);
       // Optional: UI aktualisieren
       if (DOM.diffInfoTxt) {
         DOM.diffInfoTxt.innerHTML = getDiffInfo(event.detail.newDifficulty);
@@ -3090,7 +3178,7 @@
 
       // Sofort in Firebase registrieren (Erstanmeldung)
       pushProfileToFirebase();
-      // Tutorial für neue Nutzer starten
+      // Tutorial fÃ¼r neue Nutzer starten
       if (typeof Tutorial !== 'undefined') Tutorial.startIfNew();
     }
 
@@ -3100,7 +3188,7 @@
     });
     document.getElementById('playerInp')?.addEventListener('keypress', function (e) {
       if (e.key !== 'Enter') return;
-      // Auto-Format: Ganzzahl → .0
+      // Auto-Format: Ganzzahl â†’ .0
       const v = parseFloat(this.value);
       if (!isNaN(v)) this.value = v.toFixed(1);
       document.getElementById('playerInpInt')?.focus();
@@ -3116,9 +3204,10 @@
     selDisc('lg40'); // sets dist, shots, hides/shows cards
 
     loadAllStreaks();
+    ensureFeedbackSchedule();
 
     // Firebase initialisieren (Weltrangliste + Profil-Sync)
-    // Retry-Logik: Firebase-SDK wird async geladen (über defer-Scripts)
+    // Retry-Logik: Firebase-SDK wird async geladen (Ã¼ber defer-Scripts)
     let _fbRetry = 0;
     const _tryInitFb = () => {
       if (typeof firebase !== 'undefined' && firebase.apps !== undefined) {
@@ -3153,9 +3242,11 @@
       }, { passive: true });
     })();
 
-    // ── Service Worker (PWA / Offline) ──────────────────────────────────
+    // â”€â”€ Service Worker (PWA / Offline) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js?v=2.4').catch(() => { });
       });
     }
+
+
