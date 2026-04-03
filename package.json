@@ -1,0 +1,13 @@
+{
+  "name": "schuss-challenge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "d1:migrate:local": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql --local",
+    "d1:migrate:remote": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}

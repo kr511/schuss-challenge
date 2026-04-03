@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "schuss-challenge",
+  "main": "worker/index.ts",
   "compatibility_date": "2025-09-27",
   "observability": {
     "enabled": true
@@ -8,6 +9,14 @@
   "assets": {
     "directory": "."
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "schuss_challenge",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
   "compatibility_flags": [
     "nodejs_compat"
   ]
