@@ -2676,6 +2676,27 @@
 
     function quickResult(res) {
       const kk3x20 = isKK3x20WholeRingsOnly();
+      // Stelle sicher, dass der Foto-Button in screenOver angezeigt wird
+      const icSlot = document.getElementById('icGameOverSlot');
+      if (icSlot) {
+        icSlot.innerHTML = '';
+        const btn = document.createElement('button');
+        btn.className = 'ic-go-upload-btn';
+        btn.innerHTML = '<span class="ic-go-upload-ico">📸</span> Wettkampf-Foto vergleichen';
+        btn.onclick = () => {
+          if (typeof ImageCompare !== 'undefined') {
+            if (typeof MultiScoreDetection !== 'undefined' && MultiScoreDetection.CONFIG.enableRegionDetection) {
+              ImageCompare.openWithMultiScore(kk3x20 ? G.botTotalInt : G.botTotal, kk3x20, G.discipline);
+            } else {
+              ImageCompare.open(kk3x20 ? G.botTotalInt : G.botTotal, kk3x20, G.discipline);
+            }
+          } else {
+            alert('Foto-Vergleich wird geladen. Bitte Seite neu laden.');
+          }
+        };
+        icSlot.appendChild(btn);
+      }
+      
       if (res === 'win') {
         if (kk3x20) {
           showGameOver(G.botTotalInt + 1, G.botTotalInt, 'Schnellauswahl: Gewonnen', G.botTotalInt + 1);
