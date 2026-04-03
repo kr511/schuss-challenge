@@ -1699,8 +1699,8 @@
     const KK3X20_CFG = {
       probeSecs: 10 * 60,
       transitionPhases: [
-        { secs: 18 * 60, label: 'Pause + Probe Liegend' }, // 10 Min Pause + ~8 Min Probe
-        { secs: 12 * 60, label: 'Pause vor Stehend' }      // ca. 10-15 Min
+        { secs: 10 * 60, label: 'Uebergang Kniend -> Liegend' }, // fest 10 Min
+        { secs: 15 * 60, label: 'Uebergang Liegend -> Stehend' } // ca. 15 Min
       ],
       positionTimings: [
         { baseSecs: 72, min: 58, max: 88 },  // Kniend: 24 Min / 20 Schuss
