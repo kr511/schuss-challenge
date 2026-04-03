@@ -1732,12 +1732,17 @@
         if (G.is3x20 && G.transitionSecsLeft > 0) {
           const tm = Math.floor(G.transitionSecsLeft / 60);
           const ts = G.transitionSecsLeft % 60;
-          timerDisp = `${tm}:${String(ts).padStart(2, '0')} (${G.transitionLabel || 'Pause'})`;
+          const nextPos = G.positions[G.posIdx] || '';
+          const transitionName = G.transitionLabel || 'Pause';
+          const clockTxt = `${tm}:${String(ts).padStart(2, '0')}`;
+          timerDisp = `${clockTxt} (Uebergang: ${transitionName})`;
+          DOM.lastShotTxt.innerHTML =
+            `⏸ <b>Uebergang</b>: <b>${transitionName}</b> · noch <b>${clockTxt}</b><br>` +
+            `➡ Danach: <b>${nextPos}</b>`;
           G.transitionSecsLeft--;
           G._timerSecsLeft--;
           if (G.transitionSecsLeft <= 0) {
-            const nextPos = G.positions[G.posIdx] || '';
-            DOM.lastShotTxt.innerHTML = `▶️ <b>${G.transitionLabel || 'Pause'}</b> beendet – weiter mit <b>${nextPos}</b>.`;
+            DOM.lastShotTxt.innerHTML = `▶️ <b>${transitionName}</b> beendet - weiter mit <b>${nextPos}</b>.`;
             G.transitionLabel = '';
           }
         } else if (G.probeActive && G.probeSecsLeft > 0) {
@@ -1889,8 +1894,10 @@
 
       // Info-Text aktualisieren
       const botScoreTxt = G.weapon === 'kk' ? G.botTotalInt : `${fmtPts(G.botTotal)} <span style="color:rgba(240,130,110,.45);font-size:.85em;">(${G.botTotalInt} ganze)</span>`;
-      DOM.lastShotTxt.innerHTML =
-        `🤖 <b>Bot schießt automatisch!</b> ${bRes.label} · ${G.weapon === 'kk' ? Math.floor(bRes.pts) : fmtPts(bRes.pts)} &nbsp;|&nbsp; Gesamt: <b>${botScoreTxt}</b>`;
+      if (!(G.is3x20 && G.transitionSecsLeft > 0)) {
+        DOM.lastShotTxt.innerHTML =
+          `🤖 <b>Bot schießt automatisch!</b> ${bRes.label} · ${G.weapon === 'kk' ? Math.floor(bRes.pts) : fmtPts(bRes.pts)} &nbsp;|&nbsp; Gesamt: <b>${botScoreTxt}</b>`;
+      }
 
       // Canvas + UI aktualisieren
       setTimeout(() => {
@@ -2086,7 +2093,12 @@
 
       // Battle tag
       const allDone = fired >= G.maxShots;
-      if (G.is3x20 && !allDone) {
+      if (G.is3x20 && G.transitionSecsLeft > 0) {
+        const tm = Math.floor(G.transitionSecsLeft / 60);
+        const ts = G.transitionSecsLeft % 60;
+        const transitionName = G.transitionLabel || 'Pause';
+        DOM.battleTag.textContent = `◆ UEBERGANG: ${transitionName.toUpperCase()} · ${tm}:${String(ts).padStart(2, '0')} ◆`;
+      } else if (G.is3x20 && !allDone) {
         DOM.battleTag.textContent = `◆ ${(G.positions[G.posIdx] || '').toUpperCase()} · SCHUSS ${G.posShots + 1} / ${G.perPos} ◆`;
       } else {
         DOM.battleTag.textContent = allDone
@@ -2230,7 +2242,8 @@
       if (G.is3x20 && G.transitionSecsLeft > 0) {
         const tm = Math.floor(G.transitionSecsLeft / 60);
         const ts = G.transitionSecsLeft % 60;
-        DOM.lastShotTxt.innerHTML = `⏸ <b>${G.transitionLabel || 'Pause'}</b> läuft noch ${tm}:${String(ts).padStart(2, '0')}.`;
+        const transitionName = G.transitionLabel || 'Pause';
+        DOM.lastShotTxt.innerHTML = `⏸ <b>Uebergang</b>: <b>${transitionName}</b> läuft noch <b>${tm}:${String(ts).padStart(2, '0')}</b>.`;
         return;
       }
       // Probezeit beenden und Bot starten, wenn beim Schießen noch Probezeit aktiv ist
