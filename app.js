@@ -324,6 +324,11 @@
       return DIFF[diff].info; // Fallback zu Standard-Info
     }
 
+    /** KK 3×20: nur ganze Ringe, keine Zehntel in UI/Vergleich (KK 50/100m verhalten sich wie LG) */
+    function isKK3x20WholeRingsOnly() {
+      return G.is3x20 && G.weapon === 'kk';
+    }
+
     const WEAPON_CFG = {
       lg: {
         icon: '🌬️', name: 'Luftgewehr', badgeCls: 'lg', defaultDist: '10',
@@ -915,8 +920,8 @@
       { id: 'xp_100', group: 'basic', icon: '⭐', name: '100 XP', desc: '100 XP verdient', check: () => G.xp >= 100 },
       { id: 'streak_3', group: 'basic', icon: '🔥', name: 'Heiß!', desc: '3er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 3 },
       // Battle
-      { id: 'beat_hard', group: 'battle', icon: '💀', name: 'Harter Brocken', desc: 'WM-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_hard')) },
-      { id: 'beat_elite', group: 'battle', icon: '💫', name: 'Legende', desc: 'Elite-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_elite')) },
+      { id: 'beat_hard', group: 'battle', icon: '💀', name: 'Harter Brocken', desc: 'Elite-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_hard')) },
+      { id: 'beat_elite', group: 'battle', icon: '💫', name: 'Legende', desc: 'Profi-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_elite')) },
       { id: 'ten_wins', group: 'battle', icon: '🥇', name: '10 Siege', desc: '10 Duelle gewonnen', check: () => (loadGameStats().wins || 0) >= 10 },
       { id: 'both_weapons', group: 'battle', icon: '⚔️', name: 'Allrounder', desc: 'LG & KK je 1 Sieg', check: () => (loadWeaponStats('lg').wins || 0) >= 1 && (loadWeaponStats('kk').wins || 0) >= 1 },
       { id: 'streak_7', group: 'battle', icon: '🌟', name: 'Unaufhaltsam', desc: '7er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 7 },
@@ -1879,7 +1884,7 @@
           lg60: { baseSecs: 42, min: 30, max: 60 },        // Luftgewehr 60: 70min für 60 Schuss → 70s/Schuss
           kk50: { baseSecs: 50, min: 35, max: 70 },        // KK 50m: 50min für 60 Schuss → 50s/Schuss durchschnitt
           kk100: { baseSecs: 65, min: 45, max: 90 },       // KK 100m: 70min für 60 Schuss → 70s/Schuss, aber extremer konzentriert
-          kk3x20: { baseSecs: 85, min: 60, max: 120 }      // 3×20: 160min für 60 Schuss → 160s/Schuss mit Positionswechseln
+          kk3x20: { baseSecs: 85, min: 60, max: 120 }      // 3×20: 105min für 60 Schuss inkl. Wechsel → längere Mittel je Schuss
         };
 
         // Schwierigkeit beeinflusst die Streuung (Routine/Konsistenz)
@@ -1942,7 +1947,7 @@
         if (container) {
           const pill = document.createElement('span');
           pill.className = 'sl-pill ' + pillCls;
-          pill.textContent = pillTxt;
+          pill.textContent = '🤖' + pillTxt;
           container.appendChild(pill);
         }
         G.posShots++;
@@ -1954,6 +1959,7 @@
         pr.int = (pr.int || 0) + Math.floor(bRes.pts);
         if (!pr.shots) pr.shots = [];
         pr.shots.push({ dx: bRes.dx ?? 0, dy: bRes.dy ?? 0 });
+        // 3×20: botTotalInt (Summe ganze Ringe) hier und in doBattleFire; fireSingleShot inkrementiert bei 3×20 kein botTotalInt
         G.botTotalInt += Math.floor(bRes.pts);
         if (G.posShots >= G.perPos && G.posIdx < G.positions.length - 1) {
           const nextPosIdx = G.posIdx + 1;
@@ -1979,10 +1985,12 @@
       }
 
       // Info-Text aktualisieren
-      const botScoreTxt = G.weapon === 'kk' ? G.botTotalInt : `${fmtPts(G.botTotal)} <span style="color:rgba(240,130,110,.45);font-size:.85em;">(${G.botTotalInt} ganze)</span>`;
+      const botScoreTxt = isKK3x20WholeRingsOnly()
+        ? G.botTotalInt
+        : `${fmtPts(G.botTotal)} <span style="color:rgba(240,130,110,.45);font-size:.85em;">(${G.botTotalInt} ganze)</span>`;
       if (!(G.is3x20 && G.transitionSecsLeft > 0)) {
         DOM.lastShotTxt.innerHTML =
-          `🤖 <b>Bot schießt automatisch!</b> ${bRes.label} · ${G.weapon === 'kk' ? Math.floor(bRes.pts) : fmtPts(bRes.pts)} &nbsp;|&nbsp; Gesamt: <b>${botScoreTxt}</b>`;
+          `🤖 <b>Bot schießt automatisch!</b> ${bRes.label} · ${isKK3x20WholeRingsOnly() ? Math.floor(bRes.pts) : fmtPts(bRes.pts)} &nbsp;|&nbsp; Gesamt: <b>${botScoreTxt}</b>`;
       }
 
       // Canvas + UI aktualisieren
@@ -1997,7 +2005,7 @@
           if (G.is3x20) {
             DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
           } else {
-            DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${G.weapon === 'kk' ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
+            DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
           }
           setTimeout(() => goToEntry(), 1400);
         }
@@ -2394,7 +2402,7 @@
           if (container) {
             const pill = document.createElement('span');
             pill.className = 'sl-pill ' + pillCls;
-            pill.textContent = pillTxt;
+            pill.textContent = '👤' + pillTxt;
             container.appendChild(pill);
           }
           // Update position tracking
@@ -2407,6 +2415,7 @@
           pr.int = (pr.int || 0) + Math.floor(bRes.pts);
           if (!pr.shots) pr.shots = [];
           pr.shots.push({ dx: bRes.dx ?? 0, dy: bRes.dy ?? 0 });
+          // 3×20: botTotalInt (Summe ganze Ringe) hier und in botAutoFire; fireSingleShot inkrementiert bei 3×20 kein botTotalInt
           G.botTotalInt += Math.floor(bRes.pts);
 
           // Position complete?
@@ -2452,8 +2461,7 @@
       });
 
       // ── Info text ────────────────────────────────
-      const isKK = G.weapon === 'kk';
-      const mkBotScore = () => isKK
+      const mkBotScore = () => isKK3x20WholeRingsOnly()
         ? `${G.botTotalInt}`
         : `${fmtPts(G.botTotal)} <span style="color:rgba(240,130,110,.45);font-size:.85em;">(${G.botTotalInt} ganze)</span>`;
 
@@ -2461,12 +2469,12 @@
         const sumPts = results.reduce((a, r) => a + r.pts, 0);
         const xCount = results.filter(r => r.isX).length;
         const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
-        const sumDisp = isKK ? Math.floor(sumPts) : fmtPts(Math.round(sumPts * 10) / 10);
+        const sumDisp = isKK3x20WholeRingsOnly() ? Math.floor(sumPts) : fmtPts(Math.round(sumPts * 10) / 10);
         if (!G.is3x20) DOM.lastShotTxt.innerHTML =
           `⚡ <b>5er-Salve</b>: +<b>${sumDisp}</b>${xStr} &nbsp;|&nbsp; Gesamt: <b>${mkBotScore()}</b>`;
       } else {
         const bRes = results[0];
-        const ptsDisp = isKK ? Math.floor(bRes.pts) : fmtPts(bRes.pts);
+        const ptsDisp = isKK3x20WholeRingsOnly() ? Math.floor(bRes.pts) : fmtPts(bRes.pts);
         const emoji = bRes.isX ? '✦' : bRes.pts >= 9.5 ? '🔥' : bRes.pts >= 8 ? '💥' : bRes.pts >= 6 ? '🎯' : bRes.pts >= 4 ? '👌' : bRes.pts >= 2 ? '😬' : '😅';
         const scoreDisp = bRes.isX
           ? `<b style="color:#ffd040;">${bRes.label} · ${ptsDisp}</b>`
@@ -2488,7 +2496,7 @@
             updatePosBar();
             DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
           } else {
-            DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${G.weapon === 'kk' ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
+            DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
           }
           setTimeout(() => goToEntry(), 1400);
         }
@@ -2498,11 +2506,11 @@
     function endBattleEarly() { clearBattleTimers(); goToEntry(); }
 
     function goToEntry() {
-      const isKK = G.weapon === 'kk';
-      DOM.botFinalPts.textContent = isKK ? G.botTotalInt : fmtPts(G.botTotal);
+      const kk3x20 = isKK3x20WholeRingsOnly();
+      DOM.botFinalPts.textContent = kk3x20 ? String(G.botTotalInt) : fmtPts(G.botTotal);
       DOM.botFinalInt.textContent = G.botTotalInt;
       const avg = G.botShots.length > 0
-        ? (isKK ? (G.botTotalInt / G.botShots.length).toFixed(1) : (G.botTotal / G.botShots.length).toFixed(1))
+        ? (kk3x20 ? (G.botTotalInt / G.botShots.length).toFixed(1) : (G.botTotal / G.botShots.length).toFixed(1))
         : '–';
       const xCount = G.botShots.filter(s => s.isX).length;
       const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
@@ -2525,7 +2533,7 @@
       }
 
       if (G.is3x20) {
-        const parts = G.posResults.map((r, i) => `${G.posIcons[i]} ${G.botTotalInt > 0 ? r.int : fmtPts(r.total)}`).join('  ');
+        const parts = G.posResults.map((r, i) => `${G.posIcons[i]} ${r.int}`).join('  ');
         DOM.botFinalDetail.textContent = `${parts} · Ø ${avg} Pkt${xStr}`;
       } else {
         DOM.botFinalDetail.textContent = `aus ${G.botShots.length} Schuss · Ø ${avg} Pkt${xStr}`;
@@ -2557,9 +2565,9 @@
           if (typeof ImageCompare !== 'undefined') {
             // NEU: Multi-Score Detection aktivieren, falls verfügbar
             if (typeof MultiScoreDetection !== 'undefined' && MultiScoreDetection.CONFIG.enableRegionDetection) {
-              ImageCompare.openWithMultiScore(isKK ? G.botTotalInt : G.botTotal, isKK, G.discipline);
+              ImageCompare.openWithMultiScore(kk3x20 ? G.botTotalInt : G.botTotal, kk3x20, G.discipline);
             } else {
-              ImageCompare.open(isKK ? G.botTotalInt : G.botTotal, isKK, G.discipline);
+              ImageCompare.open(kk3x20 ? G.botTotalInt : G.botTotal, kk3x20, G.discipline);
             }
           } else {
             alert('Foto-Vergleich wird geladen. Bitte Seite neu laden.');
@@ -2615,10 +2623,10 @@
     }
 
     function calcResult() {
-      const isKK = G.weapon === 'kk';
       clearInpState();
+      const kk3x20 = isKK3x20WholeRingsOnly();
 
-      if (isKK) {
+      if (kk3x20) {
         const rawInt = DOM.playerInpInt.value.trim();
         const valInt = parseInt(rawInt);
         const maxInt = G.maxShots * 10;
@@ -2661,26 +2669,34 @@
           setInpHint(`Max. ${maxInt} ganze Ringe möglich`, true);
           DOM.playerInpInt.focus(); return;
         }
-        // Auto-Format: Ganzzahl → .0 ergänzen
         const finalVal = Math.round(val * 10) / 10;
         showGameOver(finalVal, G.botTotal, null, valInt);
       }
     }
 
     function quickResult(res) {
-      const isKK = G.weapon === 'kk';
-      if (res === 'win') showGameOver(
-        isKK ? G.botTotalInt + 1 : G.botTotal + 0.1,
-        isKK ? G.botTotalInt : G.botTotal,
-        'Schnellauswahl: Gewonnen',
-        G.botTotalInt + 1
-      );
-      else showGameOver(
-        isKK ? Math.max(0, G.botTotalInt - 1) : Math.max(0, G.botTotal - 0.1),
-        isKK ? G.botTotalInt : G.botTotal,
-        'Schnellauswahl: Verloren',
-        Math.max(0, G.botTotalInt - 1)
-      );
+      const kk3x20 = isKK3x20WholeRingsOnly();
+      if (res === 'win') {
+        if (kk3x20) {
+          showGameOver(G.botTotalInt + 1, G.botTotalInt, 'Schnellauswahl: Gewonnen', G.botTotalInt + 1);
+        } else {
+          showGameOver(G.botTotal + 0.1, G.botTotal, 'Schnellauswahl: Gewonnen', G.botTotalInt + 1);
+        }
+      } else if (kk3x20) {
+        showGameOver(
+          Math.max(0, G.botTotalInt - 1),
+          G.botTotalInt,
+          'Schnellauswahl: Verloren',
+          Math.max(0, G.botTotalInt - 1)
+        );
+      } else {
+        showGameOver(
+          Math.max(0, G.botTotal - 0.1),
+          G.botTotal,
+          'Schnellauswahl: Verloren',
+          Math.max(0, G.botTotalInt - 1)
+        );
+      }
     }
 
     // ── Trefferbild-Analyse: eine Gruppe (Stellung oder Gesamt) ──────────────
@@ -2909,15 +2925,15 @@
     }
 
     function showGameOver(pp, bp, reason, ppInt) {
-      const isKK = G.weapon === 'kk';
-      DOM.goP.textContent = pp >= 0 ? (isKK ? Math.floor(pp) : fmtPts(pp)) : '–';
-      DOM.goB.textContent = isKK ? G.botTotalInt : fmtPts(bp);
+      const kk3x20 = isKK3x20WholeRingsOnly();
+      DOM.goP.textContent = pp >= 0 ? (kk3x20 ? Math.floor(pp) : fmtPts(pp)) : '–';
+      DOM.goB.textContent = kk3x20 ? G.botTotalInt : fmtPts(bp);
       DOM.goPInt.textContent = ppInt != null ? ppInt : (pp >= 0 ? Math.floor(pp) : '–');
       DOM.goBInt.textContent = G.botTotalInt;
-      DOM.goPUnit.textContent = pp >= 0 ? (isKK ? '' : 'Zehntel') : '';
+      DOM.goPUnit.textContent = pp >= 0 ? (kk3x20 ? '' : 'Zehntel') : '';
 
-      // Zehntel-Spalten bei KK komplett verstecken
-      const hideZehntel = isKK;
+      // Zehntel-Spalten nur bei KK 3×20 ausblenden (LG + KK 50/100m: Zehntel sichtbar)
+      const hideZehntel = kk3x20;
       DOM.goP.style.display = hideZehntel ? 'none' : '';
       DOM.goB.style.display = hideZehntel ? 'none' : '';
       document.querySelectorAll('.gs-unit').forEach(el => {
@@ -2926,8 +2942,8 @@
       // Ganze-Zahlen immer hell (KK größer, LG normal)
       DOM.goPInt.style.color = 'rgba(180,230,100,1)';
       DOM.goBInt.style.color = 'rgba(240,130,110,1)';
-      DOM.goPInt.style.fontSize = isKK ? '2.2rem' : '1.2rem';
-      DOM.goBInt.style.fontSize = isKK ? '2.2rem' : '1.2rem';
+      DOM.goPInt.style.fontSize = kk3x20 ? '2.2rem' : '1.2rem';
+      DOM.goBInt.style.fontSize = kk3x20 ? '2.2rem' : '1.2rem';
       document.querySelectorAll('.gs-unit').forEach(el => {
         if (el.textContent === 'Ganze') el.style.opacity = '0.85';
       });
@@ -2940,7 +2956,7 @@
       DOM.goReason.textContent = reason ||
         `${discCfg.name} · ${G.dist} m · ${diffCfg.lbl.replace(/[^\w\s✦]/gi, '').trim()} · ${G.maxShots} Schuss${xStr}${dnfStr}`;
 
-      const useInt = isKK;
+      const useInt = kk3x20;
       const ppCmp = useInt ? (ppInt != null ? ppInt : Math.floor(pp)) : pp;
       const bpCmp = useInt ? G.botTotalInt : bp;
       const diff = useInt ? (ppCmp - bpCmp) : Math.round((pp - bp) * 10) / 10;
@@ -2959,7 +2975,7 @@
         DOM.goTitle.textContent = 'DU GEWINNST!';
         DOM.goTitle.className = 'go-title win';
         DOM.goSub.textContent = isElite
-          ? '🤯 Weltrekord-Bot geschlagen! Absolut legendär!'
+          ? '🤯 Profi-Bot geschlagen! Absolut legendär!'
           : 'Scharfschützin! Der Bot hatte keine Chance.';
         DOM.goMargin.textContent = useInt
           ? `+${absDiff} Ringe Vorsprung`
@@ -2979,7 +2995,7 @@
         DOM.goTitle.textContent = 'BOT GEWINNT!';
         DOM.goTitle.className = 'go-title lose';
         DOM.goSub.textContent = isElite
-          ? 'Weltrekord-Niveau – kaum zu schlagen. Respekt fürs Versuchen!'
+          ? 'Profi-Niveau – kaum zu schlagen. Respekt fürs Versuchen!'
           : 'Nicht aufgeben – ruf zur Revanche!';
         DOM.goMargin.textContent = useInt
           ? `−${absDiff} Ringe Rückstand`
@@ -2994,7 +3010,7 @@
         DOM.goEmoji.textContent = '🎖️';
         DOM.goTitle.textContent = 'UNENTSCHIEDEN!';
         DOM.goTitle.className = 'go-title draw';
-        DOM.goSub.textContent = isElite ? 'Weltrekord-Bot auf Augenhöhe – bist du ein Roboter?!' : 'Was für ein ausgeglichenes Duell!';
+        DOM.goSub.textContent = isElite ? 'Profi-Bot auf Augenhöhe – bist du ein Roboter?!' : 'Was für ein ausgeglichenes Duell!';
         DOM.goMargin.textContent = 'Punktgleich!';
         DOM.goMargin.className = 'go-margin draw';
         DOM.goMargin.style.display = '';
@@ -3010,6 +3026,10 @@
 
       if (DOM.analysisResult) DOM.analysisResult.innerHTML = '';
       const totalDuels = getTotalDuels();
+      
+      // Sicherstellen, dass Feedback-Plan initialisiert ist
+      ensureFeedbackSchedule();
+      
       if (shouldShowFeedback(totalDuels)) {
         showFeedbackScreen(totalDuels);
         return;
