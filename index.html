@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 
 <head>
@@ -9,14 +9,14 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Schussduell">
-  <title>ðŸŽ¯ Schussduell</title>
+  <title>🎯 Schussduell</title>
   <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap"
     rel="stylesheet">
-  <!-- Firebase v9 Compat SDK (async â€“ initFirebaseWithRetry wartet auf Laden) -->
+  <!-- Firebase v9 Compat SDK (async – initFirebaseWithRetry wartet auf Laden) -->
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -33,7 +33,8 @@
   
   <!-- NEUE FEATURES: Physics Engine, Adaptive Bot-KI und erweiterte OCR -->
   <script src="feature-fallback.js"></script>
-  <script src="physics-engine.js"></script>
+  <!-- physics-engine.js — aktuell nicht aktiv genutzt -->
+  <!-- <script src="physics-engine.js"></script> -->
   <script src="adaptive-bot.js"></script>
   <script src="contextual-ocr.js"></script>
   <script src="multi-score-detection.js"></script>
@@ -51,13 +52,13 @@
   <!-- WELCOME OVERLAY -->
   <div id="welcomeOverlay">
     <div class="welcome-card">
-      <div class="welcome-icon">ðŸŽ¯</div>
+      <div class="welcome-icon">🎯</div>
       <div class="welcome-title">WILLKOMMEN</div>
-      <div class="welcome-sub">WÃ¤hle deinen SchÃ¼tzennamen.<br><span style="font-size:.8em;opacity:.6;">Wird dauerhaft
-          gespeichert Â· Einmalige Anmeldung</span></div>
+      <div class="welcome-sub">Wähle deinen Schützennamen.<br><span style="font-size:.8em;opacity:.6;">Wird dauerhaft
+          gespeichert · Einmalige Anmeldung</span></div>
       <input type="text" id="welcomeNameInp" class="welcome-inp" placeholder="Dein Name..." autocomplete="off"
         maxlength="15">
-      <button class="welcome-btn" onclick="saveWelcomeName()">ðŸš€ JETZT STARTEN</button>
+      <button class="welcome-btn" onclick="saveWelcomeName()">🚀 JETZT STARTEN</button>
       <div
         style="margin-top:12px;font-size:.6rem;letter-spacing:.12em;color:rgba(255,255,255,.2);text-transform:uppercase;">
         Dein Name erscheint in der Weltrangliste</div>
@@ -66,22 +67,22 @@
 
   <div id="muzzleFlash"></div>
 
-  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SETUP â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <!-- ══════════════════════════ SETUP ══════════════════════════ -->
   <div id="screenSetup" class="screen active">
     <div class="hdr">
-      <!-- Top row: profil left Â· logo center Â· spacer right -->
+      <!-- Top row: profil left · logo center · spacer right -->
       <div class="hdr-top">
         <div class="profile-btn" id="profileBtn" onclick="toggleProfileMenu()">
-          <div class="pb-icon" id="profileIcon">ðŸŽ¯</div>
+          <div class="pb-icon" id="profileIcon">🎯</div>
           <div class="pb-inf">
-            <div class="pb-rank" id="profileRank">AnfÃ¤nger</div>
+            <div class="pb-rank" id="profileRank">Anfänger</div>
             <div class="pb-lbl">PROFIL</div>
           </div>
         </div>
         <div class="logo">SCHUSS<em>DUELL</em></div>
         <div class="hdr-spacer" aria-hidden="true">
           <div class="streak-corner" id="streakCorner">
-            <span class="sc-fire" id="scFire">â­</span>
+            <span class="sc-fire" id="scFire">⭐</span>
             <div class="sc-inf">
               <div class="sc-n" id="scN">0</div>
               <div class="sc-lbl" id="scLbl">XP</div>
@@ -89,42 +90,42 @@
           </div>
         </div>
       </div>
-      <div class="logo-tag" id="logoTag">Du vs. Bot Â· 40 Schuss Â· Wer trifft besser?</div>
+      <div class="logo-tag" id="logoTag">Du vs. Bot · 40 Schuss · Wer trifft besser?</div>
 
       <!-- Profil Menu (legacy, hidden) -->
       <div class="profile-menu" id="profileMenu"></div>
 
-      <!-- â•â•â• PROFIL OVERLAY (Bottom-Sheet) â•â•â• -->
+      <!-- ═══ PROFIL OVERLAY (Bottom-Sheet) ═══ -->
       <div class="profile-overlay" id="profileOverlay" onclick="handleOverlayClick(event)">
         <div class="profile-sheet" id="profileSheet">
           <div class="profile-sheet-handle"></div>
 
           <!-- Sheet Header -->
           <div class="ps-header">
-            <div class="ps-title">ðŸŽ¯ SchÃ¼tzenpass</div>
-            <button class="ps-close" onclick="toggleProfileMenu()">âœ•</button>
+            <div class="ps-title">🎯 Schützenpass</div>
+            <button class="ps-close" onclick="toggleProfileMenu()">✕</button>
           </div>
 
           <!-- Hero -->
           <div class="ps-hero">
             <div class="ps-avatar" id="psAvatar">
               <div class="ps-avatar-ring"></div>
-              <span id="psAvatarIcon">ðŸŽ¯</span>
+              <span id="psAvatarIcon">🎯</span>
             </div>
             <div class="ps-info">
-              <div class="ps-name" id="psUsername">SchÃ¼tze</div>
+              <div class="ps-name" id="psUsername">Schütze</div>
               <div class="ps-rank-badge">
-                <span class="ps-rank-icon" id="psRankIcon">ðŸŽ¯</span>
-                <span class="ps-rank-name" id="psRankName">AnfÃ¤nger</span>
+                <span class="ps-rank-icon" id="psRankIcon">🎯</span>
+                <span class="ps-rank-name" id="psRankName">Anfänger</span>
               </div>
-              <div class="ps-level">Level <span id="psLevel">1</span> Â· <span id="psTotalXP">0</span> XP gesamt</div>
+              <div class="ps-level">Level <span id="psLevel">1</span> · <span id="psTotalXP">0</span> XP gesamt</div>
             </div>
           </div>
 
           <!-- XP Bar -->
           <div class="ps-xp-wrap">
             <div class="ps-xp-row">
-              <span class="ps-xp-label">XP zum nÃ¤chsten Rang</span>
+              <span class="ps-xp-label">XP zum nächsten Rang</span>
               <span class="ps-xp-val"><span id="psXpCur">0</span> / <span id="psXpNext">100</span></span>
             </div>
             <div class="ps-xp-bar">
@@ -134,15 +135,15 @@
 
           <!-- Tabs -->
           <div class="ps-tabs">
-            <div class="ps-tab active" data-tab="stats" onclick="switchProfileTab('stats')">ðŸ“Š Stats</div>
-            <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">â­ SUN</div>
-            <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">ðŸ“‹ Verlauf</div>
+            <div class="ps-tab active" data-tab="stats" onclick="switchProfileTab('stats')">📊 Stats</div>
+            <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
+            <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
           </div>
 
           <!-- Body -->
           <div class="ps-body">
 
-            <!-- â”€â”€ STATS PANEL â”€â”€ -->
+            <!-- ── STATS PANEL ── -->
             <div class="ps-panel active" id="psPanel-stats">
               <div class="ps-stats-grid">
                 <div class="ps-stat-card highlight">
@@ -162,37 +163,37 @@
                 </div>
                 <div class="ps-stat-card">
                   <div class="ps-sc-label">Winrate</div>
-                  <div class="ps-sc-val gold" id="psStat-winrate">â€“</div>
+                  <div class="ps-sc-val gold" id="psStat-winrate">–</div>
                   <div class="ps-sc-sub">Siegquote</div>
                 </div>
                 <div class="ps-stat-card full">
                   <div class="ps-sc-label">Best Streak</div>
-                  <div class="ps-sc-val purple" id="psStat-streak">â€“</div>
-                  <div class="ps-sc-sub">LÃ¤ngste Siegesserie</div>
+                  <div class="ps-sc-val purple" id="psStat-streak">–</div>
+                  <div class="ps-sc-sub">Längste Siegesserie</div>
                 </div>
               </div>
 
               <!-- Waffe Breakdown -->
               <div class="sun-section-title" style="color:rgba(150,180,220,.4);">â—ˆ Waffen-Statistik</div>
               <div class="ps-weapon-row">
-                <div class="ps-weapon-icon">ðŸŒ¬ï¸</div>
+                <div class="ps-weapon-icon">🌬️</div>
                 <div class="ps-weapon-info">
                   <div class="ps-weapon-name">Luftgewehr</div>
-                  <div class="ps-weapon-detail" id="psLGDetail">0 Siege Â· 0 Spiele</div>
+                  <div class="ps-weapon-detail" id="psLGDetail">0 Siege · 0 Spiele</div>
                 </div>
                 <div>
-                  <div class="ps-weapon-streak" id="psLGStreak">â€“</div>
+                  <div class="ps-weapon-streak" id="psLGStreak">–</div>
                   <div class="ps-weapon-streak-lbl">Streak</div>
                 </div>
               </div>
               <div class="ps-weapon-row">
-                <div class="ps-weapon-icon">ðŸŽ¯</div>
+                <div class="ps-weapon-icon">🎯</div>
                 <div class="ps-weapon-info">
                   <div class="ps-weapon-name">Kleinkaliber</div>
-                  <div class="ps-weapon-detail" id="psKKDetail">0 Siege Â· 0 Spiele</div>
+                  <div class="ps-weapon-detail" id="psKKDetail">0 Siege · 0 Spiele</div>
                 </div>
                 <div>
-                  <div class="ps-weapon-streak" id="psKKStreak">â€“</div>
+                  <div class="ps-weapon-streak" id="psKKStreak">–</div>
                   <div class="ps-weapon-streak-lbl">Streak</div>
                 </div>
               </div>
@@ -202,8 +203,8 @@
                 <div class="perf-chart-header">
                   <span class="perf-chart-title">â—ˆ LEISTUNGSKURVE</span>
                   <div class="perf-toggle-group">
-                    <button class="perf-toggle active" id="perfToggleLG" onclick="setPerfWeapon('lg')">ðŸŒ¬ï¸ LG</button>
-                    <button class="perf-toggle" id="perfToggleKK" onclick="setPerfWeapon('kk')">ðŸŽ¯ KK</button>
+                    <button class="perf-toggle active" id="perfToggleLG" onclick="setPerfWeapon('lg')">🌬️ LG</button>
+                    <button class="perf-toggle" id="perfToggleKK" onclick="setPerfWeapon('kk')">🎯 KK</button>
                   </div>
                 </div>
                 <div class="perf-chart-box" style="height:160px;position:relative;width:100%;">
@@ -216,9 +217,9 @@
               <!-- Einstellungen -->
               <div style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
                 <button class="btn-sec" id="soundToggleBtn" style="font-size:0.6rem;"
-                  onclick="toggleSoundSetting(this)">ðŸ”Š &nbsp;Sound: AN</button>
+                  onclick="toggleSoundSetting(this)">🔊 &nbsp;Sound: AN</button>
                 <button class="btn-sec" style="font-size:0.6rem;"
-                  onclick="if(typeof Tutorial!=='undefined'){Tutorial.reset();Tutorial.start();}">ðŸŽ“
+                  onclick="if(typeof Tutorial!=='undefined'){Tutorial.reset();Tutorial.start();}">🎓
                   &nbsp;Tutorial</button>
               </div>
 
@@ -226,21 +227,21 @@
               <div style="margin-top:12px; text-align:center; padding-bottom:10px;">
                 <button class="btn-sec"
                   style="font-size:0.55rem; color:rgba(240,110,110,0.5); border-color:rgba(240,110,110,0.15);"
-                  onclick="hardResetProgress()">âœ• &nbsp;Alle Daten (Fortschritt & Erfolge) lÃ¶schen</button>
+                  onclick="hardResetProgress()">✕ &nbsp;Alle Daten (Fortschritt & Erfolge) löschen</button>
               </div>
             </div>
 
-            <!-- â”€â”€ SUN PANEL â”€â”€ -->
+            <!-- ── SUN PANEL ── -->
             <div class="ps-panel" id="psPanel-sun">
               <!-- Gesamt-Badge -->
               <div class="sun-total-badge">
                 <div class="sun-total-left">
-                  <div class="sun-total-label">â­ SUN-Sterne verdient</div>
+                  <div class="sun-total-label">⭐ SUN-Sterne verdient</div>
                   <div class="sun-total-val" id="sunTotalVal">0 / 12</div>
                 </div>
                 <div class="sun-stars" id="sunStarsRow">
-                  <span class="sun-star">â­</span><span class="sun-star">â­</span><span class="sun-star">â­</span>
-                  <span class="sun-star">â­</span><span class="sun-star">â­</span>
+                  <span class="sun-star">⭐</span><span class="sun-star">⭐</span><span class="sun-star">⭐</span>
+                  <span class="sun-star">⭐</span><span class="sun-star">⭐</span>
                 </div>
               </div>
 
@@ -254,7 +255,7 @@
               <div class="sun-grid" id="sunGrid-master"></div>
             </div>
 
-            <!-- â”€â”€ HISTORY PANEL â”€â”€ -->
+            <!-- ── HISTORY PANEL ── -->
             <div class="ps-panel" id="psPanel-history">
               <div id="psHistoryList">
                 <div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu
@@ -269,32 +270,32 @@
       <!-- Weapon Tabs -->
       <div class="hdr-spacer" aria-hidden="true" style="display:flex; justify-content:center; margin-bottom: 5px;">
         <button id="muteBtn" onclick="toggleMute()"
-          style="background:none; border:none; color:rgba(255,255,255,0.4); font-size:1.2rem; cursor:pointer; padding:4px;">ðŸ”Š</button>
+          style="background:none; border:none; color:rgba(255,255,255,0.4); font-size:1.2rem; cursor:pointer; padding:4px;">🔊</button>
       </div>
       <div class="weapon-tabs" id="weaponTabs">
         <div class="weapon-tab active" id="wTabLG" onclick="switchWeapon('lg')">
-          <div class="wt-name">ðŸŒ¬ï¸ Luftgewehr</div>
+          <div class="wt-name">🌬️ Luftgewehr</div>
         </div>
         <div class="weapon-tab" id="wTabKK" onclick="switchWeapon('kk')">
-          <div class="wt-name">ðŸŽ¯ KK</div>
+          <div class="wt-name">🎯 KK</div>
         </div>
       </div>
 
       <!-- Discipline sub-tabs (dynamic per weapon) -->
       <div class="disc-tabs" id="discTabs" style="padding:10px 20px 0;"></div>
 
-      <div class="hdr-tag" id="setupTag">â—† LUFTGEWEHR Â· LG 40 Â· 10 METER â—†</div>
+      <div class="hdr-tag" id="setupTag">◆ LUFTGEWEHR · LG 40 · 10 METER ◆</div>
 
-      <!-- SchÃ¼tzenpass -->
+      <!-- Schützenpass -->
       <div class="schuetzenpass" id="schuetzenpass" onclick="Sfx.play('click')">
         <div class="sp-hd">
           <div>
-            <div class="sp-rank-lbl">â—ˆ SchÃ¼tzenpass</div>
-            <div class="sp-rank-name" id="spRankName">AnfÃ¤nger</div>
+            <div class="sp-rank-lbl">◈ Schützenpass</div>
+            <div class="sp-rank-name" id="spRankName">Anfänger</div>
           </div>
           <div style="text-align:right;">
             <div class="sp-xp-info"><span id="spXpCur">0</span> / <span id="spXpNext">100</span> XP</div>
-            <button class="btn-lb-link" onclick="showScreen('screenLeaderboard');loadLeaderboard()">ðŸ†
+            <button class="btn-lb-link" onclick="showScreen('screenLeaderboard');loadLeaderboard()">🏆
               Weltrangliste</button>
           </div>
         </div>
@@ -302,8 +303,8 @@
           <div class="sp-progress-fill" id="spFillBar" style="width:0%"></div>
         </div>
         <div class="sp-rank-row">
-          <span class="sp-rank-cur" id="spRankCur">AnfÃ¤nger</span>
-          <span class="sp-rank-next" id="spRankNext">â†’ SchÃ¼tze</span>
+          <span class="sp-rank-cur" id="spRankCur">Anfänger</span>
+          <span class="sp-rank-next" id="spRankNext">→ Schütze</span>
         </div>
       </div>
     </div>
@@ -326,8 +327,8 @@
       </div>
 
       <div class="info-row" id="distInfo" style="display:none;">
-        <span class="info-ico">ðŸŽ¯</span>
-        <span class="info-txt"><b>10 Meter</b> â€“ Luftgewehr-Standarddistanz. HÃ¶chste PrÃ¤zision gefordert.</span>
+        <span class="info-ico">🎯</span>
+        <span class="info-txt"><b>10 Meter</b> – Luftgewehr-Standarddistanz. Höchste Präzision gefordert.</span>
       </div>
 
       <!-- Schwierigkeit -->
@@ -335,22 +336,22 @@
         <div class="card-hd">â—ˆ Bot-Schwierigkeit</div>
         <div class="diff-row" id="diffGroup">
           <button class="dif easy active" data-diff="easy" onclick="selDiff(this)">
-            <span class="dif-ico">ðŸ˜Š</span>
+            <span class="dif-ico">😊</span>
             <span class="dif-name">Einfach</span>
             <span class="dif-desc">Kreisklasse</span>
           </button>
           <button class="dif real" data-diff="real" onclick="selDiff(this)">
-            <span class="dif-ico">ðŸŽ¯</span>
+            <span class="dif-ico">🎯</span>
             <span class="dif-name">Mittel</span>
             <span class="dif-desc">Bezirksliga</span>
           </button>
           <button class="dif hard" data-diff="hard" onclick="selDiff(this)">
-            <span class="dif-ico">ðŸ’ª</span>
+            <span class="dif-ico">💪</span>
             <span class="dif-name">Elite</span>
             <span class="dif-desc">WM-Niveau</span>
           </button>
           <button class="dif elite" data-diff="elite" onclick="selDiff(this)">
-            <span class="dif-ico">ðŸ’«</span>
+            <span class="dif-ico">💫</span>
             <span class="dif-name">Profi</span>
             <span class="dif-desc">Weltrekord</span>
           </button>
@@ -358,14 +359,14 @@
       </div>
 
       <div class="info-row" id="diffInfo">
-        <span class="info-ico">ðŸ˜Š</span>
-        <span class="info-txt" id="diffInfoTxt"><b>Kreisklasse</b> â€“ GemÃ¼tlicher Einstieg. Aber unterschÃ¤tz den Bot
+        <span class="info-ico">😊</span>
+        <span class="info-txt" id="diffInfoTxt"><b>Kreisklasse</b> – Gemütlicher Einstieg. Aber unterschätz den Bot
           nicht!</span>
       </div>
 
       <!-- Schussanzahl (ausgeblendet wenn Disziplin fixe Schusszahl vorgibt) -->
       <div class="card" id="shotCountCard" style="display:none;">
-        <div class="card-hd" id="shotCountHd">â—ˆ Anzahl SchÃ¼sse</div>
+        <div class="card-hd" id="shotCountHd">◈ Anzahl Schüsse</div>
         <div class="sc-row" id="shotCountGroup">
           <button class="scb" data-shots="30" onclick="selShots(this)">
             <span class="scb-n">30</span><span class="scb-u">Schuss</span>
@@ -381,33 +382,33 @@
 
       <!-- 5er-Salve Option -->
       <button class="btn-burst" id="burstBtn" onclick="toggleBurst()">
-        <span id="burstBtnTxt">ðŸ”« 5er-Salve: AUS</span>
+        <span id="burstBtnTxt">🔫 5er-Salve: AUS</span>
         <span class="burst-badge" id="burstBadge">OPTIONAL</span>
       </button>
     </div>
 
     <div class="actions">
-      <button class="btn-fire" onclick="startBattle()">ðŸŽ¯ &nbsp;DUELL STARTEN</button>
+      <button class="btn-fire" onclick="startBattle()">🎯 &nbsp;DUELL STARTEN</button>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• BATTLE â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <!-- ══════════════════════════ BATTLE ══════════════════════════ -->
   <div id="screenBattle" class="screen">
     <div class="hdr">
       <div style="width:100%;display:flex;align-items:center;justify-content:space-between;">
         <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">SCHUSS<em>DUELL</em></div>
         <!-- Match Timer -->
         <div class="match-timer-box" id="matchTimerBox">
-          <span class="mt-ico">â±ï¸</span>
+          <span class="mt-ico">⏱️</span>
           <div class="mt-inf">
-            <div class="mt-val" id="matchTimerVal">â€“:â€“â€“</div>
+            <div class="mt-val" id="matchTimerVal">–:––</div>
             <div class="mt-lbl">Restzeit</div>
           </div>
         </div>
       </div>
       <div class="hdr-chips">
         <div class="chip gold">
-          <div class="chip-label">Ãœbrig</div>
+          <div class="chip-label">Übrig</div>
           <div class="chip-val" id="shotsLeft">40</div>
           <div class="chip-sub">Schuss</div>
         </div>
@@ -425,27 +426,27 @@
         </div>
       </div>
       <div class="hdr-tag" id="battleTag">â—† SCHUSS 1 / 40 â—†</div>
-      <div class="diff-badge easy" id="battleBadge">ðŸ˜Š KREISKLASSE</div>
-      <div class="weapon-badge lg" id="battleWeaponBadge" style="margin-bottom:8px;">ðŸŒ¬ï¸ LUFTGEWEHR</div>
+      <div class="diff-badge easy" id="battleBadge">😊 KREISKLASSE</div>
+      <div class="weapon-badge lg" id="battleWeaponBadge" style="margin-bottom:8px;">🌬️ LUFTGEWEHR</div>
     </div>
 
-    <!-- Position Bar (3Ã—20 only) -->
+    <!-- Position Bar (3×20 only) -->
     <div class="pos-bar" id="posBar">
       <div class="pos-item" id="posItem0">
-        <div class="pi-done-check">âœ“</div>
-        <div class="pi-ico">ðŸ¦µ</div>
+        <div class="pi-done-check">✓</div>
+        <div class="pi-ico">🦵</div>
         <div class="pi-name">Kniend</div>
         <div class="pi-shots" id="posShots0">0/20</div>
       </div>
       <div class="pos-item" id="posItem1">
-        <div class="pi-done-check">âœ“</div>
-        <div class="pi-ico">ðŸ›ï¸</div>
+        <div class="pi-done-check">✓</div>
+        <div class="pi-ico">🛏️</div>
         <div class="pi-name">Liegend</div>
         <div class="pi-shots" id="posShots1">0/20</div>
       </div>
       <div class="pos-item" id="posItem2">
-        <div class="pi-done-check">âœ“</div>
-        <div class="pi-ico">ðŸ§</div>
+        <div class="pi-done-check">✓</div>
+        <div class="pi-ico">🧍</div>
         <div class="pi-name">Stehend</div>
         <div class="pi-shots" id="posShots2">0/20</div>
       </div>
@@ -471,7 +472,7 @@
         <div class="lsb-divider"></div>
         <div class="lsb-block">
           <div class="lsb-lbl">Hochrechnung</div>
-          <div class="lsb-val proj" id="lsbProj">â€“</div>
+          <div class="lsb-val proj" id="lsbProj">–</div>
         </div>
       </div>
 
@@ -484,7 +485,7 @@
 
       <!-- Last shot info -->
       <div class="last-shot-box">
-        <div class="ls-txt" id="lastShotTxt"><b>Bereit!</b> DrÃ¼ck FEUER â€“ du schieÃŸt in der echten Welt, der Bot
+        <div class="ls-txt" id="lastShotTxt"><b>Bereit!</b> Drück FEUER – du schießt in der echten Welt, der Bot
           virtuell.</div>
       </div>
 
@@ -512,28 +513,28 @@
     </div>
 
     <div class="actions">
-      <button class="btn-fire" id="battleFireBtn" onclick="doBattleFire()">ðŸ”« &nbsp;FEUER!</button>
+      <button class="btn-fire" id="battleFireBtn" onclick="doBattleFire()">🔫 &nbsp;FEUER!</button>
       <button class="btn-burst" id="battleBurstBtn" onclick="doBattleFire()" style="display:none;">âš¡ &nbsp;5 SCHUSS AUF
         EINMAL</button>
       <button class="btn-sec" id="skipProbeBtn" onclick="skipProbe()"
-        style="display:none;background:rgba(255,150,50,.1);border-color:rgba(255,150,50,.3);color:rgba(255,180,80,.7);">â­ï¸
-        &nbsp;Probezeit Ã¼berspringen</button>
-      <button class="btn-sec" onclick="endBattleEarly()">âœ• &nbsp;Alle SchÃ¼sse abgegeben â€“ Ergebnis eingeben</button>
+        style="display:none;background:rgba(255,150,50,.1);border-color:rgba(255,150,50,.3);color:rgba(255,180,80,.7);">⏭️
+        &nbsp;Probezeit überspringen</button>
+      <button class="btn-sec" onclick="endBattleEarly()">✕ &nbsp;Alle Schüsse abgegeben – Ergebnis eingeben</button>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• ENTRY â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <!-- ══════════════════════════ ENTRY ══════════════════════════ -->
   <div id="screenEntry" class="screen">
     <div class="hdr">
       <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">ERGEBNIS <em>EINGEBEN</em></div>
       <div class="logo-tag">Dein Ergebnis vs. Bot-Ergebnis</div>
-      <div class="hdr-tag" id="entryTag">â—† 10 METER Â· 40 SCHUSS â—†</div>
+      <div class="hdr-tag" id="entryTag">◆ 10 METER · 40 SCHUSS ◆</div>
     </div>
 
     <div class="content">
       <!-- Bot Ergebnis -->
       <div class="bot-result fade-up">
-        <div class="br-lbl">ðŸ¤– Bot â€“ Gesamtpunkte</div>
+        <div class="br-lbl">🤖 Bot – Gesamtpunkte</div>
         <div class="dual-wrap">
           <div class="dual-col" id="botFinalPtsCol">
             <div class="br-pts" id="botFinalPts">0.0</div>
@@ -545,7 +546,7 @@
             <span class="ds-dec-lbl" style="color:rgba(240,130,110,.35);">Ganze</span>
           </div>
         </div>
-        <div class="br-sub" id="botFinalDetail">aus 40 Schuss Â· Ã˜ â€“</div>
+        <div class="br-sub" id="botFinalDetail">aus 40 Schuss · Ø –</div>
       </div>
 
       <!-- Eingabe -->
@@ -563,7 +564,7 @@
 
       <div class="divider">
         <div class="divider-line"></div>
-        <div class="divider-txt">oder direkt wÃ¤hlen</div>
+        <div class="divider-txt">oder direkt wählen</div>
         <div class="divider-line"></div>
       </div>
 
@@ -571,7 +572,7 @@
       <div id="icGameOverSlot" style="width:100%;display:flex;justify-content:center;margin-bottom:12px;">
         <button class="ic-go-upload-btn"
           onclick="if(typeof ImageCompare!=='undefined'){ImageCompare.open()}else{alert('Foto-Vergleich wird geladen. Bitte Seite neu laden.')}">
-          <span class="ic-go-upload-ico">ðŸ“·</span>
+          <span class="ic-go-upload-ico">📷</span>
           <span>Wettkampf-Foto vergleichen</span>
         </button>
       </div>
@@ -579,12 +580,12 @@
       <!-- Quick buttons -->
       <div class="quick-pair">
         <button class="btn-win" onclick="quickResult('win')">
-          <span class="qb-ico">ðŸ†</span>
+          <span class="qb-ico">🏆</span>
           <span class="qb-main">GEWONNEN</span>
           <span class="qb-sub">Mein Score &gt; Bot</span>
         </button>
         <button class="btn-lose" onclick="quickResult('lose')">
-          <span class="qb-ico">ðŸ˜”</span>
+          <span class="qb-ico">😔</span>
           <span class="qb-main">VERLOREN</span>
           <span class="qb-sub">Bot Score &gt; Meiner</span>
         </button>
@@ -592,27 +593,27 @@
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• GAME OVER â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <!-- ══════════════════════════ GAME OVER ══════════════════════════ -->
   <div id="screenOver" class="screen">
     <div class="go-emoji" id="goEmoji"></div>
     <div class="go-title" id="goTitle"></div>
     <div class="go-sub" id="goSub"></div>
     <div class="go-scores pop-in">
       <div class="gs-block">
-        <div class="gs-who">ðŸ‘§ Du</div>
-        <div class="gs-num you" id="goP">â€“</div>
+        <div class="gs-who">👧 Du</div>
+        <div class="gs-num you" id="goP">–</div>
         <div class="gs-unit" id="goPUnit" style="color:rgba(180,230,100,.85);">Zehntel</div>
-        <div style="font-family:'DM Mono',monospace;font-size:1.2rem;color:rgba(180,230,100,.9);" id="goPInt">â€“</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.2rem;color:rgba(180,230,100,.9);" id="goPInt">–</div>
         <div class="gs-unit" style="color:rgba(180,230,100,.75);">Ganze</div>
       </div>
       <div class="grain"></div>
       <div class="grid-bg"></div>
       <div class="gs-sep">:</div>
       <div class="gs-block">
-        <div class="gs-who">ðŸ¤– Bot</div>
-        <div class="gs-num bot" id="goB">â€“</div>
+        <div class="gs-who">🤖 Bot</div>
+        <div class="gs-num bot" id="goB">–</div>
         <div class="gs-unit" style="color:rgba(240,130,110,.85);">Zehntel</div>
-        <div style="font-family:'DM Mono',monospace;font-size:1.2rem;color:rgba(240,130,110,.9);" id="goBInt">â€“</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.2rem;color:rgba(240,130,110,.9);" id="goBInt">–</div>
         <div class="gs-unit" style="color:rgba(240,130,110,.75);">Ganze</div>
       </div>
     </div>
@@ -621,9 +622,12 @@
     <div id="analysisResult"></div>
     <button class="btn-fire" style="max-width:320px;position:relative;z-index:1;" onclick="restartGame()">🔄
       &nbsp;NOCHMAL</button>
+    <button class="btn-share" id="shareBtn" onclick="openShareCard()">
+      📤 &nbsp;ERGEBNIS TEILEN
+    </button>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• LEADERBOARD â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <!-- ══════════════════════════ LEADERBOARD ══════════════════════════ -->
     <!-- FEEDBACK -->
   <div id="screenFeedback" class="screen">
     <div class="hdr">
@@ -668,17 +672,17 @@
       <!-- Mein Profil-Snapshot -->
         <div>
           <div class="lb-my-lbl">Mein Streak</div>
-          <div class="lb-my-val" id="lbMyBest" style="color:#c880ff;">â€“</div>
+          <div class="lb-my-val" id="lbMyBest" style="color:#c880ff;">–</div>
         </div>
         <div style="flex:1;"></div>
         <div style="text-align:center;">
           <div class="lb-my-lbl">Score</div>
-          <div class="lb-my-val" id="lbMyScore" style="color:#ffc840;">â€“</div>
+          <div class="lb-my-val" id="lbMyScore" style="color:#ffc840;">–</div>
         </div>
         <div style="flex:1;"></div>
         <div style="text-align:right;">
           <div class="lb-my-lbl">Meine XP</div>
-          <div class="lb-my-val" id="lbMyXP" style="color:#70aaf0;">â€“</div>
+          <div class="lb-my-val" id="lbMyXP" style="color:#70aaf0;">–</div>
         </div>
       </div>
 
@@ -705,7 +709,7 @@
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• SCRIPT â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  <!-- ══════════════════════════ SCRIPT ══════════════════════════ -->
   <script src="app.js" defer></script>
 
 
@@ -786,6 +790,59 @@
       </div>
     </div>
   </div>
+  <!-- SHARE MODAL -->
+  <div id="shareOverlay" class="share-overlay" onclick="closeShareCard(event)">
+    <div class="share-modal" id="shareModal">
+
+      <!-- Preview Card -->
+      <div class="share-card" id="shareCard">
+        <div class="sc-brand">
+          <span class="sc-brand-icon">🎯</span>
+          <span class="sc-brand-name">SCHUSS CHALLENGE</span>
+        </div>
+        <div class="sc-divider"></div>
+        <div class="sc-result-emoji" id="scResultEmoji"></div>
+        <div class="sc-result-title" id="scResultTitle"></div>
+        <div class="sc-scores">
+          <div class="sc-score-block">
+            <div class="sc-who">👧 Du</div>
+            <div class="sc-pts you" id="scPlayerPts"></div>
+            <div class="sc-unit" id="scPlayerUnit"></div>
+          </div>
+          <div class="sc-vs">vs</div>
+          <div class="sc-score-block">
+            <div class="sc-who" id="scBotLabel">🤖 Bot</div>
+            <div class="sc-pts bot" id="scBotPts"></div>
+            <div class="sc-unit" id="scBotUnit"></div>
+          </div>
+        </div>
+        <div class="sc-margin" id="scMargin"></div>
+        <div class="sc-meta" id="scMeta"></div>
+        <div class="sc-url">schuss-challenge.pages.dev</div>
+      </div>
+
+      <!-- Aktions-Buttons -->
+      <div class="share-actions">
+        <button class="btn-share-go" id="shareGoBtn" onclick="doShare()">
+          📤 &nbsp;Jetzt teilen
+        </button>
+        <button class="btn-share-close" onclick="closeShareCard()">
+          ✕ Schließen
+        </button>
+      </div>
+
+      <!-- Fallback: Copy-Link wenn Web Share API fehlt -->
+      <div class="share-copy-row" id="shareCopyRow" style="display:none;">
+        <input class="share-copy-inp" id="shareCopyInp" readonly
+               value="schuss-challenge.pages.dev" />
+        <button class="share-copy-btn" onclick="copyShareLink()">
+          📋 Kopieren
+        </button>
+      </div>
+
+    </div>
+  </div>
+
 </body>
 
 </html>

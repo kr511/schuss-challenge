@@ -4292,3 +4292,259 @@
       background: rgba(190, 140, 255, .18);
       border-color: rgba(190, 140, 255, .4);
     }
+
+  /* ─── SHARE BUTTON ─────────────────────────────── */
+  .btn-share {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    max-width: 320px;
+    margin: 10px auto 0;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #1a3a60, #0d2040);
+    border: 1px solid rgba(100, 160, 255, 0.35);
+    border-radius: 12px;
+    color: rgba(140, 190, 255, 0.9);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    position: relative;
+    z-index: 1;
+  }
+  .btn-share:hover {
+    background: linear-gradient(135deg, #1e4a80, #112860);
+    border-color: rgba(100, 160, 255, 0.6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(60, 120, 255, 0.25);
+  }
+  .btn-share:active { transform: translateY(0); }
+
+  /* ─── SHARE OVERLAY ────────────────────────────── */
+  .share-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 9000;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .share-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+  .share-modal {
+    background: linear-gradient(160deg, #0f1f0a, #0a1506);
+    border: 1px solid rgba(122, 176, 48, 0.2);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 36px;
+    width: 100%;
+    max-width: 440px;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .share-overlay.active .share-modal {
+    transform: translateY(0);
+  }
+
+  /* ─── SHARE CARD (das was visuell geteilt wird) ─ */
+  .share-card {
+    background: linear-gradient(145deg, #0c1e06, #0a1a08);
+    border: 1px solid rgba(122, 176, 48, 0.3);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .share-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse at 50% 0%,
+      rgba(122, 176, 48, 0.08),
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+  .sc-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .sc-brand-icon { font-size: 1.2rem; }
+  .sc-brand-name {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    color: rgba(122, 176, 48, 0.7);
+  }
+  .sc-divider {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(122, 176, 48, 0.3),
+      transparent
+    );
+    margin-bottom: 14px;
+  }
+  .sc-result-emoji {
+    font-size: 2.4rem;
+    text-align: center;
+    margin-bottom: 4px;
+    line-height: 1;
+  }
+  .sc-result-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 1.6rem;
+    letter-spacing: 0.15em;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .sc-result-title.win  { color: #a0e060; }
+  .sc-result-title.lose { color: #f06050; }
+  .sc-result-title.draw { color: #c0c060; }
+
+  .sc-scores {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .sc-score-block { text-align: center; min-width: 80px; }
+  .sc-who {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .sc-pts {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 2.2rem;
+    line-height: 1;
+  }
+  .sc-pts.you  { color: #a0e060; }
+  .sc-pts.bot  { color: #f08070; }
+  .sc-unit {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.55rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.4;
+    margin-top: 2px;
+  }
+  .sc-vs {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.2);
+    padding-bottom: 24px;
+  }
+  .sc-margin {
+    text-align: center;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+    color: rgba(255, 255, 255, 0.5);
+  }
+  .sc-meta {
+    text-align: center;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(122, 176, 48, 0.4);
+    margin-bottom: 8px;
+  }
+  .sc-url {
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.55rem;
+    color: rgba(122, 176, 48, 0.3);
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── SHARE ACTIONS ────────────────────────────── */
+  .share-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .btn-share-go {
+    flex: 1;
+    padding: 14px;
+    background: linear-gradient(135deg, #2a5010, #1a3808);
+    border: 1px solid rgba(122, 176, 48, 0.5);
+    border-radius: 12px;
+    color: #a0e060;
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn-share-go:hover {
+    background: linear-gradient(135deg, #355e14, #234a0a);
+    transform: translateY(-1px);
+  }
+  .btn-share-close {
+    padding: 14px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn-share-close:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .share-copy-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .share-copy-inp {
+    flex: 1;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.5);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+  }
+  .share-copy-btn {
+    padding: 10px 14px;
+    background: rgba(122, 176, 48, 0.15);
+    border: 1px solid rgba(122, 176, 48, 0.3);
+    border-radius: 8px;
+    color: rgba(122, 176, 48, 0.8);
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }

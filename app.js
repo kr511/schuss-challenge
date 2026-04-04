@@ -181,7 +181,7 @@
     const G = {
       dist: '10', diff: 'easy',
       weapon: 'lg',          // 'lg' | 'kk'
-      username: (() => { try { return localStorage.getItem('sd_username') || ''; } catch (e) { return ''; } })(),
+      username: StorageManager.getRaw('username', ''),
       discipline: 'lg40',    // 'lg40' | 'lg60' | 'kk50' | 'kk100' | 'kk3x20'
       shots: 40,             // Schussanzahl (aus Disziplin oder manuell)
       burst: false,          // 5er-Salve Modus
@@ -203,6 +203,8 @@
       _timerSecsLeft: 0,     // verbleibende Sekunden
       _botStartTimeout: null, // setTimeout für verzögerter Bot-Start nach Probe
       dnf: false,            // Did Not Finish (Zeit abgelaufen)
+      playerShots: [],       // Spieler-Treffer für Analytics
+      _gameStartTime: 0,     // Für Spieldauer-Berechnung
       // Probezeit
       probeActive: false,    // Probezeit ist aktiv
       probeSecsLeft: 0,      // Verbleibende Sekunden in Probezeit
@@ -361,13 +363,11 @@
     }
 
     function loadXP() {
-      try { G.xp = parseInt(localStorage.getItem('sd_xp') || '0') || 0; }
-      catch (e) { G.xp = 0; }
+      G.xp = StorageManager.get('xp', 0) || 0;
     }
 
     function saveXP() {
-      try { localStorage.setItem('sd_xp', G.xp); }
-      catch (e) { }
+      StorageManager.set('xp', G.xp);
     }
 
     function awardXP(diff) {
@@ -2017,6 +2017,8 @@
       G.maxShots = dc.shots;
       G.shotsLeft = dc.shots;
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
+      G.playerShots = [];
+      G._gameStartTime = Date.now();
       G.dnf = false;
       G.probeActive = true;  // Probezeit ist aktiv
       G.probeSecsLeft = (G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
@@ -2458,6 +2460,15 @@
             while (DOM.shotLog.children.length > 10) DOM.shotLog.removeChild(DOM.shotLog.firstChild);
           }
         }
+      });
+
+      // Spieler-Schüsse für Analytics speichern
+      results.forEach(bRes => {
+        G.playerShots.push({
+          dx: bRes.dx ?? 0,
+          dy: bRes.dy ?? 0,
+          pts: bRes.pts
+        });
       });
 
       // ── Info text ────────────────────────────────
@@ -2946,6 +2957,9 @@
     }
 
     function showGameOver(pp, bp, reason, ppInt) {
+      G.gameDuration = G._gameStartTime > 0
+        ? Math.round((Date.now() - G._gameStartTime) / 1000)
+        : 0;
       const kk3x20 = isKK3x20WholeRingsOnly();
       DOM.goP.textContent = pp >= 0 ? (kk3x20 ? Math.floor(pp) : fmtPts(pp)) : '–';
       DOM.goB.textContent = kk3x20 ? G.botTotalInt : fmtPts(bp);
@@ -3050,12 +3064,118 @@
       
       // Sicherstellen, dass Feedback-Plan initialisiert ist
       ensureFeedbackSchedule();
-      
+
+      // Share-Daten für den Teilen-Button speichern
+      const diffNames = { easy: 'Einfach-Bot', real: 'Mittel-Bot',
+                          hard: 'Elite-Bot', elite: 'Profi-Bot' };
+      _lastShareData = {
+        kk3x20,
+        emoji:       DOM.goEmoji.textContent,
+        title:       DOM.goTitle.textContent,
+        resultClass: gameResult,
+        playerPts:   kk3x20
+                       ? String(ppInt != null ? ppInt : Math.floor(pp))
+                       : fmtPts(pp),
+        botPts:      kk3x20
+                       ? String(G.botTotalInt)
+                       : fmtPts(bp),
+        margin:      DOM.goMargin.textContent,
+        diffLabel:   diffNames[G.diff] || G.diff,
+        meta:        `${DISC[G.discipline]?.name || G.discipline} · ${G.dist}m · ${G.maxShots} Schuss`,
+      };
+
       // Zuerst screenOver anzeigen, dann dynamisch zur Umfrage wechseln, falls nötig
       showScreen('screenOver');
       
       if (shouldShowFeedback(totalDuels)) {
         setTimeout(() => showFeedbackScreen(totalDuels), 800);
+      }
+    }
+
+    /* ─── SHARE FEATURE ──────────────────────────────
+       Speichert das letzte Ergebnis und füllt die Share-Card.
+    ──────────────────────────────────────────────────*/
+
+    // Letztes Ergebnis für Share merken (wird in showGameOver gesetzt)
+    let _lastShareData = null;
+
+    function openShareCard() {
+      if (!_lastShareData) return;
+      const d = _lastShareData;
+      const kk3x20 = d.kk3x20;
+
+      // Card-Felder befüllen
+      document.getElementById('scResultEmoji').textContent  = d.emoji;
+      document.getElementById('scResultTitle').textContent  = d.title;
+      document.getElementById('scResultTitle').className    = 'sc-result-title ' + d.resultClass;
+      document.getElementById('scPlayerPts').textContent    = d.playerPts;
+      document.getElementById('scPlayerUnit').textContent   = kk3x20 ? 'Ringe' : 'Zehntel';
+      document.getElementById('scBotPts').textContent       = d.botPts;
+      document.getElementById('scBotUnit').textContent      = kk3x20 ? 'Ringe' : 'Zehntel';
+      document.getElementById('scBotLabel').textContent     = '🤖 ' + d.diffLabel;
+      document.getElementById('scMargin').textContent       = d.margin;
+      document.getElementById('scMeta').textContent         = d.meta;
+
+      // Web Share API verfügbar?
+      const hasShare = !!navigator.share;
+      document.getElementById('shareGoBtn').textContent     = hasShare
+        ? '📤 \u00a0Jetzt teilen'
+        : '📋 \u00a0Link kopieren';
+      document.getElementById('shareCopyRow').style.display = hasShare ? 'none' : 'flex';
+
+      document.getElementById('shareOverlay').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeShareCard(e) {
+      if (e && e.target !== document.getElementById('shareOverlay')) return;
+      document.getElementById('shareOverlay').classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    async function doShare() {
+      const d = _lastShareData;
+      if (!d) return;
+
+      const text =
+        `🎯 Schuss Challenge\n` +
+        `${d.emoji} ${d.title}\n\n` +
+        `👧 Ich: ${d.playerPts} vs 🤖 ${d.diffLabel}: ${d.botPts}\n` +
+        `${d.margin}\n` +
+        `${d.meta}\n\n` +
+        `Schieß du auch gegen den Bot! 👇`;
+
+      const url = 'https://schuss-challenge.pages.dev';
+
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: '🎯 Schuss Challenge', text, url });
+          // Share-Erfolg tracken
+          try {
+            const stats = JSON.parse(localStorage.getItem('sd_shares') || '{}');
+            stats.count = (stats.count || 0) + 1;
+            stats.last = Date.now();
+            localStorage.setItem('sd_shares', JSON.stringify(stats));
+          } catch (_) {}
+        } catch (err) {
+          if (err.name !== 'AbortError') console.warn('Share failed:', err);
+        }
+      } else {
+        // Fallback: Link kopieren
+        copyShareLink();
+      }
+    }
+
+    function copyShareLink() {
+      const url = 'https://schuss-challenge.pages.dev';
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => {
+          const btn = document.querySelector('.share-copy-btn');
+          if (btn) { btn.textContent = '✅ Kopiert!'; setTimeout(() => btn.textContent = '📋 Kopieren', 2000); }
+        });
+      } else {
+        const inp = document.getElementById('shareCopyInp');
+        if (inp) { inp.select(); document.execCommand('copy'); }
       }
     }
 
@@ -3076,7 +3196,7 @@
 
       const backupName = G.username;
       localStorage.clear();
-      localStorage.setItem('sd_reset_v2', 'true');
+      localStorage.setItem('sd_reset_v3', 'true');
       if (backupName) localStorage.setItem('sd_username', backupName);
 
       // Reload everything
@@ -3126,17 +3246,7 @@
     loadXP();
     updateSchuetzenpass();
 
-    // Firebase SDK könnte noch nicht geladen sein → mit Retry initialisieren
-    function initFirebaseWithRetry(attempts) {
-      if (typeof firebase !== 'undefined' && firebase.apps !== undefined) {
-        initFirebase();
-      } else if (attempts > 0) {
-        setTimeout(() => initFirebaseWithRetry(attempts - 1), 300);
-      } else {
-        console.warn('Firebase SDK nicht geladen.');
-      }
-    }
-    initFirebaseWithRetry(10);
+    // Firebase Init: nur über _tryInitFb() am Ende der Datei
     checkSunAchievements(); // Check on load in case new achievements unlocked
 
     // NEU: Fallback-System zuerst initialisieren
