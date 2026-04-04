@@ -571,12 +571,13 @@
       const totalDuels = getTotalDuels();
 
       if (Number.isInteger(score) && score >= 1 && score <= 5) {
+
+        // 1. Wie bisher: lokal speichern
         let entries = [];
         try {
           entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]');
           if (!Array.isArray(entries)) entries = [];
         } catch (e) { entries = []; }
-
         entries.unshift({
           score,
           totalDuels,
@@ -585,7 +586,39 @@
           ts: Date.now()
         });
         while (entries.length > 100) entries.pop();
-        try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
+        try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) {}
+
+        // 2. NEU: An Firebase senden
+        if (fbReady && fbDb) {
+          // Anonymer Hash aus Username (kein Klartext)
+          const userHash = G.username
+            ? G.username.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
+                .toString(36).replace('-', 'n')
+            : 'anon';
+
+          const emojis = { 1: '😡', 2: '🙁', 3: '😐', 4: '🙂', 5: '🤩' };
+
+          const entry = {
+            score,
+            emoji: emojis[score] || '?',
+            totalDuels,
+            weapon: G.weapon || 'unknown',
+            discipline: G.discipline || 'unknown',
+            diff: G.diff || 'unknown',
+            userHash,
+            ts: Date.now(),
+            date: new Date().toLocaleDateString('de-DE', {
+              day: '2-digit', month: '2-digit', year: 'numeric',
+              hour: '2-digit', minute: '2-digit'
+            })
+          };
+
+          // Unter feedback_v1/{timestamp}_{userHash} speichern
+          // (kein .push() damit keine Duplikate bei Retry)
+          const key = Date.now() + '_' + userHash;
+          fbDb.ref('feedback_v1/' + key).set(entry)
+            .catch(err => console.warn('Feedback Firebase-Fehler:', err?.code));
+        }
       }
 
       scheduleNextFeedback(totalDuels);

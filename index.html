@@ -661,7 +661,8 @@
 
   <!-- LEADERBOARD -->
   <div id="screenLeaderboard" class="screen">
-    <div class="hdr">
+    <div class="hdr" style="position:relative;">
+      <button onclick="showScreen('screenSetup')" style="position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(255,255,255,.45);font-size:1.4rem;cursor:pointer;z-index:2;padding:4px 8px;" aria-label="Schließen">✕</button>
       <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">🏆 WELT<em>RANGLISTE</em></div>
       <div class="logo-tag">XP · Streak · Score – Wer ist der beste Schütze?</div>
         <div class="hdr-tag">◆ TOP SCHÜTZEN ◆</div>
@@ -670,21 +671,22 @@
     <div class="content" style="padding-top:14px;">
 
       <!-- Mein Profil-Snapshot -->
-        <div>
-          <div class="lb-my-lbl">Mein Streak</div>
-          <div class="lb-my-val" id="lbMyBest" style="color:#c880ff;">–</div>
+        <div class="lb-my-best">
+          <div>
+            <div class="lb-my-lbl">Mein Streak</div>
+            <div class="lb-my-val" id="lbMyBest" style="color:#c880ff;">–</div>
+          </div>
+          <div style="flex:1;"></div>
+          <div style="text-align:center;">
+            <div class="lb-my-lbl">Score</div>
+            <div class="lb-my-val" id="lbMyScore" style="color:#ffc840;">–</div>
+          </div>
+          <div style="flex:1;"></div>
+          <div style="text-align:right;">
+            <div class="lb-my-lbl">Meine XP</div>
+            <div class="lb-my-val" id="lbMyXP" style="color:#70aaf0;">–</div>
+          </div>
         </div>
-        <div style="flex:1;"></div>
-        <div style="text-align:center;">
-          <div class="lb-my-lbl">Score</div>
-          <div class="lb-my-val" id="lbMyScore" style="color:#ffc840;">–</div>
-        </div>
-        <div style="flex:1;"></div>
-        <div style="text-align:right;">
-          <div class="lb-my-lbl">Meine XP</div>
-          <div class="lb-my-val" id="lbMyXP" style="color:#70aaf0;">–</div>
-        </div>
-      </div>
 
       <!-- Status-Badge (eingeloggt als...) -->
       <div id="lbStatusBadge" style="
@@ -703,10 +705,6 @@
 
     </div>
 
-    <div class="actions">
-      <button class="btn-sec" style="color:rgba(140,200,60,.55);border-color:rgba(100,180,40,.2);"
-        onclick="showScreen('screenSetup')">← Zurück zum Spiel</button>
-    </div>
   </div>
 
   <!-- ══════════════════════════ SCRIPT ══════════════════════════ -->

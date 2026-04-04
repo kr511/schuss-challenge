@@ -603,14 +603,6 @@
       font-weight: 600;
     }
     
-    /* Mobile Features */
-    .install-prompt-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -633,59 +625,6 @@
       font-size: 4rem;
       margin: 0 0 16px 0;
     }
-    
-    .install-prompt h3 {
-      color: #7ab030;
-      margin: 0 0 12px 0;
-      font-size: 1.4rem;
-    }
-    
-    .install-prompt p {
-      color: rgba(200, 200, 190, 0.9);
-      margin: 0 0 24px 0;
-      line-height: 1.5;
-    }
-    
-    .install-buttons {
-      display: flex;
-      gap: 12px;
-      justify-content: center;
-    }
-    
-    .install-btn-primary {
-      background: linear-gradient(135deg, #7ab030, #6aa028);
-      color: #0a0f06;
-      border: none;
-      border-radius: 8px;
-      padding: 12px 24px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      flex: 1;
-    }
-    
-    .install-btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(122, 176, 48, 0.3);
-    }
-    
-    .install-btn-secondary {
-      background: transparent;
-      color: #e8e8e0;
-      border: 1px solid rgba(200, 200, 190, 0.5);
-      border-radius: 8px;
-      padding: 12px 24px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      flex: 1;
-    }
-    
-    .install-btn-secondary:hover {
-      background: rgba(200, 200, 190, 0.1);
-      border-color: rgba(200, 200, 190, 0.8);
-    }
-    
     /* Prediction & Trends Section */
     .prediction-section,
     .trends-section {

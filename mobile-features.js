@@ -39,7 +39,6 @@ const MobileFeatures = (function() {
     },
     
     pwaFeatures: {
-      installPrompt: true,
       backgroundSync: true,
       periodicSync: false // Benötigt spezielle Permissions
     }
@@ -49,7 +48,6 @@ const MobileFeatures = (function() {
   let mobileState = {
     pushPermission: 'default',
     serviceWorker: null,
-    deferredPrompt: null,
     isOnline: navigator.onLine,
     lastSync: null
   };
@@ -75,8 +73,7 @@ const MobileFeatures = (function() {
     // Initialisiere Offline-Modus
     initOfflineMode();
     
-    // Initialisiere PWA-Features
-    initPWAFeatures();
+
     
     // Event-Listener für Online/Offline
     setupConnectivityListeners();
@@ -110,7 +107,7 @@ const MobileFeatures = (function() {
       return;
     }
     
-    navigator.serviceWorker.register('/sw-mobile.js')
+    navigator.serviceWorker.register('./sw.js')
       .then(registration => {
         mobileState.serviceWorker = registration;
         console.log('✅ Service Worker registriert:', registration.scope);
@@ -431,99 +428,7 @@ const MobileFeatures = (function() {
     localStorage.setItem('sd_sync_data', JSON.stringify(syncData));
   }
   
-  /**
-   * PWA-Features Initialisierung
-   */
-  function initPWAFeatures() {
-    // Installations-Prompt
-    if (CONFIG.pwaFeatures.installPrompt) {
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        mobileState.deferredPrompt = e;
-        showInstallPrompt();
-      });
-    }
-    
-    // App-Installations-Status prüfen
-    if ('getInstalledRelatedApps' in navigator) {
-      navigator.getInstalledRelatedApps()
-        .then(apps => {
-          console.log('📱 Installierte verwandte Apps:', apps);
-        })
-        .catch(error => {
-          console.error('❌ Fehler beim Prüfen installierter Apps:', error);
-        });
-    }
-  }
-  
-  /**
-   * Zeigt Installations-Prompt
-   */
-  function showInstallPrompt() {
-    if (!mobileState.deferredPrompt) return;
-    
-    // Erstelle UI für Installations-Prompt
-    const promptHTML = `
-      <div class="install-prompt-overlay">
-        <div class="install-prompt">
-          <div class="install-icon">🎯</div>
-          <h3>Schussduell installieren</h3>
-          <p>Installiere die App für das beste Erlebnis!</p>
-          <div class="install-buttons">
-            <button class="install-btn-primary" onclick="MobileFeatures.acceptInstall()">Installieren</button>
-            <button class="install-btn-secondary" onclick="MobileFeatures.dismissInstall()">Später</button>
-          </div>
-        </div>
-      </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', promptHTML);
-  }
-  
-  /**
-   * Akzeptiert Installation
-   */
-  async function acceptInstall() {
-    if (!mobileState.deferredPrompt) return;
-    
-    try {
-      const result = await mobileState.deferredPrompt.prompt();
-      const { outcome } = await mobileState.deferredPrompt.userChoice;
-      
-      console.log('📱 Installations-Auswahl:', outcome);
-      
-      if (outcome === 'accepted') {
-        console.log('✅ Benutzer hat Installation akzeptiert');
-        // Analytics: Installation akzeptiert
-      } else {
-        console.log('❌ Benutzer hat Installation abgelehnt');
-      }
-      
-      mobileState.deferredPrompt = null;
-      removeInstallPrompt();
-    } catch (error) {
-      console.error('❌ Fehler bei Installation:', error);
-    }
-  }
-  
-  /**
-   * Verwirft Installation
-   */
-  function dismissInstall() {
-    console.log('📱 Installation verworfen');
-    mobileState.deferredPrompt = null;
-    removeInstallPrompt();
-  }
-  
-  /**
-   * Entfernt Installations-Prompt
-   */
-  function removeInstallPrompt() {
-    const overlay = document.querySelector('.install-prompt-overlay');
-    if (overlay) {
-      overlay.remove();
-    }
-  }
+
   
   /**
    * Connectivity-Listener einrichten
@@ -721,10 +626,7 @@ const MobileFeatures = (function() {
     hapticError,
     hapticWarning,
     
-    // PWA Features
-    acceptInstall,
-    dismissInstall,
-    showInstallPrompt,
+
     
     // Sync
     syncData,
