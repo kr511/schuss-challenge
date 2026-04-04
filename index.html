@@ -174,7 +174,7 @@
               </div>
 
               <!-- Waffe Breakdown -->
-              <div class="sun-section-title" style="color:rgba(150,180,220,.4);">â—ˆ Waffen-Statistik</div>
+              <div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Waffen-Statistik</div>
               <div class="ps-weapon-row">
                 <div class="ps-weapon-icon">🌬️</div>
                 <div class="ps-weapon-info">
@@ -201,7 +201,7 @@
               <!-- Leistungskurve -->
               <div class="perf-chart-wrap">
                 <div class="perf-chart-header">
-                  <span class="perf-chart-title">â—ˆ LEISTUNGSKURVE</span>
+                  <span class="perf-chart-title">◇ LEISTUNGSKURVE</span>
                   <div class="perf-toggle-group">
                     <button class="perf-toggle active" id="perfToggleLG" onclick="setPerfWeapon('lg')">🌬️ LG</button>
                     <button class="perf-toggle" id="perfToggleKK" onclick="setPerfWeapon('kk')">🎯 KK</button>
@@ -245,13 +245,13 @@
                 </div>
               </div>
 
-              <div class="sun-section-title">â—ˆ Erste Schritte</div>
+              <div class="sun-section-title">◇ Erste Schritte</div>
               <div class="sun-grid" id="sunGrid-basic"></div>
 
-              <div class="sun-section-title">â—ˆ Kampf-Erfolge</div>
+              <div class="sun-section-title">◇ Kampf-Erfolge</div>
               <div class="sun-grid" id="sunGrid-battle"></div>
 
-              <div class="sun-section-title">â—ˆ Meister-Erfolge</div>
+              <div class="sun-section-title">◇ Meister-Erfolge</div>
               <div class="sun-grid" id="sunGrid-master"></div>
             </div>
 
@@ -312,7 +312,7 @@
     <div class="content">
       <!-- Distanz (wird bei 3x20 ausgeblendet da fix) -->
       <div class="card" id="distCard" style="display:none;">
-        <div class="card-hd">â—ˆ Distanz zur Scheibe</div>
+        <div class="card-hd">◇ Distanz zur Scheibe</div>
         <div class="dist-row" id="distGroup">
           <button class="db active" data-dist="10" onclick="selDist(this)">
             <span class="db-n">10</span><span class="db-u">Meter</span>
@@ -333,7 +333,7 @@
 
       <!-- Schwierigkeit -->
       <div class="card">
-        <div class="card-hd">â—ˆ Bot-Schwierigkeit</div>
+        <div class="card-hd">◇ Bot-Schwierigkeit</div>
         <div class="diff-row" id="diffGroup">
           <button class="dif easy active" data-diff="easy" onclick="selDiff(this)">
             <span class="dif-ico">😊</span>
@@ -425,7 +425,7 @@
           </div>
         </div>
       </div>
-      <div class="hdr-tag" id="battleTag">â—† SCHUSS 1 / 40 â—†</div>
+      <div class="hdr-tag" id="battleTag">◆ SCHUSS 1 / 40 ◆</div>
       <div class="diff-badge easy" id="battleBadge">😊 KREISKLASSE</div>
       <div class="weapon-badge lg" id="battleWeaponBadge" style="margin-bottom:8px;">🌬️ LUFTGEWEHR</div>
     </div>
@@ -514,7 +514,7 @@
 
     <div class="actions">
       <button class="btn-fire" id="battleFireBtn" onclick="doBattleFire()">🔫 &nbsp;FEUER!</button>
-      <button class="btn-burst" id="battleBurstBtn" onclick="doBattleFire()" style="display:none;">âš¡ &nbsp;5 SCHUSS AUF
+      <button class="btn-burst" id="battleBurstBtn" onclick="doBattleFire()" style="display:none;">⚡ &nbsp;5 SCHUSS AUF
         EINMAL</button>
       <button class="btn-sec" id="skipProbeBtn" onclick="skipProbe()"
         style="display:none;background:rgba(255,150,50,.1);border-color:rgba(255,150,50,.3);color:rgba(255,180,80,.7);">⏭️
@@ -551,7 +551,7 @@
 
       <!-- Eingabe -->
       <div class="entry-card2 fade-up">
-        <div class="ec-lbl">â—ˆ Dein Ergebnis eingeben (Zehntel & Ganze)</div>
+        <div class="ec-lbl">◇ Dein Ergebnis eingeben (Zehntel & Ganze)</div>
         <div class="ec-row">
           <input type="number" class="score-inp" id="playerInp" placeholder="z.B. 405.2" min="0" max="660" step="0.1"
             inputmode="decimal" enterkeyhint="next" autocomplete="off" oninput="onPlayerInput()">
@@ -559,7 +559,7 @@
             step="1" inputmode="numeric" enterkeyhint="done" autocomplete="off" oninput="onPlayerInpInt()">
         </div>
         <div class="inp-hint" id="inpHint"></div>
-        <button class="btn-calc" onclick="calcResult()" style="width: 100%; margin-top: 6px;">âš¡ VERGLEICH</button>
+        <button class="btn-calc" onclick="calcResult()" style="width: 100%; margin-top: 6px;">⚡ VERGLEICH</button>
       </div>
 
       <div class="divider">
