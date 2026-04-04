@@ -589,13 +589,13 @@
       }
 
       scheduleNextFeedback(totalDuels);
-      showScreen('screenOver');
+      showScreen('screenSetup');
     }
 
     function skipSiteFeedback() {
       const totalDuels = getTotalDuels();
       scheduleNextFeedback(totalDuels);
-      showScreen('screenOver');
+      showScreen('screenSetup');
     }
 
     function loadWeaponStats(w) {
