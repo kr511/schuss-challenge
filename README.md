@@ -20,7 +20,7 @@ No extra hardware. No subscriptions. Just your browser and a target.
 ## 🚀 Quick Start
 
 1. Open the app:  
-   https://schuss-challenge.pages.dev (or your own deployment)
+   https://kr511.github.io/schuss-challenge/ (or your own deployment)
 
 2. Or run locally:
    ```bash

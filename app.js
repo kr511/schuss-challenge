@@ -3178,7 +3178,7 @@
         `${d.meta}\n\n` +
         `Schieß du auch gegen den Bot! 👇`;
 
-      const url = 'https://schuss-challenge.pages.dev';
+      const url = 'https://kr511.github.io/schuss-challenge/';
 
       if (navigator.share) {
         try {
@@ -3200,7 +3200,7 @@
     }
 
     function copyShareLink() {
-      const url = 'https://schuss-challenge.pages.dev';
+      const url = 'https://kr511.github.io/schuss-challenge/';
       if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(() => {
           const btn = document.querySelector('.share-copy-btn');
