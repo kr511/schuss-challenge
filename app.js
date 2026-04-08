@@ -4073,23 +4073,6 @@ requestAnimationFrame(() => {
       G.is3x20 = false;
       G.posIdx = 0; G.posShots = 0; G.posResults = [];
       G.positions = []; G.posIcons = [];
-      G.dist = '10';
-      G.weapon = 'lg';
-      G.discipline = 'lg40';
-      G.shots = 40;
-      G.burst = false;
-      G.diff = 'easy';
-      if (DOM.wTabLG) DOM.wTabLG.classList.add('active');
-      if (DOM.wTabKK) DOM.wTabKK.classList.remove('active');
-      buildDiscTabs('lg');
-      selDisc('lg40');
-      document.querySelectorAll('#diffGroup .dif').forEach(b => b.classList.remove('active'));
-      const easyBtn = document.querySelector('[data-diff="easy"]');
-      if (easyBtn) easyBtn.classList.add('active');
-      if (DOM.diffInfoTxt) DOM.diffInfoTxt.innerHTML = getDiffInfo('easy');
-      if (DOM.burstBtn) DOM.burstBtn.classList.remove('on');
-      if (DOM.burstBtnTxt) DOM.burstBtnTxt.textContent = '🔫 5er-Salve: AUS';
-      if (DOM.burstBadge) DOM.burstBadge.textContent = 'OPTIONAL';
       if (DOM.profileOverlay) DOM.profileOverlay.classList.remove('active');
       if (DOM.profileIcon) DOM.profileIcon.classList.remove('active');
 
