@@ -3087,6 +3087,16 @@
       // Record stats + history + check SUN
       if (!G.dnf || gameResult !== 'win') {
         recordGameResult(gameResult, G.diff, G.weapon, pp, bp);
+        if (typeof DailyChallenge !== 'undefined') {
+          const gameData = { 
+            result: gameResult, 
+            difficulty: G.diff, 
+            weapon: G.weapon, 
+            shots: Array.from({length: G.maxShots}, () => ({ points: (pp >= 0 ? pp : 0)/G.maxShots, ring: ppInt ? ppInt/G.maxShots : Math.floor((pp >= 0 ? pp : 0)/G.maxShots) }))
+          }; 
+          const statsData = { currentStreak: Number(localStorage.getItem('sd_win_streak') || 0) };
+          DailyChallenge.trackGame(gameData, statsData);
+        }
       }
 
       // Update UI in case user views result details
@@ -3166,18 +3176,22 @@
       document.body.style.overflow = '';
     }
 
+    function getShareText() {
+      const d = _lastShareData;
+      if (!d) return null;
+      return `🎯 Schuss Challenge\n` +
+             `${d.emoji} ${d.title}\n\n` +
+             `👧 Ich: ${d.playerPts} vs 🤖 ${d.diffLabel}: ${d.botPts}\n` +
+             `${d.margin}\n` +
+             `${d.meta}\n\n` +
+             `Schieß du auch gegen den Bot! 👇`;
+    }
+
     async function doShare() {
       const d = _lastShareData;
       if (!d) return;
 
-      const text =
-        `🎯 Schuss Challenge\n` +
-        `${d.emoji} ${d.title}\n\n` +
-        `👧 Ich: ${d.playerPts} vs 🤖 ${d.diffLabel}: ${d.botPts}\n` +
-        `${d.margin}\n` +
-        `${d.meta}\n\n` +
-        `Schieß du auch gegen den Bot! 👇`;
-
+      const text = getShareText();
       const url = 'https://kr511.github.io/schuss-challenge/';
 
       if (navigator.share) {
@@ -3201,14 +3215,22 @@
 
     function copyShareLink() {
       const url = 'https://kr511.github.io/schuss-challenge/';
+      let textToCopy = getShareText() || '';
+      if (textToCopy) textToCopy += '\n\n' + url;
+      else textToCopy = url;
+
       if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).then(() => {
+        navigator.clipboard.writeText(textToCopy).then(() => {
           const btn = document.querySelector('.share-copy-btn');
           if (btn) { btn.textContent = '✅ Kopiert!'; setTimeout(() => btn.textContent = '📋 Kopieren', 2000); }
         });
       } else {
         const inp = document.getElementById('shareCopyInp');
-        if (inp) { inp.select(); document.execCommand('copy'); }
+        if (inp) { 
+          inp.value = textToCopy.replace(/\n/g, ' ');
+          inp.select(); 
+          document.execCommand('copy'); 
+        }
       }
     }
 
@@ -3278,6 +3300,7 @@
     drawTarget([]);
     loadXP();
     updateSchuetzenpass();
+    if (typeof DailyChallenge !== 'undefined') DailyChallenge.init();
 
     // Firebase Init: nur über _tryInitFb() am Ende der Datei
     checkSunAchievements(); // Check on load in case new achievements unlocked

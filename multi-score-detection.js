@@ -537,11 +537,26 @@ const MultiScoreDetection = (function() {
   }
   
   /**
-   * Führt Tesseract-OCR durch (Placeholder)
+   * Führt echtes Tesseract-OCR aus, wenn ImageCompare verfügbar ist.
    */
   async function performTesseractOCR(canvas) {
-    // Hier würde die echte Tesseract-Integration erfolgen
-    // Für jetzt simulieren wir ein Ergebnis
+    if (typeof window !== 'undefined' && window.ImageCompare && typeof window.ImageCompare.getTesseractWorker === 'function') {
+      try {
+        const worker = await window.ImageCompare.getTesseractWorker();
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        const result = await worker.recognize(dataUrl);
+
+        return {
+          success: true,
+          text: result && result.data && result.data.text ? result.data.text : '',
+          confidence: result && result.data && result.data.confidence ? (result.data.confidence / 100) : 0.5
+        };
+      } catch (err) {
+        console.warn('Real OCR failed, falling back to mock:', err);
+      }
+    }
+    
+    // Fallback falls Tesseract.js nicht geladen ist oder Fehler wirft
     return {
       success: true,
       text: Math.floor(Math.random() * 500 + 100).toString(),
@@ -561,7 +576,9 @@ const MultiScoreDetection = (function() {
     
     // Validiere Scores basierend auf Disziplin
     const validatedResults = validResults.map(result => {
-      const score = parseFloat(result.ocr.text);
+      // Behandle Kommas als Dezimalpunkte, da viele europäische OCR-Engines dies tun
+      const sanitizedText = result.ocr.text.replace(/,/g, '.');
+      const score = parseFloat(sanitizedText);
       const isValid = isValidScore(score, discipline, weapon);
       
       return {

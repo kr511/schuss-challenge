@@ -636,6 +636,10 @@ window.ImageCompare = (function () {
       injectStyles();
     },
 
+    async getTesseractWorker() {
+      return await getWorker();
+    },
+
     open(botScore, isKK, discipline = null) {
       injectStyles();
 
