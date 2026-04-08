@@ -5748,81 +5748,96 @@ body.slow-network .profile-sheet {
 .fb-card {
   width: 100%;
   max-width: 380px;
-  background: linear-gradient(165deg, rgba(30, 42, 58, 0.8), rgba(20, 30, 42, 0.9));
-  border: 1px solid rgba(140, 200, 60, 0.25);
-  border-radius: 28px;
-  padding: 30px 24px;
+  background: linear-gradient(165deg, rgba(30, 45, 20, 0.9), rgba(15, 25, 10, 0.95));
+  border: 1px solid rgba(122, 176, 48, 0.3);
+  border-radius: 32px;
+  padding: 35px 28px;
   text-align: center;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  animation: fb-pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), 0 0 20px rgba(122, 176, 48, 0.1);
+  animation: fb-pop-in 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.fb-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #7ab030, transparent);
+  opacity: 0.6;
 }
 
 @keyframes fb-pop-in {
-  0% { transform: scale(0.85) translateY(30px); opacity: 0; }
+  0% { transform: scale(0.9) translateY(40px); opacity: 0; }
   100% { transform: scale(1) translateY(0); opacity: 1; }
 }
 
 .fb-title {
   color: #fff;
-  font-family: 'Bebas Neue', cursive;
-  font-size: 2.2rem;
+  font-family: var(--font-main);
+  font-weight: 800;
+  font-size: 2.4rem;
   line-height: 1.1;
-  margin-bottom: 8px;
-  letter-spacing: 0.03em;
+  margin-bottom: 10px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
 }
 
 .fb-sub {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.95rem;
-  margin-bottom: 25px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1rem;
+  margin-bottom: 30px;
+  font-weight: 500;
 }
 
 .fb-emoji-row {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .fb-emoji-btn {
   flex: 1;
   aspect-ratio: 1;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 18px;
-  font-size: 1.8rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  font-size: 2rem;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
 }
 
 .fb-emoji-btn:hover {
-  background: rgba(28, 176, 246, 0.15);
-  border-color: #1cb0f6;
-  transform: translateY(-5px) scale(1.1);
-  box-shadow: 0 10px 20px rgba(28, 176, 246, 0.2);
+  background: rgba(122, 176, 48, 0.15);
+  border-color: #7ab030;
+  transform: translateY(-8px) scale(1.15);
+  box-shadow: 0 15px 30px rgba(122, 176, 48, 0.3);
 }
 
 .fb-emoji-btn:active {
-  transform: scale(0.95);
+  transform: scale(0.9);
 }
 
 .fb-scale-row {
   display: flex;
   justify-content: space-between;
-  padding: 0 5px;
-  margin-top: 5px;
+  padding: 0 10px;
+  margin-top: 10px;
 }
 
 .fb-scale-row span {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.25);
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  color: rgba(122, 176, 48, 0.5);
 }
 
 .fb-actions {
