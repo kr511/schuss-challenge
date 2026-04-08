@@ -247,39 +247,81 @@ const DailyChallenge = (function () {
   function awardRareChest() {
     // Rare Chest gives a lot of XP and a special message
     const amount = 100; // Rare chests give 100 XP instead of standard
-    if (typeof awardXP === 'function') {
-      awardXP(amount);
-    }
     
     // Trigger Chest Animation
     const overlay = document.createElement('div');
     overlay.className = 'toolbox-overlay rare-drop';
     overlay.style.zIndex = '10001';
     overlay.innerHTML = `
-      <div class="toolbox-container wood pop-in">
+      <div class="toolbox-container pop-in">
          <div class="toolbox-glow gold"></div>
-         <div style="color: gold; font-weight: 800; font-size: 1.5rem; text-shadow: 0 0 10px rgba(255,215,0,0.5); margin-bottom: 10px;">SELTERER FUND!</div>
-         <img src="wood_toolbox.png" class="toolbox-img" alt="Holzkiste"/>
-         <div class="toolbox-open-text">+${amount} XP Bonus!</div>
+         <div id="chestRareTitle" style="color: gold; font-weight: 800; font-size: 1.5rem; text-shadow: 0 0 10px rgba(255,215,0,0.5); margin-bottom: 20px; opacity: 0; transform: translateY(-20px); transition: all 0.5s;">SELTERER FUND!</div>
+         <img src="wood_toolbox.png" id="chestImg" class="toolbox-img shake" alt="Holzkiste" style="width: 150px;"/>
+         <div id="chestRareXP" class="toolbox-open-text" style="opacity: 0; transform: scale(0.5); transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); margin-top: 20px;">+${amount} XP Bonus!</div>
       </div>
     `;
     document.body.appendChild(overlay);
 
+    const chestImg = overlay.querySelector('#chestImg');
+    const title = overlay.querySelector('#chestRareTitle');
+    const xpText = overlay.querySelector('#chestRareXP');
+
+    // Step 1: Shake (already started by class)
     if (typeof playSound === 'function') {
-      playSound('success'); // Assume success sound exists
+      playSound('success'); // Initial sound
     }
+
+    // Step 2: Open after 1.2s shake
+    setTimeout(() => {
+      chestImg.classList.remove('shake');
+      chestImg.classList.add('open');
+      title.style.opacity = '1';
+      title.style.transform = 'translateY(0)';
+      
+      if (typeof playSound === 'function') {
+        playSound('win'); // Opening sound
+      }
+      
+      spawnChestParticles(overlay);
+
+      setTimeout(() => {
+        xpText.style.opacity = '1';
+        xpText.style.transform = 'scale(1)';
+        if (typeof awardXP === 'function') {
+          awardXP(amount);
+        }
+      }, 300);
+    }, 1200);
+
+    // Step 3: Auto-close
+    setTimeout(() => {
+       overlay.style.opacity = '0';
+       setTimeout(() => overlay.remove(), 400);
+    }, 5000);
 
     overlay.addEventListener('click', () => {
       overlay.style.opacity = '0';
       setTimeout(() => overlay.remove(), 400); 
     });
+  }
 
-    setTimeout(() => {
-       if (overlay.parentElement) {
-          overlay.style.opacity = '0';
-          setTimeout(() => overlay.remove(), 400);
-       }
-    }, 5000);
+  function spawnChestParticles(parent) {
+    const count = 30;
+    const container = parent.querySelector('.toolbox-container');
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'chest-particle';
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 50 + Math.random() * 150;
+      const dx = Math.cos(angle) * dist;
+      const dy = Math.sin(angle) * dist;
+      p.style.setProperty('--dx', `${dx}px`);
+      p.style.setProperty('--dy', `${dy}px`);
+      p.style.left = '50%';
+      p.style.top = '50%';
+      container.appendChild(p);
+      setTimeout(() => p.remove(), 1000);
+    }
   }
 
   function checkAllCompleted() {
@@ -287,6 +329,9 @@ const DailyChallenge = (function () {
     const allCompleted = state.challenges.every(c => c.completed);
     if (!allCompleted) {
       showSingleCompletionBanner();
+    } else {
+      // Alle Missionen erfüllt -> Automatisch die große Truhe öffnen
+      setTimeout(() => openFinalChest(), 1500);
     }
   }
 
@@ -315,36 +360,62 @@ const DailyChallenge = (function () {
     saveState();
     renderUI();
 
-    // Holzkiste Animation & Extra XP
     const extraXP = 200;
-    setTimeout(() => {
-      if (typeof awardXP === 'function') {
-        awardXP(extraXP); 
-      }
-    }, 2500);
-
+    
     const overlay = document.createElement('div');
-    overlay.className = 'toolbox-overlay';
+    overlay.className = 'toolbox-overlay rare-drop'; // Reuse styles
+    overlay.style.zIndex = '10001';
     overlay.innerHTML = `
-      <div class="toolbox-container wood">
-         <div class="toolbox-glow"></div>
-         <img src="wood_toolbox.png" class="toolbox-img" alt="Holzkiste"/>
-         <div class="toolbox-open-text">+${extraXP} XP Bonus!</div>
+      <div class="toolbox-container pop-in">
+         <div class="toolbox-glow gold"></div>
+         <div id="finalChestTitle" style="color: gold; font-weight: 800; font-size: 1.8rem; text-shadow: 0 0 15px gold; margin-bottom: 20px; opacity: 0; transform: translateY(-20px); transition: all 0.5s;">ALLE MISSIONEN ERFÜLLT!</div>
+         <img src="gold_toolbox.png" id="finalChestImg" class="toolbox-img shake" alt="Goldkiste" style="width: 180px;"/>
+         <div id="finalChestXP" class="toolbox-open-text" style="opacity: 0; transform: scale(0.5); transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); margin-top: 20px;">+${extraXP} XP Bonus!</div>
+         <div id="finalChestStreak" style="opacity: 0; color: #1cb0f6; font-weight: 800; margin-top: 10px; transition: all 0.5s;">🔥 Streak erhöht auf ${state.streak} Tage!</div>
       </div>
     `;
     document.body.appendChild(overlay);
+
+    const chestImg = overlay.querySelector('#finalChestImg');
+    const title = overlay.querySelector('#finalChestTitle');
+    const xpText = overlay.querySelector('#finalChestXP');
+    const streakText = overlay.querySelector('#finalChestStreak');
+
+    if (typeof playSound === 'function') {
+      playSound('success');
+    }
+
+    setTimeout(() => {
+      chestImg.classList.remove('shake');
+      chestImg.classList.add('open');
+      title.style.opacity = '1';
+      title.style.transform = 'translateY(0)';
+      
+      if (typeof playSound === 'function') {
+        playSound('win');
+      }
+      
+      spawnChestParticles(overlay);
+
+      setTimeout(() => {
+        xpText.style.opacity = '1';
+        xpText.style.transform = 'scale(1)';
+        streakText.style.opacity = '1';
+        if (typeof awardXP === 'function') {
+          awardXP(extraXP);
+        }
+      }, 300);
+    }, 1500);
+
+    setTimeout(() => {
+       overlay.style.opacity = '0';
+       setTimeout(() => overlay.remove(), 400);
+    }, 6000);
 
     overlay.addEventListener('click', () => {
       overlay.style.opacity = '0';
       setTimeout(() => overlay.remove(), 400); 
     });
-
-    setTimeout(() => {
-       if (overlay.parentElement) {
-          overlay.style.opacity = '0';
-          setTimeout(() => overlay.remove(), 400);
-       }
-    }, 6000);
   }
 
   function renderUI() {
