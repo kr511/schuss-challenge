@@ -714,6 +714,7 @@
 
     const FEEDBACK_MIN_DUELS = 3;
     const FEEDBACK_MAX_DUELS = 5;
+    let _feedbackPromptTimeout = null;
 
     function getTotalDuels(stats = null) {
       const gs = stats || loadGameStats();
@@ -760,12 +761,31 @@
       saveFeedbackMeta(meta);
     }
 
+    function clearPendingFeedbackPrompt() {
+      if (_feedbackPromptTimeout) {
+        clearTimeout(_feedbackPromptTimeout);
+        _feedbackPromptTimeout = null;
+      }
+    }
+
+    function scheduleFeedbackPrompt(totalDuels) {
+      clearPendingFeedbackPrompt();
+      _feedbackPromptTimeout = setTimeout(() => {
+        _feedbackPromptTimeout = null;
+        const overScreen = document.getElementById('screenOver');
+        if (!overScreen || !overScreen.classList.contains('active')) return;
+        showFeedbackScreen(totalDuels);
+      }, 800);
+    }
+
     function showFeedbackScreen(totalDuels) {
+      clearPendingFeedbackPrompt();
       if (DOM.feedbackCount) DOM.feedbackCount.textContent = `◆ DUELL #${totalDuels} ◆`;
       showScreen('screenFeedback');
     }
 
     function submitSiteFeedback(rating) {
+      clearPendingFeedbackPrompt();
       const score = parseInt(rating);
       const totalDuels = getTotalDuels();
 
@@ -833,6 +853,7 @@
     }
 
     function skipSiteFeedback() {
+      clearPendingFeedbackPrompt();
       const totalDuels = getTotalDuels();
       scheduleNextFeedback(totalDuels);
       showScreen('screenSetup');
@@ -3865,7 +3886,7 @@ requestAnimationFrame(() => {
       showScreen('screenOver');
 
       if (shouldShowFeedback(totalDuels)) {
-        setTimeout(() => showFeedbackScreen(totalDuels), 800);
+        scheduleFeedbackPrompt(totalDuels);
       }
 
       HealthyEngagement.onMatchFinished(G.gameDuration);
@@ -4035,6 +4056,7 @@ requestAnimationFrame(() => {
     }
 
     function restartGame() {
+      clearPendingFeedbackPrompt();
       clearBattleTimers();
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.playerShotsLeft = G.shots; G.botShotsLeft = G.shots; G.maxShots = G.shots;
@@ -4051,18 +4073,33 @@ requestAnimationFrame(() => {
       G.is3x20 = false;
       G.posIdx = 0; G.posShots = 0; G.posResults = [];
       G.positions = []; G.posIcons = [];
-
+      G.dist = '10';
+      G.weapon = 'lg';
+      G.discipline = 'lg40';
+      G.shots = 40;
+      G.burst = false;
       G.diff = 'easy';
+      if (DOM.wTabLG) DOM.wTabLG.classList.add('active');
+      if (DOM.wTabKK) DOM.wTabKK.classList.remove('active');
+      buildDiscTabs('lg');
+      selDisc('lg40');
       document.querySelectorAll('#diffGroup .dif').forEach(b => b.classList.remove('active'));
       const easyBtn = document.querySelector('[data-diff="easy"]');
       if (easyBtn) easyBtn.classList.add('active');
       if (DOM.diffInfoTxt) DOM.diffInfoTxt.innerHTML = getDiffInfo('easy');
+      if (DOM.burstBtn) DOM.burstBtn.classList.remove('on');
+      if (DOM.burstBtnTxt) DOM.burstBtnTxt.textContent = '🔫 5er-Salve: AUS';
+      if (DOM.burstBadge) DOM.burstBadge.textContent = 'OPTIONAL';
+      if (DOM.profileOverlay) DOM.profileOverlay.classList.remove('active');
+      if (DOM.profileIcon) DOM.profileIcon.classList.remove('active');
 
       setSz(); drawTarget([]);
+      window.scrollTo(0, 0);
       showScreen('screenSetup');
     }
 
     function showScreen(id) {
+      if (id !== 'screenOver') clearPendingFeedbackPrompt();
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
       if (id === 'screenSetup') {
