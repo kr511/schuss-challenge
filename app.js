@@ -391,6 +391,27 @@
       return gained;
     }
 
+    function awardFlatXP(amount) {
+      const gained = Math.max(0, Math.floor(Number(amount) || 0));
+      if (gained <= 0) return 0;
+
+      const { idx: oldIdx } = getRank(G.xp);
+      G.xp += gained;
+      saveXP();
+      updateSchuetzenpass();
+      showXPPop(gained);
+
+      const { rank: newRank, idx: newIdx } = getRank(G.xp);
+      if (newIdx > oldIdx) {
+        showLevelUp(newRank);
+      } else if (typeof Sounds !== 'undefined') {
+        setTimeout(() => Sounds.xp(), 300);
+      }
+
+      pushProfileToFirebase();
+      return gained;
+    }
+
     function showLevelUp(rank) {
       const overlay = document.getElementById('levelUpOverlay');
       const badge = document.getElementById('luBadge');
@@ -599,8 +620,7 @@
       const totalDuels = getTotalDuels();
 
       if (Number.isInteger(score) && score >= 1 && score <= 5) {
-
-        // 1. Wie bisher: lokal speichern
+        // ... (existing logic for saving)
         let entries = [];
         try {
           entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]');
@@ -616,16 +636,12 @@
         while (entries.length > 100) entries.pop();
         try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) {}
 
-        // 2. NEU: An Firebase senden
         if (fbReady && fbDb) {
-          // Anonymer Hash aus Username (kein Klartext)
           const userHash = G.username
             ? G.username.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
                 .toString(36).replace('-', 'n')
             : 'anon';
-
           const emojis = { 1: '😡', 2: '🙁', 3: '😐', 4: '🙂', 5: '🤩' };
-
           const entry = {
             score,
             emoji: emojis[score] || '?',
@@ -640,12 +656,25 @@
               hour: '2-digit', minute: '2-digit'
             })
           };
-
-          // Unter feedback_v1/{timestamp}_{userHash} speichern
-          // (kein .push() damit keine Duplikate bei Retry)
           const key = Date.now() + '_' + userHash;
           fbDb.ref('feedback_v1/' + key).set(entry)
             .catch(err => console.warn('Feedback Firebase-Fehler:', err?.code));
+        }
+
+        // Show thank you message
+        const card = document.querySelector('.fb-card');
+        if (card) {
+          card.innerHTML = `
+            <div class="fb-title" style="color: #90d838;">DANKE! 🎉</div>
+            <div class="fb-sub">Dein Feedback hilft uns sehr.</div>
+            <div style="font-size: 4rem; margin: 20px 0;">🙌</div>
+          `;
+          if (typeof Sounds !== 'undefined') Sounds.win();
+          setTimeout(() => {
+            scheduleNextFeedback(totalDuels);
+            showScreen('screenSetup');
+          }, 2000);
+          return;
         }
       }
 
@@ -667,6 +696,375 @@
     function saveWeaponStats(w, s) {
       try { localStorage.setItem(`sd_wstats_${w}`, JSON.stringify(s)); } catch (e) { }
     }
+
+    function todayIdLocal() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function readJsonStorage(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    function writeJsonStorage(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { }
+    }
+
+    function showEngagementToast(message, durationMs = 4200) {
+      if (!message) return;
+      const toast = document.createElement('div');
+      toast.className = 'engagement-toast';
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      requestAnimationFrame(() => toast.classList.add('active'));
+      setTimeout(() => {
+        toast.classList.remove('active');
+        setTimeout(() => toast.remove(), 220);
+      }, Math.max(1200, durationMs));
+    }
+
+    const RookiePlan = (function () {
+      const STORAGE_KEY = 'sd_rookie_plan_v1';
+      const PLAN_REWARD_XP = 120;
+      const STEPS = [
+        { id: 'profile', title: 'Tag 1 · Profil anlegen', check: (m) => m.hasUsername },
+        { id: 'first_duel', title: 'Tag 2 · Erstes Duell spielen', check: (m) => m.totalDuels >= 1 },
+        { id: 'first_win', title: 'Tag 3 · Ersten Sieg holen', check: (m) => m.wins >= 1 },
+        { id: 'both_weapons', title: 'Tag 4 · LG + KK testen', check: (m) => m.lgGames >= 1 && m.kkGames >= 1 },
+        { id: 'daily_mission', title: 'Tag 5 · 1 Daily-Mission erledigen', check: (m) => m.dailyCompleted >= 1 },
+        { id: 'streak_3', title: 'Tag 6 · 3er-Streak erreichen', check: (m) => m.bestStreak >= 3 },
+        { id: 'five_duels', title: 'Tag 7 · 5 Duelle insgesamt', check: (m) => m.totalDuels >= 5 }
+      ];
+
+      let state = {
+        introSeen: false,
+        lastDoneCount: 0,
+        completedAt: 0,
+        rewardClaimed: false
+      };
+
+      function loadState() {
+        const raw = readJsonStorage(STORAGE_KEY, {});
+        state = {
+          introSeen: !!raw.introSeen,
+          lastDoneCount: Math.max(0, Number(raw.lastDoneCount) || 0),
+          completedAt: Number(raw.completedAt) || 0,
+          rewardClaimed: !!raw.rewardClaimed
+        };
+      }
+
+      function saveState() {
+        writeJsonStorage(STORAGE_KEY, state);
+      }
+
+      function getMetrics() {
+        const gs = loadGameStats();
+        const totalDuels = getTotalDuels(gs);
+        const wins = gs.wins || 0;
+        const lg = loadWeaponStats('lg');
+        const kk = loadWeaponStats('kk');
+        const lgGames = (lg.wins || 0) + (lg.losses || 0) + (lg.draws || 0);
+        const kkGames = (kk.wins || 0) + (kk.losses || 0) + (kk.draws || 0);
+        const bestStreak = Math.max(
+          Number(localStorage.getItem('sd_lg_best') || 0) || 0,
+          Number(localStorage.getItem('sd_kk_best') || 0) || 0
+        );
+        const dailyState = readJsonStorage('sd_daily_challenge', {});
+        const dailyCompleted = Array.isArray(dailyState.challenges)
+          ? dailyState.challenges.filter(c => c && c.completed).length
+          : 0;
+
+        return {
+          hasUsername: !!(G.username || localStorage.getItem('sd_username')),
+          totalDuels,
+          wins,
+          lgGames,
+          kkGames,
+          bestStreak,
+          dailyCompleted
+        };
+      }
+
+      function evaluate() {
+        const metrics = getMetrics();
+        const steps = STEPS.map(s => ({ ...s, done: !!s.check(metrics) }));
+        const doneCount = steps.filter(s => s.done).length;
+        return { metrics, steps, doneCount, total: STEPS.length, completed: doneCount === STEPS.length };
+      }
+
+      function render(evalResult = null) {
+        const mount = document.getElementById('rookiePlanMount');
+        if (!mount) return;
+        
+        // Only show in profile sheet
+        const isProfileVisible = document.getElementById('profileOverlay')?.classList.contains('active');
+        if (!isProfileVisible && !evalResult) return;
+
+        if (!(G.username || localStorage.getItem('sd_username'))) {
+          mount.innerHTML = '';
+          return;
+        }
+
+        const res = evalResult || evaluate();
+        const pct = Math.round((res.doneCount / res.total) * 100);
+        const doneBadge = res.completed ? '🏁 Woche abgeschlossen' : '🧭 Rookie-Woche';
+        const hint = res.completed
+          ? 'Stark! Du hast den kompletten Einstieg abgeschlossen.'
+          : 'Kurze Sessions mit klaren Zielen bringen dich am schnellsten voran.';
+
+        mount.innerHTML = `
+          <div class="rookie-plan-card profile-mode">
+            <div class="rookie-plan-head">
+              <div class="rookie-plan-title">${doneBadge}</div>
+              <div class="rookie-plan-progress">${res.doneCount} / ${res.total}</div>
+            </div>
+            <div class="rookie-plan-bar">
+              <div class="rookie-plan-bar-fill" style="width:${pct}%"></div>
+            </div>
+            <div class="rookie-plan-list">
+              ${res.steps.map((s, i) => `
+                <div class="rookie-plan-item ${s.done ? 'done' : ''}">
+                  <div class="rookie-plan-dot">${s.done ? '✓' : (i + 1)}</div>
+                  <div class="rookie-plan-text">${s.title}</div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      function showIntroIfNeeded(force = false) {
+        const overlay = document.getElementById('rookieIntroOverlay');
+        if (!overlay) return;
+        if (!(G.username || localStorage.getItem('sd_username'))) return;
+        if (state.introSeen && !force) return;
+        overlay.classList.add('active');
+      }
+
+      function hideIntro() {
+        const overlay = document.getElementById('rookieIntroOverlay');
+        if (overlay) overlay.classList.remove('active');
+      }
+
+      function dismissIntro(started) {
+        state.introSeen = true;
+        saveState();
+        hideIntro();
+        if (started) {
+          showEngagementToast('Rookie-Woche gestartet. Schritt für Schritt zum sicheren Flow.');
+        }
+        evaluateAndRender(true);
+      }
+
+      function evaluateAndRender(silent = false) {
+        const res = evaluate();
+        const prevDone = state.lastDoneCount || 0;
+
+        if (res.doneCount > prevDone && !silent) {
+          showEngagementToast(`Rookie-Fortschritt: ${res.doneCount}/${res.total} abgeschlossen.`);
+        }
+
+        state.lastDoneCount = res.doneCount;
+
+        if (res.completed && !state.rewardClaimed) {
+          state.rewardClaimed = true;
+          state.completedAt = Date.now();
+          const gained = awardFlatXP(PLAN_REWARD_XP);
+          if (!silent && gained > 0) {
+            showEngagementToast(`Rookie-Woche geschafft! +${gained} XP Bonus.`);
+          }
+        }
+
+        saveState();
+        render(res);
+      }
+
+      function init() {
+        loadState();
+        evaluateAndRender(true);
+      }
+
+      return {
+        init,
+        evaluateAndRender,
+        showIntroIfNeeded,
+        dismissIntro
+      };
+    })();
+
+    const HealthyEngagement = (function () {
+      const STORAGE_KEY = 'sd_healthy_engagement_v1';
+      const BREAK_INTERVAL_SECS = 20 * 60;
+      const MAX_BREAK_HINTS_PER_DAY = 3;
+      const RETURN_REMINDER_HOURS = 18;
+
+      let state = {
+        dateId: '',
+        activeSecsToday: 0,
+        pauseHintsShownToday: 0,
+        lastReminderDateId: '',
+        lastVisitAt: 0,
+        lastBattleStartAt: 0,
+        snoozeUntil: 0
+      };
+
+      function normalizeForToday() {
+        const today = todayIdLocal();
+        if (state.dateId !== today) {
+          state.dateId = today;
+          state.activeSecsToday = 0;
+          state.pauseHintsShownToday = 0;
+          state.snoozeUntil = 0;
+        }
+      }
+
+      function loadState() {
+        const raw = readJsonStorage(STORAGE_KEY, {});
+        state = {
+          dateId: typeof raw.dateId === 'string' ? raw.dateId : '',
+          activeSecsToday: Math.max(0, Number(raw.activeSecsToday) || 0),
+          pauseHintsShownToday: Math.max(0, Number(raw.pauseHintsShownToday) || 0),
+          lastReminderDateId: typeof raw.lastReminderDateId === 'string' ? raw.lastReminderDateId : '',
+          lastVisitAt: Math.max(0, Number(raw.lastVisitAt) || 0),
+          lastBattleStartAt: Math.max(0, Number(raw.lastBattleStartAt) || 0),
+          snoozeUntil: Math.max(0, Number(raw.snoozeUntil) || 0)
+        };
+        normalizeForToday();
+      }
+
+      function saveState() {
+        writeJsonStorage(STORAGE_KEY, state);
+      }
+
+      function hideBreakOverlay() {
+        const overlay = document.getElementById('healthyBreakOverlay');
+        if (overlay) overlay.classList.remove('active');
+      }
+
+      function showBreakOverlay() {
+        if (Date.now() < state.snoozeUntil) return;
+        if (state.pauseHintsShownToday >= MAX_BREAK_HINTS_PER_DAY) return;
+
+        const overlay = document.getElementById('healthyBreakOverlay');
+        const txt = document.getElementById('healthyBreakText');
+        if (!overlay || !txt) return;
+
+        const mins = Math.round(state.activeSecsToday / 60);
+        txt.textContent = `Du bist heute schon ${mins} Minuten im Fokus. 2 Minuten Pause helfen Konzentration und Trefferbild.`;
+        overlay.classList.add('active');
+        state.pauseHintsShownToday += 1;
+        saveState();
+      }
+
+      function maybeShowBreakHint() {
+        const thresholdHits = Math.floor(state.activeSecsToday / BREAK_INTERVAL_SECS);
+        if (thresholdHits > state.pauseHintsShownToday) {
+          showBreakOverlay();
+        }
+      }
+
+      function maybeShowReturnReminder() {
+        const today = todayIdLocal();
+        if (state.lastReminderDateId === today) return;
+
+        const lastPlayedAt = Math.max(0, Number(localStorage.getItem('sd_last_played_at') || 0));
+        if (!lastPlayedAt) return;
+
+        const hoursAway = (Date.now() - lastPlayedAt) / 3600000;
+      if (hoursAway < RETURN_REMINDER_HOURS) return;
+
+      showEngagementToast('Willkommen zurück! Eine kurze Session reicht heute schon für Fortschritt.');
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('🎯 Schussduell erinnert dich', {
+            body: 'Deine Rookie-Woche und Tagesmission warten auf dich.',
+            tag: 'sd-gentle-reminder'
+          });
+        } catch (e) { }
+      }
+      state.lastReminderDateId = today;
+      saveState();
+    }
+
+      function onBattleStart() {
+        normalizeForToday();
+        state.lastBattleStartAt = Date.now();
+        saveState();
+      }
+
+      function onMatchFinished(durationSecs) {
+        normalizeForToday();
+        const elapsedByStart = state.lastBattleStartAt > 0
+          ? Math.floor((Date.now() - state.lastBattleStartAt) / 1000)
+          : 0;
+        const elapsed = Math.max(
+          0,
+          Number.isFinite(durationSecs) ? Math.floor(durationSecs) : 0,
+          elapsedByStart
+        );
+
+        state.lastBattleStartAt = 0;
+        if (elapsed > 0) {
+          state.activeSecsToday += elapsed;
+          localStorage.setItem('sd_last_played_at', String(Date.now()));
+          maybeShowBreakHint();
+        }
+        saveState();
+      }
+
+      function takeBreak() {
+        state.snoozeUntil = Date.now() + (2 * 60 * 1000);
+        saveState();
+        hideBreakOverlay();
+        showEngagementToast('Top. 2 Minuten Pause aktiviert.');
+      }
+
+      function continuePlay() {
+        state.snoozeUntil = Date.now() + (10 * 60 * 1000);
+        saveState();
+        hideBreakOverlay();
+        showEngagementToast('Alles klar. Nächster Pausenhinweis in ca. 10 Minuten.');
+      }
+
+      function init() {
+        loadState();
+        maybeShowReturnReminder();
+        state.lastVisitAt = Date.now();
+        saveState();
+      }
+
+      return {
+        init,
+        onBattleStart,
+        onMatchFinished,
+        takeBreak,
+        continuePlay,
+        hideBreakOverlay
+      };
+    })();
+
+    window.startRookieOnboarding = function () {
+      RookiePlan.dismissIntro(true);
+    };
+
+    window.dismissRookieOnboarding = function () {
+      RookiePlan.dismissIntro(false);
+    };
+
+    window.healthyTakeBreak = function () {
+      HealthyEngagement.takeBreak();
+    };
+
+    window.healthyContinuePlay = function () {
+      HealthyEngagement.continuePlay();
+    };
 
     function recordGameResult(result, diff, weapon, playerPts, botPts) {
       // Global stats
@@ -2064,6 +2462,7 @@
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.playerShots = [];
       G._gameStartTime = Date.now();
+      HealthyEngagement.onBattleStart();
       G.dnf = false;
       G.probeActive = true;  // Probezeit ist aktiv
       G.probeSecsLeft = (G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
@@ -3175,6 +3574,9 @@
       if (shouldShowFeedback(totalDuels)) {
         setTimeout(() => showFeedbackScreen(totalDuels), 800);
       }
+
+      HealthyEngagement.onMatchFinished(G.gameDuration);
+      setTimeout(() => RookiePlan.evaluateAndRender(false), 120);
     }
 
     /* ─── SHARE FEATURE ──────────────────────────────
@@ -3334,6 +3736,11 @@
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
+      if (id === 'screenSetup') {
+        RookiePlan.evaluateAndRender(true);
+      } else if (id === 'screenBattle') {
+        HealthyEngagement.hideBreakOverlay();
+      }
     }
 
     /* ─── INIT ───────────────────────────────── */
@@ -3400,6 +3807,8 @@
         G.username = savedName;
         // Bekannter User: Profil im Hintergrund synchronisieren
         setTimeout(() => pushProfileToFirebase(), 1500);
+        RookiePlan.evaluateAndRender(true);
+        RookiePlan.showIntroIfNeeded(false);
       }
     }
 
@@ -3430,6 +3839,8 @@
       pushProfileToFirebase();
       // Tutorial für neue Nutzer starten
       if (typeof Tutorial !== 'undefined') Tutorial.startIfNew();
+      RookiePlan.evaluateAndRender(true);
+      RookiePlan.showIntroIfNeeded(true);
     }
 
     // Allow Enter key to submit welcome screen or calculation
@@ -3447,7 +3858,9 @@
       if (e.key === 'Enter') calcResult();
     });
 
+    RookiePlan.init();
     checkFirstVisit();
+    HealthyEngagement.init();
 
     // Build initial discipline tabs for default weapon (lg)
     buildDiscTabs('lg');

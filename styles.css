@@ -3134,6 +3134,14 @@
     .go-emoji {
       font-size: 4.5rem;
       line-height: 1;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3));
+      animation: emoji-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes emoji-pop {
+      0% { transform: scale(0.5) rotate(-15deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0); opacity: 1; }
     }
 
     .go-title {
@@ -5148,4 +5156,351 @@
   color: rgba(255, 255, 255, 0.3);
   font-size: 0.9rem;
 }
+
+/* ═══════════════════════════════════════════
+   ROOKIE ONBOARDING + HEALTHY ENGAGEMENT
+═══════════════════════════════════════════ */
+#rookiePlanMount {
+  margin: 14px 0 18px;
+}
+
+.rookie-plan-card.profile-mode {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  margin-top: 10px;
+}
+
+.rookie-plan-card.profile-mode .rookie-plan-title {
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.rookie-plan-card.profile-mode .rookie-plan-bar {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.rookie-plan-card.profile-mode .rookie-plan-item {
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+.rookie-plan-card.profile-mode .rookie-plan-text {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
+}
+
+
+.rookie-plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.rookie-plan-title {
+  color: #a9e7ff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+}
+
+.rookie-plan-progress {
+  color: #d2f4ff;
+  font-weight: 700;
+  font-size: 0.8rem;
+  opacity: 0.95;
+}
+
+.rookie-plan-bar {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.rookie-plan-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #1cb0f6, #8cc83c);
+  transition: width 0.35s ease;
+}
+
+.rookie-plan-list {
+  display: grid;
+  gap: 8px;
+}
+
+.rookie-plan-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rookie-plan-item.done {
+  border-color: rgba(140, 200, 60, 0.5);
+  background: rgba(140, 200, 60, 0.12);
+}
+
+.rookie-plan-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.16);
+  flex: 0 0 22px;
+}
+
+.rookie-plan-item.done .rookie-plan-dot {
+  background: rgba(140, 200, 60, 0.85);
+  color: #182420;
+}
+
+.rookie-plan-text {
+  color: rgba(240, 248, 255, 0.9);
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.rookie-plan-hint {
+  margin-top: 10px;
+  color: rgba(170, 204, 218, 0.82);
+  font-size: 0.76rem;
+}
+
+#rookieIntroOverlay,
+#healthyBreakOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+#rookieIntroOverlay.active,
+#healthyBreakOverlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.rookie-intro-card,
+.healthy-break-card {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 18px;
+  padding: 18px;
+  background: linear-gradient(160deg, rgba(22, 30, 38, 0.97), rgba(11, 17, 23, 0.97));
+  border: 1px solid rgba(28, 176, 246, 0.35);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+.rookie-intro-icon {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.rookie-intro-title,
+.healthy-break-title {
+  color: #ecfbff;
+  font-family: 'Bebas Neue', cursive;
+  font-size: 1.8rem;
+  letter-spacing: 0.05em;
+}
+
+.rookie-intro-sub,
+.healthy-break-sub {
+  color: rgba(225, 240, 250, 0.86);
+  line-height: 1.35;
+  margin: 10px 0 12px;
+  font-size: 0.95rem;
+}
+
+.rookie-intro-list {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.rookie-intro-item {
+  color: rgba(203, 231, 244, 0.9);
+  font-size: 0.84rem;
+}
+
+.rookie-intro-actions,
+.healthy-break-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.rookie-intro-btn,
+.healthy-break-btn {
+  flex: 1;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e9f4fb;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.rookie-intro-btn.primary,
+.healthy-break-btn.primary {
+  background: linear-gradient(135deg, #1cb0f6, #1899d6);
+  border-color: rgba(28, 176, 246, 0.7);
+  color: #0d1b22;
+}
+
+.engagement-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(9, 16, 24, 0.96);
+  border: 1px solid rgba(28, 176, 246, 0.4);
+  color: #e7f5ff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  z-index: 10030;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.engagement-toast.active {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ═══════════════════════════════════════════
+   MODERN FEEDBACK SYSTEM
+═══════════════════════════════════════════ */
+#screenFeedback {
+  background: rgba(0, 0, 0, 0.95);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+}
+
+.fb-card {
+  width: 100%;
+  max-width: 380px;
+  background: linear-gradient(165deg, rgba(30, 42, 58, 0.8), rgba(20, 30, 42, 0.9));
+  border: 1px solid rgba(140, 200, 60, 0.25);
+  border-radius: 28px;
+  padding: 30px 24px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  animation: fb-pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes fb-pop-in {
+  0% { transform: scale(0.85) translateY(30px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.fb-title {
+  color: #fff;
+  font-family: 'Bebas Neue', cursive;
+  font-size: 2.2rem;
+  line-height: 1.1;
+  margin-bottom: 8px;
+  letter-spacing: 0.03em;
+}
+
+.fb-sub {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.95rem;
+  margin-bottom: 25px;
+}
+
+.fb-emoji-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.fb-emoji-btn {
+  flex: 1;
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  font-size: 1.8rem;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.fb-emoji-btn:hover {
+  background: rgba(28, 176, 246, 0.15);
+  border-color: #1cb0f6;
+  transform: translateY(-5px) scale(1.1);
+  box-shadow: 0 10px 20px rgba(28, 176, 246, 0.2);
+}
+
+.fb-emoji-btn:active {
+  transform: scale(0.95);
+}
+
+.fb-scale-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 5px;
+  margin-top: 5px;
+}
+
+.fb-scale-row span {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.fb-actions {
+  margin-top: 30px;
+}
+
+.btn-fb-skip {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  padding: 10px 20px;
+  transition: color 0.2s;
+}
+
+.btn-fb-skip:hover {
+  color: #fff;
+}
+
 

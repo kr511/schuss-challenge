@@ -66,6 +66,41 @@
     </div>
   </div>
 
+  <!-- ROOKIE ONBOARDING OVERLAY -->
+  <div id="rookieIntroOverlay">
+    <div class="rookie-intro-card">
+      <div class="rookie-intro-icon">🧭</div>
+      <div class="rookie-intro-title">ROOKIE-WOCHE</div>
+      <div class="rookie-intro-sub">
+        7 klare Schritte für einen starken Einstieg.<br>
+        Kurze Sessions, saubere Progression, besseres Lernen.
+      </div>
+      <div class="rookie-intro-list">
+        <div class="rookie-intro-item">1. Erstes Duell + erster Sieg</div>
+        <div class="rookie-intro-item">2. LG und KK testen</div>
+        <div class="rookie-intro-item">3. Daily-Mission + Streak aufbauen</div>
+      </div>
+      <div class="rookie-intro-actions">
+        <button class="rookie-intro-btn primary" onclick="startRookieOnboarding()">LOS GEHT'S</button>
+        <button class="rookie-intro-btn" onclick="dismissRookieOnboarding()">SPÄTER</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEALTHY BREAK OVERLAY -->
+  <div id="healthyBreakOverlay">
+    <div class="healthy-break-card">
+      <div class="healthy-break-title">🫶 Kurze Pause empfohlen</div>
+      <div class="healthy-break-sub" id="healthyBreakText">
+        Du warst heute schon lange im Fokus. 2 Minuten Pause helfen Konzentration und Technik.
+      </div>
+      <div class="healthy-break-actions">
+        <button class="healthy-break-btn primary" onclick="healthyTakeBreak()">2 MIN PAUSE</button>
+        <button class="healthy-break-btn" onclick="healthyContinuePlay()">NOCH 10 MIN</button>
+      </div>
+    </div>
+  </div>
+
   <!-- LEVEL UP OVERLAY -->
   <div id="levelUpOverlay" class="level-up-overlay">
     <div class="level-up-card">
@@ -226,6 +261,9 @@
                     Duell!</div>
                 </div>
               </div>
+
+              <!-- ROOKIE PLAN (Moved from Main Setup) -->
+              <div id="rookiePlanMount" style="margin-top: 20px;"></div>
 
               <!-- Einstellungen -->
               <div style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
@@ -649,6 +687,7 @@
 
   <!-- ══════════════════════════ LEADERBOARD ══════════════════════════ -->
     <!-- FEEDBACK -->
+  <!-- FEEDBACK SCREEN -->
   <div id="screenFeedback" class="screen">
     <div class="hdr">
       <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">DEIN <em>FEEDBACK</em></div>
@@ -656,17 +695,19 @@
       <div class="hdr-tag" id="feedbackCount">◆ DUELL ◆</div>
     </div>
 
-    <div class="content fb-content">
+    <div class="content fb-content" style="display: flex; align-items: center; justify-content: center; flex: 1; width: 100%;">
       <div class="fb-card">
-        <div class="fb-title">Wie gut ist die Seite aktuell?</div>
+        <div class="fb-title">Wie gefällt dir die Seite?</div>
         <div class="fb-sub">Bitte wähle ein Emoji:</div>
+        
         <div class="fb-emoji-row">
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(1)" title="1 von 5">😡</button>
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(2)" title="2 von 5">🙁</button>
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(3)" title="3 von 5">😐</button>
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(4)" title="4 von 5">🙂</button>
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(5)" title="5 von 5">🤩</button>
+          <button class="fb-emoji-btn" onclick="submitSiteFeedback(1)" title="Schlecht">😡</button>
+          <button class="fb-emoji-btn" onclick="submitSiteFeedback(2)" title="Naja">🙁</button>
+          <button class="fb-emoji-btn" onclick="submitSiteFeedback(3)" title="Okay">😐</button>
+          <button class="fb-emoji-btn" onclick="submitSiteFeedback(4)" title="Gut">🙂</button>
+          <button class="fb-emoji-btn" onclick="submitSiteFeedback(5)" title="Super!">🤩</button>
         </div>
+        
         <div class="fb-scale-row">
           <span>schlecht</span>
           <span>top</span>
@@ -675,7 +716,7 @@
     </div>
 
     <div class="actions">
-      <button class="btn-sec" onclick="skipSiteFeedback()">Später</button>
+      <button class="btn-sec" onclick="skipSiteFeedback()">Vielleicht später</button>
     </div>
   </div>
 
