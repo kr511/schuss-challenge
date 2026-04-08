@@ -119,23 +119,9 @@
     <div class="hdr">
       <!-- Top row: profil left · logo center · spacer right -->
       <div class="hdr-top">
-        <div class="profile-btn" id="profileBtn" onclick="toggleProfileMenu()">
-          <div class="pb-icon" id="profileIcon">🎯</div>
-          <div class="pb-inf">
-            <div class="pb-rank" id="profileRank">Anfänger</div>
-            <div class="pb-lbl">PROFIL</div>
-          </div>
-        </div>
+        <div id="hdrStreakMount" onclick="toggleProfileMenu()"></div>
         <div class="logo">SCHUSS<em>DUELL</em></div>
-        <div class="hdr-spacer" aria-hidden="true">
-          <div class="streak-corner" id="streakCorner">
-            <span class="sc-fire" id="scFire">⭐</span>
-            <div class="sc-inf">
-              <div class="sc-n" id="scN">0</div>
-              <div class="sc-lbl" id="scLbl">XP</div>
-            </div>
-          </div>
-        </div>
+        <div class="schuetzenpass-icon" id="profileIcon" onclick="toggleProfileMenu()">👤</div>
       </div>
       <div class="logo-tag" id="logoTag">Du vs. Bot · 40 Schuss · Wer trifft besser?</div>
 

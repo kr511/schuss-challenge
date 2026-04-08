@@ -5388,10 +5388,75 @@
   pointer-events: none;
 }
 
-.engagement-toast.active {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
+/* ═══════════════════════════════════════════
+   KONFETTI EFFEKT
+═══════════════════════════════════════════ */
+.confetti {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  z-index: 21000;
+  pointer-events: none;
+  animation: confetti-fall 3s linear forwards;
 }
+
+@keyframes confetti-fall {
+  0% { transform: translateY(-100vh) rotate(0deg) translateX(0); opacity: 1; }
+  25% { transform: translateY(-50vh) rotate(180deg) translateX(30px); }
+  50% { transform: translateY(0) rotate(360deg) translateX(-30px); }
+  75% { transform: translateY(50vh) rotate(540deg) translateX(20px); }
+  100% { transform: translateY(100vh) rotate(720deg) translateX(0); opacity: 0; }
+}
+
+/* XP Bar Animation */
+.sp-xp-fill, .ps-xp-fill {
+  transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sp-xp-fill::after, .ps-xp-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: bar-shine 2s infinite;
+}
+
+@keyframes bar-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Header Streak Icon */
+.hdr-streak-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 150, 0, 0.12);
+  border: 1px solid rgba(255, 150, 0, 0.3);
+  border-radius: 99px;
+  padding: 3px 10px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #ff9600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hdr-streak-badge:hover {
+  background: rgba(255, 150, 0, 0.2);
+  transform: scale(1.05);
+}
+
+.hdr-streak-badge .fire-ico {
+  font-size: 1rem;
+  animation: fire-flicker 1.5s infinite alternate;
+}
+
+@keyframes fire-flicker {
+  0% { filter: drop-shadow(0 0 2px #ff4500); transform: scale(1); }
+  100% { filter: drop-shadow(0 0 8px #ff8c00); transform: scale(1.1); }
+}
+
 
 /* ═══════════════════════════════════════════
    MODERN FEEDBACK SYSTEM

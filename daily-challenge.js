@@ -452,6 +452,7 @@ const DailyChallenge = (function () {
       }
       
       spawnChestParticles(overlay);
+      if (typeof triggerHaptic === 'function') triggerHaptic();
 
       setTimeout(() => {
         xpText.style.opacity = '1';
@@ -567,6 +568,8 @@ const DailyChallenge = (function () {
       }
       
       spawnChestParticles(overlay);
+      if (typeof spawnConfetti === 'function') spawnConfetti();
+      if (typeof triggerHaptic === 'function') triggerHaptic();
 
       setTimeout(() => {
         xpText.style.opacity = '1';

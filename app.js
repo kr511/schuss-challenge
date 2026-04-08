@@ -422,6 +422,9 @@
       name.textContent = rank.name;
       overlay.classList.add('active');
 
+      spawnConfetti();
+      triggerHaptic();
+
       if (typeof Sounds !== 'undefined') Sounds.levelUp();
     }
 
@@ -549,6 +552,37 @@
         const t = activeTab.dataset.tab;
         if (t === 'sun') renderSunGrid();
         if (t === 'history') renderHistory();
+      }
+
+      // Update Header Streak Badge
+      const streak = Number(localStorage.getItem('sd_win_streak') || 0);
+      const streakMount = document.getElementById('hdrStreakMount');
+      if (streakMount) {
+        streakMount.innerHTML = `
+          <div class="hdr-streak-badge">
+            <span class="fire-ico">🔥</span>
+            <span>${streak}</span>
+          </div>
+        `;
+      }
+    }
+
+    function spawnConfetti() {
+      const colors = ['#ff9600', '#1cb0f6', '#90d838', '#ff4500', '#ffd700', '#ffffff'];
+      for (let i = 0; i < 50; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.left = Math.random() * 100 + 'vw';
+        c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+        c.style.animationDelay = Math.random() * 2 + 's';
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 4000);
+      }
+    }
+
+    function triggerHaptic() {
+      if ('vibrate' in navigator) {
+        navigator.vibrate([30, 20, 30]);
       }
     }
 
