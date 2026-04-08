@@ -3322,15 +3322,9 @@ requestAnimationFrame(() => {
       // Eingabefeld: KK 3x20 = nur Ganze Ringe; KK 50m/100m + LG = Zehntel & Ganze
       const kk3x20Only = G.is3x20 && G.weapon === 'kk';
       DOM.playerInp.style.display = kk3x20Only ? 'none' : '';
-      if (G.playerShots.length > 0) {
-        if (kk3x20Only) {
-          if (DOM.playerInpInt) DOM.playerInpInt.value = String(G.playerTotalInt);
-        } else {
-          if (DOM.playerInp) DOM.playerInp.value = fmtPts(G.playerTotal);
-          if (DOM.playerInpInt) DOM.playerInpInt.value = String(G.playerTotalInt);
-        }
-        setInpHint('Automatisch aus deinen FEUER-Klicks übernommen – du kannst den Wert ändern.', false);
-      }
+      setInpHint(kk3x20Only
+        ? 'Bitte dein Ergebnis manuell eingeben.'
+        : 'Bitte Zehntel und Ganze manuell eingeben.', false);
       const ecLbl = DOM.playerInp.closest('.ec-row')?.previousElementSibling;
       if (ecLbl) ecLbl.textContent = kk3x20Only
         ? '◈ Dein Ergebnis eingeben (Ganze Ringe)'
