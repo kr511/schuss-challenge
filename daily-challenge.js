@@ -11,6 +11,7 @@ const DailyChallenge = (function () {
     {
       id: 'win_2_real',
       type: 'win',
+      difficulty: 'medium',
       desc: 'Gewinne 2 Duelle auf Schwierigkeit "Mittel" oder höher.',
       target: 2,
       xpReward: 30,
@@ -19,6 +20,7 @@ const DailyChallenge = (function () {
     {
       id: 'win_streak_3',
       type: 'streak',
+      difficulty: 'hard',
       desc: 'Erreiche eine Siegesserie von 3 in beliebiger Disziplin.',
       target: 3,
       xpReward: 40,
@@ -27,6 +29,7 @@ const DailyChallenge = (function () {
     {
       id: 'play_1_kk',
       type: 'play',
+      difficulty: 'easy',
       desc: 'Spiele mindestens ein Duell mit dem Kleinkaliber (KK).',
       target: 1,
       xpReward: 25,
@@ -35,6 +38,7 @@ const DailyChallenge = (function () {
     {
       id: 'score_above_9',
       type: 'score_avg',
+      difficulty: 'hard',
       desc: 'Erreiche in einem Duell einen Ringdurchschnitt von mind. 9.0',
       target: 1,
       xpReward: 35,
@@ -48,6 +52,7 @@ const DailyChallenge = (function () {
     {
       id: 'win_1_elite',
       type: 'win',
+      difficulty: 'hard',
       desc: 'Gewinne 1 Duell auf Schwierigkeit "Elite" oder "Profi".',
       target: 1,
       xpReward: 50,
@@ -56,6 +61,7 @@ const DailyChallenge = (function () {
     {
       id: 'play_2_lg',
       type: 'play',
+      difficulty: 'easy',
       desc: 'Absolviere 2 Duelle mit dem Luftgewehr.',
       target: 2,
       xpReward: 30,
@@ -64,6 +70,7 @@ const DailyChallenge = (function () {
     {
       id: 'perfect_shot',
       type: 'shot',
+      difficulty: 'hard',
       desc: 'Schieße im Duell mindestens eine 10.9 (oder 10 fürs KK).',
       target: 1,
       xpReward: 40,
@@ -79,6 +86,7 @@ const DailyChallenge = (function () {
     {
       id: 'consistency_80',
       type: 'consistency',
+      difficulty: 'medium',
       desc: 'Erreiche eine Konstanz von mind. 80% in einem Duell.',
       target: 1,
       xpReward: 45,
@@ -87,6 +95,7 @@ const DailyChallenge = (function () {
     {
       id: 'total_shots_40',
       type: 'shots_count',
+      difficulty: 'medium',
       desc: 'Schieße insgesamt 40 Mal in Duellen.',
       target: 40,
       xpReward: 50,
@@ -100,34 +109,179 @@ const DailyChallenge = (function () {
     streak: 0,
     toolboxDroppedForDate: ''
   };
+  let uiRefreshTimer = null;
 
   function init() {
     loadState();
     checkDailyReset();
     renderUI();
+    startUIRefresh();
   }
 
   function getDateId(date = new Date()) {
     return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
   }
 
-  function getDailyChallenges(dateId) {
+  function parseDateIdLocal(dateId) {
+    if (!dateId || typeof dateId !== 'string') return null;
+    const parts = dateId.split('-');
+    if (parts.length !== 3) return null;
+    const y = Number(parts[0]);
+    const m = Number(parts[1]);
+    const d = Number(parts[2]);
+    if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return null;
+    const dt = new Date(y, m - 1, d);
+    if (dt.getFullYear() !== y || (dt.getMonth() + 1) !== m || dt.getDate() !== d) return null;
+    return dt;
+  }
+
+  function formatResetCountdown() {
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(24, 0, 0, 0); // local midnight
+    const ms = Math.max(0, next.getTime() - now.getTime());
+    const totalMins = Math.floor(ms / 60000);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+
+  function startUIRefresh() {
+    if (uiRefreshTimer) return;
+    uiRefreshTimer = setInterval(() => {
+      // keep countdown fresh and handle day rollover while app stays open
+      checkDailyReset();
+      renderUI();
+    }, 30000);
+  }
+
+  function normalizeChallenge(entry) {
+    const ref = getChallengeRef(entry && entry.id);
+    if (!ref) return null;
+    const progressRaw = Number(entry && entry.progress);
+    const progress = Number.isFinite(progressRaw) ? Math.max(0, Math.min(ref.target, Math.floor(progressRaw))) : 0;
+    const completed = !!entry && !!entry.completed;
+    return {
+      id: ref.id,
+      progress,
+      completed: completed || progress >= ref.target
+    };
+  }
+
+  function normalizeState(raw) {
+    const normalized = {
+      dateId: '',
+      challenges: [],
+      streak: 0,
+      toolboxDroppedForDate: ''
+    };
+
+    if (!raw || typeof raw !== 'object') return normalized;
+
+    normalized.dateId = typeof raw.dateId === 'string' ? raw.dateId : '';
+    normalized.streak = Math.max(0, Number(raw.streak) || 0);
+    normalized.toolboxDroppedForDate = typeof raw.toolboxDroppedForDate === 'string' ? raw.toolboxDroppedForDate : '';
+
+    if (Array.isArray(raw.challenges)) {
+      normalized.challenges = raw.challenges
+        .map(normalizeChallenge)
+        .filter(Boolean)
+        .slice(0, 3);
+    }
+
+    return normalized;
+  }
+
+  function getQuestDifficulty(challenge) {
+    return challenge && challenge.difficulty ? challenge.difficulty : 'medium';
+  }
+
+  function createDailyRng(dateId) {
     let hash = 0;
     for (let i = 0; i < dateId.length; i++) {
       hash = ((hash << 5) - hash) + dateId.charCodeAt(i);
       hash |= 0;
     }
-    // LCG pseudo-random
-    let currentHash = Math.abs(hash);
-    const selected = [];
-    const pool = [...CHALLENGES];
-    while(selected.length < 3 && pool.length > 0) {
-      currentHash = (currentHash * 1664525 + 1013904223) % 4294967296;
-      const idx = currentHash % pool.length;
-      selected.push({ id: pool[idx].id, progress: 0, completed: false });
-      pool.splice(idx, 1);
+    let stateSeed = (Math.abs(hash) >>> 0) || 1;
+    return function nextRandom() {
+      stateSeed = (stateSeed * 1664525 + 1013904223) >>> 0;
+      return stateSeed / 4294967296;
+    };
+  }
+
+  function pickFromPool(pool, rng, predicate) {
+    const candidates = [];
+    for (let i = 0; i < pool.length; i++) {
+      if (predicate(pool[i])) candidates.push(i);
     }
-    return selected;
+    if (candidates.length === 0) return null;
+    const selectedCandidate = candidates[Math.floor(rng() * candidates.length)];
+    return pool.splice(selectedCandidate, 1)[0];
+  }
+
+  function getDailyChallenges(dateId) {
+    const rng = createDailyRng(dateId);
+    const pool = [...CHALLENGES];
+    const selected = [];
+    let hardCount = 0;
+
+    // Ausgewogene Muster: meist easy+medium, nur selten ein harter Slot
+    const patterns = [
+      ['easy', 'easy', 'medium'],
+      ['easy', 'medium', 'medium'],
+      ['easy', 'medium', 'hard']
+    ];
+    const roll = rng();
+    const pattern = roll < 0.45
+      ? patterns[0]
+      : roll < 0.85
+        ? patterns[1]
+        : patterns[2];
+
+    const fallbacks = {
+      easy: ['easy', 'medium', 'hard'],
+      medium: ['medium', 'easy', 'hard'],
+      hard: ['hard', 'medium', 'easy']
+    };
+
+    const takeTier = (tier) => {
+      const picked = pickFromPool(pool, rng, (q) => {
+        const qTier = getQuestDifficulty(q);
+        if (qTier !== tier) return false;
+        if (qTier === 'hard' && hardCount >= 1) return false;
+        return true;
+      });
+      if (picked && getQuestDifficulty(picked) === 'hard') hardCount++;
+      return picked;
+    };
+
+    const addPickedChallenge = (challenge) => {
+      if (!challenge) return;
+      selected.push({ id: challenge.id, progress: 0, completed: false });
+    };
+
+    for (const desiredTier of pattern) {
+      let picked = null;
+      for (const tier of fallbacks[desiredTier]) {
+        picked = takeTier(tier);
+        if (picked) break;
+      }
+      addPickedChallenge(picked);
+    }
+
+    while (selected.length < 3 && pool.length > 0) {
+      let picked = null;
+      for (const tier of ['easy', 'medium', 'hard']) {
+        picked = takeTier(tier);
+        if (picked) break;
+      }
+      if (!picked) {
+        picked = pool.splice(Math.floor(rng() * pool.length), 1)[0];
+      }
+      addPickedChallenge(picked);
+    }
+
+    return selected.slice(0, 3);
   }
 
   function loadState() {
@@ -139,11 +293,12 @@ const DailyChallenge = (function () {
            // Migration old state
            state.dateId = ''; 
         } else {
-           state = parsed;
+           state = normalizeState(parsed);
         }
       }
     } catch (e) {
       console.warn("Could not load daily challenge state", e);
+      state = normalizeState(null);
     }
   }
 
@@ -157,6 +312,16 @@ const DailyChallenge = (function () {
 
   function checkDailyReset() {
     const today = getDateId();
+    const hasValidTodayChallenges = Array.isArray(state.challenges)
+      && state.challenges.length === 3
+      && state.challenges.every(c => !!getChallengeRef(c.id));
+
+    if (state.dateId === today && !hasValidTodayChallenges) {
+      state.challenges = getDailyChallenges(today);
+      saveState();
+      return;
+    }
+
     if (state.dateId !== today) {
       // Neuer Tag prüfen auf Streak
       const prevIsYesterday = isYesterday(state.dateId, today);
@@ -177,10 +342,12 @@ const DailyChallenge = (function () {
   }
 
   function isYesterday(pastDateStr, todayStr) {
-    if (!pastDateStr) return false;
-    const past = new Date(pastDateStr);
-    const today = new Date(todayStr);
-    const diff = Math.floor((today - past) / (1000 * 60 * 60 * 24));
+    const past = parseDateIdLocal(pastDateStr);
+    const today = parseDateIdLocal(todayStr);
+    if (!past || !today) return false;
+    const pastUTC = Date.UTC(past.getFullYear(), past.getMonth(), past.getDate());
+    const todayUTC = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+    const diff = Math.round((todayUTC - pastUTC) / (1000 * 60 * 60 * 24));
     return diff === 1;
   }
 
@@ -267,8 +434,10 @@ const DailyChallenge = (function () {
     const xpText = overlay.querySelector('#chestRareXP');
 
     // Step 1: Shake (already started by class)
-    if (typeof playSound === 'function') {
-      playSound('success'); // Initial sound
+    if (typeof Sounds !== 'undefined') {
+      Sounds.chestShake();
+      setTimeout(() => Sounds.chestShake(), 400);
+      setTimeout(() => Sounds.chestShake(), 800);
     }
 
     // Step 2: Open after 1.2s shake
@@ -278,8 +447,8 @@ const DailyChallenge = (function () {
       title.style.opacity = '1';
       title.style.transform = 'translateY(0)';
       
-      if (typeof playSound === 'function') {
-        playSound('win'); // Opening sound
+      if (typeof Sounds !== 'undefined') {
+        Sounds.chestOpen();
       }
       
       spawnChestParticles(overlay);
@@ -381,8 +550,10 @@ const DailyChallenge = (function () {
     const xpText = overlay.querySelector('#finalChestXP');
     const streakText = overlay.querySelector('#finalChestStreak');
 
-    if (typeof playSound === 'function') {
-      playSound('success');
+    if (typeof Sounds !== 'undefined') {
+      Sounds.chestShake();
+      setTimeout(() => Sounds.chestShake(), 500);
+      setTimeout(() => Sounds.chestShake(), 1000);
     }
 
     setTimeout(() => {
@@ -391,8 +562,8 @@ const DailyChallenge = (function () {
       title.style.opacity = '1';
       title.style.transform = 'translateY(0)';
       
-      if (typeof playSound === 'function') {
-        playSound('win');
+      if (typeof Sounds !== 'undefined') {
+        Sounds.levelUp(); // More epic sound for final chest
       }
       
       spawnChestParticles(overlay);
@@ -438,6 +609,7 @@ const DailyChallenge = (function () {
 
     let html = `
       <div style="color: #1cb0f6; font-size: 1.2rem; font-weight: 800; text-align: center; margin-bottom: 15px;">⭐ Missionen</div>
+      <div style="color: #8aa3b0; font-size: 0.82rem; text-align: center; margin-top: -10px; margin-bottom: 14px;">Neuer Satz in ${formatResetCountdown()} h</div>
       <div class="duo-quests-card">
     `;
 

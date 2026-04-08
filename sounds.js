@@ -161,6 +161,31 @@ const Sounds = (() => {
                                    volume: 0.22, attack: 0.01, decay: 0.08, sustain: 0.5, release: 0.25 }), 280);
     },
 
+    // Level-Up — große Fanfare (Duolingo-Style)
+    levelUp() {
+      const notes = [523, 659, 784, 1047, 1318, 1567]; // C5 E5 G5 C6 E6 G6
+      notes.forEach((freq, i) => {
+        setTimeout(() => playTone({ freq, type: 'sine', duration: 0.3,
+                                     volume: 0.25, attack: 0.01, decay: 0.08, sustain: 0.6, release: 0.2 }), i * 120);
+      });
+      // Bass-Fundament
+      playTone({ freq: 130, type: 'sawtooth', duration: 1.0, volume: 0.15, attack: 0.1, decay: 0.3, sustain: 0.5, release: 0.4 });
+    },
+
+    // Kiste öffnen — erst Schütteln (Rauschen), dann Gold-Plings
+    chestOpen() {
+      // Goldmünzen
+      [880, 1320, 1760, 2640].forEach((freq, i) => {
+        setTimeout(() => playTone({ freq, type: 'sine', duration: 0.25,
+                                     volume: 0.18, attack: 0.005, decay: 0.04, sustain: 0.3, release: 0.15 }), 100 + i * 90);
+      });
+    },
+
+    // Kiste schütteln — kurzes Rauschen
+    chestShake() {
+      playNoise({ duration: 0.15, volume: 0.12, filterFreq: 600 });
+    },
+
     // Positions-Wechsel 3×20 — neutraler Übergangs-Ton
     positionChange() {
       playTone({ freq: 392, freqEnd: 523, type: 'sine', duration: 0.2,

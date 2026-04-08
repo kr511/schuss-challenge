@@ -66,6 +66,17 @@
     </div>
   </div>
 
+  <!-- LEVEL UP OVERLAY -->
+  <div id="levelUpOverlay" class="level-up-overlay">
+    <div class="level-up-card">
+      <div class="lu-title">LEVEL UP!</div>
+      <div class="lu-badge" id="luBadge">🎯</div>
+      <div class="lu-rank" id="luRankName">Schütze</div>
+      <div class="lu-sub">Neuer Rang freigeschaltet!</div>
+      <button class="lu-btn" onclick="closeLevelUp()">WEITER</button>
+    </div>
+  </div>
+
   <div id="muzzleFlash"></div>
 
   <!-- ══════════════════════════ SETUP ══════════════════════════ -->
@@ -138,6 +149,7 @@
           <div class="ps-tabs">
             <div class="ps-tab active" data-tab="stats" onclick="switchProfileTab('stats')">📊 Stats</div>
             <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
+            <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
             <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
           </div>
 
@@ -254,6 +266,13 @@
 
               <div class="sun-section-title">◇ Meister-Erfolge</div>
               <div class="sun-grid" id="sunGrid-master"></div>
+            </div>
+
+            <!-- ── LEADERBOARD PANEL ── -->
+            <div class="ps-panel" id="psPanel-lb">
+              <div class="lb-panel" id="lbList">
+                <div class="lb-loading">Lade Weltrangliste...</div>
+              </div>
             </div>
 
             <!-- ── HISTORY PANEL ── -->

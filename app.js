@@ -372,15 +372,42 @@
 
     function awardXP(diff) {
       const gained = XP_PER_WIN[diff] || 10;
+      const { idx: oldIdx } = getRank(G.xp);
       G.xp += gained;
       saveXP();
-      updateSchuetzenpass(); // ruft intern updateXPCorner() auf
+      updateSchuetzenpass();
       showXPPop(gained);
-      if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.xp(), 500);
+      
+      // Rank Check
+      const { rank: newRank, idx: newIdx } = getRank(G.xp);
+      if (newIdx > oldIdx) {
+        showLevelUp(newRank);
+      } else {
+        if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.xp(), 500);
+      }
+      
       // Auto-sync zu Firebase
       pushProfileToFirebase();
       return gained;
     }
+
+    function showLevelUp(rank) {
+      const overlay = document.getElementById('levelUpOverlay');
+      const badge = document.getElementById('luBadge');
+      const name = document.getElementById('luRankName');
+      if (!overlay) return;
+
+      badge.textContent = rank.icon;
+      name.textContent = rank.name;
+      overlay.classList.add('active');
+
+      if (typeof Sounds !== 'undefined') Sounds.levelUp();
+    }
+
+    window.closeLevelUp = function() {
+      const overlay = document.getElementById('levelUpOverlay');
+      if (overlay) overlay.classList.remove('active');
+    };
 
     function showXPPop(amount) {
       const el = document.createElement('div');
@@ -440,6 +467,7 @@
       document.querySelectorAll('.ps-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
       document.querySelectorAll('.ps-panel').forEach(p => p.classList.toggle('active', p.id === 'psPanel-' + tab));
       if (tab === 'sun') renderSunGrid();
+      if (tab === 'lb') loadLeaderboard();
       if (tab === 'history') renderHistory();
       if (tab === 'stats') requestAnimationFrame(() => renderPerformanceChart());
     }
@@ -1108,42 +1136,30 @@
       const list = document.getElementById('lbList');
       if (!list) return;
 
-      // Show local best on leaderboard screen
-      // Mein Profil-Snapshot aktualisieren
-      const bestLG = parseInt(localStorage.getItem('sd_lg_best') || '0') || 0;
-      const bestKK = parseInt(localStorage.getItem('sd_kk_best') || '0') || 0;
-      const myBest = Math.max(bestLG, bestKK);
-      const myScore = G.xp + myBest * 5;
-      const el1 = document.getElementById('lbMyBest');
-      const el2 = document.getElementById('lbMyXP');
-      const el3 = document.getElementById('lbMyScore');
-      if (el1) el1.textContent = myBest > 0 ? '🔥 ' + myBest : '–';
-      if (el2) el2.textContent = G.xp || '0';
-      if (el3) el3.textContent = myScore || '–';
-
-      // Status-Badge
-      updateLbStatusBadge();
-
       list.innerHTML = '<div class="lb-loading">⏳ Lade Rangliste...</div>';
 
-      // Warte bis Firebase bereit (max. 3s), dann lade
+      // Status-Badge (falls vorhanden)
+      updateLbStatusBadge();
+
+      // Warte bis Firebase bereit
       const tryLoad = (attempts) => {
         if (!fbReady) {
           if (attempts > 0) { setTimeout(() => tryLoad(attempts - 1), 300); return; }
           list.innerHTML = '<div class="lb-empty">🔌 Offline – Bestenliste nicht verfügbar.</div>';
           return;
         }
-        fbDb.ref('leaderboard_v2').limitToLast(50).once('value')
+        
+        // Lade Top 50 nach XP sortiert
+        fbDb.ref('leaderboard_v2').orderByChild('xp').limitToLast(50).once('value')
           .then(snap => {
             const entries = [];
             snap.forEach(child => { entries.push(child.val()); });
-            entries.forEach(e => { if (!e.score) e.score = (e.xp || 0) + (e.streak || 0) * 5; });
-            entries.sort((a, b) => b.score - a.score);
-            renderLeaderboard(entries.slice(0, 25));
+            entries.reverse(); // Höchste XP zuerst
+            renderLeaderboard(entries);
           })
           .catch(err => {
             console.error('Leaderboard load error:', err?.code, err?.message);
-            list.innerHTML = '<div class="lb-empty">⚠️ Fehler beim Laden.<br><span style="font-size:.6rem;opacity:.5;">' + (err?.code || '') + '</span></div>';
+            list.innerHTML = '<div class="lb-empty">⚠️ Fehler beim Laden.</div>';
           });
       };
       tryLoad(10);
@@ -1156,28 +1172,24 @@
         list.innerHTML = '<div class="lb-empty">Noch keine Einträge. Sei der Erste! 🏆</div>';
         return;
       }
-      const medals = ['🥇', '🥈', '🥉'];
+      
       list.innerHTML = entries.map((e, i) => {
-        const cls = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
-        const pos = i < 3 ? medals[i] : (i + 1);
-        const weapon = e.weapon === 'kk' ? '🎯 KK' : '🌬️ LG';
-        const rankDisp = e.rankIcon ? `${e.rankIcon} ${e.rank || ''}` : (e.rank || '');
         const isMe = G.username && e.name === G.username;
-        return `<div class="lb-row ${cls}" style="${isMe ? 'border-color:rgba(140,200,60,.4);background:rgba(80,140,20,.08);' : ''}">
-      <div class="lb-pos">${pos}</div>
-      <div class="lb-info">
-        <div class="lb-name">${escHtml(e.name || 'Anonym')}${isMe ? ' <span style="font-size:.6rem;color:rgba(140,200,60,.6);font-weight:700;">(Du)</span>' : ''}</div>
-        <div class="lb-meta">${rankDisp ? rankDisp + ' · ' : ''}${weapon} · ${e.date || ''}</div>
-      </div>
-      <div style="text-align:center;min-width:52px;">
-        <div style="font-family:'Bebas Neue',cursive;font-size:1.1rem;color:#c880ff;line-height:1;">🔥${e.streak || 0}</div>
-        <div style="font-size:.42rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(190,140,255,.35);">Streak</div>
-      </div>
-      <div class="lb-xp" style="min-width:52px;text-align:right;">
-        <div>${e.score || e.xp || 0}<span class="lb-xp-lbl">Pkt</span></div>
-        <div style="font-size:.5rem;color:rgba(150,180,220,.3);margin-top:1px;">${e.xp || 0} XP</div>
-      </div>
-    </div>`;
+        const weaponIcon = e.weapon === 'kk' ? '🎯' : '🌬️';
+        return `
+          <div class="lb-row ${isMe ? 'me' : ''}">
+            <div class="lb-rank-num">${i + 1}</div>
+            <div class="lb-avatar">${e.rankIcon || '👤'}</div>
+            <div class="lb-info">
+              <div class="lb-name">${escHtml(e.name || 'Anonym')}${isMe ? ' (Du)' : ''}</div>
+              <div class="lb-sub">${weaponIcon} ${e.rank || 'Schütze'}</div>
+            </div>
+            <div class="lb-stats">
+              <div class="lb-xp">${e.xp || 0} XP</div>
+              <div class="lb-streak">🔥 ${e.streak || 0}</div>
+            </div>
+          </div>
+        `;
       }).join('');
     }
 
@@ -3101,6 +3113,16 @@
                 return { points: fallbackPoints, ring: Math.floor(fallbackPoints) };
               });
 
+          const questConsistency = (() => {
+            if (!Array.isArray(questShots) || questShots.length < 3) return 0;
+            const points = questShots.map(s => Number(s.points) || 0);
+            const mean = points.reduce((a, b) => a + b, 0) / points.length;
+            const variance = points.reduce((a, p) => a + ((p - mean) ** 2), 0) / points.length;
+            const stdDev = Math.sqrt(variance);
+            // Lower spread => higher consistency. stdDev ~0 -> 100, stdDev >=3 -> 0
+            return Math.max(0, Math.min(100, Math.round(100 - (stdDev / 3) * 100)));
+          })();
+
           const lgStreak = Number(localStorage.getItem('sd_lg_streak') || 0);
           const kkStreak = Number(localStorage.getItem('sd_kk_streak') || 0);
           const legacyStreak = Number(localStorage.getItem('sd_win_streak') || 0);
@@ -3109,7 +3131,8 @@
             result: gameResult, 
             difficulty: G.diff, 
             weapon: G.weapon, 
-            shots: questShots
+            shots: questShots,
+            consistency: questConsistency
           }; 
           const statsData = {
             currentStreak: Math.max(Number(G.streak || 0), lgStreak, kkStreak, legacyStreak)
