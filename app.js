@@ -3087,14 +3087,33 @@
       // Record stats + history + check SUN
       if (!G.dnf || gameResult !== 'win') {
         recordGameResult(gameResult, G.diff, G.weapon, pp, bp);
-        if (typeof DailyChallenge !== 'undefined') {
+        // Quests nur bei echtem Ergebnis (OCR oder manuelle Eingabe) berechnen
+        // Schnellauswahl (reason enthält 'Schnellauswahl') wird ignoriert
+        const isQuickResult = reason && reason.includes('Schnellauswahl');
+        if (typeof DailyChallenge !== 'undefined' && !isQuickResult) {
+          const questShots = (Array.isArray(G.playerShots) && G.playerShots.length > 0)
+            ? G.playerShots.map(s => {
+                const points = Number(s.points ?? s.pts ?? s.ring ?? 0) || 0;
+                return { points, ring: Math.floor(points) };
+              })
+            : Array.from({ length: G.maxShots }, () => {
+                const fallbackPoints = (pp >= 0 ? pp : 0) / Math.max(1, G.maxShots);
+                return { points: fallbackPoints, ring: Math.floor(fallbackPoints) };
+              });
+
+          const lgStreak = Number(localStorage.getItem('sd_lg_streak') || 0);
+          const kkStreak = Number(localStorage.getItem('sd_kk_streak') || 0);
+          const legacyStreak = Number(localStorage.getItem('sd_win_streak') || 0);
+
           const gameData = { 
             result: gameResult, 
             difficulty: G.diff, 
             weapon: G.weapon, 
-            shots: Array.from({length: G.maxShots}, () => ({ points: (pp >= 0 ? pp : 0)/G.maxShots, ring: ppInt ? ppInt/G.maxShots : Math.floor((pp >= 0 ? pp : 0)/G.maxShots) }))
+            shots: questShots
           }; 
-          const statsData = { currentStreak: Number(localStorage.getItem('sd_win_streak') || 0) };
+          const statsData = {
+            currentStreak: Math.max(Number(G.streak || 0), lgStreak, kkStreak, legacyStreak)
+          };
           DailyChallenge.trackGame(gameData, statsData);
         }
       }
@@ -3453,7 +3472,7 @@
     // ── Service Worker (PWA / Offline) ──────────────────────────────────
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js?v=2.4').catch(() => { });
+        navigator.serviceWorker.register('./sw.js?v=2.6').catch(() => { });
       });
     }
 

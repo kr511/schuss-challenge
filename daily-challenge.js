@@ -40,8 +40,9 @@ const DailyChallenge = (function () {
       xpReward: 35,
       check: (game, stats) => {
         if (!game.shots || game.shots.length === 0) return false;
-        let sum = game.shots.reduce((a, b) => a + (b.ring || Math.floor((b.points || 0))), 0);
-        return (sum / game.shots.length) >= 9.0;
+        const points = game.shots.map(s => Number(s.points ?? s.pts ?? s.ring ?? 0) || 0);
+        const sum = points.reduce((a, b) => a + b, 0);
+        return (sum / points.length) >= 9.0;
       }
     },
     {
@@ -67,9 +68,29 @@ const DailyChallenge = (function () {
       target: 1,
       xpReward: 40,
       check: (game, stats) => {
-        if (!game.shots) return false;
-        return game.shots.some(s => s.points >= 10.9 || (game.weapon === 'kk' && s.ring === 10));
+        if (!Array.isArray(game.shots) || game.shots.length === 0) return false;
+        return game.shots.some(s => {
+          const points = Number(s.points ?? s.pts ?? s.ring ?? 0) || 0;
+          const ring = Number.isFinite(s.ring) ? Number(s.ring) : Math.floor(points);
+          return points >= 10.9 || (game.weapon === 'kk' && ring >= 10);
+        });
       }
+    },
+    {
+      id: 'consistency_80',
+      type: 'consistency',
+      desc: 'Erreiche eine Konstanz von mind. 80% in einem Duell.',
+      target: 1,
+      xpReward: 45,
+      check: (game, stats) => (game.consistency || 0) >= 80
+    },
+    {
+      id: 'total_shots_40',
+      type: 'shots_count',
+      desc: 'Schieße insgesamt 40 Mal in Duellen.',
+      target: 40,
+      xpReward: 50,
+      check: (game, stats) => true // We add progress by length in trackGame
     }
   ];
 
@@ -179,8 +200,10 @@ const DailyChallenge = (function () {
       if (!ref) return;
 
       if (ref.check(gameData, statsData)) {
-        if (ref.type === 'streak' || ref.type === 'score_avg' || ref.type === 'shot') {
+        if (ref.type === 'streak' || ref.type === 'score_avg' || ref.type === 'shot' || ref.type === 'consistency') {
           c.progress = ref.target;
+        } else if (ref.type === 'shots_count') {
+          c.progress += (gameData.shots ? gameData.shots.length : 0);
         } else {
           c.progress += 1;
         }
@@ -189,7 +212,14 @@ const DailyChallenge = (function () {
           c.progress = ref.target;
           c.completed = true;
           anyNewlyCompleted = true;
-          awardChallengeXP(ref.xpReward);
+          
+          // Belohnung: XP sind Standard, Kiste ist selten (15% Chance)
+          const roll = Math.random();
+          if (roll < 0.15) {
+             awardRareChest();
+          } else {
+             awardChallengeXP(ref.xpReward);
+          }
         }
         updatedAny = true;
       }
@@ -212,6 +242,44 @@ const DailyChallenge = (function () {
         setTimeout(() => showXPPop(amount + ' XP'), 800);
       }
     }
+  }
+
+  function awardRareChest() {
+    // Rare Chest gives a lot of XP and a special message
+    const amount = 100; // Rare chests give 100 XP instead of standard
+    if (typeof awardXP === 'function') {
+      awardXP(amount);
+    }
+    
+    // Trigger Chest Animation
+    const overlay = document.createElement('div');
+    overlay.className = 'toolbox-overlay rare-drop';
+    overlay.style.zIndex = '10001';
+    overlay.innerHTML = `
+      <div class="toolbox-container wood pop-in">
+         <div class="toolbox-glow gold"></div>
+         <div style="color: gold; font-weight: 800; font-size: 1.5rem; text-shadow: 0 0 10px rgba(255,215,0,0.5); margin-bottom: 10px;">SELTERER FUND!</div>
+         <img src="wood_toolbox.png" class="toolbox-img" alt="Holzkiste"/>
+         <div class="toolbox-open-text">+${amount} XP Bonus!</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    if (typeof playSound === 'function') {
+      playSound('success'); // Assume success sound exists
+    }
+
+    overlay.addEventListener('click', () => {
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.remove(), 400); 
+    });
+
+    setTimeout(() => {
+       if (overlay.parentElement) {
+          overlay.style.opacity = '0';
+          setTimeout(() => overlay.remove(), 400);
+       }
+    }, 5000);
   }
 
   function checkAllCompleted() {

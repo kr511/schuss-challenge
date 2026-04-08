@@ -4886,3 +4886,40 @@
   box-shadow: none;
   cursor: default;
 }
+
+/* Rare Drop Chest Styling */
+.toolbox-overlay.rare-drop {
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  opacity: 1;
+  transition: opacity 0.4s;
+}
+
+.toolbox-glow.gold {
+  position: absolute;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: pulse-gold 2s infinite;
+}
+
+@keyframes pulse-gold {
+  0% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.3); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 0.5; }
+}
+
+.toolbox-container.pop-in {
+  animation: pop-in-animation 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pop-in-animation {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
