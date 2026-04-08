@@ -4037,9 +4037,11 @@ requestAnimationFrame(() => {
     function restartGame() {
       clearBattleTimers();
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
-      G.shotsLeft = G.shots; G.maxShots = G.shots;
+      G.playerShotsLeft = G.shots; G.botShotsLeft = G.shots; G.maxShots = G.shots;
       G.dnf = false;
       G._lastPlayerShotAt = 0;
+      G.playerShots = [];
+      G.currentDetectedShots = [];
       // BUG-FIX: Spiel-Zustand komplett zurücksetzen
       G.probeActive = false;
       G.probeSecsLeft = 0;
@@ -4052,8 +4054,9 @@ requestAnimationFrame(() => {
 
       G.diff = 'easy';
       document.querySelectorAll('#diffGroup .dif').forEach(b => b.classList.remove('active'));
-      document.querySelector('[data-diff="easy"]').classList.add('active');
-      DOM.diffInfoTxt.innerHTML = getDiffInfo('easy');
+      const easyBtn = document.querySelector('[data-diff="easy"]');
+      if (easyBtn) easyBtn.classList.add('active');
+      if (DOM.diffInfoTxt) DOM.diffInfoTxt.innerHTML = getDiffInfo('easy');
 
       setSz(); drawTarget([]);
       showScreen('screenSetup');
