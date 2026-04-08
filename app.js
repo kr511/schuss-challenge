@@ -185,6 +185,7 @@
       discipline: 'lg40',    // 'lg40' | 'lg60' | 'kk50' | 'kk100' | 'kk3x20'
       shots: 40,             // Schussanzahl (aus Disziplin oder manuell)
       burst: false,          // 5er-Salve Modus
+      targetShots: [],       // Sichtbare Treffer auf der Scheibe
       botShots: [], botTotal: 0, botTotalInt: 0, _botTotalTenths: 0,
       playerTotal: 0, playerTotalInt: 0, _playerTotalTenths: 0,
       playerShotsLeft: 40, botShotsLeft: 40, maxShots: 40,
@@ -2686,9 +2687,9 @@ requestAnimationFrame(() => {
 
       // Canvas + UI aktualisieren
       setTimeout(() => {
-        drawTarget(G.botShots);
+        drawTarget(G.targetShots);
         updateBattleUI();
-        if (G.shotsLeft <= 0) {
+        if (G.botShotsLeft <= 0) {
           clearBattleTimers();
           if (G.burst) DOM.battleBurstBtn.disabled = true;
           else DOM.battleFireBtn.disabled = true;
@@ -2703,11 +2704,24 @@ requestAnimationFrame(() => {
       }, 160);
     }
 
+    function syncBotScoreToPlayerProgress() {
+      if (G.is3x20 || G.botShotsLeft <= 0) return;
+
+      const playerFired = G.maxShots - G.playerShotsLeft;
+      const botFired = G.maxShots - G.botShotsLeft;
+      const missingShots = Math.min(G.botShotsLeft, Math.max(0, playerFired - botFired));
+
+      for (let i = 0; i < missingShots; i++) {
+        fireSingleShot(true);
+      }
+    }
+
     function startBattle() {
       const dc = DISC[G.discipline];
       G.maxShots = dc.shots;
       G.playerShotsLeft = dc.shots;
       G.botShotsLeft = dc.shots;
+      G.targetShots = [];
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.playerTotal = 0; G.playerTotalInt = 0; G._playerTotalTenths = 0;
       G.playerShots = [];
@@ -2903,8 +2917,8 @@ requestAnimationFrame(() => {
           : `◆ SCHUSS ${fired + 1} / ${G.maxShots} ◆`;
       }
 
-      if (G.burst) DOM.battleBurstBtn.disabled = G.shotsLeft <= 0;
-      else DOM.battleFireBtn.disabled = G.shotsLeft <= 0;
+      if (G.burst) DOM.battleBurstBtn.disabled = G.playerShotsLeft <= 0;
+      else DOM.battleFireBtn.disabled = G.playerShotsLeft <= 0;
     }
 
     function updatePosBar() {
@@ -3030,8 +3044,8 @@ requestAnimationFrame(() => {
           G.playerTotal = G._playerTotalTenths / 10;
           G.playerTotalInt += Math.floor(bRes.pts);
         }
-        // Spieler-Schuss zur Bot-Schussliste hinzufügen, damit er gezeichnet wird
-        G.botShots.push({
+        // Spieler-Schuss auf der sichtbaren Zielscheibe speichern
+        G.targetShots.push({
           dx: bdx, dy: bdy, pts: bRes.pts, label: bRes.label, isX: bRes.isX,
           cracks: Array.from({ length: 7 }, (_, i) => ({
             a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
@@ -3214,6 +3228,8 @@ requestAnimationFrame(() => {
         });
       });
 
+      syncBotScoreToPlayerProgress();
+
       // ── Info text ────────────────────────────────
       const mkBotScore = () => isKK3x20WholeRingsOnly()
         ? `${G.botTotalInt}`
@@ -3242,7 +3258,7 @@ requestAnimationFrame(() => {
       }
 
       setTimeout(() => {
-        drawTarget(G.botShots);
+        drawTarget(G.targetShots);
         updateBattleUI();
         if (G.playerShotsLeft <= 0) {
           clearBattleTimers();
@@ -3738,11 +3754,11 @@ requestAnimationFrame(() => {
           const originalCanvas = document.getElementById('targetCanvas');
           if (originalCanvas) {
             const ctx = goCanvas.getContext('2d');
-            // Wir zeichnen entweder die erkannten Schüsse oder die Bot-Schüsse
+            // Wir zeichnen entweder die erkannten Schüsse oder die sichtbaren Battle-Schüsse
             if (G.currentDetectedShots && G.currentDetectedShots.length > 0) {
               drawOnCanvas(goCanvas, G.currentDetectedShots);
             } else {
-              drawOnCanvas(goCanvas, G.botShots);
+              drawOnCanvas(goCanvas, G.targetShots);
             }
           }
         }
@@ -4076,6 +4092,7 @@ requestAnimationFrame(() => {
 
       // Reload everything
       loadXP();
+      G.targetShots = [];
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       loadAllStreaks();
       updateSchuetzenpass();
@@ -4088,6 +4105,7 @@ requestAnimationFrame(() => {
     function restartGame() {
       clearPendingFeedbackPrompt();
       clearBattleTimers();
+      G.targetShots = [];
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.playerTotal = 0; G.playerTotalInt = 0; G._playerTotalTenths = 0;
       G.playerShotsLeft = G.shots; G.botShotsLeft = G.shots; G.maxShots = G.shots;
@@ -4271,7 +4289,7 @@ requestAnimationFrame(() => {
         const prevSz = _lastSz;
         setSz();
         // Only redraw if canvas size actually changed
-        if (_lastSz !== prevSz) drawTarget(G.botShots);
+        if (_lastSz !== prevSz) drawTarget(G.targetShots);
       });
     }, { passive: true });
 
