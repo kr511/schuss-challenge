@@ -5,32 +5,46 @@
 
 const EnhancedAnalytics = (function() {
   'use strict';
-  
+
+  function createDefaultAnalyticsData() {
+    return {
+      games: [],
+      trends: {},
+      predictions: {},
+      consistencyScores: {},
+      performanceMetrics: {}
+    };
+  }
+
   // Analytics-Datenstruktur
-  let analyticsData = {
-    games: [],
-    trends: {},
-    predictions: {},
-    consistencyScores: {},
-    performanceMetrics: {}
-  };
-  
+  let analyticsData = createDefaultAnalyticsData();
+  const ANALYTICS_MOUNT_ID = 'enhancedAnalyticsMount';
+
   // Konfiguration
   const CONFIG = {
     minGamesForAnalysis: 10,
     trendWindow: 20, // Letzte 20 Spiele für Trends
     predictionConfidence: 0.7,
-    storageKey: 'sd_enhanced_analytics'
+    storageKey: 'sd_enhanced_analytics',
+    progressTracking: {
+      weeklyImprovementWindow: 7,   // Tage für wöchentliche Verbesserung
+      monthlyImprovementWindow: 30, // Tage für monatliche Verbesserung
+      consistencyThreshold: 5       // Mindestscore für Konsistenz-Streak
+    }
   };
-  
+
   /**
    * Initialisiert das erweiterte Analytics-System
    */
   function init() {
     loadData();
+    updateTrends();
+    updatePredictions();
+    updateConsistencyScores();
+    renderUI();
     console.log('📊 Enhanced Analytics System initialisiert');
   }
-  
+
   /**
    * Lädt Analytics-Daten
    */
@@ -38,14 +52,23 @@ const EnhancedAnalytics = (function() {
     try {
       const saved = localStorage.getItem(CONFIG.storageKey);
       if (saved) {
-        analyticsData = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        analyticsData = {
+          ...createDefaultAnalyticsData(),
+          ...parsed,
+          games: sortGamesByTimestamp(Array.isArray(parsed?.games) ? parsed.games : []),
+          trends: parsed?.trends && typeof parsed.trends === 'object' ? parsed.trends : {},
+          predictions: parsed?.predictions && typeof parsed.predictions === 'object' ? parsed.predictions : {},
+          consistencyScores: parsed?.consistencyScores && typeof parsed.consistencyScores === 'object' ? parsed.consistencyScores : {},
+          performanceMetrics: parsed?.performanceMetrics && typeof parsed.performanceMetrics === 'object' ? parsed.performanceMetrics : {}
+        };
         console.log('💾 Analytics-Daten geladen:', analyticsData.games.length, 'Spiele');
       }
     } catch (e) {
       console.warn('⚠️ Konnte Analytics-Daten nicht laden:', e);
     }
   }
-  
+
   /**
    * Speichert Analytics-Daten
    */
@@ -56,149 +79,185 @@ const EnhancedAnalytics = (function() {
       console.warn('⚠️ Konnte Analytics-Daten nicht speichern:', e);
     }
   }
-  
+
+  function renderUI() {
+    const mount = document.getElementById(ANALYTICS_MOUNT_ID);
+    if (!mount) return;
+    mount.innerHTML = createAnalyticsUI();
+  }
+
   /**
    * Fügt Spiel-Daten hinzu und aktualisiert Analysen
    */
   function addGameData(gameData) {
-    if (!gameData || !gameData.playerScore) return;
-    
+    if (!gameData || gameData.playerScore == null) return;
+
     const enhancedData = {
       ...gameData,
-      timestamp: Date.now(),
+      timestamp: Number.isFinite(Number(gameData.timestamp)) ? Number(gameData.timestamp) : Date.now(),
       id: generateGameId(),
       shots: gameData.shots || [],
       duration: gameData.duration || calculateDuration(gameData),
       consistency: calculateShotConsistency(gameData.shots),
+      scoreDifference: Number.isFinite(Number(gameData.scoreDifference))
+        ? Number(gameData.scoreDifference)
+        : ((Number(gameData.playerScore) || 0) - (Number(gameData.botScore) || 0)),
+      shotsLeft: Number.isFinite(Number(gameData.shotsLeft)) ? Number(gameData.shotsLeft) : 0,
       pressureMoments: identifyPressureMoments(gameData)
     };
-    
+
     analyticsData.games.push(enhancedData);
-    
+    analyticsData.games = sortGamesByTimestamp(analyticsData.games);
+
     // Alte Spiele aufräumen (max. 100 behalten)
     if (analyticsData.games.length > 100) {
       analyticsData.games = analyticsData.games.slice(-100);
     }
-    
+
     // Aktualisiere Analysen
     updateTrends();
     updatePredictions();
     updateConsistencyScores();
-    
+
     saveData();
-    
+    renderUI();
+
     // Event auslösen
     window.dispatchEvent(new CustomEvent('analyticsUpdated', {
       detail: getAnalyticsSummary()
     }));
   }
-  
+
   /**
    * Berechnet detaillierte Performance-Metriken
    */
   function calculatePerformanceMetrics(games = analyticsData.games) {
     if (games.length === 0) return {};
-    
+
     const recentGames = games.slice(-CONFIG.trendWindow);
-    
+
     // Basis-Metriken
     const scores = recentGames.map(g => g.playerScore).filter(s => s > 0);
     const wins = recentGames.filter(g => g.result === 'win').length;
     const totalGames = recentGames.length;
-    
+
     // Erweiterte Metriken
     const metrics = {
       // Durchschnittswerte
       averageScore: calculateAverage(scores),
       winRate: wins / totalGames,
-      
+
       // Konstanz
       consistencyScore: calculateConsistencyScore(scores),
       scoreVariance: calculateVariance(scores),
-      
+
       // Trends
       scoreTrend: calculateLinearTrend(scores),
       winTrend: calculateWinTrend(recentGames),
-      
+
       // Pressure-Performance
       pressurePerformance: calculatePressurePerformance(recentGames),
-      
+
       // Verbesserung
       improvementRate: calculateImprovementRate(games),
-      
+
       // Spezialisierung
       lgPerformance: calculateDisciplinePerformance(recentGames, 'lg'),
       kkPerformance: calculateDisciplinePerformance(recentGames, 'kk'),
-      
+
       // Zeit-basiert
       recentForm: calculateRecentForm(recentGames.slice(-5)),
       peakPerformance: findPeakPerformance(games),
-      
+
       // Vorhersage-Kraft
       predictability: calculatePredictability(scores),
-      
+
       // Risiko-Analyse
       riskProfile: calculateRiskProfile(recentGames)
     };
-    
+
     return metrics;
   }
-  
+
   /**
    * Berechnet Konstanz-Score (0-100)
    */
   function calculateConsistencyScore(scores) {
     if (scores.length < 3) return 0;
-    
+
     const variance = calculateVariance(scores);
     const maxVariance = 100; // Angenommener Maximalwert
-    
+
     // Konvertiere zu 0-100 Skala (niedrigere Varianz = höhere Konstanz)
     const consistency = Math.max(0, 100 - (variance / maxVariance * 100));
     return Math.round(consistency);
   }
-  
+
   /**
    * Berechnet Performance-Trend
    */
   function calculateLinearTrend(values) {
     if (values.length < 2) return 0;
-    
+
     const n = values.length;
     const sumX = (n * (n - 1)) / 2;
     const sumY = values.reduce((sum, val) => sum + val, 0);
     const sumXY = values.reduce((sum, val, i) => sum + (val * i), 0);
     const sumX2 = values.reduce((sum, _, i) => sum + (i * i), 0);
-    
+
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     return slope;
   }
-  
+
   /**
    * Berechnet Win-Trend
    */
   function calculateWinTrend(games) {
     if (games.length < 5) return 0;
-    
+
     const recentWins = games.slice(-10).filter(g => g.result === 'win').length;
     const previousWins = games.slice(-20, -10).filter(g => g.result === 'win').length;
-    
+
     return recentWins - previousWins; // Positive = besser, Negative = schlechter
   }
-  
+
+  function calculateConsistencyTrend(games) {
+    if (games.length < 6) return 0;
+
+    const midpoint = Math.floor(games.length / 2);
+    const firstHalf = games.slice(0, midpoint);
+    const secondHalf = games.slice(midpoint);
+    const firstConsistency = calculateAverage(firstHalf.map(g => analyticsData.consistencyScores[g.id]?.score || g.consistency || 0));
+    const secondConsistency = calculateAverage(secondHalf.map(g => analyticsData.consistencyScores[g.id]?.score || g.consistency || 0));
+
+    return Math.round(secondConsistency - firstConsistency);
+  }
+
+  function calculatePressureTrend(games) {
+    if (games.length < 6) return 0;
+
+    const recent = games.slice(-5);
+    const previous = games.slice(-10, -5);
+    const recentScore = calculatePressurePerformance(recent).score || 0;
+    const previousScore = calculatePressurePerformance(previous).score || 0;
+
+    return recentScore - previousScore;
+  }
+
   /**
    * Analysiert Performance unter Druck
    */
   function calculatePressurePerformance(games) {
-    const pressureGames = games.filter(g => 
-      g.scoreDifference && Math.abs(g.scoreDifference) < 10 && g.shotsLeft < 5
+    const pressureGames = games.filter(g =>
+      Math.abs(Number(g.scoreDifference ?? ((g.playerScore || 0) - (g.botScore || 0)))) < 10 &&
+      Number(g.shotsLeft ?? 0) <= 5
     );
-    
+
     if (pressureGames.length === 0) return { score: 0, confidence: 0 };
-    
+
     const pressureWins = pressureGames.filter(g => g.result === 'win').length;
     const avgScoreUnderPressure = calculateAverage(pressureGames.map(g => g.playerScore));
-    
+
     return {
       score: Math.round((pressureWins / pressureGames.length) * 100),
       confidence: pressureGames.length >= 5 ? 80 : pressureGames.length * 16,
@@ -206,39 +265,52 @@ const EnhancedAnalytics = (function() {
       games: pressureGames.length
     };
   }
-  
+
   /**
    * Berechnet Verbesserungs-Rate
    */
   function calculateImprovementRate(allGames) {
-    if (allGames.length < 20) return { rate: 0, confidence: 0 };
-    
-    const firstHalf = allGames.slice(0, Math.floor(allGames.length / 2));
-    const secondHalf = allGames.slice(Math.floor(allGames.length / 2));
-    
+    if (!Array.isArray(allGames) || allGames.length < 4) return { rate: 0, confidence: 0 };
+
+    const orderedGames = sortGamesByTimestamp(allGames);
+    const midpoint = Math.floor(orderedGames.length / 2);
+    const firstHalf = orderedGames.slice(0, midpoint);
+    const secondHalf = orderedGames.slice(midpoint);
+
+    if (firstHalf.length === 0 || secondHalf.length === 0) {
+      return { rate: 0, confidence: 0 };
+    }
+
     const firstHalfAvg = calculateAverage(firstHalf.map(g => g.playerScore));
     const secondHalfAvg = calculateAverage(secondHalf.map(g => g.playerScore));
-    
+
+    if (firstHalfAvg <= 0) {
+      return {
+        rate: 0,
+        confidence: Math.min(80, orderedGames.length * 5)
+      };
+    }
+
     const improvement = ((secondHalfAvg - firstHalfAvg) / firstHalfAvg) * 100;
-    
+
     return {
       rate: Math.round(improvement),
-      confidence: Math.min(90, allGames.length * 2)
+      confidence: Math.min(90, orderedGames.length * 5)
     };
   }
-  
+
   /**
    * Analysiert Disziplin-Performance
    */
   function calculateDisciplinePerformance(games, disciplinePrefix) {
-    const disciplineGames = games.filter(g => 
+    const disciplineGames = games.filter(g =>
       g.discipline && g.discipline.toLowerCase().startsWith(disciplinePrefix)
     );
-    
+
     if (disciplineGames.length === 0) return null;
-    
+
     const scores = disciplineGames.map(g => g.playerScore);
-    
+
     return {
       average: calculateAverage(scores),
       consistency: calculateConsistencyScore(scores),
@@ -247,34 +319,34 @@ const EnhancedAnalytics = (function() {
       trend: calculateLinearTrend(scores)
     };
   }
-  
+
   /**
    * Berechnet aktuelle Form (letzte 5 Spiele)
    */
   function calculateRecentForm(recentGames) {
     if (recentGames.length < 3) return 'insufficient_data';
-    
+
     const scores = recentGames.map(g => g.playerScore);
     const wins = recentGames.filter(g => g.result === 'win').length;
     const trend = calculateLinearTrend(scores);
-    
+
     if (trend > 10 && wins >= 3) return 'excellent';
     if (trend > 5 && wins >= 2) return 'good';
     if (trend > -5 && wins >= 1) return 'stable';
     if (trend < -10 || wins === 0) return 'poor';
     return 'declining';
   }
-  
+
   /**
    * Findet beste Performance
    */
   function findPeakPerformance(games) {
     if (games.length === 0) return null;
-    
-    const bestGame = games.reduce((best, current) => 
+
+    const bestGame = games.reduce((best, current) =>
       current.playerScore > best.playerScore ? current : best
     );
-    
+
     return {
       score: bestGame.playerScore,
       date: bestGame.timestamp,
@@ -282,18 +354,18 @@ const EnhancedAnalytics = (function() {
       isRecent: (Date.now() - bestGame.timestamp) < (30 * 24 * 60 * 60 * 1000) // Letzte 30 Tage
     };
   }
-  
+
   /**
    * Berechnet Vorhersagbarkeit
    */
   function calculatePredictability(scores) {
     if (scores.length < 10) return 0;
-    
+
     // Verwende Autokorrelation für Vorhersagbarkeit
     const lag1Correlation = calculateAutocorrelation(scores, 1);
     return Math.round(Math.abs(lag1Correlation) * 100);
   }
-  
+
   /**
    * Analysiert Risiko-Profil
    */
@@ -303,21 +375,21 @@ const EnhancedAnalytics = (function() {
     const maxScore = Math.max(...scores);
     const minScore = Math.min(...scores);
     const range = maxScore - minScore;
-    
+
     if (variance < 10 && range < 30) return 'conservative';
     if (variance > 50 || range > 100) return 'aggressive';
     return 'balanced';
   }
-  
+
   /**
    * Aktualisiert Trends
    */
   function updateTrends() {
     const games = analyticsData.games;
     if (games.length < CONFIG.minGamesForAnalysis) return;
-    
+
     const recentGames = games.slice(-CONFIG.trendWindow);
-    
+
     analyticsData.trends = {
       score: calculateLinearTrend(recentGames.map(g => g.playerScore)),
       consistency: calculateConsistencyTrend(recentGames),
@@ -326,16 +398,16 @@ const EnhancedAnalytics = (function() {
       lastUpdated: Date.now()
     };
   }
-  
+
   /**
    * Aktualisiert Vorhersagen
    */
   function updatePredictions() {
     const games = analyticsData.games;
     if (games.length < CONFIG.minGamesForAnalysis) return;
-    
+
     const metrics = calculatePerformanceMetrics();
-    
+
     analyticsData.predictions = {
       nextGameScore: predictNextScore(games),
       expectedWinRate: predictWinRate(games),
@@ -344,107 +416,107 @@ const EnhancedAnalytics = (function() {
       lastUpdated: Date.now()
     };
   }
-  
+
   /**
    * Prognostiziert nächsten Score
    */
   function predictNextScore(games) {
     if (games.length < 5) return null;
-    
+
     const recentGames = games.slice(-10);
     const recentScores = recentGames.map(g => g.playerScore);
-    
+
     // Einfache Vorhersage: Trend + letzter Score
     const trend = calculateLinearTrend(recentScores);
     const lastScore = recentScores[recentScores.length - 1];
-    
+
     const predicted = lastScore + trend;
-    
+
     // Begrenze auf realistischen Bereich
     const minScore = Math.min(...recentScores) - 20;
     const maxScore = Math.max(...recentScores) + 20;
-    
+
     return Math.max(minScore, Math.min(maxScore, predicted));
   }
-  
+
   /**
    * Prognostiziert Win-Rate
    */
   function predictWinRate(games) {
     if (games.length < 10) return 0.5;
-    
+
     const recentGames = games.slice(-20);
     const recentWinRate = recentGames.filter(g => g.result === 'win').length / recentGames.length;
     const trend = calculateWinTrend(recentGames);
-    
+
     // Begrenze auf 0.1-0.9
     const predicted = Math.max(0.1, Math.min(0.9, recentWinRate + (trend * 0.05)));
     return Math.round(predicted * 100) / 100;
   }
-  
+
   /**
    * Berechnet Vorhersage-Vertrauen
    */
   function calculatePredictionConfidence(games) {
     if (games.length < 20) return 0.3;
-    
-    const consistency = calculateConsistencyScore(games.map(g => g.playerScore));
-    const predictability = calculatePredictability(games.map(g => g.playerScore));
+
+    const consistency = calculateConsistencyScore(games.map(g => g.playerScore)) / 100;
+    const predictability = calculatePredictability(games.map(g => g.playerScore)) / 100;
     const sampleSize = Math.min(games.length / 100, 1); // Max 1.0 bei 100 Spielen
-    
+
     const confidence = (consistency * 0.4 + predictability * 0.4 + sampleSize * 0.2);
     return Math.round(confidence * 100) / 100;
   }
-  
+
   /**
    * Identifiziert Vorhersage-Faktoren
    */
   function identifyPredictionFactors(games) {
     const factors = [];
-    
+
     if (games.length < 10) {
       factors.push({ type: 'insufficient_data', impact: -0.3, description: 'Zu wenig Daten' });
       return factors;
     }
-    
+
     const recentGames = games.slice(-10);
     const recentScores = recentGames.map(g => g.playerScore);
     const trend = calculateLinearTrend(recentScores);
-    
+
     if (trend > 5) {
       factors.push({ type: 'positive_trend', impact: 0.2, description: 'Positive Tendenz' });
     } else if (trend < -5) {
       factors.push({ type: 'negative_trend', impact: -0.2, description: 'Negative Tendenz' });
     }
-    
+
     const consistency = calculateConsistencyScore(recentScores);
     if (consistency > 80) {
       factors.push({ type: 'high_consistency', impact: 0.15, description: 'Hohe Konstanz' });
     } else if (consistency < 30) {
       factors.push({ type: 'low_consistency', impact: -0.15, description: 'Niedrige Konstanz' });
     }
-    
+
     const pressurePerf = calculatePressurePerformance(recentGames);
     if (pressurePerf.score > 70) {
       factors.push({ type: 'pressure_performer', impact: 0.1, description: 'Stark unter Druck' });
     }
-    
+
     return factors;
   }
-  
+
   /**
    * Aktualisiert Konstanz-Scores
    */
   function updateConsistencyScores() {
     const games = analyticsData.games;
     if (games.length < 5) return;
-    
+
     // Berechne rollierende Konstanz
     for (let i = 4; i < games.length; i++) {
       const window = games.slice(Math.max(0, i - 9), i + 1);
       const scores = window.map(g => g.playerScore);
       const consistency = calculateConsistencyScore(scores);
-      
+
       analyticsData.consistencyScores[games[i].id] = {
         score: consistency,
         gamesInWindow: scores.length,
@@ -452,7 +524,132 @@ const EnhancedAnalytics = (function() {
       };
     }
   }
-  
+
+  /**
+   * Berechnet Verbesserungsraten über verschiedene Zeiträume
+   * @returns {{weekly: number, monthly: number, overall: number}}
+   */
+  function calculateImprovementRates() {
+    const games = analyticsData.games;
+    if (games.length < 2) return { weekly: 0, monthly: 0, overall: 0 };
+
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+
+    // Wöchentliche Verbesserung (letzte 7 Tage)
+    const weeklyGames = games.filter(g => now - g.timestamp <= CONFIG.progressTracking.weeklyImprovementWindow * oneDay);
+    const weeklyRate = calculateImprovementRate(weeklyGames);
+
+    // Monatliche Verbesserung (letzte 30 Tage)
+    const monthlyGames = games.filter(g => now - g.timestamp <= CONFIG.progressTracking.monthlyImprovementWindow * oneDay);
+    const monthlyRate = calculateImprovementRate(monthlyGames);
+
+    // Gesamtverbesserung (alle Spiele)
+    const overallRate = calculateImprovementRate(games);
+
+    return {
+      weekly: weeklyRate.rate,
+      monthly: monthlyRate.rate,
+      overall: overallRate.rate
+    };
+  }
+
+  /**
+   * Verfolgt persönliche Bestleistungen pro Disziplin
+   * @returns {Object} Persönliche Bestwerte pro Disziplin
+   */
+  function getPersonalBests() {
+    const games = analyticsData.games;
+    if (games.length === 0) return {};
+
+    const bests = {};
+
+    games.forEach(game => {
+      const discipline = game.discipline || 'unknown';
+      const score = game.playerScore;
+
+      if (!bests[discipline] || score > bests[discipline].score) {
+        bests[discipline] = {
+          score: score,
+          date: game.timestamp,
+          gameId: game.id
+        };
+      }
+    });
+
+    return bests;
+  }
+
+  /**
+   * Berechnet aktuelle Konsistenz-Streaks
+   * @returns {{current: number, best: number}} Aktueller und bester Streak
+   */
+  function calculateConsistencyStreaks() {
+    const games = analyticsData.games;
+    if (games.length === 0) return { current: 0, best: 0 };
+
+    const threshold = CONFIG.progressTracking.consistencyThreshold;
+    const isConsistent = games.map(game =>
+      (analyticsData.consistencyScores[game.id]?.score || 0) >= threshold
+    );
+    let currentStreak = 0;
+    let bestStreak = 0;
+    let tempStreak = 0;
+
+    for (let i = isConsistent.length - 1; i >= 0; i--) {
+      if (!isConsistent[i]) break;
+      currentStreak++;
+    }
+
+    for (let i = 0; i < isConsistent.length; i++) {
+      if (isConsistent[i]) tempStreak++;
+      else tempStreak = 0;
+      if (tempStreak > bestStreak) bestStreak = tempStreak;
+    }
+
+    return { current: currentStreak, best: bestStreak };
+  }
+
+  /**
+   * Berechnet Meilenstein-Progress (wie nah am nächsten Level)
+   * @returns {Object} Information über bevorstehende Meilensteine
+   */
+  function getMilestoneProgress() {
+    const games = analyticsData.games;
+    if (games.length === 0) return {};
+
+    const totalGames = games.length;
+    const winCount = games.filter(g => g.result === 'win').length;
+    const bestScore = Math.max(...games.map(g => g.playerScore));
+
+    // Definiere Meilensteine
+    const gameMilestones = [10, 25, 50, 100, 250, 500];
+    const winMilestones = [5, 10, 25, 50, 100];
+    const scoreMilestones = [200, 400, 600, 800, 1000]; // Assuming max score ~100 per game
+
+    const nextGameMilestone = gameMilestones.find(m => m > totalGames) || null;
+    const nextWinMilestone = winMilestones.find(m => m > winCount) || null;
+    const nextScoreMilestone = scoreMilestones.find(m => m > bestScore * (totalGames / 10)) || null; // Rough estimate
+
+    return {
+      games: {
+        current: totalGames,
+        next: nextGameMilestone,
+        progress: nextGameMilestone ? Math.round((totalGames / nextGameMilestone) * 100) : 100
+      },
+      wins: {
+        current: winCount,
+        next: nextWinMilestone,
+        progress: nextWinMilestone ? Math.round((winCount / nextWinMilestone) * 100) : 100
+      },
+      score: {
+        current: Math.round(bestScore * (totalGames / 10)), // Estimated total points
+        next: nextScoreMilestone,
+        progress: nextScoreMilestone ? Math.round(((bestScore * (totalGames / 10)) / nextScoreMilestone) * 100) : 100
+      }
+    };
+  }
+
   /**
    * Helper-Funktionen
    */
@@ -460,49 +657,54 @@ const EnhancedAnalytics = (function() {
     if (values.length === 0) return 0;
     return values.reduce((sum, val) => sum + val, 0) / values.length;
   }
-  
+
   function calculateVariance(values) {
     if (values.length === 0) return 0;
     const mean = calculateAverage(values);
     const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
     return calculateAverage(squaredDiffs);
   }
-  
+
   function calculateAutocorrelation(values, lag) {
     if (values.length <= lag) return 0;
-    
+
     const mean = calculateAverage(values);
     let numerator = 0;
     let denominator = 0;
-    
+
     for (let i = lag; i < values.length; i++) {
       numerator += (values[i] - mean) * (values[i - lag] - mean);
     }
-    
+
     for (let i = 0; i < values.length; i++) {
       denominator += Math.pow(values[i] - mean, 2);
     }
-    
+
     return denominator === 0 ? 0 : numerator / denominator;
   }
-  
+
+  function sortGamesByTimestamp(games) {
+    return [...games].sort((a, b) => (Number(a?.timestamp) || 0) - (Number(b?.timestamp) || 0));
+  }
+
   function calculateShotConsistency(shots) {
     if (!shots || shots.length === 0) return 0;
-    
+
     const rings = shots.map(s => s.ring || 0).filter(r => r > 0);
     if (rings.length === 0) return 0;
-    
+
     return calculateConsistencyScore(rings);
   }
-  
+
   function identifyPressureMoments(gameData) {
     const moments = [];
-    
+
     if (gameData.shots && gameData.shots.length > 0) {
       // Identifiziere kritische Phasen (z.B. letzte 3 Schüsse bei knappem Spiel)
       const lastShots = gameData.shots.slice(-3);
-      const wasClose = gameData.scoreDifference && Math.abs(gameData.scoreDifference) < 5;
-      
+      const scoreDifference = Number(gameData.scoreDifference ?? ((gameData.playerScore || 0) - (gameData.botScore || 0)));
+      const wasClose = Math.abs(scoreDifference) < 5;
+
       if (wasClose) {
         moments.push({
           type: 'final_stretch',
@@ -511,20 +713,20 @@ const EnhancedAnalytics = (function() {
         });
       }
     }
-    
+
     return moments;
   }
-  
+
   function calculateDuration(gameData) {
     // Schätzung basierend auf Shot-Anzahl
     const shotCount = gameData.shots ? gameData.shots.length : 40;
     return shotCount * 15; // 15 Sekunden pro Schuss
   }
-  
+
   function generateGameId() {
     return 'game_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
-  
+
   /**
    * Erstellt Analytics-Zusammenfassung
    */
@@ -532,7 +734,7 @@ const EnhancedAnalytics = (function() {
     const metrics = calculatePerformanceMetrics();
     const trends = analyticsData.trends;
     const predictions = analyticsData.predictions;
-    
+
     return {
       metrics: metrics,
       trends: trends,
@@ -541,14 +743,31 @@ const EnhancedAnalytics = (function() {
       lastUpdated: Date.now()
     };
   }
-  
+
   /**
    * Erstellt detaillierte Analytics-UI
    */
   function createAnalyticsUI() {
     const summary = getAnalyticsSummary();
     const metrics = summary.metrics;
-    
+
+    if (!summary.totalGames) {
+      return `
+        <div class="enhanced-analytics">
+          <div class="analytics-header">
+            <h3>📊 Erweiterte Analysen</h3>
+            <div class="analytics-summary">
+              <span>Noch keine Spiele analysiert</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-title">Bereit sobald du loslegst</div>
+            <div class="metric-sub">Spiele ein Duell, damit Trends, Form und Vorhersagen erscheinen.</div>
+          </div>
+        </div>
+      `;
+    }
+
     return `
       <div class="enhanced-analytics">
         <div class="analytics-header">
@@ -557,7 +776,7 @@ const EnhancedAnalytics = (function() {
             <span>${summary.totalGames} Spiele analysiert</span>
           </div>
         </div>
-        
+
         <div class="analytics-grid">
           <!-- Performance-Metriken -->
           <div class="metric-card primary">
@@ -567,7 +786,7 @@ const EnhancedAnalytics = (function() {
               ${metrics.scoreTrend > 0 ? '↗' : '↘'} ${Math.abs(metrics.scoreTrend).toFixed(1)}
             </div>
           </div>
-          
+
           <div class="metric-card">
             <div class="metric-title">Konstanz</div>
             <div class="metric-value">${metrics.consistencyScore}%</div>
@@ -575,7 +794,7 @@ const EnhancedAnalytics = (function() {
               <div class="metric-fill" style="width: ${metrics.consistencyScore}%"></div>
             </div>
           </div>
-          
+
           <div class="metric-card">
             <div class="metric-title">Win-Rate</div>
             <div class="metric-value">${(metrics.winRate * 100).toFixed(1)}%</div>
@@ -583,29 +802,29 @@ const EnhancedAnalytics = (function() {
               ${metrics.winTrend > 0 ? '↗' : '↘'} ${Math.abs(metrics.winTrend)}
             </div>
           </div>
-          
+
           <!-- Spezialisierte Metriken -->
           <div class="metric-card">
             <div class="metric-title">Druck-Performance</div>
             <div class="metric-value">${metrics.pressurePerformance.score}%</div>
             <div class="metric-sub">${metrics.pressurePerformance.games} Spiele</div>
           </div>
-          
+
           <div class="metric-card">
             <div class="metric-title">Aktuelle Form</div>
             <div class="metric-value form-${metrics.recentForm}">${getFormEmoji(metrics.recentForm)}</div>
             <div class="metric-sub">${getFormText(metrics.recentForm)}</div>
           </div>
-          
+
           <div class="metric-card">
             <div class="metric-title">Risiko-Profil</div>
             <div class="metric-value risk-${metrics.riskProfile}">${getRiskEmoji(metrics.riskProfile)}</div>
             <div class="metric-sub">${metrics.riskProfile}</div>
           </div>
         </div>
-        
+
         <!-- Vorhersagen -->
-        ${summary.predictions.nextGameScore ? `
+        ${summary.predictions.nextGameScore !== null && summary.predictions.nextGameScore !== undefined ? `
           <div class="prediction-section">
             <h4>🔮 Vorhersagen</h4>
             <div class="prediction-grid">
@@ -622,9 +841,9 @@ const EnhancedAnalytics = (function() {
             </div>
           </div>
         ` : ''}
-        
+
         <!-- Trends -->
-        ${summary.trends.score ? `
+        ${typeof summary.trends.score === 'number' ? `
           <div class="trends-section">
             <h4>📈 Trends</h4>
             <div class="trend-items">
@@ -646,7 +865,7 @@ const EnhancedAnalytics = (function() {
       </div>
     `;
   }
-  
+
   /**
    * Helper-Funktionen für UI
    */
@@ -661,7 +880,7 @@ const EnhancedAnalytics = (function() {
     };
     return emojis[form] || '❓';
   }
-  
+
   function getFormText(form) {
     const texts = {
       excellent: 'Exzellent',
@@ -673,7 +892,7 @@ const EnhancedAnalytics = (function() {
     };
     return texts[form] || 'Unbekannt';
   }
-  
+
   function getRiskEmoji(risk) {
     const emojis = {
       conservative: '🛡️',
@@ -682,7 +901,7 @@ const EnhancedAnalytics = (function() {
     };
     return emojis[risk] || '❓';
   }
-  
+
   /**
    * Öffentliche API
    */
@@ -691,7 +910,13 @@ const EnhancedAnalytics = (function() {
     addGameData,
     calculatePerformanceMetrics,
     getAnalyticsSummary,
+    renderUI,
     createAnalyticsUI,
+    // Neue Fortschritts-Tracking Methoden
+    calculateImprovementRates,
+    getPersonalBests,
+    calculateConsistencyStreaks,
+    getMilestoneProgress,
     CONFIG
   };
 })();

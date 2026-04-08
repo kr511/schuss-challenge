@@ -169,12 +169,12 @@
     // Alte Daten-Keys bereinigen ohne Username zu löschen
     // v3: neue Schwierigkeitsnamen (Elite/Profi) + KK-Zehntel-Fix
     if (!localStorage.getItem('sd_reset_v3')) {
-      const keepName = localStorage.getItem('sd_username');
-      const keepXP = localStorage.getItem('sd_xp');
-      localStorage.clear();
-      localStorage.setItem('sd_reset_v3', 'true');
-      if (keepName) localStorage.setItem('sd_username', keepName);
-      if (keepXP) localStorage.setItem('sd_xp', keepXP);
+      const keepName = StorageManager.getRaw('username');
+      const keepXP = StorageManager.getRaw('xp');
+      StorageManager.clearAll(['username', 'xp']);
+      StorageManager.setRaw('reset_v3', 'true');
+      if (keepName) StorageManager.setRaw('username', keepName);
+      if (keepXP) StorageManager.setRaw('xp', keepXP);
     }
 
     /* ─── STATE ──────────────────────────────── */
@@ -186,7 +186,7 @@
       shots: 40,             // Schussanzahl (aus Disziplin oder manuell)
       burst: false,          // 5er-Salve Modus
       botShots: [], botTotal: 0, botTotalInt: 0, _botTotalTenths: 0,
-      shotsLeft: 40, maxShots: 40,
+      playerShotsLeft: 40, botShotsLeft: 40, maxShots: 40,
       xp: 0,                 // XP-Stand
       streak: 0,             // Aktueller Streak (für Firebase)
       // 3×20 position tracking
@@ -205,6 +205,7 @@
       dnf: false,            // Did Not Finish (Zeit abgelaufen)
       playerShots: [],       // Spieler-Treffer für Analytics
       _gameStartTime: 0,     // Für Spieldauer-Berechnung
+      _lastPlayerShotAt: 0,  // Zeitstempel des letzten Spieler-Schusses
       // Probezeit
       probeActive: false,    // Probezeit ist aktiv
       probeSecsLeft: 0,      // Verbleibende Sekunden in Probezeit
@@ -286,7 +287,105 @@
       }
     };
 
-    // Disziplinspezifische Schwierigkeits-Infos
+    // ─── TÄGLICHE LOGIN-BELohnungen ─────────────────────
+    function getLocalDayStart(timestamp) {
+      const date = new Date(timestamp);
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    }
+
+    function initDailyLoginRewards() {
+      const rawLastVisit = Number(localStorage.getItem('sd_last_visit') || '0');
+      const lastVisit = Number.isFinite(rawLastVisit) ? rawLastVisit : 0;
+      const today = Date.now();
+      const oneDay = 24 * 60 * 60 * 1000;
+
+      // Wenn kein letzter Besuch gespeichert, heute als ersten Besuch markieren
+      if (lastVisit === 0) {
+        localStorage.setItem('sd_last_visit', today.toString());
+        localStorage.setItem('sd_login_streak', '1');
+        awardLoginReward(1);
+        return;
+      }
+
+      // Prüfen, ob seit letztem Besuch ein Tag vergangen ist
+      const daysDiff = Math.round((getLocalDayStart(today) - getLocalDayStart(lastVisit)) / oneDay);
+
+      if (daysDiff <= 0) {
+        // Heute schon belohnt bekommen
+        return;
+      } else if (daysDiff === 1) {
+        // Aufeinanderfolgender Tag
+        const currentStreak = parseInt(localStorage.getItem('sd_login_streak') || '0');
+        const newStreak = currentStreak + 1;
+        localStorage.setItem('sd_login_streak', newStreak.toString());
+        localStorage.setItem('sd_last_visit', today.toString());
+        awardLoginReward(newStreak);
+      } else {
+        // Streak unterbrochen (mehr als 1 Tag Lücke)
+        localStorage.setItem('sd_last_visit', today.toString());
+        localStorage.setItem('sd_login_streak', '1');
+        awardLoginReward(1); // Belohnung für den Neustart
+      }
+    }
+
+    function awardLoginReward(streak) {
+      let rewardXP = 5; // Basisbelohnung
+      let hasMysteryBonus = false;
+
+      // Streak-Boni (nur der höchste Bonus zählt)
+      if (streak >= 30) rewardXP += 50;      // Monatsbonus
+      else if (streak >= 14) rewardXP += 20; // Zweiwochenbonus
+      else if (streak >= 7) rewardXP += 10;  // Wochenbonus
+
+      // Zufällige Mystery-Belohnung alle 10 Tage
+      if (streak % 10 === 0 && Math.random() < 0.3) {
+        rewardXP += 25; // Mystery-Bonus
+        hasMysteryBonus = true;
+      }
+
+      const gained = awardFlatXP(rewardXP);
+      if (gained <= 0) return;
+
+      const labelParts = [];
+      if (streak > 1) labelParts.push(`${streak}-Tag-Streak`);
+      if (hasMysteryBonus) labelParts.push('Mystery-Bonus');
+
+      const suffix = labelParts.length ? ` (${labelParts.join(' · ')})` : '';
+      showLoginBonus(`+${gained} XP${suffix}`);
+    }
+
+    function showLoginBonus(message) {
+      // Erstelle eine temporäre Benachrichtigung
+      const bonusEl = document.createElement('div');
+      bonusEl.className = 'login-bonus-popup';
+      bonusEl.innerHTML = `
+        <div class="login-bonus-content">
+          <div class="login-bonus-icon">🎁</div>
+          <div class="login-bonus-text">${message}</div>
+        </div>
+      `;
+
+      document.body.appendChild(bonusEl);
+
+      // Animation: Einblenden, warten, Ausblenden
+      setTimeout(() => {
+        bonusEl.style.opacity = '1';
+        bonusEl.style.transform = 'translateY(0)';
+      }, 10);
+
+      setTimeout(() => {
+        bonusEl.style.opacity = '0';
+        bonusEl.style.transform = 'translateY(-20px)';
+      }, 2500);
+
+      setTimeout(() => {
+        if (bonusEl.parentElement) {
+          bonusEl.parentElement.removeChild(bonusEl);
+        }
+      }, 3000);
+    }
+
+// Disziplinspezifische Schwierigkeits-Infos
     const DIFF_INFO_BY_DISC = {
       // LG 60 hat höhere Punktwerte (60 Schuss, Zehntel)
       lg60: {
@@ -338,9 +437,9 @@
         setupTag: (disc, dist) => `◆ LUFTGEWEHR · ${DISC[disc]?.name || disc} · ${dist} METER ◆`
       },
       kk: {
-        icon: '🎯', name: 'KK', badgeCls: 'kk', defaultDist: '50',
+        icon: '🎯', name: 'Kleinkaliber', badgeCls: 'kk', defaultDist: '50',
         allowedDists: ['50', '100'],
-        setupTag: (disc, dist) => `◆ KK · ${DISC[disc]?.name || disc} · ${dist} METER ◆`
+        setupTag: (disc, dist) => `◆ Kleinkaliber · ${DISC[disc]?.name || disc} · ${dist} METER ◆`
       }
     };
 
@@ -377,7 +476,7 @@
       saveXP();
       updateSchuetzenpass();
       showXPPop(gained);
-      
+
       // Rank Check
       const { rank: newRank, idx: newIdx } = getRank(G.xp);
       if (newIdx > oldIdx) {
@@ -385,7 +484,7 @@
       } else {
         if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.xp(), 500);
       }
-      
+
       // Auto-sync zu Firebase
       pushProfileToFirebase();
       return gained;
@@ -443,6 +542,13 @@
       setTimeout(() => el.remove(), 1700);
     }
 
+    function getHeaderStreakValue() {
+      const lgStreak = Number(localStorage.getItem('sd_lg_streak') || 0) || 0;
+      const kkStreak = Number(localStorage.getItem('sd_kk_streak') || 0) || 0;
+      const legacyStreak = Number(localStorage.getItem('sd_win_streak') || 0) || 0;
+      return Math.max(lgStreak, kkStreak, legacyStreak);
+    }
+
     function updateSchuetzenpass() {
       const { rank, idx } = getRank(G.xp);
       const nextRank = RANKS[idx + 1] || null;
@@ -465,13 +571,16 @@
     /* ─── PROFILE OVERLAY ────────────────────── */
     function toggleProfileMenu() {
       const ov = DOM.profileOverlay || document.getElementById('profileOverlay');
+      const icon = DOM.profileIcon || document.getElementById('profileIcon');
       if (!ov) return;
       const isActive = ov.classList.contains('active');
       if (isActive) {
         ov.classList.remove('active');
+        if (icon) icon.classList.remove('active');
       } else {
         refreshProfileSheet();
         ov.classList.add('active');
+        if (icon) icon.classList.add('active');
         // Chart + Sound-Button erst nach Paint initialisieren
         requestAnimationFrame(() => requestAnimationFrame(() => {
           renderPerformanceChart();
@@ -489,11 +598,17 @@
 
     function switchProfileTab(tab) {
       document.querySelectorAll('.ps-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-      document.querySelectorAll('.ps-panel').forEach(p => p.classList.toggle('active', p.id === 'psPanel-' + tab));
+      const panels = document.querySelectorAll('.ps-panel');
+      panels.forEach(p => p.classList.toggle('active', p.id === 'psPanel-' + tab));
+
       if (tab === 'sun') renderSunGrid();
       if (tab === 'lb') loadLeaderboard();
       if (tab === 'history') renderHistory();
-      if (tab === 'stats') requestAnimationFrame(() => renderPerformanceChart());
+      if (tab === 'stats') {
+        requestAnimationFrame(() => renderPerformanceChart());
+        if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.renderUI();
+        if (typeof EnhancedAchievements !== 'undefined') EnhancedAchievements.renderUI();
+      }
     }
 
     function refreshProfileSheet() {
@@ -555,7 +670,7 @@
       }
 
       // Update Header Streak Badge
-      const streak = Number(localStorage.getItem('sd_win_streak') || 0);
+      const streak = getHeaderStreakValue();
       const streakMount = document.getElementById('hdrStreakMount');
       if (streakMount) {
         streakMount.innerHTML = `
@@ -785,7 +900,7 @@
       };
 
       function loadState() {
-        const raw = readJsonStorage(STORAGE_KEY, {});
+        const raw = StorageManager.get('rookie_plan_v1', {});
         state = {
           introSeen: !!raw.introSeen,
           lastDoneCount: Math.max(0, Number(raw.lastDoneCount) || 0),
@@ -795,12 +910,12 @@
       }
 
       function saveState() {
-        writeJsonStorage(STORAGE_KEY, state);
+        StorageManager.set('rookie_plan_v1', state);
       }
 
       function getMetrics() {
         const gs = loadGameStats();
-        const totalDuels = getTotalDuels(gs);
+        const totalDuels = (gs.wins || 0) + (gs.losses || 0) + (gs.draws || 0);
         const wins = gs.wins || 0;
         const lg = loadWeaponStats('lg');
         const kk = loadWeaponStats('kk');
@@ -810,13 +925,13 @@
           Number(localStorage.getItem('sd_lg_best') || 0) || 0,
           Number(localStorage.getItem('sd_kk_best') || 0) || 0
         );
-        const dailyState = readJsonStorage('sd_daily_challenge', {});
+        const dailyState = StorageManager.get('daily_challenge', {});
         const dailyCompleted = Array.isArray(dailyState.challenges)
           ? dailyState.challenges.filter(c => c && c.completed).length
           : 0;
 
         return {
-          hasUsername: !!(G.username || localStorage.getItem('sd_username')),
+          hasUsername: !!(G.username || StorageManager.getRaw('username')),
           totalDuels,
           wins,
           lgGames,
@@ -836,7 +951,7 @@
       function render(evalResult = null) {
         const mount = document.getElementById('rookiePlanMount');
         if (!mount) return;
-        
+
         // Only show in profile sheet
         const isProfileVisible = document.getElementById('profileOverlay')?.classList.contains('active');
         if (!isProfileVisible && !evalResult) return;
@@ -960,7 +1075,7 @@
       }
 
       function loadState() {
-        const raw = readJsonStorage(STORAGE_KEY, {});
+        const raw = StorageManager.get('healthy_engagement_v1', {});
         state = {
           dateId: typeof raw.dateId === 'string' ? raw.dateId : '',
           activeSecsToday: Math.max(0, Number(raw.activeSecsToday) || 0),
@@ -974,7 +1089,7 @@
       }
 
       function saveState() {
-        writeJsonStorage(STORAGE_KEY, state);
+        StorageManager.set('healthy_engagement_v1', state);
       }
 
       function hideBreakOverlay() {
@@ -1132,16 +1247,34 @@
           result: result,
           playerScore: playerPts,
           botScore: botPts,
+          scoreDifference: playerPts - botPts,
           discipline: G.discipline,
           weapon: weapon,
           difficulty: diff,
           shots: G.playerShots || [], // Spieler-Schüsse falls verfügbar
+          shotsLeft: G.playerShotsLeft,
           maxDeficit: Math.max(0, botPts - playerPts), // Größter Rückstand
-          duration: G.gameDuration || 0, // Spieldauer falls verfügbar
+          duration: Math.floor((Date.now() - G._gameStartTime) / 1000), // Spieldauer in Sek.
           timestamp: Date.now()
         };
-        
+
         EnhancedAnalytics.addGameData(gameData);
+
+        // NEU: Daily Challenge Fortschritt tracken
+        if (typeof DailyChallenge !== 'undefined') {
+          const stats = {
+            currentStreak: G.streak || 0,
+            gamesPlayed: (gs.wins || 0) + (gs.losses || 0) + (gs.draws || 0)
+          };
+          DailyChallenge.trackGame(gameData, stats);
+        }
+
+        // NEU: Adaptive Bot - Spieler-Schwächen analysieren
+        if (typeof AdaptiveBotSystem !== 'undefined' && G.playerShots.length > 0) {
+          // Gruppierung für den Spieler berechnen
+          const grouping = calculateGrouping(G.playerShots);
+          AdaptiveBotSystem.trackPlayerResult(grouping);
+        }
       }
 
       // NEU: Erweiterte Achievements prüfen
@@ -1154,14 +1287,18 @@
           won: result === 'win',
           maxDeficit: Math.max(0, botPts - playerPts)
         };
-        
+
+        const lgStreak = Number(localStorage.getItem('sd_lg_streak') || 0);
+        const kkStreak = Number(localStorage.getItem('sd_kk_streak') || 0);
+        const legacyStreak = Number(localStorage.getItem('sd_win_streak') || 0);
+
         const stats = {
-          currentStreak: G.currentStreak || 0,
-          gamesPlayed: (gs.gamesPlayed || 0) + 1
+          currentStreak: Math.max(Number(G.streak || 0), lgStreak, kkStreak, legacyStreak),
+          gamesPlayed: (gs.wins || 0) + (gs.losses || 0) + (gs.draws || 0)
         };
-        
+
         const unlockedAchievements = EnhancedAchievements.checkAchievementsAfterGame(gameData, stats);
-        
+
         // Benachrichtigung für neue Achievements
         if (unlockedAchievements.length > 0 && typeof MobileFeatures !== 'undefined') {
           unlockedAchievements.forEach(achievement => {
@@ -1177,9 +1314,12 @@
         } else if (result === 'lose') {
           MobileFeatures.hapticMiss();
         }
-        
+
         // Bei neuen Rekorden oder besonderen Leistungen
-        if (playerPts > (G.personalBest || 0)) {
+        const bestLG = parseInt(localStorage.getItem('sd_lg_best') || '0') || 0;
+        const bestKK = parseInt(localStorage.getItem('sd_kk_best') || '0') || 0;
+        const personalBest = Math.max(bestLG, bestKK);
+        if (playerPts > personalBest) {
           MobileFeatures.hapticAchievement();
         }
       }
@@ -1189,12 +1329,43 @@
       setTimeout(() => pushProfileToFirebase(), 300);
     }
 
+    function calculateGrouping(shots) {
+      if (!shots || shots.length === 0) return null;
+      let totalX = 0, totalY = 0;
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+      shots.forEach(s => {
+        totalX += s.dx;
+        totalY += s.dy;
+        if (s.dx < minX) minX = s.dx;
+        if (s.dx > maxX) maxX = s.dx;
+        if (s.dy < minY) minY = s.dy;
+        if (s.dy > maxY) maxY = s.dy;
+      });
+
+      const centerX = totalX / shots.length;
+      const centerY = totalY / shots.length;
+      let totalDist = 0;
+      shots.forEach(s => {
+        const dx = s.dx - centerX;
+        const dy = s.dy - centerY;
+        totalDist += Math.sqrt(dx * dx + dy * dy);
+      });
+
+      return {
+        extremeSpread: Math.sqrt(Math.pow(maxX - minX, 2) + Math.pow(maxY - minY, 2)),
+        meanRadius: totalDist / shots.length,
+        centerOffsetX: centerX,
+        centerOffsetY: centerY
+      };
+    }
+
     /* ─── HISTORY ────────────────────────────── */
     function addHistoryEntry(result, diff, weapon, playerPts, botPts) {
       try {
         const hist = JSON.parse(localStorage.getItem('sd_history') || '[]');
         const DIFF_NAMES = { easy: 'Einfach', real: 'Mittel', hard: 'Elite', elite: 'Profi' };
-        const WEAPON_NAMES = { lg: 'Luftgewehr', kk: 'KK' };
+        const WEAPON_NAMES = { lg: 'Luftgewehr', kk: 'Kleinkaliber' };
         hist.unshift({
           result,
           diff,
@@ -1405,23 +1576,29 @@
       });
     }
 
+    function getBestStreak() {
+      const lgBest = STREAK_CACHE.lg?.best || 0;
+      const kkBest = STREAK_CACHE.kk?.best || 0;
+      return Math.max(lgBest, kkBest);
+    }
+
     const SUN_ACHIEVEMENTS = [
       // Basic
       { id: 'first_game', group: 'basic', icon: '🎯', name: 'Erster Schuss', desc: '1 Duell gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 1 },
       { id: 'first_win', group: 'basic', icon: '🏆', name: 'Erster Sieg', desc: '1 Duell gewonnen', check: () => (loadGameStats().wins || 0) >= 1 },
       { id: 'five_games', group: 'basic', icon: '🔢', name: 'Fünf Duelle', desc: '5 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 5 },
       { id: 'xp_100', group: 'basic', icon: '⭐', name: '100 XP', desc: '100 XP verdient', check: () => G.xp >= 100 },
-      { id: 'streak_3', group: 'basic', icon: '🔥', name: 'Heiß!', desc: '3er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 3 },
+      { id: 'streak_3', group: 'basic', icon: '🔥', name: 'Heiß!', desc: '3er Siegesserie', check: () => getBestStreak() >= 3 },
       // Battle
       { id: 'beat_hard', group: 'battle', icon: '💀', name: 'Harter Brocken', desc: 'Elite-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_hard')) },
       { id: 'beat_elite', group: 'battle', icon: '💫', name: 'Legende', desc: 'Profi-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_elite')) },
       { id: 'ten_wins', group: 'battle', icon: '🥇', name: '10 Siege', desc: '10 Duelle gewonnen', check: () => (loadGameStats().wins || 0) >= 10 },
       { id: 'both_weapons', group: 'battle', icon: '⚔️', name: 'Allrounder', desc: 'LG & KK je 1 Sieg', check: () => (loadWeaponStats('lg').wins || 0) >= 1 && (loadWeaponStats('kk').wins || 0) >= 1 },
-      { id: 'streak_7', group: 'battle', icon: '🌟', name: 'Unaufhaltsam', desc: '7er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 7 },
+      { id: 'streak_7', group: 'battle', icon: '🌟', name: 'Unaufhaltsam', desc: '7er Siegesserie', check: () => getBestStreak() >= 7 },
       // Master
       { id: 'xp_500', group: 'master', icon: '🏅', name: 'Meister', desc: '500 XP verdient', check: () => G.xp >= 500 },
       { id: 'xp_1000', group: 'master', icon: '🏆', name: 'Großmeister', desc: '1000 XP verdient', check: () => G.xp >= 1000 },
-      { id: 'streak_14', group: 'master', icon: '🔥🔥', 'name': '14er Streak', desc: '14er Siegesserie', check: () => Math.max(parseInt(localStorage.getItem('sd_lg_best') || '0') || 0, parseInt(localStorage.getItem('sd_kk_best') || '0') || 0) >= 14 },
+      { id: 'streak_14', group: 'master', icon: '🔥🔥', name: '14er Streak', desc: '14er Siegesserie', check: () => getBestStreak() >= 14 },
       { id: 'fifty_games', group: 'master', icon: '🎖️', name: '50 Duelle', desc: '50 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 50 },
       { id: 'xp_2000', group: 'master', icon: '💫', name: 'Legende', desc: '2000 XP – Legendenstatus', check: () => G.xp >= 2000 },
     ];
@@ -1564,68 +1741,106 @@
       } catch (e) { console.warn('Firebase init failed:', e); fbReady = false; }
     }
 
-    function loadLeaderboard() {
-      const list = document.getElementById('lbList');
-      if (!list) return;
+    function getLeaderboardLists() {
+      const mountedLists = Array.from(document.querySelectorAll('[data-lb-list]'));
+      if (mountedLists.length) return mountedLists;
+      const legacyList = document.getElementById('lbList');
+      return legacyList ? [legacyList] : [];
+    }
 
-      list.innerHTML = '<div class="lb-loading">⏳ Lade Rangliste...</div>';
+    function setLeaderboardMarkup(markup) {
+      getLeaderboardLists().forEach(list => {
+        list.innerHTML = markup;
+      });
+    }
+
+    function setLeaderboardLoadingState(isLoading) {
+      getLeaderboardLists().forEach(list => {
+        if (isLoading) list.dataset.loading = 'true';
+        else delete list.dataset.loading;
+      });
+    }
+
+    function loadLeaderboard(force = false) {
+      const lists = getLeaderboardLists();
+      if (!lists.length) return;
+
+      const isLoading = lists.some(list => list.dataset.loading === 'true');
+      const hasRows = lists.some(list => !!list.querySelector('.lb-row'));
+      if (!force && (hasRows || isLoading)) return;
+
+      setLeaderboardLoadingState(true);
+      setLeaderboardMarkup('<div class="lb-loading">⏳</div>');
 
       // Status-Badge (falls vorhanden)
       updateLbStatusBadge();
 
+      const finishLoad = (markup) => {
+        setLeaderboardLoadingState(false);
+        setLeaderboardMarkup(markup);
+      };
+
       // Warte bis Firebase bereit
       const tryLoad = (attempts) => {
         if (!fbReady) {
-          if (attempts > 0) { setTimeout(() => tryLoad(attempts - 1), 300); return; }
-          list.innerHTML = '<div class="lb-empty">🔌 Offline – Bestenliste nicht verfügbar.</div>';
+          if (attempts > 0) { setTimeout(() => tryLoad(attempts - 1), 800); return; }
+          finishLoad('<div class="lb-empty">🔌 Offline – Bestenliste nicht verfügbar.</div>');
           return;
         }
-        
-        // Lade Top 50 nach XP sortiert
-        fbDb.ref('leaderboard_v2').orderByChild('xp').limitToLast(50).once('value')
+
+        // Lade Top 50 nach Score sortiert
+        fbDb.ref('leaderboard_v2').orderByChild('score').limitToLast(50).once('value')
           .then(snap => {
             const entries = [];
             snap.forEach(child => { entries.push(child.val()); });
-            entries.reverse(); // Höchste XP zuerst
+            entries.reverse(); // Höchster Score zuerst
             renderLeaderboard(entries);
           })
           .catch(err => {
             console.error('Leaderboard load error:', err?.code, err?.message);
-            list.innerHTML = '<div class="lb-empty">⚠️ Fehler beim Laden.</div>';
+            finishLoad('<div class="lb-empty">⚠️ Fehler beim Laden.</div>');
           });
       };
-      tryLoad(10);
+      tryLoad(15);
     }
 
     function renderLeaderboard(entries) {
-      const list = document.getElementById('lbList');
-      if (!list) return;
+      const lists = getLeaderboardLists();
+      if (!lists.length) return;
+
+      setLeaderboardLoadingState(false);
       if (!entries.length) {
-        list.innerHTML = '<div class="lb-empty">Noch keine Einträge. Sei der Erste! 🏆</div>';
+        setLeaderboardMarkup('<div class="lb-empty">Noch keine Einträge. Sei der Erste! 🏆</div>');
         return;
       }
-      
-      list.innerHTML = entries.map((e, i) => {
-        const isMe = G.username && e.name === G.username;
+
+      const markup = entries.map((e, i) => {
+        const displayName = e.name || e.username || 'Anonym';
+        const isMe = G.username && (e.name === G.username || e.username === G.username);
         const weaponIcon = e.weapon === 'kk' ? '🎯' : '🌬️';
+        const score = Number(e.score ?? e.xp ?? 0) || 0;
+        const xp = Number(e.xp ?? 0) || 0;
+        const streak = Number(e.streak ?? 0) || 0;
         return `
           <div class="lb-row ${isMe ? 'me' : ''}">
             <div class="lb-rank-num">${i + 1}</div>
             <div class="lb-avatar">${e.rankIcon || '👤'}</div>
             <div class="lb-info">
-              <div class="lb-name">${escHtml(e.name || 'Anonym')}${isMe ? ' (Du)' : ''}</div>
+              <div class="lb-name">${escHtml(displayName)}${isMe ? ' (Du)' : ''}</div>
               <div class="lb-sub">${weaponIcon} ${e.rank || 'Schütze'}</div>
             </div>
             <div class="lb-stats">
-              <div class="lb-xp">${e.xp || 0} XP</div>
-              <div class="lb-streak">🔥 ${e.streak || 0}</div>
+              <div class="lb-xp">${score} Score</div>
+              <div class="lb-streak">${xp} XP · 🔥 ${streak}</div>
             </div>
           </div>
         `;
       }).join('');
+
+      setLeaderboardMarkup(markup);
     }
 
-    function escHtml(s) { return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    function escHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
     /* ─── FIREBASE SYNC (zentral) ────────────── */
     function buildFirebaseEntry() {
@@ -1639,6 +1854,7 @@
       const score = G.xp + bestStreak * 5;
       return {
         name: G.username || 'Anonym',
+        username: G.username || 'Anonym',
         xp: G.xp,
         rank: rank.name,
         rankIcon: rank.icon,
@@ -1676,7 +1892,7 @@
         return;
       }
       pushProfileToFirebase(ok => {
-        if (ok) loadLeaderboard();
+        if (ok) loadLeaderboard(true);
         else alert('Offline – Eintrag konnte nicht gespeichert werden.');
       });
     }
@@ -2197,15 +2413,9 @@
     }
 
     function loadStreakForWeapon(w) {
-      try {
-        const prefix = `sd_${w}_`;
-        const streak = parseInt(localStorage.getItem(prefix + 'streak') || '0');
-        const best = parseInt(localStorage.getItem(prefix + 'best') || '0');
-
-        STREAK_CACHE[w] = { streak, best };
-      } catch (e) {
-        STREAK_CACHE[w] = { streak: 0, best: 0 };
-      }
+      const streak = StorageManager.get(`${w}_streak`, 0);
+      const best = StorageManager.get(`${w}_best`, 0);
+      STREAK_CACHE[w] = { streak, best };
     }
 
     function updateStreakCorner() {
@@ -2236,25 +2446,20 @@
     function updateWinStreak(won) {
       // Increment streak on win, reset to 0 on loss
       const w = G.weapon;
-      const pfx = `sd_${w}_`;
-      try {
-        let streak = parseInt(localStorage.getItem(pfx + 'streak') || '0') || 0;
-        const best = parseInt(localStorage.getItem(pfx + 'best') || '0') || 0;
+      let { streak, best } = STREAK_CACHE[w] || { streak: 0, best: 0 };
 
-        if (won) {
-          streak++;
-        } else {
-          streak = 0;
-        }
+      if (won) {
+        streak++;
+      } else {
+        streak = 0;
+      }
 
-        localStorage.setItem(pfx + 'streak', streak);
-        const newBest = Math.max(streak, best);
-        localStorage.setItem(pfx + 'best', newBest);
+      const newBest = Math.max(streak, best);
+      StorageManager.set(`${w}_streak`, streak);
+      StorageManager.set(`${w}_best`, newBest);
 
-        STREAK_CACHE[w] = { streak, best: newBest };
-        G.streak = streak;
-        // Sync wird von awardXP / recordGameResult ausgelöst
-      } catch (e) { }
+      STREAK_CACHE[w] = { streak, best: newBest };
+      G.streak = streak;
     }
 
     /* ─── TIMER & BOT-INTERVAL HELPERS ──────── */
@@ -2395,7 +2600,7 @@
         const delay = delaySecs * 1000;
 
         G._botInterval = setTimeout(() => {
-          if (G.shotsLeft <= 0) return; // Spiel schon vorbei
+          if (G.botShotsLeft <= 0) return; // Bot schon fertig
           if (G.is3x20 && G.transitionSecsLeft > 0) {
             scheduleNextShot();
             return;
@@ -2409,8 +2614,8 @@
     }
 
     function botAutoFire() {
-      if (G.shotsLeft <= 0) return;
-      const bRes = fireSingleShot();
+      if (G.botShotsLeft <= 0) return;
+      const bRes = fireSingleShot(true);
       if (!bRes) return;
 
       // Füge Pill zum Log hinzu
@@ -2449,7 +2654,12 @@
           }
           setTimeout(() => updatePosBar(), 200);
         } else { updatePosBar(); }
-        DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+        // Wait for DOM to update before scrolling to ensure scrollHeight is current
+requestAnimationFrame(() => {
+  if (DOM.shotLogWrap) {
+    DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+  }
+});
       } else {
         const pill = document.createElement('span');
         pill.className = 'sl-pill ' + pillCls;
@@ -2492,10 +2702,12 @@
     function startBattle() {
       const dc = DISC[G.discipline];
       G.maxShots = dc.shots;
-      G.shotsLeft = dc.shots;
+      G.playerShotsLeft = dc.shots;
+      G.botShotsLeft = dc.shots;
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.playerShots = [];
       G._gameStartTime = Date.now();
+      G._lastPlayerShotAt = G._gameStartTime;
       HealthyEngagement.onBattleStart();
       G.dnf = false;
       G.probeActive = true;  // Probezeit ist aktiv
@@ -2588,11 +2800,11 @@
 
     function updateBattleUI() {
       const lowThresh = Math.max(5, Math.round(G.maxShots * 0.15));
-      const low = G.shotsLeft <= lowThresh;
-      const fired = G.maxShots - G.shotsLeft;
+      const low = G.playerShotsLeft <= lowThresh;
+      const fired = G.maxShots - G.playerShotsLeft;
 
       // Score — compute once, assign to both score chip and live bar
-      DOM.shotsLeft.textContent = G.shotsLeft;
+      DOM.shotsLeft.textContent = G.playerShotsLeft;
       DOM.shotsLeft.className = low ? 'chip-val low' : 'chip-val';
       DOM.botScoreChipInt.textContent = G.botTotalInt;
       DOM.lsbInt.textContent = G.botTotalInt;
@@ -2710,81 +2922,102 @@
       'Stehend': { mult: 1.80, noise: 0.50 }, // realistisch streut, 8-10
     };
 
-    function fireSingleShot() {
-      if (G.shotsLeft <= 0) return false;
+    function fireSingleShot(isBot = true) {
+      if (isBot && G.botShotsLeft <= 0) return false;
+      if (!isBot && G.playerShotsLeft <= 0) return false;
 
-      const dc = DIFF[G.diff] || DIFF.real;
-      const sig = SIGMA[G.dist] || SIGMA['50'];
+      let bdx, bdy, dominantError = 'wobble';
 
-      // Sigma-Berechnung je nach Disziplin (kalibriert per Rayleigh-Verteilung)
-      let botSig;
-      if (G.is3x20 && G.weapon === 'kk' && G.positions.length > 0) {
-        // KK 3x20: Positions-spezifischer Sigma (Liegend/Kniend/Stehend)
-        const posName = G.positions[G.posIdx] || 'Liegend';
-        const pm = POS_MULT[posName] || POS_MULT['Stehend'];
-        botSig = sig * dc.mult * pm.mult + (dc.noise * pm.mult + pm.noise) * Math.random();
-      } else if (G.weapon === 'kk' && !G.is3x20) {
-        // KK 50m/100m (60 Schuss Liegend): kalibriert auf 580–620 Zehntel
-        const KK60_BASE  = { easy: 11.5, real: 9.5, hard: 7.5, elite: 6.5 };
-        const KK60_NOISE = { easy: 2.5,  real: 1.5, hard: 0.8, elite: 0.2 };
-        botSig = (KK60_BASE[G.diff] ?? 9.5) + (KK60_NOISE[G.diff] ?? 1.5) * Math.random();
-      } else if (G.discipline === 'lg40') {
-        // LG 40 (40 Schuss, 10m): kalibriert auf 360–415 Zehntel
-        // Sigma in Pixel (canvas maxR≈132px, Ring10-Radius≈13.2px)
-        const LG40_BASE  = { easy: 17, real: 13, hard: 9, elite: 6 };
-        const LG40_NOISE = { easy:  3, real:  2, hard: 1, elite: 0.2 };
-        botSig = (LG40_BASE[G.diff] ?? 13) + (LG40_NOISE[G.diff] ?? 2) * Math.random();
-      } else if (G.discipline === 'lg60') {
-        // LG 60 (60 Schuss, 10m): kalibriert auf 575–625 Zehntel
-        const LG60_BASE  = { easy: 12, real: 9, hard: 6.5, elite: 5.5 };
-        const LG60_NOISE = { easy:  2, real: 1.5, hard: 0.8, elite: 0.2 };
-        botSig = (LG60_BASE[G.diff] ?? 9) + (LG60_NOISE[G.diff] ?? 1.5) * Math.random();
+      // Wenn Bot schießt: Physiologische Simulation nutzen falls verfügbar
+      if (isBot && typeof AdaptiveBotSystem !== 'undefined' && AdaptiveBotSystem.isEnabled()) {
+        const difficulty = G.diff; // 'easy', 'real', 'hard', 'elite'
+        let discipline = 'air_rifle_10m';
+        if (G.weapon === 'kk') discipline = 'smallbore_50m';
+
+        const shot = AdaptiveBotSystem.fireSingleShot(difficulty, discipline);
+        // AdaptiveBotSystem gibt mm zurück, wir brauchen Pixel (Sigma-Äquivalent)
+        // In app.js entspricht Sigma ~13px bei LG10m
+        // Physics-Engine: Ring 10 Radius = 0.5mm
+        // app.js: Ring 10 Radius = 13.2px (ca. 10% der maxR)
+        // Skalierungsfaktor mm -> px: ~26 (0.5mm * 26.4 = 13.2px)
+        const scale = G.weapon === 'kk' ? 2.5 : 26.4;
+        bdx = shot.x * scale;
+        bdy = shot.y * scale;
+        dominantError = shot.dominantError;
       } else {
-        // Fallback für andere Disziplinen
-        botSig = sig * dc.mult + dc.noise * Math.random();
-      }
-      // KK 3x20: nur ganze Ringe → botSig so anpassen, dass Treffer ganzzahlig ausgewertet werden
-      // (die Zehntel werden beim Akkumulieren weggeschnitten – kein Extra-Sigma nötig)
+        // Fallback oder Spieler-Schuss: Bestehende Gauß-Logik
+        const dc = DIFF[G.diff] || DIFF.real;
+        const sig = SIGMA[G.dist] || SIGMA['50'];
 
-      const bdx = gauss(botSig), bdy = gauss(botSig);
+        // Sigma-Berechnung je nach Disziplin (kalibriert per Rayleigh-Verteilung)
+        let botSig;
+        if (G.is3x20 && G.weapon === 'kk' && G.positions.length > 0) {
+          // KK 3x20: Positions-spezifischer Sigma (Liegend/Kniend/Stehend)
+          const posName = G.positions[G.posIdx] || 'Liegend';
+          const pm = POS_MULT[posName] || POS_MULT['Stehend'];
+          botSig = sig * dc.mult * pm.mult + (dc.noise * pm.mult + pm.noise) * Math.random();
+        } else if (G.weapon === 'kk' && !G.is3x20) {
+          // KK 50m/100m (60 Schuss Liegend): kalibriert auf 580–620 Zehntel
+          const KK60_BASE  = { easy: 11.5, real: 9.5, hard: 7.5, elite: 6.5 };
+          const KK60_NOISE = { easy: 2.5,  real: 1.5, hard: 0.8, elite: 0.2 };
+          botSig = (KK60_BASE[G.diff] ?? 9.5) + (KK60_NOISE[G.diff] ?? 1.5) * Math.random();
+        } else if (G.discipline === 'lg40') {
+          // LG 40 (40 Schuss, 10m): kalibriert auf 360–415 Zehntel
+          const LG40_BASE  = { easy: 17, real: 13, hard: 9, elite: 6 };
+          const LG40_NOISE = { easy:  3, real:  2, hard: 1, elite: 0.2 };
+          botSig = (LG40_BASE[G.diff] ?? 13) + (LG40_NOISE[G.diff] ?? 2) * Math.random();
+        } else if (G.discipline === 'lg60') {
+          // LG 60 (60 Schuss, 10m): kalibriert auf 575–625 Zehntel
+          const LG60_BASE  = { easy: 12, real: 9, hard: 6.5, elite: 5.5 };
+          const LG60_NOISE = { easy:  2, real: 1.5, hard: 0.8, elite: 0.2 };
+          botSig = (LG60_BASE[G.diff] ?? 9) + (LG60_NOISE[G.diff] ?? 1.5) * Math.random();
+        } else {
+          botSig = sig * dc.mult + dc.noise * Math.random();
+        }
+
+        // Wenn Spieler schießt: Etwas mehr Varianz, falls nicht explizit trainiert
+        if (!isBot) botSig *= 1.1;
+
+        bdx = gauss(botSig);
+        bdy = gauss(botSig);
+      }
+
       const bRes = scoreHit(bdx, bdy);
 
-      G.botShots.push({
-        dx: bdx, dy: bdy, pts: bRes.pts, label: bRes.label, isX: bRes.isX,
-        cracks: Array.from({ length: 7 }, (_, i) => ({
-          a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
-          len: 1.4 + Math.random()
-        }))
-      });
-      // Akkumuliere als Integer-Zehntel (×10) um Fließkomma-Drift zu vermeiden
-      // KK 3x20: nur ganze Ringe – Zehntel werden verworfen
-      if (G.is3x20 && G.weapon === 'kk') {
-        const wholeRing = Math.floor(bRes.pts);
-        G._botTotalTenths = (G._botTotalTenths || 0) + wholeRing * 10;
-        G.botTotal = G._botTotalTenths / 10; // bleibt ganzzahlig
+      if (isBot) {
+        G.botShots.push({
+          dx: bdx, dy: bdy, pts: bRes.pts, label: bRes.label, isX: bRes.isX,
+          errorType: dominantError,
+          cracks: Array.from({ length: 7 }, (_, i) => ({
+            a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
+            len: 1.4 + Math.random()
+          }))
+        });
+
+        if (G.is3x20 && G.weapon === 'kk') {
+          const wholeRing = Math.floor(bRes.pts);
+          G._botTotalTenths = (G._botTotalTenths || 0) + wholeRing * 10;
+          G.botTotal = G._botTotalTenths / 10;
+        } else {
+          G._botTotalTenths = (G._botTotalTenths || 0) + Math.round(bRes.pts * 10);
+          G.botTotal = G._botTotalTenths / 10;
+        }
+
+        if (!G.is3x20) {
+          G.botTotalInt += Math.floor(bRes.pts);
+        }
+        G.botShotsLeft--;
       } else {
-        G._botTotalTenths = (G._botTotalTenths || 0) + Math.round(bRes.pts * 10);
-        G.botTotal = G._botTotalTenths / 10;
+        G.playerShotsLeft--;
       }
-      // Ganze Ringe (jeder Schuss wird einzeln als Ganzer abgerundet und addiert)
-      // Nur für nicht-3x20 global akkumulieren; 3x20 macht das in botAutoFire() pro Position
-      if (!G.is3x20) {
-        G.botTotalInt += Math.floor(bRes.pts);
-      }
-      G.shotsLeft--;
-      
+
       // NEU: Haptisches Feedback beim Schuss
       if (typeof MobileFeatures !== 'undefined') {
         MobileFeatures.hapticShot();
-        
-        // Spezifisches Feedback basierend auf Trefferqualität
-        if (bRes.pts >= 10) {
-          MobileFeatures.hapticHit();
-        } else if (bRes.pts <= 5) {
-          MobileFeatures.hapticMiss();
-        }
+        if (bRes.pts >= 10) MobileFeatures.hapticHit();
+        else if (bRes.pts <= 5) MobileFeatures.hapticMiss();
       }
-      
+
       return { ...bRes, dx: bdx, dy: bdy };
     }
 
@@ -2811,7 +3044,7 @@
     }
 
     function doBattleFire() {
-      if (G.shotsLeft <= 0) return;
+      if (G.playerShotsLeft <= 0) return;
       if (G.is3x20 && G.transitionSecsLeft > 0) {
         const transitionName = G.transitionLabel || 'Pause';
         G.transitionSecsLeft = 0;
@@ -2839,10 +3072,10 @@
         }
       }
 
-      const count = G.burst ? Math.min(5, G.shotsLeft) : 1;
+      const count = G.burst ? Math.min(5, G.playerShotsLeft) : 1;
       const results = [];
       for (let i = 0; i < count; i++) {
-        const res = fireSingleShot();
+        const res = fireSingleShot(false);
         if (res) results.push(res); // Nur gültige Shots sammeln
       }
 
@@ -2895,8 +3128,6 @@
           pr.int = (pr.int || 0) + Math.floor(bRes.pts);
           if (!pr.shots) pr.shots = [];
           pr.shots.push({ dx: bRes.dx ?? 0, dy: bRes.dy ?? 0 });
-          // 3×20: botTotalInt (Summe ganze Ringe) hier und in botAutoFire; fireSingleShot inkrementiert bei 3×20 kein botTotalInt
-          G.botTotalInt += Math.floor(bRes.pts);
 
           // Position complete?
           if (G.posShots >= G.perPos && G.posIdx < G.positions.length - 1) {
@@ -2927,13 +3158,18 @@
           } else {
             updatePosBar();
           }
-          DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+          // Wait for DOM to update before scrolling to ensure scrollHeight is current
+          requestAnimationFrame(() => {
+            if (DOM.shotLogWrap) {
+              DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+            }
+          });
         } else {
           // Flat log: show last 10
           if (DOM.shotLog) {
             const pill = document.createElement('span');
             pill.className = 'sl-pill ' + pillCls;
-            pill.textContent = pillTxt;
+            pill.textContent = '👤' + pillTxt;
             DOM.shotLog.appendChild(pill);
             while (DOM.shotLog.children.length > 10) DOM.shotLog.removeChild(DOM.shotLog.firstChild);
           }
@@ -2948,6 +3184,28 @@
           pts: bRes.pts
         });
       });
+
+      if (typeof TrainingModes !== 'undefined' && TrainingModes.getCurrentTraining?.()?.status === 'active') {
+        const now = Date.now();
+        const lastShotAt = G._lastPlayerShotAt || G._gameStartTime || now;
+        const perShotDelaySecs = Math.max(1, (now - lastShotAt) / Math.max(1, results.length) / 1000);
+
+        results.forEach(bRes => {
+          const spread = Math.abs(bRes.dx ?? 0) + Math.abs(bRes.dy ?? 0);
+          TrainingModes.processTrainingShot({
+            ring: Math.floor(bRes.pts || 0),
+            isX: !!bRes.isX,
+            points: bRes.pts || 0,
+            timeTaken: perShotDelaySecs,
+            stability: Math.max(0, Math.min(1, 1 - (spread / 60))),
+            smoothness: (bRes.pts || 0) >= 8 ? 0.7 : ((bRes.pts || 0) >= 6 ? 0.45 : 0.2),
+            rhythm: perShotDelaySecs >= 6 && perShotDelaySecs <= 18 ? 0.75 : 0.35,
+            consistentTiming: perShotDelaySecs >= 6 && perShotDelaySecs <= 18
+          });
+        });
+
+        G._lastPlayerShotAt = now;
+      }
 
       // ── Info text ────────────────────────────────
       const mkBotScore = () => isKK3x20WholeRingsOnly()
@@ -2976,7 +3234,7 @@
       setTimeout(() => {
         drawTarget(G.botShots);
         updateBattleUI();
-        if (G.shotsLeft <= 0) {
+        if (G.playerShotsLeft <= 0) {
           clearBattleTimers();
           if (G.burst) DOM.battleBurstBtn.disabled = true;
           else DOM.battleFireBtn.disabled = true;
@@ -2985,7 +3243,7 @@
             updatePosBar();
             DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
           } else {
-            DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
+            DOM.lastShotTxt.innerHTML = `🏁 Deine Schüsse fertig! Bot-Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b>.`;
           }
           setTimeout(() => goToEntry(), 1400);
         }
@@ -3185,7 +3443,7 @@
         };
         icSlot.appendChild(btn);
       }
-      
+
       if (res === 'win') {
         if (kk3x20) {
           showGameOver(G.botTotalInt + 1, G.botTotalInt, 'Schnellauswahl: Gewonnen', G.botTotalInt + 1);
@@ -3529,6 +3787,13 @@
         DOM.goMargin.style.display = '';
         updateWinStreak(false);
       }
+      const activeTraining = typeof TrainingModes !== 'undefined'
+        ? TrainingModes.getCurrentTraining?.()
+        : null;
+      if (activeTraining && activeTraining.status === 'active' && Array.isArray(activeTraining.shots) && activeTraining.shots.length > 0) {
+        TrainingModes.endTraining();
+      }
+
       // Record stats + history + check SUN
       if (!G.dnf || gameResult !== 'win') {
         recordGameResult(gameResult, G.diff, G.weapon, pp, bp);
@@ -3560,13 +3825,13 @@
           const kkStreak = Number(localStorage.getItem('sd_kk_streak') || 0);
           const legacyStreak = Number(localStorage.getItem('sd_win_streak') || 0);
 
-          const gameData = { 
-            result: gameResult, 
-            difficulty: G.diff, 
-            weapon: G.weapon, 
+          const gameData = {
+            result: gameResult,
+            difficulty: G.diff,
+            weapon: G.weapon,
             shots: questShots,
             consistency: questConsistency
-          }; 
+          };
           const statsData = {
             currentStreak: Math.max(Number(G.streak || 0), lgStreak, kkStreak, legacyStreak)
           };
@@ -3579,7 +3844,7 @@
 
       if (DOM.analysisResult) DOM.analysisResult.innerHTML = '';
       const totalDuels = getTotalDuels();
-      
+
       // Sicherstellen, dass Feedback-Plan initialisiert ist
       ensureFeedbackSchedule();
 
@@ -3604,7 +3869,7 @@
 
       // Zuerst screenOver anzeigen, dann dynamisch zur Umfrage wechseln, falls nötig
       showScreen('screenOver');
-      
+
       if (shouldShowFeedback(totalDuels)) {
         setTimeout(() => showFeedbackScreen(totalDuels), 800);
       }
@@ -3704,10 +3969,10 @@
         });
       } else {
         const inp = document.getElementById('shareCopyInp');
-        if (inp) { 
+        if (inp) {
           inp.value = textToCopy.replace(/\n/g, ' ');
-          inp.select(); 
-          document.execCommand('copy'); 
+          inp.select();
+          document.execCommand('copy');
         }
       }
     }
@@ -3728,9 +3993,9 @@
       if (!confirm("Möchtest du wirklich deinen gesamten Fortschritt (XP, Siege, Erfolge und Streaks) löschen? Dies kann nicht rückgängig gemacht werden!")) return;
 
       const backupName = G.username;
-      localStorage.clear();
-      localStorage.setItem('sd_reset_v3', 'true');
-      if (backupName) localStorage.setItem('sd_username', backupName);
+      StorageManager.clearAll(['reset_v3', 'username']);
+      StorageManager.setRaw('reset_v3', 'true');
+      if (backupName) StorageManager.setRaw('username', backupName);
 
       // Reload everything
       loadXP();
@@ -3748,6 +4013,7 @@
       G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.shotsLeft = G.shots; G.maxShots = G.shots;
       G.dnf = false;
+      G._lastPlayerShotAt = 0;
       // BUG-FIX: Spiel-Zustand komplett zurücksetzen
       G.probeActive = false;
       G.probeSecsLeft = 0;
@@ -3782,8 +4048,11 @@
     setSz();
     drawTarget([]);
     loadXP();
+    initDailyLoginRewards();
     updateSchuetzenpass();
     if (typeof DailyChallenge !== 'undefined') DailyChallenge.init();
+    if (typeof EnhancedAchievements !== 'undefined') EnhancedAchievements.init();
+    if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.init();
 
     // Firebase Init: nur über _tryInitFb() am Ende der Datei
     checkSunAchievements(); // Check on load in case new achievements unlocked
@@ -3793,7 +4062,7 @@
       FeatureFallback.init();
       console.log('🛡️ Feature Fallback System geladen');
     }
-    
+
     // NEU: Neue Features initialisieren (mit Fallback-Schutz)
     if (typeof AdaptiveBotSystem !== 'undefined') {
       try {
@@ -3806,7 +4075,7 @@
         }
       }
     }
-    
+
     if (typeof ContextualOCR !== 'undefined') {
       try {
         ContextualOCR.init();
@@ -3818,7 +4087,7 @@
         }
       }
     }
-    
+
     if (typeof MultiScoreDetection !== 'undefined') {
       try {
         MultiScoreDetection.init();
@@ -3895,6 +4164,22 @@
     RookiePlan.init();
     checkFirstVisit();
     HealthyEngagement.init();
+    window.addEventListener('trainingStarted', (event) => {
+      const modeName = event?.detail?.mode?.name || 'Training';
+      showEngagementToast(`${modeName} aktiviert. Das nächste Duell zählt jetzt als Training.`);
+    });
+    window.addEventListener('trainingCompleted', (event) => {
+      const result = event?.detail?.result;
+      if (!result) return;
+      const reward = Number(result.reward) || 0;
+      const gained = reward > 0 ? awardFlatXP(reward) : 0;
+      const roundedScore = Number.isFinite(Number(result.score)) ? Number(result.score).toFixed(1) : '0.0';
+      const suffix = gained > 0 ? ` +${gained} XP` : '';
+      showEngagementToast(`Training beendet: ${result.grade} (${roundedScore}).${suffix}`);
+      if (typeof TrainingModes !== 'undefined' && typeof TrainingModes.renderUI === 'function') {
+        TrainingModes.renderUI();
+      }
+    });
 
     // Build initial discipline tabs for default weapon (lg)
     buildDiscTabs('lg');
@@ -3940,7 +4225,7 @@
     })();
 
     // ── Service Worker (PWA / Offline) ──────────────────────────────────
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js?v=2.6').catch(() => { });
       });

@@ -28,25 +28,26 @@
   <script src="sounds.js"></script>
   <script src="tutorial.js"></script>
   <script src="image-compare-brain.js?v=4.1"></script>
-  <script src="gemini-ai.js"></script>
-  <script src="image-compare.js?v=4.1"></script>
-  
+  <script src="gemini-ai.js" defer></script>
+  <script src="image-compare.js?v=4.1" defer></script>
+
   <!-- NEUE FEATURES: Physics Engine, Adaptive Bot-KI und erweiterte OCR -->
-  <script src="feature-fallback.js"></script>
+  <script src="feature-fallback.js" defer></script>
   <!-- physics-engine.js — aktuell nicht aktiv genutzt -->
   <!-- <script src="physics-engine.js"></script> -->
-  <script src="adaptive-bot.js"></script>
-  <script src="contextual-ocr.js"></script>
-  <script src="multi-score-detection.js"></script>
-  
+  <script src="adaptive-bot.js" defer></script>
+  <script src="contextual-ocr.js" defer></script>
+  <script src="multi-score-detection.js" defer></script>
+
   <!-- ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile -->
-  <script src="daily-challenge.js"></script>
-  <script src="enhanced-achievements.js"></script>
-  <script src="enhanced-analytics.js"></script>
-  <script src="training-modes.js"></script>
-  <script src="mobile-features.js"></script>
+  <script src="daily-challenge.js" defer></script>
+  <script src="enhanced-achievements.js" defer></script>
+  <script src="enhanced-analytics.js" defer></script>
+  <script src="training-modes.js" defer></script>
+  <script src="mobile-features.js" defer></script>
   <link rel="stylesheet" href="styles.css">
   <script src="storage-manager.js"></script>
+  <script src="performance-config.js"></script>
 </head>
 
 <body>
@@ -119,7 +120,7 @@
     <div class="hdr">
       <!-- Top row: profil left · logo center · spacer right -->
       <div class="hdr-top">
-        <div id="hdrStreakMount" onclick="toggleProfileMenu()"></div>
+        <div id="hdrStreakMount"></div>
         <div class="logo">SCHUSS<em>DUELL</em></div>
         <div class="schuetzenpass-icon" id="profileIcon" onclick="toggleProfileMenu()">👤</div>
       </div>
@@ -248,8 +249,19 @@
                 </div>
               </div>
 
-              <!-- ROOKIE PLAN (Moved from Main Setup) -->
               <div id="rookiePlanMount" style="margin-top: 20px;"></div>
+              <div id="enhancedAnalyticsMount" style="margin-top: 20px;"></div>
+              <!-- HEATMAP SECTION -->
+              <div id="heatmapMount" style="margin-top: 20px; display: none;">
+                <div class="metric-card">
+                  <div class="metric-title">🔥 Real-Life Heatmap</div>
+                  <div class="metric-sub">Basierend auf deinen Foto-Uploads</div>
+                  <div style="position: relative; width: 100%; aspect-ratio: 1; margin-top: 15px; background: #000; border-radius: 8px; overflow: hidden;">
+                    <canvas id="heatmapCanvas" style="width: 100%; height: 100%;"></canvas>
+                  </div>
+                  <div class="metric-sub" style="margin-top: 10px; font-size: 0.7rem;">Diese Analyse zeigt systematische Abweichungen deiner echten Schüsse.</div>
+                </div>
+              </div>
 
               <!-- Einstellungen -->
               <div style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
@@ -294,8 +306,8 @@
 
             <!-- ── LEADERBOARD PANEL ── -->
             <div class="ps-panel" id="psPanel-lb">
-              <div class="lb-panel" id="lbList">
-                <div class="lb-loading">Lade Weltrangliste...</div>
+              <div class="lb-panel" data-lb-list>
+                <div class="lb-loading">⏳</div>
               </div>
             </div>
 
@@ -321,7 +333,7 @@
           <div class="wt-name">🌬️ Luftgewehr</div>
         </div>
         <div class="weapon-tab" id="wTabKK" onclick="switchWeapon('kk')">
-          <div class="wt-name">🎯 KK</div>
+          <div class="wt-name">🎯 Kleinkaliber</div>
         </div>
       </div>
 
@@ -685,7 +697,7 @@
       <div class="fb-card">
         <div class="fb-title">Wie gefällt dir die Seite?</div>
         <div class="fb-sub">Bitte wähle ein Emoji:</div>
-        
+
         <div class="fb-emoji-row">
           <button class="fb-emoji-btn" onclick="submitSiteFeedback(1)" title="Schlecht">😡</button>
           <button class="fb-emoji-btn" onclick="submitSiteFeedback(2)" title="Naja">🙁</button>
@@ -693,7 +705,7 @@
           <button class="fb-emoji-btn" onclick="submitSiteFeedback(4)" title="Gut">🙂</button>
           <button class="fb-emoji-btn" onclick="submitSiteFeedback(5)" title="Super!">🤩</button>
         </div>
-        
+
         <div class="fb-scale-row">
           <span>schlecht</span>
           <span>top</span>
@@ -745,8 +757,8 @@
       <!-- Leaderboard list -->
       <div class="card" style="padding:12px 14px;">
         <div class="card-hd">◆ Rangliste · Score = XP + Streak×5</div>
-        <div class="lb-list" id="lbList">
-          <div class="lb-loading">⏳ Lade Rangliste...</div>
+        <div class="lb-list" data-lb-list>
+          <div class="lb-loading">⏳</div>
         </div>
       </div>
 

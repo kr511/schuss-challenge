@@ -114,7 +114,7 @@
     /* ═══════════════════════════════════════════
    NEUE FEATURES: Adaptive OCR
 ═══════════════════════════════════════════ */
-    
+
     /* Adaptive Bot System Status */
     .adaptive-status {
       background: rgba(122, 176, 48, 0.1);
@@ -124,13 +124,13 @@
       margin: 12px 0;
       text-align: center;
     }
-    
+
     .adaptive-status .status-title {
       color: #7ab030;
       font-weight: 600;
       margin: 0 0 8px 0;
     }
-    
+
     .adaptive-status .status-text {
       color: rgba(200, 200, 190, 0.9);
       font-size: 0.85rem;
@@ -140,7 +140,7 @@
     /* ═══════════════════════════════════════════
    ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile
 ═══════════════════════════════════════════ */
-    
+
     /* Enhanced Achievements */
     .enhanced-achievements {
       background: rgba(20, 25, 15, 0.95);
@@ -149,31 +149,31 @@
       padding: 24px;
       margin: 20px 0;
     }
-    
+
     .achievements-header {
       text-align: center;
       margin-bottom: 24px;
     }
-    
+
     .achievements-header h3 {
       color: #e8e8e0;
       margin: 0 0 12px 0;
       font-size: 1.4rem;
     }
-    
+
     .achievement-progress {
       display: flex;
       align-items: center;
       gap: 12px;
       justify-content: center;
     }
-    
+
     .progress-text {
       color: #7ab030;
       font-weight: 600;
       font-size: 1.1rem;
     }
-    
+
     .progress-bar {
       flex: 1;
       max-width: 200px;
@@ -182,20 +182,20 @@
       border-radius: 4px;
       overflow: hidden;
     }
-    
+
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, #7ab030, #8bc540);
       border-radius: 4px;
       transition: width 0.3s ease;
     }
-    
+
     .achievements-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 16px;
     }
-    
+
     .achievement-card {
       background: rgba(30, 35, 25, 0.8);
       border: 1px solid rgba(120, 180, 50, 0.2);
@@ -206,21 +206,21 @@
       gap: 12px;
       transition: all 0.3s ease;
     }
-    
+
     .achievement-card.unlocked {
       border-color: rgba(120, 180, 50, 0.5);
       box-shadow: 0 4px 12px rgba(120, 180, 50, 0.2);
     }
-    
+
     .achievement-card.locked {
       opacity: 0.6;
       filter: grayscale(0.8);
     }
-    
+
     .achievement-card.tier-1 { border-left: 4px solid #cd7f32; } /* Bronze */
     .achievement-card.tier-2 { border-left: 4px solid #c0c0c0; } /* Silver */
     .achievement-card.tier-3 { border-left: 4px solid #ffd700; } /* Gold */
-    
+
     .achievement-icon {
       font-size: 2rem;
       width: 48px;
@@ -231,37 +231,37 @@
       background: rgba(0, 0, 0, 0.3);
       border-radius: 8px;
     }
-    
+
     .achievement-info {
       flex: 1;
     }
-    
+
     .achievement-name {
       color: #e8e8e0;
       font-weight: 600;
       margin: 0 0 4px 0;
       font-size: 0.95rem;
     }
-    
+
     .achievement-desc {
       color: rgba(200, 200, 190, 0.8);
       font-size: 0.8rem;
       margin: 0 0 4px 0;
       line-height: 1.3;
     }
-    
+
     .achievement-reward {
       color: #7ab030;
       font-size: 0.75rem;
       font-weight: 500;
     }
-    
+
     .achievement-unlocked {
       color: #7ab030;
       font-size: 1.2rem;
       font-weight: bold;
     }
-    
+
     /* Enhanced Analytics */
     .enhanced-analytics {
       background: rgba(20, 25, 15, 0.95);
@@ -270,30 +270,30 @@
       padding: 24px;
       margin: 20px 0;
     }
-    
+
     .analytics-header {
       text-align: center;
       margin-bottom: 24px;
     }
-    
+
     .analytics-header h3 {
       color: #e8e8e0;
       margin: 0 0 8px 0;
       font-size: 1.4rem;
     }
-    
+
     .analytics-summary {
       color: rgba(200, 200, 190, 0.8);
       font-size: 0.9rem;
     }
-    
+
     .analytics-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 16px;
       margin-bottom: 24px;
     }
-    
+
     .metric-card {
       background: rgba(30, 35, 25, 0.8);
       border: 1px solid rgba(120, 180, 50, 0.2);
@@ -302,12 +302,12 @@
       text-align: center;
       transition: all 0.3s ease;
     }
-    
+
     .metric-card.primary {
       border-color: rgba(120, 180, 50, 0.4);
       background: rgba(120, 180, 50, 0.1);
     }
-    
+
     .metric-title {
       color: rgba(200, 200, 190, 0.9);
       font-size: 0.8rem;
@@ -315,27 +315,27 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    
+
     .metric-value {
       color: #e8e8e0;
       font-size: 1.8rem;
       font-weight: 700;
       margin: 0 0 4px 0;
     }
-    
+
     .metric-trend {
       font-size: 0.8rem;
       font-weight: 600;
     }
-    
+
     .metric-trend.positive {
       color: #4ecdc4;
     }
-    
+
     .metric-trend.negative {
       color: #ff6b6b;
     }
-    
+
     .metric-bar {
       height: 6px;
       background: rgba(0, 0, 0, 0.3);
@@ -343,30 +343,30 @@
       margin: 8px 0;
       overflow: hidden;
     }
-    
+
     .metric-fill {
       height: 100%;
       background: linear-gradient(90deg, #7ab030, #8bc540);
       border-radius: 3px;
       transition: width 0.3s ease;
     }
-    
+
     .metric-sub {
       color: rgba(200, 200, 190, 0.7);
       font-size: 0.7rem;
       margin: 0;
     }
-    
+
     .metric-value.form-excellent { color: #4ecdc4; }
     .metric-value.form-good { color: #7ab030; }
     .metric-value.form-stable { color: #f7b731; }
     .metric-value.form-declining { color: #ff9f43; }
     .metric-value.form-poor { color: #ff6b6b; }
-    
+
     .metric-value.risk-conservative { color: #4ecdc4; }
     .metric-value.risk-balanced { color: #f7b731; }
     .metric-value.risk-aggressive { color: #ff6b6b; }
-    
+
     /* Training Modes */
     .training-modes {
       background: rgba(20, 25, 15, 0.95);
@@ -375,31 +375,31 @@
       padding: 24px;
       margin: 20px 0;
     }
-    
+
     .training-header {
       text-align: center;
       margin-bottom: 24px;
     }
-    
+
     .training-header h3 {
       color: #e8e8e0;
       margin: 0 0 8px 0;
       font-size: 1.4rem;
     }
-    
+
     .training-header p {
       color: rgba(200, 200, 190, 0.8);
       margin: 0;
       font-size: 0.9rem;
     }
-    
+
     .training-modes-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 16px;
       margin-bottom: 24px;
     }
-    
+
     .training-mode-card {
       background: rgba(30, 35, 25, 0.8);
       border: 1px solid rgba(120, 180, 50, 0.2);
@@ -409,38 +409,38 @@
       transition: all 0.3s ease;
       cursor: pointer;
     }
-    
+
     .training-mode-card:hover:not(.locked) {
       transform: translateY(-2px);
       border-color: rgba(120, 180, 50, 0.4);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     }
-    
+
     .training-mode-card.locked {
       opacity: 0.6;
       cursor: not-allowed;
     }
-    
+
     .mode-icon {
       font-size: 3rem;
       margin: 0 0 12px 0;
       display: block;
     }
-    
+
     .mode-name {
       color: #e8e8e0;
       font-size: 1.1rem;
       font-weight: 600;
       margin: 0 0 8px 0;
     }
-    
+
     .mode-desc {
       color: rgba(200, 200, 190, 0.8);
       font-size: 0.85rem;
       margin: 0 0 16px 0;
       line-height: 1.4;
     }
-    
+
     .mode-stats {
       display: flex;
       justify-content: space-around;
@@ -448,17 +448,17 @@
       font-size: 0.8rem;
       color: rgba(200, 200, 190, 0.7);
     }
-    
+
     .mode-stats span {
       display: flex;
       align-items: center;
       gap: 4px;
     }
-    
+
     .mode-objectives {
       margin: 16px 0;
     }
-    
+
     .objective {
       display: flex;
       justify-content: space-between;
@@ -469,28 +469,28 @@
       border-radius: 6px;
       font-size: 0.8rem;
     }
-    
+
     .objective.completed {
       background: rgba(120, 180, 50, 0.2);
       border: 1px solid rgba(120, 180, 50, 0.4);
     }
-    
+
     .objective-name {
       color: #e8e8e0;
       font-weight: 500;
     }
-    
+
     .objective-req {
       color: rgba(200, 200, 190, 0.8);
       font-size: 0.75rem;
     }
-    
+
     .objective-reward {
       color: #7ab030;
       font-weight: 600;
       font-size: 0.75rem;
     }
-    
+
     .start-training-btn {
       background: linear-gradient(135deg, #7ab030, #6aa028);
       color: #0a0f06;
@@ -503,34 +503,34 @@
       width: 100%;
       margin-top: 12px;
     }
-    
+
     .start-training-btn:hover:not(:disabled) {
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(122, 176, 48, 0.3);
     }
-    
+
     .start-training-btn:disabled {
       background: rgba(120, 180, 50, 0.3);
       color: rgba(200, 200, 190, 0.6);
       cursor: not-allowed;
     }
-    
+
     .training-history {
       margin-top: 24px;
     }
-    
+
     .training-history h4 {
       color: #e8e8e0;
       margin: 0 0 16px 0;
       font-size: 1.1rem;
     }
-    
+
     .history-list {
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
-    
+
     .history-entry {
       display: flex;
       justify-content: space-between;
@@ -540,18 +540,18 @@
       border-radius: 6px;
       font-size: 0.85rem;
     }
-    
+
     .history-mode {
       color: #e8e8e0;
       font-weight: 500;
     }
-    
+
     .history-result {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    
+
     .history-grade {
       padding: 4px 8px;
       border-radius: 4px;
@@ -559,50 +559,50 @@
       font-weight: 600;
       text-transform: uppercase;
     }
-    
+
     .history-grade.grade-gold {
       background: #ffd700;
       color: #000;
     }
-    
+
     .history-grade.grade-silber {
       background: #c0c0c0;
       color: #000;
     }
-    
+
     .history-grade.grade-bronze {
       background: #cd7f32;
       color: #fff;
     }
-    
+
     .history-grade.grade-teilnahme {
       background: rgba(200, 200, 190, 0.3);
       color: #e8e8e0;
     }
-    
+
     .history-score {
       color: #7ab030;
       font-weight: 600;
     }
-    
+
     .history-meta {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
       gap: 4px;
     }
-    
+
     .history-date {
       color: rgba(200, 200, 190, 0.7);
       font-size: 0.75rem;
     }
-    
+
     .history-reward {
       color: #7ab030;
       font-size: 0.75rem;
       font-weight: 600;
     }
-    
+
     .install-overlay {
       display: flex;
       align-items: center;
@@ -610,7 +610,7 @@
       z-index: 10000;
       backdrop-filter: blur(5px);
     }
-    
+
     .install-prompt {
       background: #1a1f14;
       border: 2px solid #7ab030;
@@ -621,7 +621,7 @@
       text-align: center;
       color: #e8e8e0;
     }
-    
+
     .install-icon {
       font-size: 4rem;
       margin: 0 0 16px 0;
@@ -633,21 +633,21 @@
       padding-top: 24px;
       border-top: 1px solid rgba(120, 180, 50, 0.2);
     }
-    
+
     .prediction-section h4,
     .trends-section h4 {
       color: #e8e8e0;
       margin: 0 0 16px 0;
       font-size: 1.1rem;
     }
-    
+
     .prediction-grid,
     .trend-items {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 12px;
     }
-    
+
     .prediction-card,
     .trend-item {
       background: rgba(0, 0, 0, 0.2);
@@ -656,7 +656,7 @@
       padding: 12px;
       text-align: center;
     }
-    
+
     .prediction-title,
     .trend-label {
       color: rgba(200, 200, 190, 0.8);
@@ -665,7 +665,7 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
-    
+
     .prediction-value,
     .trend-value {
       color: #e8e8e0;
@@ -673,14 +673,14 @@
       font-weight: 700;
       margin: 0 0 4px 0;
     }
-    
+
     .prediction-confidence,
     .prediction-factors {
       color: rgba(200, 200, 190, 0.7);
       font-size: 0.7rem;
       margin: 0;
     }
-    
+
     /* Responsive Anpassungen */
     @media (max-width: 768px) {
       .achievements-grid,
@@ -690,7 +690,7 @@
       .trend-items {
         grid-template-columns: 1fr;
       }
-      
+
       .install-buttons {
         flex-direction: column;
       }
@@ -906,6 +906,36 @@
     }
 
     /* ═══════════════════════════════════════════
+   PROFILE ICON (oben rechts)
+═══════════════════════════════════════════ */
+    .schuetzenpass-icon {
+      font-size: 1.6rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 6px 10px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .3s ease;
+    }
+
+    /* Default - No Ring */
+    .schuetzenpass-icon::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity .3s ease;
+    }
+
+    /* Modern Ring when active - HIDDEN */
+    .schuetzenpass-icon.active::before {
+      display: none;
+    }
+
+    /* ═══════════════════════════════════════════
    PROFIL OVERLAY (vollwertiger Screen)
 ═══════════════════════════════════════════ */
     .profile-overlay {
@@ -917,10 +947,13 @@
       display: none;
       align-items: flex-end;
       justify-content: center;
+      opacity: 0;
+      transition: opacity .2s ease;
     }
 
     .profile-overlay.active {
       display: flex;
+      opacity: 1;
     }
 
     .profile-sheet {
@@ -943,12 +976,13 @@
         transform: translateY(60px);
         opacity: 0;
       }
-
       to {
         transform: translateY(0);
         opacity: 1;
       }
     }
+
+
 
     /* Drag handle */
     .profile-sheet-handle {
@@ -2246,6 +2280,7 @@
       justify-content: center;
       gap: 10px;
       will-change: transform;
+      -webkit-font-smoothing: antialiased;
     }
 
     .btn-fire::after {
@@ -4506,7 +4541,7 @@
     position: relative;
     overflow: hidden;
   }
-  
+
   .daily-challenge-card::before {
     content: '';
     position: absolute;
@@ -4524,7 +4559,7 @@
     padding-bottom: 10px;
     margin-bottom: 12px;
   }
-  
+
   .dc-title {
     color: #a0e060;
     font-size: 0.9rem;
@@ -4548,11 +4583,11 @@
     align-items: center;
     gap: 15px;
   }
-  
+
   .dc-body.completed .dc-text {
     opacity: 0.8;
   }
-  
+
   .dc-status-icon {
     font-size: 2rem;
     background: rgba(122, 176, 48, 0.1);
@@ -4866,6 +4901,148 @@
   font-weight: 700;
   font-size: 1rem;
   margin-bottom: 4px;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE DESIGN - TABLET & DESKTOP
+═══════════════════════════════════════════ */
+
+/* TABLET (768px+) */
+@media (min-width: 768px) {
+  .logo {
+    font-size: clamp(2rem, 6vw, 3.5rem);
+  }
+  
+  .screen {
+    min-height: 100dvh;
+  }
+  
+  .content {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  
+  .profile-sheet {
+    max-width: 600px;
+  }
+}
+
+/* DESKTOP (1024px+) */
+@media (min-width: 1024px) {
+  .logo {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+  }
+  
+  #targetCanvas {
+    max-width: 500px;
+  }
+  
+  .actions {
+    max-width: 500px;
+  }
+  
+  .profile-sheet {
+    max-width: 700px;
+    max-height: 90vh;
+  }
+  
+  .btn-fire {
+    font-size: 2.5rem;
+  }
+}
+
+/* LANDSCAPE MODE */
+@media (orientation: landscape) and (max-height: 600px) {
+  .hdr {
+    padding: 8px 20px 0;
+  }
+  
+  .logo {
+    font-size: clamp(1.2rem, 4vw, 2rem);
+  }
+  
+  #targetCanvas {
+    width: 100%;
+    height: auto;
+    max-height: 200px;
+  }
+  
+  .content {
+    gap: 6px;
+    padding: 8px 18px;
+  }
+}
+
+/* MOBILE OPTIMIZATION */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase touch targets */
+  .btn-fire,
+  .btn-sec,
+  .ps-tab,
+  .ps-close,
+  .schuetzenpass-icon {
+    min-height: 48px;
+    min-width: 48px;
+  }
+  
+  /* Reduce padding on small screens */
+  .hdr {
+    padding: 10px 16px 0;
+  }
+  
+  .content {
+    padding: 10px 16px;
+  }
+  
+  /* Better scroll performance */
+  .ps-body {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* VERY SMALL PHONES (max 360px) */
+@media (max-width: 360px) {
+  .logo {
+    font-size: 1.5rem;
+    letter-spacing: 0.12em;
+  }
+  
+  .logo-tag {
+    font-size: 0.5rem;
+    letter-spacing: 0.3em;
+  }
+  
+  .ps-name {
+    font-size: 1.2rem;
+  }
+  
+  .btn-fire {
+    font-size: 1.8rem;
+    padding: 14px 16px;
+  }
+}
+
+/* SLOW NETWORK OPTIMIZATION - Reduce animations */
+body.slow-network * {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.1s !important;
+}
+
+body.slow-network {
+  --accent: #7ab030;
+  --accent-bright: #8ecf40;
+}
+
+/* Disable backdrop-filter on slow networks (performance) */
+body.slow-network .profile-overlay {
+  backdrop-filter: none;
+}
+
+/* Reduce shadow complexity on slow connections */
+body.slow-network .btn-fire,
+body.slow-network .profile-sheet {
+  box-shadow: none !important;
 }
 
 .duo-open-btn {
@@ -5414,17 +5591,9 @@
 }
 
 .sp-xp-fill::after, .ps-xp-fill::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; bottom: 0; right: 0;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-  animation: bar-shine 2s infinite;
-}
+      display: none;
 
-@keyframes bar-shine {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
+
 
 /* Header Streak Icon */
 .hdr-streak-badge {
@@ -5438,14 +5607,12 @@
   font-size: 0.85rem;
   font-weight: 800;
   color: #ff9600;
-  cursor: pointer;
-  transition: all 0.2s;
+  pointer-events: none;
+  user-select: none;
 }
 
-.hdr-streak-badge:hover {
-  background: rgba(255, 150, 0, 0.2);
-  transform: scale(1.05);
-}
+/* Removed hover effect to make it non-clickable */
+/* .hdr-streak-badge:hover { ... } */
 
 .hdr-streak-badge .fire-ico {
   font-size: 1rem;
@@ -5568,4 +5735,50 @@
   color: #fff;
 }
 
+/* Login Bonus Popup Styles */
+.login-bonus-popup {
+  position: fixed;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: rgba(20, 25, 15, 0.95);
+  border: 2px solid rgba(140, 200, 60, 0.4);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  z-index: 1000;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  min-width: 250px;
+  max-width: 90%;
+}
+
+.login-bonus-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.login-bonus-icon {
+  font-size: 3rem;
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.7));
+  animation: pulse 2s infinite;
+}
+
+.login-bonus-text {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.1rem;
+  color: #d8f8a0;
+  line-height: 1.4;
+  max-width: 220px;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
 
