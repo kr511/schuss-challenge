@@ -35,9 +35,14 @@ const EnhancedAnalytics = (function() {
       consistencyThreshold: 5       // Mindestscore für Konsistenz-Streak
     },
     heatmap: {
-      pointRadius: 15,
-      blur: 15,
-      maxOpacity: 0.8
+      pointRadius: 18,
+      blur: 20,
+      maxOpacity: 0.9,
+      colors: {
+        hot: 'rgba(255, 60, 0, 0.9)',
+        medium: 'rgba(255, 150, 0, 0.6)',
+        cool: 'rgba(255, 200, 0, 0.3)'
+      }
     }
   };
 
@@ -50,7 +55,7 @@ const EnhancedAnalytics = (function() {
     updatePredictions();
     updateConsistencyScores();
     renderUI();
-    renderHeatmap(); // NEU
+    // Heatmap wird nur gerendert, wenn Canvas vorhanden ist (passiert in renderUI)
     console.log('📊 Enhanced Analytics System initialisiert');
   }
 
@@ -98,11 +103,10 @@ const EnhancedAnalytics = (function() {
     // Heatmap Mount steuern
     const heatmapMount = document.getElementById(HEATMAP_MOUNT_ID);
     if (heatmapMount) {
-      if (analyticsData.realLifeShots && analyticsData.realLifeShots.length > 0) {
-        heatmapMount.style.display = 'block';
-        setTimeout(() => renderHeatmap(), 100);
-      } else {
-        heatmapMount.style.display = 'none';
+      const hasRealShots = analyticsData.realLifeShots && analyticsData.realLifeShots.length > 0;
+      heatmapMount.style.display = hasRealShots ? 'block' : 'none';
+      if (hasRealShots) {
+        requestAnimationFrame(() => renderHeatmap());
       }
     }
   }
@@ -118,7 +122,6 @@ const EnhancedAnalytics = (function() {
     
     saveData();
     renderUI();
-    renderHeatmap();
   }
 
   /**
@@ -129,63 +132,87 @@ const EnhancedAnalytics = (function() {
     if (!canvas || !analyticsData.realLifeShots || analyticsData.realLifeShots.length === 0) return;
 
     const ctx = canvas.getContext('2d');
-    const w = canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-    const h = canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    
+    const w = canvas.width = rect.width * dpr;
+    const h = canvas.height = rect.height * dpr;
     const cx = w / 2;
     const cy = h / 2;
-    const maxR = w / 2 - 10;
+    const maxR = (Math.min(w, h) / 2) - (20 * dpr);
 
     ctx.clearRect(0, 0, w, h);
 
-    // 1. Hintergrund (Zielscheibe-Ringe andeuten)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.lineWidth = 1;
+    // 1. Hintergrund (Hochwertige Zielscheibe)
+    ctx.lineWidth = 1.5 * dpr;
     for (let i = 1; i <= 10; i++) {
+      const r = (i / 10) * maxR;
       ctx.beginPath();
-      ctx.arc(cx, cy, (i / 10) * maxR, 0, Math.PI * 2);
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = i >= 4 ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)';
       ctx.stroke();
+      
+      // Zahlen
+      if (i % 2 === 0 && i < 10) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.font = `${10 * dpr}px Outfit`;
+        ctx.textAlign = 'center';
+        ctx.fillText(10 - i, cx, cy - r + (12 * dpr));
+      }
     }
     
-    // Fadenkreuz
-    ctx.beginPath();
-    ctx.moveTo(cx - 20, cy); ctx.lineTo(cx + 20, cy);
-    ctx.moveTo(cx, cy - 20); ctx.lineTo(cx, cy + 20);
-    ctx.stroke();
+    // Zentrum-Glow
+    const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30 * dpr);
+    centerGrad.addColorStop(0, 'rgba(122, 176, 48, 0.15)');
+    centerGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = centerGrad;
+    ctx.beginPath(); ctx.arc(cx, cy, 30 * dpr, 0, Math.PI * 2); ctx.fill();
 
-    // 2. Heatmap-Punkte zeichnen
+    // 2. Heatmap-Ebene
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = w;
     tempCanvas.height = h;
     const tCtx = tempCanvas.getContext('2d');
 
     analyticsData.realLifeShots.forEach(shot => {
-      // Shot dx/dy sind relativ zum Zentrum in Pixeln (Sigma-Skala)
-      // Wir müssen sie auf die Canvas-Größe skalieren
-      // In app.js ist maxR ca. 132px. Wir skalieren proportional zum Heatmap-maxR.
-      const scale = maxR / 132; 
+      // Skalierung von mm (KI-Output) zu Pixeln
+      // Ein 10er Ring bei LG hat 0.5mm Radius. 
+      // Auf unserer Scheibe entspricht Ring 10 dem Radius (1/10 * maxR).
+      // Also 0.5mm = (1/10 * maxR) Pixel.
+      // Skalierungsfaktor mm -> px: (maxR / 10) / 0.5 = maxR / 5
+      const scale = maxR / 5; 
       const x = cx + shot.dx * scale;
       const y = cy + shot.dy * scale;
 
-      const grad = tCtx.createRadialGradient(x, y, 0, x, y, CONFIG.heatmap.pointRadius * window.devicePixelRatio);
-      grad.addColorStop(0, `rgba(255, 100, 0, ${CONFIG.heatmap.maxOpacity})`);
-      grad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+      const pR = CONFIG.heatmap.pointRadius * dpr;
+      const grad = tCtx.createRadialGradient(x, y, 0, x, y, pR);
+      grad.addColorStop(0, CONFIG.heatmap.colors.hot);
+      grad.addColorStop(0.5, CONFIG.heatmap.colors.medium);
+      grad.addColorStop(1, 'transparent');
 
       tCtx.fillStyle = grad;
       tCtx.beginPath();
-      tCtx.arc(x, y, CONFIG.heatmap.pointRadius * window.devicePixelRatio, 0, Math.PI * 2);
+      tCtx.arc(x, y, pR, 0, Math.PI * 2);
       tCtx.fill();
     });
 
-    // 3. Weichzeichnen (Blur)
-    ctx.filter = `blur(${CONFIG.heatmap.blur}px)`;
+    // 3. Blur & Overlay
+    ctx.save();
+    ctx.filter = `blur(${CONFIG.heatmap.blur * dpr}px) brightness(1.2)`;
+    ctx.globalCompositeOperation = 'screen';
     ctx.drawImage(tempCanvas, 0, 0);
-    ctx.filter = 'none';
+    ctx.restore();
+    
+    // Zweiter Durchgang für schärfere Zentren
+    ctx.globalAlpha = 0.3;
+    ctx.drawImage(tempCanvas, 0, 0);
+    ctx.globalAlpha = 1.0;
 
-    // 4. Beschriftung
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.font = `${10 * window.devicePixelRatio}px Outfit`;
+    // 4. Statistiken Overlay
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.font = `600 ${11 * dpr}px Outfit`;
     ctx.textAlign = 'center';
-    ctx.fillText(`${analyticsData.realLifeShots.length} Schüsse analysiert`, cx, h - 10 * window.devicePixelRatio);
+    ctx.fillText(`${analyticsData.realLifeShots.length} ECHTE SCHÜSSE ANALYSIERT`, cx, h - (15 * dpr));
   }
 
   /**

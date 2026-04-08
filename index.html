@@ -676,11 +676,22 @@
     </div>
     <div class="go-reason" id="goReason"></div>
     <div class="go-margin" id="goMargin" style="display:none;"></div>
+    
+    <!-- RESULT TARGET PREVIEW -->
+    <div class="go-target-preview fade-up" style="margin-top: 15px; position: relative;">
+      <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #1a2015; padding: 2px 10px; border-radius: 10px; border: 1px solid rgba(122,176,48,0.3); font-size: 0.65rem; color: #7ab030; z-index: 2; font-weight: 700; letter-spacing: 0.1em;">TREFFERBILD</div>
+      <div style="background: #000; padding: 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <canvas id="goTargetCanvas" style="width: 100%; height: auto; max-width: 200px; display: block; margin: 0 auto;"></canvas>
+      </div>
+    </div>
+
     <div id="analysisResult"></div>
-      <div class="go-actions" style="display: flex; gap: 10px; margin-top: 15px;">
-        <button class="btn primary" onclick="goToEntry()" style="flex: 1;">🏠 Hauptmenü</button>
-        <button class="btn secondary" onclick="shareTarget()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
-          📤 Teilen
+      <div class="go-actions" style="display: flex; gap: 10px; margin-top: 15px; width: 100%; max-width: 320px;">
+        <button class="btn primary" onclick="goToEntry()" style="flex: 1.2;">
+          <span class="btn-icon">🏠</span> <span>Hauptmenü</span>
+        </button>
+        <button class="btn secondary" onclick="shareTarget()" style="flex: 1;">
+          <span class="btn-icon">📤</span> <span>Teilen</span>
         </button>
       </div>
   </div>

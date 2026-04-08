@@ -2183,65 +2183,73 @@
       _staticReady = true;
     }
 
-    function drawTarget(shots) {
-      const canvas = document.getElementById('targetCanvas');
-      const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2, maxR = W / 2 - 3;
+    /**
+     * Zeichnet die Zielscheibe und Schüsse auf ein beliebiges Canvas
+     * (Wird für die Vorschau und das Teilen genutzt)
+     */
+    function drawOnCanvas(targetCanvas, shots) {
+      const oc = targetCanvas.getContext('2d');
+      const W = targetCanvas.width, H = targetCanvas.height;
+      const cx = W / 2, cy = H / 2, maxR = W / 2 - 3;
 
-      // KK (alle Disziplinen): Deutsche Kleinkaliber-Scheibe
+      // 1. Hintergrund / Scheibe zeichnen
+      oc.fillStyle = '#111111';
+      oc.fillRect(0, 0, W, H);
+      
       if (G.weapon === 'kk') {
         if (!_kk50Ready) buildKK50Target();
-        ctx.drawImage(_offCanvasKK50, 0, 0);
-        if (shots && shots.length > 0) {
-          for (const s of shots) {
-            // KK: kleineres Einschussloch (KK-Kaliber .22)
-            drawHole(cx + s.dx, cy + s.dy, maxR * .030, '#111111', '#444444', s.cracks);
-          }
-        }
-        return;
+        oc.drawImage(_offCanvasKK50, 0, 0, _offCanvasKK50.width, _offCanvasKK50.height, 0, 0, W, H);
+      } else {
+        if (!_staticReady) buildStaticTarget();
+        oc.drawImage(_offCanvas, 0, 0, _offCanvas.width, _offCanvas.height, 0, 0, W, H);
       }
 
-      // LG: Luftgewehr-Scheibe (10m)
-      if (!_staticReady) buildStaticTarget();
-      ctx.drawImage(_offCanvas, 0, 0);
-      if (shots && shots.length > 0) {
+      // 2. Schüsse zeichnen
+      if (shots && Array.isArray(shots)) {
         for (const s of shots) {
-          // LG: etwas größeres Einschussloch (Diabolo-Geschoss)
-          drawHole(cx + s.dx, cy + s.dy, maxR * .036, '#111111', '#444444', s.cracks);
+          const r = G.weapon === 'kk' ? maxR * 0.030 : maxR * 0.036;
+          drawHole(oc, cx + s.dx, cy + s.dy, r, '#111111', '#444444', s.cracks);
         }
       }
     }
 
-    function drawHole(x, y, r, dark, glow, cracks) {
+    function drawTarget(shots) {
+      if (!canvas || !ctx) return;
+      drawOnCanvas(canvas, shots);
+    }
+
+    function drawHole(targetCtx, x, y, r, dark, glow, cracks) {
+      const c = targetCtx || ctx;
       // Papier-Aufriss-Schatten (leichter Grauschimmer um das Loch)
-      const shadow = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * 3.5);
+      const shadow = c.createRadialGradient(x, y, r * 0.8, x, y, r * 3.5);
       shadow.addColorStop(0, 'rgba(0,0,0,0.18)');
       shadow.addColorStop(1, 'transparent');
-      ctx.beginPath(); ctx.arc(x, y, r * 3.5, 0, Math.PI * 2);
-      ctx.fillStyle = shadow; ctx.fill();
+      c.beginPath(); c.arc(x, y, r * 3.5, 0, Math.PI * 2);
+      c.fillStyle = shadow; c.fill();
 
       // Papier-Risse (kurze Linien um das Loch)
-      ctx.save(); ctx.translate(x, y);
-      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.6;
+      c.save(); c.translate(x, y);
+      c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 0.6;
       const crackData = cracks || Array.from({ length: 6 }, (_, i) => ({ a: (i / 6) * Math.PI * 2 + 0.3, len: 1.8 }));
-      for (const c of crackData) {
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(c.a) * r * 0.9, Math.sin(c.a) * r * 0.9);
-        ctx.lineTo(Math.cos(c.a) * r * c.len, Math.sin(c.a) * r * c.len);
-        ctx.stroke();
+      for (const cData of crackData) {
+        c.beginPath();
+        c.moveTo(Math.cos(cData.a) * r * 0.9, Math.sin(cData.a) * r * 0.9);
+        c.lineTo(Math.cos(cData.a) * r * cData.len, Math.sin(cData.a) * r * cData.len);
+        c.stroke();
       }
-      ctx.restore();
+      c.restore();
 
       // Einschussloch: dunkel, leicht aufgerissen
-      const hg = ctx.createRadialGradient(x - r * .25, y - r * .25, 0, x, y, r);
+      const hg = c.createRadialGradient(x - r * .25, y - r * .25, 0, x, y, r);
       hg.addColorStop(0, '#1a1a1a');
       hg.addColorStop(0.7, '#080808');
       hg.addColorStop(1, dark);
-      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fillStyle = hg; ctx.fill();
+      c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2);
+      c.fillStyle = hg; c.fill();
 
       // Heller Rand (Papier aufgerissen)
-      ctx.beginPath(); ctx.arc(x, y, r * 1.15, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = r * 0.4; ctx.stroke();
+      c.beginPath(); c.arc(x, y, r * 1.15, 0, Math.PI * 2);
+      c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = r * 0.4; c.stroke();
     }
 
     function gauss(s) {
@@ -2983,6 +2991,14 @@ requestAnimationFrame(() => {
         G.botShotsLeft--;
       } else {
         G.playerShotsLeft--;
+        // Spieler-Schuss zur Bot-Schussliste hinzufügen, damit er gezeichnet wird
+        G.botShots.push({
+          dx: bdx, dy: bdy, pts: bRes.pts, label: bRes.label, isX: bRes.isX,
+          cracks: Array.from({ length: 7 }, (_, i) => ({
+            a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
+            len: 1.4 + Math.random()
+          }))
+        });
       }
 
       // NEU: Haptisches Feedback beim Schuss
@@ -3660,6 +3676,27 @@ requestAnimationFrame(() => {
         G.currentDetectedShots = null;
       }
 
+      // NEU: Zielscheibe auf GameOver Screen zeichnen
+      setTimeout(() => {
+        const goCanvas = document.getElementById('goTargetCanvas');
+        if (goCanvas) {
+          const dpr = window.devicePixelRatio || 1;
+          goCanvas.width = 200 * dpr;
+          goCanvas.height = 200 * dpr;
+          // Temporärer Context für die Vorschau
+          const originalCanvas = document.getElementById('targetCanvas');
+          if (originalCanvas) {
+            const ctx = goCanvas.getContext('2d');
+            // Wir zeichnen entweder die erkannten Schüsse oder die Bot-Schüsse
+            if (G.currentDetectedShots && G.currentDetectedShots.length > 0) {
+              drawOnCanvas(goCanvas, G.currentDetectedShots);
+            } else {
+              drawOnCanvas(goCanvas, G.botShots);
+            }
+          }
+        }
+      }, 100);
+
       DOM.goP.textContent = pp >= 0 ? (kk3x20 ? Math.floor(pp) : fmtPts(pp)) : '–';
       DOM.goB.textContent = kk3x20 ? G.botTotalInt : fmtPts(bp);
       DOM.goPInt.textContent = ppInt != null ? ppInt : (pp >= 0 ? Math.floor(pp) : '–');
@@ -3837,14 +3874,9 @@ requestAnimationFrame(() => {
 
     /* ─── SHARE TARGET ────────────────────────── */
     window.shareTarget = async function () {
-      const canvas = document.getElementById('targetCanvas');
+      // Wir nutzen das goTargetCanvas (GameOver Vorschau) zum Teilen
+      const canvas = document.getElementById('goTargetCanvas') || document.getElementById('targetCanvas');
       if (!canvas) return;
-
-      // Wenn wir erkannte Schüsse haben, zeichnen wir diese auf die Scheibe zum Teilen
-      const originalShots = [...G.botShots];
-      if (G.currentDetectedShots && G.currentDetectedShots.length > 0) {
-        drawTarget(G.currentDetectedShots);
-      }
 
       try {
         // Blob aus Canvas erstellen
@@ -3869,9 +3901,6 @@ requestAnimationFrame(() => {
       } catch (err) {
         console.error('Fehler beim Teilen:', err);
         showEngagementToast('Teilen fehlgeschlagen.');
-      } finally {
-        // Ursprüngliche Ansicht (Bot-Schüsse) wiederherstellen
-        drawTarget(originalShots);
       }
     };
 
