@@ -48,6 +48,7 @@
   <link rel="stylesheet" href="styles.css">
   <script src="storage-manager.js"></script>
   <script src="performance-config.js"></script>
+  <script src="qa-test-suite.js" defer></script>
 </head>
 
 <body>
@@ -676,11 +677,12 @@
     <div class="go-reason" id="goReason"></div>
     <div class="go-margin" id="goMargin" style="display:none;"></div>
     <div id="analysisResult"></div>
-    <button class="btn-fire" style="max-width:320px;position:relative;z-index:1;" onclick="restartGame()">🔄
-      &nbsp;NOCHMAL</button>
-    <button class="btn-share" id="shareBtn" onclick="openShareCard()">
-      📤 &nbsp;ERGEBNIS TEILEN
-    </button>
+      <div class="go-actions" style="display: flex; gap: 10px; margin-top: 15px;">
+        <button class="btn primary" onclick="goToEntry()" style="flex: 1;">🏠 Hauptmenü</button>
+        <button class="btn secondary" onclick="shareTarget()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          📤 Teilen
+        </button>
+      </div>
   </div>
 
   <!-- ══════════════════════════ LEADERBOARD ══════════════════════════ -->

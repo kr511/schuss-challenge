@@ -200,12 +200,14 @@ const EnhancedAchievements = (function() {
   
   // Achievement-Fortschritt
   let achievementProgress = {};
+  const ACHIEVEMENTS_MOUNT_ID = 'enhancedAchievementsMount';
   
   /**
    * Initialisiert das erweiterte Achievement-System
    */
   function init() {
     loadProgress();
+    renderUI();
     console.log('🏆 Enhanced Achievement System initialisiert');
   }
   
@@ -214,21 +216,26 @@ const EnhancedAchievements = (function() {
    */
   function loadProgress() {
     try {
+      const defaultProgress = {};
+      Object.keys(ADVANCED_ACHIEVEMENTS).forEach(key => {
+        const achievement = ADVANCED_ACHIEVEMENTS[key];
+        defaultProgress[achievement.id] = {
+          unlocked: false,
+          progress: 0,
+          maxProgress: 1,
+          lastChecked: null
+        };
+      });
+
       const saved = localStorage.getItem('sd_enhanced_achievements');
       if (saved) {
-        achievementProgress = JSON.parse(saved);
+        achievementProgress = {
+          ...defaultProgress,
+          ...JSON.parse(saved)
+        };
       } else {
         // Initialisiere Fortschritt für alle Achievements
-        achievementProgress = {};
-        Object.keys(ADVANCED_ACHIEVEMENTS).forEach(key => {
-          const achievement = ADVANCED_ACHIEVEMENTS[key];
-          achievementProgress[achievement.id] = {
-            unlocked: false,
-            progress: 0,
-            maxProgress: 1,
-            lastChecked: null
-          };
-        });
+        achievementProgress = defaultProgress;
         saveProgress();
       }
     } catch (e) {
@@ -250,6 +257,12 @@ const EnhancedAchievements = (function() {
   /**
    * Prüft alle Achievements nach einem Spiel
    */
+  function renderUI() {
+    const mount = document.getElementById(ACHIEVEMENTS_MOUNT_ID);
+    if (!mount) return;
+    mount.innerHTML = createAchievementUI();
+  }
+
   function checkAchievementsAfterGame(gameData, stats) {
     const unlocked = [];
     
@@ -271,7 +284,8 @@ const EnhancedAchievements = (function() {
         unlocked.push(achievement);
       }
     });
-    
+
+    renderUI();
     return unlocked;
   }
   
@@ -450,6 +464,7 @@ const EnhancedAchievements = (function() {
     calculateAdvancedStats,
     getAchievementOverview,
     getRecentUnlocks,
+    renderUI,
     createAchievementUI,
     ACHIEVEMENTS: ADVANCED_ACHIEVEMENTS
   };

@@ -132,7 +132,10 @@ const MultiScoreDetection = (function() {
     const nonOverlapping = removeOverlappingRegions(scoreRegions);
     
     // Sortiere nach Wahrscheinlichkeit
-    return sortRegionsByScoreProbability(nonOverlapping);
+    return sortRegionsByScoreProbability(nonOverlapping).map(region => ({
+      ...region,
+      imageCanvas: canvas
+    }));
   }
   
   /**
@@ -499,6 +502,10 @@ const MultiScoreDetection = (function() {
    * Führt OCR auf einzelner Region durch
    */
   async function performOCROnRegion(region) {
+    if (!region.imageCanvas) {
+      throw new Error('Keine Bildquelle für OCR-Region verfügbar');
+    }
+
     // Extrahiere Bildbereich
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -543,6 +550,13 @@ const MultiScoreDetection = (function() {
     if (typeof window !== 'undefined' && window.ImageCompare && typeof window.ImageCompare.getTesseractWorker === 'function') {
       try {
         const worker = await window.ImageCompare.getTesseractWorker();
+        if (worker && worker.setParameters) {
+          await worker.setParameters({
+            tessedit_pageseg_mode: '7',
+            preserve_interword_spaces: '1',
+            tessedit_char_whitelist: '0123456789.,'
+          });
+        }
         const dataUrl = canvas.toDataURL('image/jpeg');
         const result = await worker.recognize(dataUrl);
 
@@ -558,9 +572,9 @@ const MultiScoreDetection = (function() {
     
     // Fallback falls Tesseract.js nicht geladen ist oder Fehler wirft
     return {
-      success: true,
-      text: Math.floor(Math.random() * 500 + 100).toString(),
-      confidence: 0.7 + Math.random() * 0.3
+      success: false,
+      text: '',
+      confidence: 0
     };
   }
   

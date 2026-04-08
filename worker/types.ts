@@ -42,7 +42,8 @@ export interface D1Database {
 }
 
 export interface Env {
-  DB: D1Database;
+  DB?: D1Database;
+  ALLOW_INSECURE_DEV_AUTH?: string;
   ASSETS?: {
     fetch(request: Request): Promise<Response>;
   };

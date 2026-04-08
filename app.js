@@ -204,6 +204,7 @@
       _botStartTimeout: null, // setTimeout für verzögerter Bot-Start nach Probe
       dnf: false,            // Did Not Finish (Zeit abgelaufen)
       playerShots: [],       // Spieler-Treffer für Analytics
+      currentDetectedShots: [], // NEU: Letzte erkannte Schüsse aus Foto
       _gameStartTime: 0,     // Für Spieldauer-Berechnung
       _lastPlayerShotAt: 0,  // Zeitstempel des letzten Spieler-Schusses
       // Probezeit
@@ -240,10 +241,10 @@
         info: '<b>KK 60 / 100m</b> – 60 Schuss KK auf 100 Meter. Extreme Präzision. Zeitlimit: 70 Minuten.'
       },
       kk3x20: {
-        name: '3×20 KK', weapon: 'kk', shots: 60, dist: '50', is3x20: true,
+        name: 'KK 3×20', weapon: 'kk', shots: 60, dist: '50', is3x20: true,
         timeMins: 105, desc: '3 x 20 Schuss · 105 Min', icon: '🏆',
         positions: ['Kniend', 'Liegend', 'Stehend'], posIcons: ['🦵', '🛏️', '🧍'],
-        info: '<b>3×20 KK</b> – Je 20 Schuss kniend, liegend und stehend mit KK auf 50 m. Zeitlimit: 105 Minuten inkl. Positionswechsel.'
+        info: '<b>KK 3×20</b> – Je 20 Schuss kniend, liegend und stehend mit KK auf 50 m. Zeitlimit: 105 Minuten inkl. Positionswechsel.'
       },
     };
 
@@ -407,7 +408,7 @@
         hard: '<b>Elite</b> – Trifft sehr präzise. ~602–610 Zehntel. Kaum zu schlagen!',
         elite: '<b>Profi</b> – Schießt ≥612 Zehntel. Extrem präzise. Viel Glück!'
       },
-      // 3×20 KK: Gesamt 60 Schuss, nur ganze Zahlen
+      // KK 3×20: Gesamt 60 Schuss, nur ganze Zahlen
       kk3x20: {
         easy: '<b>Einfach</b> – Solider Einstieg. Gesamt ~530–542 Ringe. Schaffbar mit Konzentration!',
         real: '<b>Mittel</b> – Fast nur 9er und 10er. Gesamt ~544–555 Ringe. Kein Spaziergang!',
@@ -485,8 +486,8 @@
         if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.xp(), 500);
       }
 
-      // Auto-sync zu Firebase
-      pushProfileToFirebase();
+      // Auto-sync zu Firebase (mit null-check)
+      if (fbReady && fbDb) pushProfileToFirebase();
       return gained;
     }
 
@@ -507,7 +508,8 @@
         setTimeout(() => Sounds.xp(), 300);
       }
 
-      pushProfileToFirebase();
+      // Auto-sync zu Firebase (mit null-check)
+      if (fbReady && fbDb) pushProfileToFirebase();
       return gained;
     }
 
@@ -607,7 +609,6 @@
       if (tab === 'stats') {
         requestAnimationFrame(() => renderPerformanceChart());
         if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.renderUI();
-        if (typeof EnhancedAchievements !== 'undefined') EnhancedAchievements.renderUI();
       }
     }
 
@@ -1277,36 +1278,6 @@
         }
       }
 
-      // NEU: Erweiterte Achievements prüfen
-      if (typeof EnhancedAchievements !== 'undefined') {
-        const gameData = {
-          result: result,
-          playerScore: playerPts,
-          botScore: botPts,
-          allShots: G.playerShots || [],
-          won: result === 'win',
-          maxDeficit: Math.max(0, botPts - playerPts)
-        };
-
-        const lgStreak = Number(localStorage.getItem('sd_lg_streak') || 0);
-        const kkStreak = Number(localStorage.getItem('sd_kk_streak') || 0);
-        const legacyStreak = Number(localStorage.getItem('sd_win_streak') || 0);
-
-        const stats = {
-          currentStreak: Math.max(Number(G.streak || 0), lgStreak, kkStreak, legacyStreak),
-          gamesPlayed: (gs.wins || 0) + (gs.losses || 0) + (gs.draws || 0)
-        };
-
-        const unlockedAchievements = EnhancedAchievements.checkAchievementsAfterGame(gameData, stats);
-
-        // Benachrichtigung für neue Achievements
-        if (unlockedAchievements.length > 0 && typeof MobileFeatures !== 'undefined') {
-          unlockedAchievements.forEach(achievement => {
-            MobileFeatures.sendAchievementNotification(achievement);
-          });
-        }
-      }
-
       // NEU: Haptisches Feedback bei wichtigen Ereignissen
       if (typeof MobileFeatures !== 'undefined') {
         if (result === 'win') {
@@ -1593,6 +1564,7 @@
       { id: 'beat_hard', group: 'battle', icon: '💀', name: 'Harter Brocken', desc: 'Elite-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_hard')) },
       { id: 'beat_elite', group: 'battle', icon: '💫', name: 'Legende', desc: 'Profi-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_elite')) },
       { id: 'ten_wins', group: 'battle', icon: '🥇', name: '10 Siege', desc: '10 Duelle gewonnen', check: () => (loadGameStats().wins || 0) >= 10 },
+      { id: 'twenty_five_wins', group: 'battle', icon: '🎖️', name: '25 Siege', desc: '25 Duelle gewonnen', check: () => (loadGameStats().wins || 0) >= 25 },
       { id: 'both_weapons', group: 'battle', icon: '⚔️', name: 'Allrounder', desc: 'LG & KK je 1 Sieg', check: () => (loadWeaponStats('lg').wins || 0) >= 1 && (loadWeaponStats('kk').wins || 0) >= 1 },
       { id: 'streak_7', group: 'battle', icon: '🌟', name: 'Unaufhaltsam', desc: '7er Siegesserie', check: () => getBestStreak() >= 7 },
       // Master
@@ -1600,7 +1572,9 @@
       { id: 'xp_1000', group: 'master', icon: '🏆', name: 'Großmeister', desc: '1000 XP verdient', check: () => G.xp >= 1000 },
       { id: 'streak_14', group: 'master', icon: '🔥🔥', name: '14er Streak', desc: '14er Siegesserie', check: () => getBestStreak() >= 14 },
       { id: 'fifty_games', group: 'master', icon: '🎖️', name: '50 Duelle', desc: '50 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 50 },
+      { id: 'one_hundred_games', group: 'master', icon: '💯', name: 'Hundert Duelle', desc: '100 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 100 },
       { id: 'xp_2000', group: 'master', icon: '💫', name: 'Legende', desc: '2000 XP – Legendenstatus', check: () => G.xp >= 2000 },
+      { id: 'xp_5000', group: 'master', icon: '👑', name: 'König', desc: '5000 XP – Wahre Größe', check: () => G.xp >= 5000 },
     ];
 
     function checkSunAchievements() {
@@ -2566,7 +2540,7 @@
           lg60: { baseSecs: 42, min: 30, max: 60 },        // Luftgewehr 60: 70min für 60 Schuss → 70s/Schuss
           kk50: { baseSecs: 50, min: 35, max: 70 },        // KK 50m: 50min für 60 Schuss → 50s/Schuss durchschnitt
           kk100: { baseSecs: 65, min: 45, max: 90 },       // KK 100m: 70min für 60 Schuss → 70s/Schuss, aber extremer konzentriert
-          kk3x20: { baseSecs: 85, min: 60, max: 120 }      // 3×20: 105min für 60 Schuss inkl. Wechsel → längere Mittel je Schuss
+          kk3x20: { baseSecs: 85, min: 60, max: 120 }      // KK 3×20: 105min für 60 Schuss inkl. Wechsel → längere Mittel je Schuss
         };
 
         // Schwierigkeit beeinflusst die Streuung (Routine/Konsistenz)
@@ -3185,28 +3159,6 @@ requestAnimationFrame(() => {
         });
       });
 
-      if (typeof TrainingModes !== 'undefined' && TrainingModes.getCurrentTraining?.()?.status === 'active') {
-        const now = Date.now();
-        const lastShotAt = G._lastPlayerShotAt || G._gameStartTime || now;
-        const perShotDelaySecs = Math.max(1, (now - lastShotAt) / Math.max(1, results.length) / 1000);
-
-        results.forEach(bRes => {
-          const spread = Math.abs(bRes.dx ?? 0) + Math.abs(bRes.dy ?? 0);
-          TrainingModes.processTrainingShot({
-            ring: Math.floor(bRes.pts || 0),
-            isX: !!bRes.isX,
-            points: bRes.pts || 0,
-            timeTaken: perShotDelaySecs,
-            stability: Math.max(0, Math.min(1, 1 - (spread / 60))),
-            smoothness: (bRes.pts || 0) >= 8 ? 0.7 : ((bRes.pts || 0) >= 6 ? 0.45 : 0.2),
-            rhythm: perShotDelaySecs >= 6 && perShotDelaySecs <= 18 ? 0.75 : 0.35,
-            consistentTiming: perShotDelaySecs >= 6 && perShotDelaySecs <= 18
-          });
-        });
-
-        G._lastPlayerShotAt = now;
-      }
-
       // ── Info text ────────────────────────────────
       const mkBotScore = () => isKK3x20WholeRingsOnly()
         ? `${G.botTotalInt}`
@@ -3369,7 +3321,7 @@ requestAnimationFrame(() => {
       }
     }
 
-    function calcResult() {
+    function calcResult(e, detectedShots = null) {
       clearInpState();
       const kk3x20 = isKK3x20WholeRingsOnly();
 
@@ -3387,7 +3339,7 @@ requestAnimationFrame(() => {
           setInpHint(`Max. ${maxInt} Ringe möglich`, true);
           DOM.playerInpInt.focus(); return;
         }
-        showGameOver(valInt, G.botTotalInt, null, valInt);
+        showGameOver(valInt, G.botTotalInt, null, valInt, detectedShots);
       } else {
         const raw = DOM.playerInp.value.trim();
         const rawInt = DOM.playerInpInt.value.trim();
@@ -3417,7 +3369,7 @@ requestAnimationFrame(() => {
           DOM.playerInpInt.focus(); return;
         }
         const finalVal = Math.round(val * 10) / 10;
-        showGameOver(finalVal, G.botTotal, null, valInt);
+        showGameOver(finalVal, G.botTotal, null, valInt, detectedShots);
       }
     }
 
@@ -3692,11 +3644,22 @@ requestAnimationFrame(() => {
         </div>`;
     }
 
-    function showGameOver(pp, bp, reason, ppInt) {
+    function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
       G.gameDuration = G._gameStartTime > 0
         ? Math.round((Date.now() - G._gameStartTime) / 1000)
         : 0;
       const kk3x20 = isKK3x20WholeRingsOnly();
+
+      // NEU: Wenn Schüsse aus Foto-Analyse vorhanden sind, zur Heatmap hinzufügen
+      if (detectedShots && Array.isArray(detectedShots) && detectedShots.length > 0) {
+        G.currentDetectedShots = detectedShots;
+        if (typeof EnhancedAnalytics !== 'undefined') {
+          EnhancedAnalytics.addRealLifeShots(detectedShots);
+        }
+      } else {
+        G.currentDetectedShots = null;
+      }
+
       DOM.goP.textContent = pp >= 0 ? (kk3x20 ? Math.floor(pp) : fmtPts(pp)) : '–';
       DOM.goB.textContent = kk3x20 ? G.botTotalInt : fmtPts(bp);
       DOM.goPInt.textContent = ppInt != null ? ppInt : (pp >= 0 ? Math.floor(pp) : '–');
@@ -3787,12 +3750,6 @@ requestAnimationFrame(() => {
         DOM.goMargin.style.display = '';
         updateWinStreak(false);
       }
-      const activeTraining = typeof TrainingModes !== 'undefined'
-        ? TrainingModes.getCurrentTraining?.()
-        : null;
-      if (activeTraining && activeTraining.status === 'active' && Array.isArray(activeTraining.shots) && activeTraining.shots.length > 0) {
-        TrainingModes.endTraining();
-      }
 
       // Record stats + history + check SUN
       if (!G.dnf || gameResult !== 'win') {
@@ -3877,6 +3834,46 @@ requestAnimationFrame(() => {
       HealthyEngagement.onMatchFinished(G.gameDuration);
       setTimeout(() => RookiePlan.evaluateAndRender(false), 120);
     }
+
+    /* ─── SHARE TARGET ────────────────────────── */
+    window.shareTarget = async function () {
+      const canvas = document.getElementById('targetCanvas');
+      if (!canvas) return;
+
+      // Wenn wir erkannte Schüsse haben, zeichnen wir diese auf die Scheibe zum Teilen
+      const originalShots = [...G.botShots];
+      if (G.currentDetectedShots && G.currentDetectedShots.length > 0) {
+        drawTarget(G.currentDetectedShots);
+      }
+
+      try {
+        // Blob aus Canvas erstellen
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const file = new File([blob], 'mein-schussduell-ergebnis.png', { type: 'image/png' });
+
+        // Prüfen ob Web Share API unterstützt wird und Dateien teilen kann
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Mein Schussduell Ergebnis',
+            text: `Ich habe gerade ein Duell im Schussduell absolviert! Mein Ergebnis: ${G.playerShots.length > 0 ? G.playerShots.reduce((a, b) => a + b.pts, 0).toFixed(1) : '–'}`
+          });
+        } else {
+          // Fallback: Bild herunterladen
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL('image/png');
+          link.download = 'schussduell-ergebnis.png';
+          link.click();
+          showEngagementToast('Teilen nicht unterstützt – Bild wurde heruntergeladen.');
+        }
+      } catch (err) {
+        console.error('Fehler beim Teilen:', err);
+        showEngagementToast('Teilen fehlgeschlagen.');
+      } finally {
+        // Ursprüngliche Ansicht (Bot-Schüsse) wiederherstellen
+        drawTarget(originalShots);
+      }
+    };
 
     /* ─── SHARE FEATURE ──────────────────────────────
        Speichert das letzte Ergebnis und füllt die Share-Card.
@@ -4051,7 +4048,6 @@ requestAnimationFrame(() => {
     initDailyLoginRewards();
     updateSchuetzenpass();
     if (typeof DailyChallenge !== 'undefined') DailyChallenge.init();
-    if (typeof EnhancedAchievements !== 'undefined') EnhancedAchievements.init();
     if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.init();
 
     // Firebase Init: nur über _tryInitFb() am Ende der Datei
@@ -4164,22 +4160,6 @@ requestAnimationFrame(() => {
     RookiePlan.init();
     checkFirstVisit();
     HealthyEngagement.init();
-    window.addEventListener('trainingStarted', (event) => {
-      const modeName = event?.detail?.mode?.name || 'Training';
-      showEngagementToast(`${modeName} aktiviert. Das nächste Duell zählt jetzt als Training.`);
-    });
-    window.addEventListener('trainingCompleted', (event) => {
-      const result = event?.detail?.result;
-      if (!result) return;
-      const reward = Number(result.reward) || 0;
-      const gained = reward > 0 ? awardFlatXP(reward) : 0;
-      const roundedScore = Number.isFinite(Number(result.score)) ? Number(result.score).toFixed(1) : '0.0';
-      const suffix = gained > 0 ? ` +${gained} XP` : '';
-      showEngagementToast(`Training beendet: ${result.grade} (${roundedScore}).${suffix}`);
-      if (typeof TrainingModes !== 'undefined' && typeof TrainingModes.renderUI === 'function') {
-        TrainingModes.renderUI();
-      }
-    });
 
     // Build initial discipline tabs for default weapon (lg)
     buildDiscTabs('lg');

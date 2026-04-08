@@ -15,9 +15,7 @@ import '../physics-engine.js';
 import '../adaptive-bot.js';
 import '../contextual-ocr.js';
 import '../multi-score-detection.js';
-import '../enhanced-achievements.js';
 import '../enhanced-analytics.js';
-import '../training-modes.js';
 import '../mobile-features.js';
 import '../storage-manager.js';
 import '../tutorial.js';
@@ -43,14 +41,6 @@ function init() {
 
   if (typeof window.EnhancedAnalytics !== 'undefined' && window.EnhancedAnalytics.init) {
     window.EnhancedAnalytics.init();
-  }
-
-  if (typeof window.EnhancedAchievements !== 'undefined' && window.EnhancedAchievements.init) {
-    window.EnhancedAchievements.init();
-  }
-
-  if (typeof window.TrainingModes !== 'undefined' && window.TrainingModes.init) {
-    window.TrainingModes.init();
   }
 
   if (typeof window.MobileFeatures !== 'undefined' && window.MobileFeatures.init) {

@@ -7,7 +7,7 @@ import {
   unlockAchievement,
   updateStreak,
 } from "./db";
-import type { Env, GameMode } from "./types";
+import type { D1Database, Env, GameMode } from "./types";
 
 type ApiErrorShape = {
   error: true;
@@ -57,7 +57,7 @@ function json(data: unknown, status = 200): Response {
     headers: {
       "content-type": "application/json; charset=utf-8",
       "access-control-allow-origin": "*",
-      "access-control-allow-headers": "content-type,user_id,x-user-id",
+      "access-control-allow-headers": "content-type,authorization,x-dev-user-id",
       "access-control-allow-methods": "GET,POST,OPTIONS",
     },
   });
@@ -78,7 +78,7 @@ function validationError(message: string): Response {
   return json(payload, 400);
 }
 
-function authError(message = "Missing user_id header"): Response {
+function authError(message = "Secure user authentication is not configured"): Response {
   const payload: ApiErrorShape = {
     error: true,
     code: "AUTH_REQUIRED",
@@ -87,8 +87,35 @@ function authError(message = "Missing user_id header"): Response {
   return json(payload, 401);
 }
 
-function getTestUserId(request: Request): string | null {
-  return request.headers.get("user_id") ?? request.headers.get("x-user-id");
+function serviceUnavailableError(message: string): Response {
+  const payload: ApiErrorShape = {
+    error: true,
+    code: "SERVICE_UNAVAILABLE",
+    message,
+  };
+  return json(payload, 503);
+}
+
+function hasDatabase(env: Env): env is Env & { DB: D1Database } {
+  return !!env.DB;
+}
+
+function isLocalDevelopmentRequest(url: URL): boolean {
+  return ["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname);
+}
+
+function getAuthenticatedUserId(request: Request, env: Env, url: URL): string | null {
+  const devUserId = request.headers.get("x-dev-user-id")?.trim() ?? "";
+
+  if (
+    env.ALLOW_INSECURE_DEV_AUTH === "true"
+    && isLocalDevelopmentRequest(url)
+    && devUserId.length > 0
+  ) {
+    return devUserId;
+  }
+
+  return null;
 }
 
 function toIsoDateUTC(epochMillis: number): string {
@@ -257,13 +284,21 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
   const path = url.pathname;
 
   try {
+    if (!hasDatabase(env)) {
+      return serviceUnavailableError('D1 binding "DB" is not configured for this worker');
+    }
+
     if (path === "/api/leaderboard" && request.method === "GET") {
       return await handleGetLeaderboard(url, env);
     }
 
-    const userId = getTestUserId(request);
+    const userId = getAuthenticatedUserId(request, env, url);
     if (!userId) {
-      return authError();
+      return authError(
+        env.ALLOW_INSECURE_DEV_AUTH === "true"
+          ? "Missing x-dev-user-id for local development"
+          : "User-scoped API routes are disabled until secure authentication is configured",
+      );
     }
 
     if (path === "/api/sessions" && request.method === "POST") {

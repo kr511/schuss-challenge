@@ -38,7 +38,7 @@ window.ImageCompareBrain = (function () {
        1. Gehe auf formspree.io und erstelle ein kostenloses "Formular"
        2. Du erhältst einen Link wie: https://formspree.io/f/xyzabcde
        3. Trag die ID (xyzabcde) hier ein und setze FEEDBACK_ENABLED = true */
-    const FEEDBACK_ENABLED = true;
+    const FEEDBACK_ENABLED = false;
     const FORMSPREE_ENDPOINT = 'xreyggrp';
 
     /* ═══ SCORE-KONFIGURATION ═══════════════════════════════════════════ */
@@ -87,9 +87,12 @@ window.ImageCompareBrain = (function () {
 
     /** Jeder Pass hat eigene Vorverarbeitungsparameter */
     const OCR_PASSES = [
-        { name: 'Standard', options: {}, triggerBelow: 1.0 },
-        { name: 'Gamma-Boost', options: { gamma: 1.5 }, triggerBelow: 0.85 },
-        { name: 'Invertiert', options: { invert: true }, triggerBelow: 0.7 },
+        { name: 'Full-Standard', options: { cropKey: 'full', psm: 6, contrast: 1.05, upscale: 1.2 }, triggerBelow: 1.0 },
+        { name: 'Upper-Half', options: { cropKey: 'upper_half', psm: 6, gamma: 1.1, contrast: 1.2, upscale: 1.5 }, triggerBelow: 0.96 },
+        { name: 'Upper-Band-BW', options: { cropKey: 'upper_band', psm: 7, gamma: 1.15, contrast: 1.35, autoThreshold: true, upscale: 2.0 }, triggerBelow: 0.93 },
+        { name: 'Upper-Center-BW', options: { cropKey: 'upper_center', psm: 7, gamma: 1.1, contrast: 1.45, autoThreshold: true, upscale: 2.4 }, triggerBelow: 0.9 },
+        { name: 'Upper-Right-BW', options: { cropKey: 'upper_right', psm: 7, gamma: 1.1, contrast: 1.45, autoThreshold: true, upscale: 2.4 }, triggerBelow: 0.87 },
+        { name: 'Upper-Center-Invert', options: { cropKey: 'upper_center', psm: 7, invert: true, contrast: 1.35, autoThreshold: true, upscale: 2.2 }, triggerBelow: 0.82 },
     ];
 
     /* ═══ HILFSFUNKTIONEN ═══════════════════════════════════════════════ */

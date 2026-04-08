@@ -742,6 +742,44 @@ const AdaptiveBotSystem = (function () {
     console.log('🔄 Adaptive Bot Daten zurückgesetzt (v2.0)');
   }
 
+  /**
+   * Generiert einen einzelnen realistischen Schuss basierend auf dem aktuellen Bot-Zustand.
+   * EN: Generates a single realistic shot based on the current bot state.
+   * @param {string} difficulty - 'easy', 'real', 'hard', 'elite', 'worldrecord'
+   * @param {string} discipline - 'air_rifle_10m', 'smallbore_50m', 'air_pistol_10m', 'dry_fire'
+   * @returns {Object} { x, y, dominantError }
+   */
+  function fireSingleShot(difficulty, discipline) {
+    difficulty = difficulty || botState.currentDifficulty || 'real';
+    discipline = discipline || botState.discipline || 'air_rifle_10m';
+
+    const targetMeanRadius = getMeanRadiusForDifficulty(difficulty, discipline);
+
+    // Haltedauer simulieren (5–12 Sekunden)
+    const aimDuration = 5000 + Math.random() * 7000;
+
+    let impact;
+    if (physicsEngine) {
+      impact = physicsEngine.simulateShot(aimDuration, discipline, targetMeanRadius);
+    } else {
+      // Fallback
+      const g = function () {
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+      };
+      impact = {
+        x: g() * targetMeanRadius,
+        y: g() * targetMeanRadius,
+        dominantError: 'wobble'
+      };
+    }
+
+    botState.shotsFiredInSession++;
+    return impact;
+  }
+
   // ═══════════════════════════════════════════════
   // PUBLIC API
   // Behält alle bestehenden Methoden + neue v2.0 Methoden
@@ -762,6 +800,7 @@ const AdaptiveBotSystem = (function () {
 
     // ─── NEU v2.0: Physiologische Schussgenerierung / NEW v2.0 ───
     generateRealisticBotGroup,
+    fireSingleShot, // NEU
     trackPlayerResult,
     analyzePlayerWeakness,
 

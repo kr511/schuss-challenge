@@ -107,7 +107,8 @@ const MobileFeatures = (function() {
       return;
     }
     
-    navigator.serviceWorker.register('./sw.js')
+    navigator.serviceWorker.getRegistration()
+      .then(registration => registration || navigator.serviceWorker.register('./sw.js?v=2.6'))
       .then(registration => {
         mobileState.serviceWorker = registration;
         console.log('✅ Service Worker registriert:', registration.scope);

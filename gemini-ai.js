@@ -12,12 +12,12 @@ const GeminiCoach = (function () {
   // Er wird beim Start aus deiner Firebase Realtime Database geladen.
   // Pfad in Firebase: /config/geminiApiKey
   // ═══════════════════════════════════════════════════════════════════════
-  const FIREBASE_DB_URL = 'https://burnished-block-402111-default-rtdb.europe-west1.firebasedatabase.app';
-  const API_KEY_PATH = '/config/geminiApiKey.json';
+  const RUNTIME_API_KEY_PROP = '__SCHUSS_GEMINI_API_KEY';
+  const RUNTIME_API_KEY_META = 'schuss-gemini-api-key';
 
   const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-  // Geladener API-Key (aus Firebase)
+  // Geladener API-Key (aus sicherer Laufzeitquelle)
   let _apiKey = null;
   let _keyLoading = false;
   let _keyLoadPromise = null;
@@ -69,7 +69,7 @@ Sei sehr präzise und professionell. Maximal 5-6 Sätze.`
     lg60: 'Luftgewehr (LG), 60 Schuss auf 10m. Zehntel-Wertung (max 10.9/Schuss, max 654.0 gesamt). Score ist eine Dezimalzahl z.B. 612.4',
     kk50: 'Kleinkaliber (KK), 60 Schuss auf 50m. Ganzzahl-Wertung (max 10/Schuss, max 600 gesamt). Score ist eine Ganzzahl z.B. 582',
     kk100: 'Kleinkaliber (KK), 60 Schuss auf 100m. Ganzzahl-Wertung (max 10/Schuss, max 600 gesamt). Score ist eine Ganzzahl z.B. 571',
-    kk3x20: 'Kleinkaliber (KK) 3×20 Dreistellungskampf auf 50m (Kniend, Liegend, Stehend). Ganzzahl-Wertung (max 600 gesamt). Score ist eine Ganzzahl z.B. 568'
+    kk3x20: 'KK 3×20 Dreistellungskampf auf 50m (Kniend, Liegend, Stehend). Ganzzahl-Wertung (max 600 gesamt). Score ist eine Ganzzahl z.B. 568'
   };
 
   /**
@@ -104,6 +104,60 @@ Sei sehr präzise und professionell. Maximal 5-6 Sätze.`
     })();
 
     return _keyLoadPromise;
+  }
+
+  function normalizeApiKey(key) {
+    if (typeof key !== 'string') return null;
+    const trimmed = key.trim();
+    return trimmed.length > 10 ? trimmed : null;
+  }
+
+  function readRuntimeApiKey() {
+    let runtimeKey = null;
+
+    if (typeof window !== 'undefined') {
+      runtimeKey = normalizeApiKey(window[RUNTIME_API_KEY_PROP]);
+    }
+
+    if (!runtimeKey && typeof document !== 'undefined') {
+      const metaKey = document.querySelector(`meta[name="${RUNTIME_API_KEY_META}"]`)?.content;
+      runtimeKey = normalizeApiKey(metaKey);
+    }
+
+    return runtimeKey;
+  }
+
+  loadApiKey = async function () {
+    if (_apiKey) return _apiKey;
+    if (_keyLoadPromise) return _keyLoadPromise;
+
+    _keyLoading = true;
+    _keyLoadPromise = (async () => {
+      try {
+        const runtimeKey = readRuntimeApiKey();
+        if (runtimeKey) {
+          _apiKey = runtimeKey;
+          console.log('[GeminiCoach] API-Key aus Laufzeit-Konfiguration geladen');
+          return _apiKey;
+        }
+        console.info('[GeminiCoach] Kein Laufzeit-API-Key vorhanden. Nutze OCR-Fallback.');
+        return null;
+      } catch (err) {
+        console.warn('[GeminiCoach] Laufzeit-API-Key konnte nicht gelesen werden:', err);
+        return null;
+      } finally {
+        _keyLoading = false;
+      }
+    })();
+
+    return _keyLoadPromise;
+  };
+
+  function setApiKey(key) {
+    _apiKey = normalizeApiKey(key);
+    _keyLoadPromise = _apiKey ? Promise.resolve(_apiKey) : null;
+    _keyLoading = false;
+    return _apiKey;
   }
 
   // Beim Laden der Seite sofort den Key abrufen
@@ -174,13 +228,22 @@ Der Score sollte ${scoreFormat} sein.
 Wenn du keinen Score erkennen kannst, setze "score" auf null.
 WICHTIG: Lies den Score GENAU ab. Verwechsle keine Ziffern. Achte auf Dezimalpunkte bei LG.
 
-AUFGABE 2 – COACHING:
+AUFGABE 2 – SCHUSS-DETEKTION:
+Analysiere das Trefferbild auf der Zielscheibe.
+Schätze für JEDEN erkennbaren Einschuss die Position relativ zum Zentrum in Millimetern (mm).
+Das Zentrum der Scheibe ist (0, 0).
+Gib eine Liste von Objekten mit {dx, dy} zurück.
+dx: horizontale Abweichung (negativ = links, positiv = rechts)
+dy: vertikale Abweichung (negativ = oben, positiv = unten)
+Beispiel: {"dx": 1.2, "dy": -0.5}
+
+AUFGABE 3 – COACHING:
 ${coachPrompt}
 Beziehe dich auf das, was du im Bild siehst (Trefferbild, Streuung, Schwächen).
 Antworte auf Deutsch. Nutze Emojis. Kein Markdown.
 
 Antworte AUSSCHLIESSLICH als valides JSON-Objekt in genau diesem Format:
-{"score": <Zahl oder null>, "tips": "<Deine Coaching-Tipps als ein zusammenhängender Text>"}`;
+{"score": <Zahl oder null>, "tips": "<Deine Coaching-Tipps>", "shots": [{"dx": <Zahl>, "dy": <Zahl>}, ...]}`;
 
       const requestBody = JSON.stringify({
         contents: [{
@@ -255,10 +318,11 @@ Antworte AUSSCHLIESSLICH als valides JSON-Objekt in genau diesem Format:
         const rawScore = (typeof parsed.score === 'number' && !isNaN(parsed.score)) ? parsed.score : null;
         const score = validateScore(rawScore, discipline);
         const tips = (typeof parsed.tips === 'string' && parsed.tips.length > 0) ? parsed.tips : '⚠️ Keine Tipps generiert.';
-        return { score, tips };
+        const shots = Array.isArray(parsed.shots) ? parsed.shots : [];
+        return { score, tips, shots };
       } catch (parseErr) {
         console.warn('[GeminiCoach] JSON parse failed, raw:', rawText);
-        return { score: null, tips: rawText.trim() };
+        return { score: null, tips: rawText.trim(), shots: [] };
       }
 
     } catch (err) {
@@ -271,7 +335,7 @@ Antworte AUSSCHLIESSLICH als valides JSON-Objekt in genau diesem Format:
    * Prüft ob der Service verfügbar ist
    */
   function isAvailable() {
-    return !!_apiKey || _keyLoading || !!_keyLoadPromise;
+    return !!_apiKey || !!readRuntimeApiKey() || _keyLoading || !!_keyLoadPromise;
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -340,6 +404,7 @@ Mache die Analyse ultra-realistisch basierend auf den Millimeter-Messwerten.`;
     analyzePhoto,
     isAvailable,
     loadApiKey,
+    setApiKey,
     // NEU v2.0: Erweiterter Coaching-Prompt / NEW v2.0
     generateEnhancedCoachingPrompt
   };

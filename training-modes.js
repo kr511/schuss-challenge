@@ -153,13 +153,14 @@ const TrainingModes = (function() {
   let currentTraining = null;
   let trainingStats = {};
   let trainingHistory = [];
+  const TRAINING_MOUNT_ID = 'trainingModesMount';
   
   /**
    * Initialisiert das Training-System
    */
   function init() {
     loadTrainingData();
-    createTrainingUI();
+    renderUI();
     console.log('🎯 Training Modes System initialisiert');
   }
   
@@ -227,7 +228,8 @@ const TrainingModes = (function() {
     window.dispatchEvent(new CustomEvent('trainingStarted', {
       detail: { mode: mode }
     }));
-    
+
+    renderUI();
     return true;
   }
   
@@ -591,6 +593,7 @@ const TrainingModes = (function() {
    */
   function endTraining() {
     if (!currentTraining) return null;
+    if (currentTraining.status !== 'active' && currentTraining.status !== 'time_up') return currentTraining.result || null;
     
     const mode = currentTraining.mode;
     const finalResult = calculateTrainingResult(currentTraining);
@@ -633,7 +636,8 @@ const TrainingModes = (function() {
     window.dispatchEvent(new CustomEvent('trainingCompleted', {
       detail: { result: finalResult, historyEntry: historyEntry }
     }));
-    
+
+    renderUI();
     return finalResult;
   }
   
@@ -794,22 +798,56 @@ const TrainingModes = (function() {
   function generateTrainingId() {
     return 'training_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
+
+  function bindTrainingUI(mount) {
+    mount.querySelectorAll('.start-training-btn[data-mode]').forEach(button => {
+      button.addEventListener('click', () => {
+        const modeId = button.dataset.mode;
+        if (!modeId) return;
+        startTraining(modeId);
+      });
+    });
+  }
+
+  function renderUI() {
+    const mount = document.getElementById(TRAINING_MOUNT_ID);
+    if (!mount) return;
+    mount.innerHTML = createTrainingUI();
+    bindTrainingUI(mount);
+  }
   
   /**
    * Erstellt Trainings-UI
    */
   function createTrainingUI() {
+    const activeModeId = currentTraining && currentTraining.status === 'active'
+      ? currentTraining.mode.id
+      : null;
+
     return `
       <div class="training-modes">
         <div class="training-header">
           <h3>🎯 Trainings-Modi</h3>
           <p>Wähle ein spezielles Training, um deine Fähigkeiten zu verbessern</p>
         </div>
+
+        ${activeModeId ? `
+          <div class="training-history" style="margin-bottom:16px;">
+            <h4>Aktives Training</h4>
+            <div class="history-entry">
+              <div class="history-mode">${TRAINING_MODES[activeModeId].name}</div>
+              <div class="history-meta">
+                <span class="history-date">Nächstes Duell zählt bereits mit</span>
+              </div>
+            </div>
+          </div>
+        ` : ''}
         
         <div class="training-modes-grid">
           ${Object.values(TRAINING_MODES).map(mode => {
             const stats = trainingStats[mode.id] || {};
             const isUnlocked = isModeUnlocked(mode.id);
+            const isActive = activeModeId === mode.id;
             
             return `
               <div class="training-mode-card ${isUnlocked ? '' : 'locked'}" data-mode="${mode.id}">
@@ -838,8 +876,8 @@ const TrainingModes = (function() {
                   `).join('')}
                 </div>
                 
-                <button class="start-training-btn" ${isUnlocked ? '' : 'disabled'}>
-                  ${isUnlocked ? 'Training starten' : 'Noch nicht freigeschaltet'}
+                <button class="start-training-btn" data-mode="${mode.id}" ${isUnlocked ? '' : 'disabled'}>
+                  ${isActive ? 'Aktiv' : (isUnlocked ? 'Training starten' : 'Noch nicht freigeschaltet')}
                 </button>
               </div>
             `;
@@ -948,6 +986,7 @@ const TrainingModes = (function() {
     endTraining,
     getCurrentTraining: () => currentTraining,
     getTrainingStats,
+    renderUI,
     createTrainingUI,
     TRAINING_MODES
   };

@@ -9,6 +9,7 @@ const EnhancedAnalytics = (function() {
   function createDefaultAnalyticsData() {
     return {
       games: [],
+      realLifeShots: [], // NEU: Speichert Schüsse aus Foto-Uploads
       trends: {},
       predictions: {},
       consistencyScores: {},
@@ -19,6 +20,8 @@ const EnhancedAnalytics = (function() {
   // Analytics-Datenstruktur
   let analyticsData = createDefaultAnalyticsData();
   const ANALYTICS_MOUNT_ID = 'enhancedAnalyticsMount';
+  const HEATMAP_MOUNT_ID = 'heatmapMount';
+  const HEATMAP_CANVAS_ID = 'heatmapCanvas';
 
   // Konfiguration
   const CONFIG = {
@@ -30,6 +33,11 @@ const EnhancedAnalytics = (function() {
       weeklyImprovementWindow: 7,   // Tage für wöchentliche Verbesserung
       monthlyImprovementWindow: 30, // Tage für monatliche Verbesserung
       consistencyThreshold: 5       // Mindestscore für Konsistenz-Streak
+    },
+    heatmap: {
+      pointRadius: 15,
+      blur: 15,
+      maxOpacity: 0.8
     }
   };
 
@@ -42,6 +50,7 @@ const EnhancedAnalytics = (function() {
     updatePredictions();
     updateConsistencyScores();
     renderUI();
+    renderHeatmap(); // NEU
     console.log('📊 Enhanced Analytics System initialisiert');
   }
 
@@ -57,12 +66,13 @@ const EnhancedAnalytics = (function() {
           ...createDefaultAnalyticsData(),
           ...parsed,
           games: sortGamesByTimestamp(Array.isArray(parsed?.games) ? parsed.games : []),
+          realLifeShots: Array.isArray(parsed?.realLifeShots) ? parsed.realLifeShots : [],
           trends: parsed?.trends && typeof parsed.trends === 'object' ? parsed.trends : {},
           predictions: parsed?.predictions && typeof parsed.predictions === 'object' ? parsed.predictions : {},
           consistencyScores: parsed?.consistencyScores && typeof parsed.consistencyScores === 'object' ? parsed.consistencyScores : {},
           performanceMetrics: parsed?.performanceMetrics && typeof parsed.performanceMetrics === 'object' ? parsed.performanceMetrics : {}
         };
-        console.log('💾 Analytics-Daten geladen:', analyticsData.games.length, 'Spiele');
+        console.log('💾 Analytics-Daten geladen:', analyticsData.games.length, 'Spiele,', analyticsData.realLifeShots.length, 'Real-Life Schüsse');
       }
     } catch (e) {
       console.warn('⚠️ Konnte Analytics-Daten nicht laden:', e);
@@ -84,6 +94,98 @@ const EnhancedAnalytics = (function() {
     const mount = document.getElementById(ANALYTICS_MOUNT_ID);
     if (!mount) return;
     mount.innerHTML = createAnalyticsUI();
+    
+    // Heatmap Mount steuern
+    const heatmapMount = document.getElementById(HEATMAP_MOUNT_ID);
+    if (heatmapMount) {
+      if (analyticsData.realLifeShots && analyticsData.realLifeShots.length > 0) {
+        heatmapMount.style.display = 'block';
+        setTimeout(() => renderHeatmap(), 100);
+      } else {
+        heatmapMount.style.display = 'none';
+      }
+    }
+  }
+
+  /**
+   * Fügt Real-Life Schüsse aus Foto-Analyse hinzu
+   */
+  function addRealLifeShots(shots) {
+    if (!Array.isArray(shots) || shots.length === 0) return;
+    
+    // Schüsse hinzufügen (max 500 für Heatmap behalten)
+    analyticsData.realLifeShots = [...analyticsData.realLifeShots, ...shots].slice(-500);
+    
+    saveData();
+    renderUI();
+    renderHeatmap();
+  }
+
+  /**
+   * Zeichnet die Heatmap
+   */
+  function renderHeatmap() {
+    const canvas = document.getElementById(HEATMAP_CANVAS_ID);
+    if (!canvas || !analyticsData.realLifeShots || analyticsData.realLifeShots.length === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+    const h = canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+    const cx = w / 2;
+    const cy = h / 2;
+    const maxR = w / 2 - 10;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // 1. Hintergrund (Zielscheibe-Ringe andeuten)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i <= 10; i++) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, (i / 10) * maxR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
+    // Fadenkreuz
+    ctx.beginPath();
+    ctx.moveTo(cx - 20, cy); ctx.lineTo(cx + 20, cy);
+    ctx.moveTo(cx, cy - 20); ctx.lineTo(cx, cy + 20);
+    ctx.stroke();
+
+    // 2. Heatmap-Punkte zeichnen
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = w;
+    tempCanvas.height = h;
+    const tCtx = tempCanvas.getContext('2d');
+
+    analyticsData.realLifeShots.forEach(shot => {
+      // Shot dx/dy sind relativ zum Zentrum in Pixeln (Sigma-Skala)
+      // Wir müssen sie auf die Canvas-Größe skalieren
+      // In app.js ist maxR ca. 132px. Wir skalieren proportional zum Heatmap-maxR.
+      const scale = maxR / 132; 
+      const x = cx + shot.dx * scale;
+      const y = cy + shot.dy * scale;
+
+      const grad = tCtx.createRadialGradient(x, y, 0, x, y, CONFIG.heatmap.pointRadius * window.devicePixelRatio);
+      grad.addColorStop(0, `rgba(255, 100, 0, ${CONFIG.heatmap.maxOpacity})`);
+      grad.addColorStop(1, 'rgba(255, 100, 0, 0)');
+
+      tCtx.fillStyle = grad;
+      tCtx.beginPath();
+      tCtx.arc(x, y, CONFIG.heatmap.pointRadius * window.devicePixelRatio, 0, Math.PI * 2);
+      tCtx.fill();
+    });
+
+    // 3. Weichzeichnen (Blur)
+    ctx.filter = `blur(${CONFIG.heatmap.blur}px)`;
+    ctx.drawImage(tempCanvas, 0, 0);
+    ctx.filter = 'none';
+
+    // 4. Beschriftung
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.font = `${10 * window.devicePixelRatio}px Outfit`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`${analyticsData.realLifeShots.length} Schüsse analysiert`, cx, h - 10 * window.devicePixelRatio);
   }
 
   /**
