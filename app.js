@@ -2826,7 +2826,7 @@ requestAnimationFrame(() => {
       // Score — compute once, assign to both score chip and live bar
       DOM.shotsLeft.textContent = G.playerShotsLeft;
       DOM.shotsLeft.className = low ? 'chip-val low' : 'chip-val';
-      DOM.botScoreChipInt.textContent = G.playerTotalInt;
+      DOM.botScoreChipInt.textContent = G.botTotalInt;
       DOM.lsbInt.textContent = G.botTotalInt;
 
       // Nur KK 3×20: keine Zehntel anzeigen. KK 50m/100m zeigen Zehntel normal.
@@ -2842,8 +2842,9 @@ requestAnimationFrame(() => {
       if (DOM.lsbDecBlock) DOM.lsbDecBlock.style.display = noTenths ? 'none' : '';
       if (DOM.lsbDecDivider) DOM.lsbDecDivider.style.display = noTenths ? 'none' : '';
       if (!noTenths) {
-        DOM.botScoreChip.textContent = fmtPts(G.playerTotal);
-        DOM.lsbDec.textContent = fmtPts(G.botTotal);
+        const zehntelFmt = fmtPts(G.botTotal);
+        DOM.botScoreChip.textContent = zehntelFmt;
+        DOM.lsbDec.textContent = zehntelFmt;
       }
       // Bei KK: "Ganze"-Label und Zahl im Chip + Live-Bar aufhellen
       if (noTenths) {
@@ -3279,13 +3280,12 @@ requestAnimationFrame(() => {
 
     function goToEntry() {
       const kk3x20 = isKK3x20WholeRingsOnly();
-      // User expects the live player totals to be the primary values in the entry box.
-      DOM.botFinalPts.textContent = kk3x20 ? String(G.playerTotalInt) : fmtPts(G.playerTotal);
-      DOM.botFinalInt.textContent = G.playerTotalInt;
-      const avg = G.playerShots.length > 0
-        ? (kk3x20 ? (G.playerTotalInt / G.playerShots.length).toFixed(1) : (G.playerTotal / G.playerShots.length).toFixed(1))
+      DOM.botFinalPts.textContent = kk3x20 ? String(G.botTotalInt) : fmtPts(G.botTotal);
+      DOM.botFinalInt.textContent = G.botTotalInt;
+      const avg = G.botShots.length > 0
+        ? (kk3x20 ? (G.botTotalInt / G.botShots.length).toFixed(1) : (G.botTotal / G.botShots.length).toFixed(1))
         : '–';
-      const xCount = G.playerShots.filter(s => s.isX).length;
+      const xCount = G.botShots.filter(s => s.isX).length;
       const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
 
       // Zehntel-Spalte und Trennstrich bei KK 3x20 verstecken
@@ -3309,7 +3309,7 @@ requestAnimationFrame(() => {
         const parts = G.posResults.map((r, i) => `${G.posIcons[i]} ${r.int}`).join('  ');
         DOM.botFinalDetail.textContent = `${parts} · Ø ${avg} Pkt${xStr}`;
       } else {
-        DOM.botFinalDetail.textContent = `aus ${G.playerShots.length} Schuss · Ø ${avg} Pkt${xStr}`;
+        DOM.botFinalDetail.textContent = `aus ${G.botShots.length} Schuss · Ø ${avg} Pkt${xStr}`;
       }
       const prefillTenths = Math.round((G.playerTotal || 0) * 10) / 10;
       const prefillInt = Math.max(0, parseInt(G.playerTotalInt || 0, 10));
