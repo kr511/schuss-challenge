@@ -2826,7 +2826,7 @@ requestAnimationFrame(() => {
       // Score — compute once, assign to both score chip and live bar
       DOM.shotsLeft.textContent = G.playerShotsLeft;
       DOM.shotsLeft.className = low ? 'chip-val low' : 'chip-val';
-      DOM.botScoreChipInt.textContent = G.botTotalInt;
+      DOM.botScoreChipInt.textContent = G.playerTotalInt;
       DOM.lsbInt.textContent = G.botTotalInt;
 
       // Nur KK 3×20: keine Zehntel anzeigen. KK 50m/100m zeigen Zehntel normal.
@@ -2842,9 +2842,8 @@ requestAnimationFrame(() => {
       if (DOM.lsbDecBlock) DOM.lsbDecBlock.style.display = noTenths ? 'none' : '';
       if (DOM.lsbDecDivider) DOM.lsbDecDivider.style.display = noTenths ? 'none' : '';
       if (!noTenths) {
-        const zehntelFmt = fmtPts(G.botTotal);
-        DOM.botScoreChip.textContent = zehntelFmt;
-        DOM.lsbDec.textContent = zehntelFmt;
+        DOM.botScoreChip.textContent = fmtPts(G.playerTotal);
+        DOM.lsbDec.textContent = fmtPts(G.botTotal);
       }
       // Bei KK: "Ganze"-Label und Zahl im Chip + Live-Bar aufhellen
       if (noTenths) {
