@@ -3280,12 +3280,13 @@ requestAnimationFrame(() => {
 
     function goToEntry() {
       const kk3x20 = isKK3x20WholeRingsOnly();
-      DOM.botFinalPts.textContent = kk3x20 ? String(G.botTotalInt) : fmtPts(G.botTotal);
-      DOM.botFinalInt.textContent = G.botTotalInt;
-      const avg = G.botShots.length > 0
-        ? (kk3x20 ? (G.botTotalInt / G.botShots.length).toFixed(1) : (G.botTotal / G.botShots.length).toFixed(1))
+      // User expects the live player totals to be the primary values in the entry box.
+      DOM.botFinalPts.textContent = kk3x20 ? String(G.playerTotalInt) : fmtPts(G.playerTotal);
+      DOM.botFinalInt.textContent = G.playerTotalInt;
+      const avg = G.playerShots.length > 0
+        ? (kk3x20 ? (G.playerTotalInt / G.playerShots.length).toFixed(1) : (G.playerTotal / G.playerShots.length).toFixed(1))
         : '–';
-      const xCount = G.botShots.filter(s => s.isX).length;
+      const xCount = G.playerShots.filter(s => s.isX).length;
       const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
 
       // Zehntel-Spalte und Trennstrich bei KK 3x20 verstecken
@@ -3309,7 +3310,7 @@ requestAnimationFrame(() => {
         const parts = G.posResults.map((r, i) => `${G.posIcons[i]} ${r.int}`).join('  ');
         DOM.botFinalDetail.textContent = `${parts} · Ø ${avg} Pkt${xStr}`;
       } else {
-        DOM.botFinalDetail.textContent = `aus ${G.botShots.length} Schuss · Ø ${avg} Pkt${xStr}`;
+        DOM.botFinalDetail.textContent = `aus ${G.playerShots.length} Schuss · Ø ${avg} Pkt${xStr}`;
       }
       const prefillTenths = Math.round((G.playerTotal || 0) * 10) / 10;
       const prefillInt = Math.max(0, parseInt(G.playerTotalInt || 0, 10));
