@@ -3234,9 +3234,6 @@ requestAnimationFrame(() => {
       const mkBotScore = () => isKK3x20WholeRingsOnly()
         ? `${G.botTotalInt}`
         : `${fmtPts(G.botTotal)} <span style="color:rgba(240,130,110,.45);font-size:.85em;">(${G.botTotalInt} ganze)</span>`;
-      const mkPlayerScore = () => isKK3x20WholeRingsOnly()
-        ? `${G.playerTotalInt}`
-        : `${fmtPts(G.playerTotal)} <span style="color:rgba(180,230,100,.45);font-size:.85em;">(${G.playerTotalInt} ganze)</span>`;
 
       if (count > 1) {
         const sumPts = results.reduce((a, r) => a + r.pts, 0);
@@ -3244,7 +3241,7 @@ requestAnimationFrame(() => {
         const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
         const sumDisp = isKK3x20WholeRingsOnly() ? Math.floor(sumPts) : fmtPts(Math.round(sumPts * 10) / 10);
         if (!G.is3x20) DOM.lastShotTxt.innerHTML =
-          `⚡ <b>5er-Salve</b>: +<b>${sumDisp}</b>${xStr} &nbsp;|&nbsp; Dein Gesamt: <b>${mkPlayerScore()}</b> &nbsp;|&nbsp; Bot: <b>${mkBotScore()}</b>`;
+          `⚡ <b>5er-Salve</b>: +<b>${sumDisp}</b>${xStr} &nbsp;|&nbsp; Bot Gesamt: <b>${mkBotScore()}</b>`;
       } else {
         const bRes = results[0];
         const ptsDisp = isKK3x20WholeRingsOnly() ? Math.floor(bRes.pts) : fmtPts(bRes.pts);
@@ -3254,7 +3251,7 @@ requestAnimationFrame(() => {
           : `<b>${bRes.label} · ${ptsDisp}</b>`;
         if (!G.is3x20 || G.posShots < G.perPos)
           DOM.lastShotTxt.innerHTML =
-            `${emoji} ${scoreDisp} &nbsp;|&nbsp; Dein Gesamt: <b>${mkPlayerScore()}</b> &nbsp;|&nbsp; Bot: <b>${mkBotScore()}</b>`;
+            `${emoji} ${scoreDisp} &nbsp;|&nbsp; Bot Gesamt: <b>${mkBotScore()}</b>`;
       }
 
       setTimeout(() => {
