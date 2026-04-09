@@ -805,11 +805,11 @@ window.ImageCompare = (function () {
       const playerInp = document.getElementById('playerInp');
       const playerInpInt = document.getElementById('playerInpInt');
 
-      if (isKK) {
-        if (playerInpInt) playerInpInt.value = String(Math.floor(playerScore));
+      if (discipline === 'kk3x20') {
+        if (playerInpInt) playerInpInt.value = String(Math.round(playerScore));
       } else {
         if (playerInp) playerInp.value = playerScore.toFixed(1);
-        if (playerInpInt) playerInpInt.value = String(Math.floor(playerScore));
+        if (playerInpInt) playerInpInt.value = ''; // We clear Ganze because estimating it with Math.floor is mathematically incorrect for shooting sports.
       }
 
       if (typeof window.calcResult === 'function') {

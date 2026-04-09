@@ -2705,7 +2705,7 @@ requestAnimationFrame(() => {
     }
 
     function syncBotScoreToPlayerProgress() {
-      if (G.is3x20 || G.botShotsLeft <= 0) return;
+      if (G.botShotsLeft <= 0) return;
 
       const playerFired = G.maxShots - G.playerShotsLeft;
       const botFired = G.maxShots - G.botShotsLeft;
@@ -2714,6 +2714,7 @@ requestAnimationFrame(() => {
       for (let i = 0; i < missingShots; i++) {
         fireSingleShot(true);
       }
+      updateBattleUI(); // Update UI directly after syncing
     }
 
     function startBattle() {
@@ -2956,8 +2957,7 @@ requestAnimationFrame(() => {
       // Wenn Bot schießt: Physiologische Simulation nutzen falls verfügbar
       if (isBot && typeof AdaptiveBotSystem !== 'undefined' && AdaptiveBotSystem.isEnabled()) {
         const difficulty = G.diff; // 'easy', 'real', 'hard', 'elite'
-        let discipline = 'air_rifle_10m';
-        if (G.weapon === 'kk') discipline = 'smallbore_50m';
+        const discipline = G.discipline || (G.weapon === 'kk' ? 'kk50' : 'lg40');
 
         const shot = AdaptiveBotSystem.fireSingleShot(difficulty, discipline);
         // AdaptiveBotSystem gibt mm zurück, wir brauchen Pixel (Sigma-Äquivalent)
@@ -3179,6 +3179,137 @@ requestAnimationFrame(() => {
             const nextPosIdx = G.posIdx + 1;
             const nextPosName = G.positions[nextPosIdx];
             const nextEl = DOM[`posItem${nextPosIdx}`];
+            a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
+            len: 1.4 + Math.random()
+          }))
+        });
+      }
+
+      // NEU: Haptisches Feedback beim Schuss
+      if (typeof MobileFeatures !== 'undefined') {
+        MobileFeatures.hapticShot();
+        if (bRes.pts >= 10) MobileFeatures.hapticHit();
+        else if (bRes.pts <= 5) MobileFeatures.hapticMiss();
+      }
+
+      return { ...bRes, dx: bdx, dy: bdy };
+    }
+
+    function skipProbe() {
+      if (!G.probeActive) return;
+
+      G.probeActive = false;
+      G.probeSecsLeft = 0;
+      DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit übersprungen!</b> – Bot schießt jetzt!';
+      DOM.skipProbeBtn.style.display = 'none';
+
+      // Abbrechen des verzögerten Bot-Starts vom startBattle()
+      if (G._botStartTimeout) {
+        clearTimeout(G._botStartTimeout);
+        G._botStartTimeout = null;
+      }
+
+      // Starte Bot-Auto-Shoot sofort (falls noch nicht gestartet)
+      if (!G.botStarted) {
+        if (G._botInterval) clearTimeout(G._botInterval);
+        G.botStarted = true;
+        startBotAutoShoot();
+      }
+    }
+
+    function doBattleFire() {
+      if (G.playerShotsLeft <= 0) return;
+      if (G.is3x20 && G.transitionSecsLeft > 0) {
+        const transitionName = G.transitionLabel || 'Pause';
+        G.transitionSecsLeft = 0;
+        G.transitionLabel = '';
+        DOM.lastShotTxt.innerHTML = `▶️ <b>${transitionName}</b> vorzeitig beendet - weiter schießen.`;
+      }
+      // Probezeit beenden und Bot starten, wenn beim Schießen noch Probezeit aktiv ist
+      if (G.probeActive) {
+        G.probeActive = false;
+        G.probeSecsLeft = 0;
+        DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit beendet!</b> – Reguläre Zeit gestartet. Bot schießt jetzt!';
+        DOM.skipProbeBtn.style.display = 'none';
+
+        // Abbrechen des verzögerten Bot-Starts vom startBattle()
+        if (G._botStartTimeout) {
+          clearTimeout(G._botStartTimeout);
+          G._botStartTimeout = null;
+        }
+
+        // Starte Bot-Auto-Shoot sofort (falls noch nicht gestartet)
+        if (!G.botStarted) {
+          if (G._botInterval) clearTimeout(G._botInterval);
+          G.botStarted = true;
+          startBotAutoShoot();
+        }
+      }
+
+      const count = G.burst ? Math.min(5, G.playerShotsLeft) : 1;
+      const results = [];
+      for (let i = 0; i < count; i++) {
+        const res = fireSingleShot(false);
+        if (res) results.push(res); // Nur gültige Shots sammeln
+      }
+
+      // FX — kein overflow-Toggle (verursachte hellgrünen Flackerstreifen unten)
+      const f = DOM.muzzleFlash;
+      f.style.transition = 'none'; f.style.opacity = '1';
+      setTimeout(() => {
+        f.style.transition = 'opacity .22s'; f.style.opacity = '0';
+      }, 55);
+      document.body.classList.remove('shaking');
+      void document.body.offsetWidth;
+      document.body.classList.add('shaking');
+      setTimeout(() => document.body.classList.remove('shaking'), 320);
+      // Sound + Haptic beim Spieler-Schuss
+      if (typeof Sounds !== 'undefined') Sounds.shot();
+      if (typeof Haptics !== 'undefined') Haptics.shot();
+
+      // ── Treffer-Sound je nach Ringzahl ──────────
+      if (results.length > 0 && typeof Sounds !== 'undefined') {
+        const best = results.reduce((a, b) => b.pts > a.pts ? b : a);
+        if (best.isX || best.pts >= 10) Sounds.bullseye();
+        else if (best.pts >= 7) Sounds.hit();
+        else Sounds.lowHit();
+      }
+
+      // ── Add pills to log ────────────────────────
+      results.forEach(bRes => {
+        const pillCls = bRes.isX ? 'x' : bRes.pts >= 9 ? 'hi' : bRes.pts >= 6 ? 'mid' : bRes.pts >= 1 ? 'lo' : 'miss';
+        // KK 3x20: nur ganze Ringe anzeigen
+        const pillTxt = (G.is3x20 && G.weapon === 'kk')
+          ? String(Math.floor(bRes.pts))
+          : (bRes.isX ? `✦${fmtPts(bRes.pts)}` : fmtPts(bRes.pts));
+
+        if (G.is3x20) {
+          // Add pill to current position group via cache
+          const container = DOM.slPills[G.posIdx];
+          if (container) {
+            const pill = document.createElement('span');
+            pill.className = 'sl-pill ' + pillCls;
+            pill.textContent = '👤' + pillTxt;
+            container.appendChild(pill);
+          }
+          // Update position tracking
+          G.posShots++;
+          const pr = G.posResults[G.posIdx];
+          // KK 3x20: nur ganze Ringe akkumulieren
+          const addTenths = (G.weapon === 'kk') ? Math.floor(bRes.pts) * 10 : Math.round(bRes.pts * 10);
+          pr._tenths = (pr._tenths || 0) + addTenths;
+          pr.total = G.weapon === 'kk' ? Math.floor(pr._tenths / 10) : pr._tenths / 10;
+          pr.int = (pr.int || 0) + Math.floor(bRes.pts);
+          if (!pr.shots) pr.shots = [];
+          pr.shots.push({ dx: bRes.dx ?? 0, dy: bRes.dy ?? 0 });
+
+          // Position complete?
+          if (G.posShots >= G.perPos && G.posIdx < G.positions.length - 1) {
+            const donePos = G.positions[G.posIdx];
+            const doneRes = G.posResults[G.posIdx];
+            const nextPosIdx = G.posIdx + 1;
+            const nextPosName = G.positions[nextPosIdx];
+            const nextEl = DOM[`posItem${nextPosIdx}`];
             if (nextEl) { nextEl.classList.add('transition'); setTimeout(() => nextEl.classList.remove('transition'), 450); }
             if (typeof Sounds !== 'undefined') Sounds.positionChange();
             if (typeof Haptics !== 'undefined') Haptics.positionChange();
@@ -3267,9 +3398,9 @@ requestAnimationFrame(() => {
           DOM.battleTag.textContent = `◆ ${G.maxShots} SCHUSS ABGEFEUERT ◆`;
           if (G.is3x20) {
             updatePosBar();
-            DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Dein Gesamt: <b>${G.playerTotalInt} Pkt</b> &nbsp;|&nbsp; Bot: <b>${G.botTotalInt} Pkt</b>`;
+            DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot: <b>${G.botTotalInt} Pkt</b>`;
           } else {
-            DOM.lastShotTxt.innerHTML = `🏁 Deine Schüsse fertig! Dein Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.playerTotalInt : fmtPts(G.playerTotal)}</b> &nbsp;|&nbsp; Bot: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)}</b>.`;
+            DOM.lastShotTxt.innerHTML = `🏁 Deine Schüsse fertig! Bot: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)}</b>.`;
           }
           setTimeout(() => goToEntry(), 1400);
         }
@@ -3311,8 +3442,10 @@ requestAnimationFrame(() => {
       } else {
         DOM.botFinalDetail.textContent = `aus ${G.botShots.length} Schuss · Ø ${avg} Pkt${xStr}`;
       }
-      DOM.playerInp.value = '';
-      if (DOM.playerInpInt) DOM.playerInpInt.value = '';
+      const prefillTenths = Math.round((G.playerTotal || 0) * 10) / 10;
+      const prefillInt = Math.max(0, parseInt(G.playerTotalInt || 0, 10));
+      DOM.playerInp.value = kk3x20 ? '' : prefillTenths.toFixed(1);
+      if (DOM.playerInpInt) DOM.playerInpInt.value = String(prefillInt);
       clearInpState();
       if (DOM.autoInt) {
         DOM.autoIntVal.textContent = '–';
@@ -3323,8 +3456,8 @@ requestAnimationFrame(() => {
       const kk3x20Only = G.is3x20 && G.weapon === 'kk';
       DOM.playerInp.style.display = kk3x20Only ? 'none' : '';
       setInpHint(kk3x20Only
-        ? 'Bitte dein Ergebnis manuell eingeben.'
-        : 'Bitte Zehntel und Ganze manuell eingeben.', false);
+        ? 'Ergebnis automatisch übernommen – bei Bedarf anpassen.'
+        : 'Zehntel und Ganze automatisch übernommen – bei Bedarf anpassen.', false);
       const ecLbl = DOM.playerInp.closest('.ec-row')?.previousElementSibling;
       if (ecLbl) ecLbl.textContent = kk3x20Only
         ? '◈ Dein Ergebnis eingeben (Ganze Ringe)'

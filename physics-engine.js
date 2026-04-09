@@ -40,6 +40,30 @@ const ShootingPhysicsEngine = (function () {
         worldrecord: 0.35    // Weltrekord (~10.7+ Durchschnitt)
       }
     },
+    // App-Disziplinen separat kalibriert, damit die Bot-Stärke zu den
+    // Schwierigkeitstexten im UI passt.
+    lg40: {
+      targetSize: 0.5,
+      ringStep: 2.5,
+      meanRadii: {
+        easy: 0.75,
+        real: 0.56,
+        hard: 0.40,
+        elite: 0.24,
+        worldrecord: 0.16
+      }
+    },
+    lg60: {
+      targetSize: 0.5,
+      ringStep: 2.5,
+      meanRadii: {
+        easy: 0.53,
+        real: 0.40,
+        hard: 0.29,
+        elite: 0.22,
+        worldrecord: 0.15
+      }
+    },
     smallbore_50m: {
       targetSize: 5.0,
       ringStep: 8.0,
@@ -49,6 +73,39 @@ const ShootingPhysicsEngine = (function () {
         hard: 5.5,
         elite: 3.2,
         worldrecord: 1.8
+      }
+    },
+    kk50: {
+      targetSize: 5.0,
+      ringStep: 8.0,
+      meanRadii: {
+        easy: 5.40,
+        real: 4.50,
+        hard: 3.78,
+        elite: 2.88,
+        worldrecord: 2.20
+      }
+    },
+    kk100: {
+      targetSize: 5.0,
+      ringStep: 8.0,
+      meanRadii: {
+        easy: 5.40,
+        real: 4.50,
+        hard: 3.78,
+        elite: 2.88,
+        worldrecord: 2.20
+      }
+    },
+    kk3x20: {
+      targetSize: 5.0,
+      ringStep: 8.0,
+      meanRadii: {
+        easy: 6.95,
+        real: 5.83,
+        hard: 4.90,
+        elite: 3.94,
+        worldrecord: 3.20
       }
     },
     air_pistol_10m: {
