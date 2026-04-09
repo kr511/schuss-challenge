@@ -3179,137 +3179,6 @@ requestAnimationFrame(() => {
             const nextPosIdx = G.posIdx + 1;
             const nextPosName = G.positions[nextPosIdx];
             const nextEl = DOM[`posItem${nextPosIdx}`];
-            a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
-            len: 1.4 + Math.random()
-          }))
-        });
-      }
-
-      // NEU: Haptisches Feedback beim Schuss
-      if (typeof MobileFeatures !== 'undefined') {
-        MobileFeatures.hapticShot();
-        if (bRes.pts >= 10) MobileFeatures.hapticHit();
-        else if (bRes.pts <= 5) MobileFeatures.hapticMiss();
-      }
-
-      return { ...bRes, dx: bdx, dy: bdy };
-    }
-
-    function skipProbe() {
-      if (!G.probeActive) return;
-
-      G.probeActive = false;
-      G.probeSecsLeft = 0;
-      DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit übersprungen!</b> – Bot schießt jetzt!';
-      DOM.skipProbeBtn.style.display = 'none';
-
-      // Abbrechen des verzögerten Bot-Starts vom startBattle()
-      if (G._botStartTimeout) {
-        clearTimeout(G._botStartTimeout);
-        G._botStartTimeout = null;
-      }
-
-      // Starte Bot-Auto-Shoot sofort (falls noch nicht gestartet)
-      if (!G.botStarted) {
-        if (G._botInterval) clearTimeout(G._botInterval);
-        G.botStarted = true;
-        startBotAutoShoot();
-      }
-    }
-
-    function doBattleFire() {
-      if (G.playerShotsLeft <= 0) return;
-      if (G.is3x20 && G.transitionSecsLeft > 0) {
-        const transitionName = G.transitionLabel || 'Pause';
-        G.transitionSecsLeft = 0;
-        G.transitionLabel = '';
-        DOM.lastShotTxt.innerHTML = `▶️ <b>${transitionName}</b> vorzeitig beendet - weiter schießen.`;
-      }
-      // Probezeit beenden und Bot starten, wenn beim Schießen noch Probezeit aktiv ist
-      if (G.probeActive) {
-        G.probeActive = false;
-        G.probeSecsLeft = 0;
-        DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit beendet!</b> – Reguläre Zeit gestartet. Bot schießt jetzt!';
-        DOM.skipProbeBtn.style.display = 'none';
-
-        // Abbrechen des verzögerten Bot-Starts vom startBattle()
-        if (G._botStartTimeout) {
-          clearTimeout(G._botStartTimeout);
-          G._botStartTimeout = null;
-        }
-
-        // Starte Bot-Auto-Shoot sofort (falls noch nicht gestartet)
-        if (!G.botStarted) {
-          if (G._botInterval) clearTimeout(G._botInterval);
-          G.botStarted = true;
-          startBotAutoShoot();
-        }
-      }
-
-      const count = G.burst ? Math.min(5, G.playerShotsLeft) : 1;
-      const results = [];
-      for (let i = 0; i < count; i++) {
-        const res = fireSingleShot(false);
-        if (res) results.push(res); // Nur gültige Shots sammeln
-      }
-
-      // FX — kein overflow-Toggle (verursachte hellgrünen Flackerstreifen unten)
-      const f = DOM.muzzleFlash;
-      f.style.transition = 'none'; f.style.opacity = '1';
-      setTimeout(() => {
-        f.style.transition = 'opacity .22s'; f.style.opacity = '0';
-      }, 55);
-      document.body.classList.remove('shaking');
-      void document.body.offsetWidth;
-      document.body.classList.add('shaking');
-      setTimeout(() => document.body.classList.remove('shaking'), 320);
-      // Sound + Haptic beim Spieler-Schuss
-      if (typeof Sounds !== 'undefined') Sounds.shot();
-      if (typeof Haptics !== 'undefined') Haptics.shot();
-
-      // ── Treffer-Sound je nach Ringzahl ──────────
-      if (results.length > 0 && typeof Sounds !== 'undefined') {
-        const best = results.reduce((a, b) => b.pts > a.pts ? b : a);
-        if (best.isX || best.pts >= 10) Sounds.bullseye();
-        else if (best.pts >= 7) Sounds.hit();
-        else Sounds.lowHit();
-      }
-
-      // ── Add pills to log ────────────────────────
-      results.forEach(bRes => {
-        const pillCls = bRes.isX ? 'x' : bRes.pts >= 9 ? 'hi' : bRes.pts >= 6 ? 'mid' : bRes.pts >= 1 ? 'lo' : 'miss';
-        // KK 3x20: nur ganze Ringe anzeigen
-        const pillTxt = (G.is3x20 && G.weapon === 'kk')
-          ? String(Math.floor(bRes.pts))
-          : (bRes.isX ? `✦${fmtPts(bRes.pts)}` : fmtPts(bRes.pts));
-
-        if (G.is3x20) {
-          // Add pill to current position group via cache
-          const container = DOM.slPills[G.posIdx];
-          if (container) {
-            const pill = document.createElement('span');
-            pill.className = 'sl-pill ' + pillCls;
-            pill.textContent = '👤' + pillTxt;
-            container.appendChild(pill);
-          }
-          // Update position tracking
-          G.posShots++;
-          const pr = G.posResults[G.posIdx];
-          // KK 3x20: nur ganze Ringe akkumulieren
-          const addTenths = (G.weapon === 'kk') ? Math.floor(bRes.pts) * 10 : Math.round(bRes.pts * 10);
-          pr._tenths = (pr._tenths || 0) + addTenths;
-          pr.total = G.weapon === 'kk' ? Math.floor(pr._tenths / 10) : pr._tenths / 10;
-          pr.int = (pr.int || 0) + Math.floor(bRes.pts);
-          if (!pr.shots) pr.shots = [];
-          pr.shots.push({ dx: bRes.dx ?? 0, dy: bRes.dy ?? 0 });
-
-          // Position complete?
-          if (G.posShots >= G.perPos && G.posIdx < G.positions.length - 1) {
-            const donePos = G.positions[G.posIdx];
-            const doneRes = G.posResults[G.posIdx];
-            const nextPosIdx = G.posIdx + 1;
-            const nextPosName = G.positions[nextPosIdx];
-            const nextEl = DOM[`posItem${nextPosIdx}`];
             if (nextEl) { nextEl.classList.add('transition'); setTimeout(() => nextEl.classList.remove('transition'), 450); }
             if (typeof Sounds !== 'undefined') Sounds.positionChange();
             if (typeof Haptics !== 'undefined') Haptics.positionChange();
@@ -4369,6 +4238,38 @@ requestAnimationFrame(() => {
       RookiePlan.evaluateAndRender(true);
       RookiePlan.showIntroIfNeeded(true);
     }
+
+    // Make inline onclick handlers robustly available from global scope.
+    Object.assign(window, {
+      saveWelcomeName,
+      toggleMute,
+      toggleProfileMenu,
+      handleOverlayClick,
+      switchProfileTab,
+      setPerfWeapon,
+      toggleSoundSetting,
+      hardResetProgress,
+      switchWeapon,
+      showScreen,
+      loadLeaderboard,
+      selDisc,
+      selDist,
+      selDiff,
+      selShots,
+      toggleBurst,
+      startBattle,
+      doBattleFire,
+      skipProbe,
+      endBattleEarly,
+      calcResult,
+      quickResult,
+      restartGame,
+      submitSiteFeedback,
+      skipSiteFeedback,
+      closeShareCard,
+      doShare,
+      copyShareLink
+    });
 
     // Allow Enter key to submit welcome screen or calculation
     document.getElementById('welcomeNameInp')?.addEventListener('keypress', function (e) {
