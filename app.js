@@ -1382,26 +1382,40 @@
     }
 
     /* ─── HISTORY ────────────────────────────── */
+    function buildHistoryEntry(result, diff, weapon, playerPts, botPts) {
+      const DIFF_NAMES = { easy: 'Einfach', real: 'Mittel', hard: 'Elite', elite: 'Profi' };
+      const WEAPON_NAMES = { lg: 'Luftgewehr', kk: 'Kleinkaliber' };
+      const timestamp = Date.now();
+      const discipline = G.discipline || 'unknown';
+
+      return {
+        id: `${timestamp}_${discipline}_${result}`,
+        timestamp,
+        result,
+        diff,
+        weapon,
+        discipline,
+        disciplineName: DISC[discipline]?.name || discipline,
+        playerPts,
+        botPts,
+        diffName: DIFF_NAMES[diff] || diff,
+        weaponName: WEAPON_NAMES[weapon] || weapon,
+        date: new Date(timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      };
+    }
+
     function addHistoryEntry(result, diff, weapon, playerPts, botPts) {
       try {
         const hist = StorageManager.get('history', []);
         if (!Array.isArray(hist)) return;
-        const DIFF_NAMES = { easy: 'Einfach', real: 'Mittel', hard: 'Elite', elite: 'Profi' };
-        const WEAPON_NAMES = { lg: 'Luftgewehr', kk: 'Kleinkaliber' };
-        hist.unshift({
-          result,
-          diff,
-          weapon,
-          playerPts,
-          botPts,
-          diffName: DIFF_NAMES[diff] || diff,
-          weaponName: WEAPON_NAMES[weapon] || weapon,
-          date: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-        });
+        const historyEntry = buildHistoryEntry(result, diff, weapon, playerPts, botPts);
+        hist.unshift(historyEntry);
         if (hist.length > 30) hist.splice(30);
         StorageManager.set('history', hist);
         scheduleCloudSync('history_changed');
+        return historyEntry;
       } catch (e) { }
+      return null;
     }
 
     function renderHistory() {
@@ -1891,6 +1905,43 @@
       };
     }
 
+    function buildStructuredMatchHistory() {
+      try {
+        const hist = StorageManager.get('history', []);
+        if (!Array.isArray(hist) || !hist.length) return {};
+
+        const matches = {};
+        hist.slice(0, 30).forEach((entry, index) => {
+          if (!entry || typeof entry !== 'object') return;
+
+          const timestamp = Number(entry.timestamp) || 0;
+          const discipline = typeof entry.discipline === 'string' ? entry.discipline : 'unknown';
+          const fallbackKey = `${timestamp || Date.now()}_${discipline}_${index}`;
+          const key = String(entry.id || fallbackKey).replace(/[.#$/\[\]]/g, '_');
+
+          matches[key] = {
+            id: key,
+            timestamp: timestamp || Date.now(),
+            result: typeof entry.result === 'string' ? entry.result : 'unknown',
+            diff: typeof entry.diff === 'string' ? entry.diff : 'unknown',
+            weapon: entry.weapon === 'kk' ? 'kk' : 'lg',
+            discipline,
+            disciplineName: typeof entry.disciplineName === 'string' ? entry.disciplineName : (DISC[discipline]?.name || discipline),
+            playerPts: Number(entry.playerPts) || 0,
+            botPts: Number(entry.botPts) || 0,
+            diffName: typeof entry.diffName === 'string' ? entry.diffName : entry.diff,
+            weaponName: typeof entry.weaponName === 'string' ? entry.weaponName : entry.weapon,
+            date: typeof entry.date === 'string' ? entry.date : ''
+          };
+        });
+
+        return matches;
+      } catch (error) {
+        console.warn('History snapshot build failed:', error);
+        return {};
+      }
+    }
+
     function queueDisciplineLeaderboardEntries(reason = 'discipline_leaderboard_sync') {
       if (!G.username) return false;
 
@@ -1908,6 +1959,17 @@
       });
 
       return wroteAnyEntry;
+    }
+
+    function queueStructuredMatchHistory(reason = 'matches_sync') {
+      if (!fbUser) return false;
+      enqueueFirebaseSet(
+        `users/${fbUser.uid}/matches`,
+        buildStructuredMatchHistory(),
+        `matches:${fbUser.uid}`,
+        { requiresAuth: true }
+      );
+      return true;
     }
 
     function updateLeaderboardScopeControl() {
@@ -2194,6 +2256,7 @@
       if (fbUser) {
         queueCloudSnapshot(reason);
         queueCloudProfile(reason);
+        queueStructuredMatchHistory(reason);
         if (G.username) queueLeaderboardEntry(reason);
         if (G.username) queueDisciplineLeaderboardEntries(reason);
       } else if (fbReady) {
@@ -2202,6 +2265,7 @@
           fbUser = user;
           queueCloudSnapshot(reason);
           queueCloudProfile(reason);
+          queueStructuredMatchHistory(reason);
           if (G.username) queueLeaderboardEntry(reason);
           if (G.username) queueDisciplineLeaderboardEntries(reason);
           if (options.immediate) flushFirebaseSyncQueue();
@@ -2268,6 +2332,7 @@
         if (G.username) {
           queueCloudSnapshot('cloud_bootstrap');
           queueCloudProfile('cloud_bootstrap');
+          queueStructuredMatchHistory('cloud_bootstrap');
           queueLeaderboardEntry('cloud_bootstrap');
           queueDisciplineLeaderboardEntries('cloud_bootstrap');
           scheduleFirebaseQueueFlush(200);
@@ -2615,6 +2680,7 @@
       const syncNow = () => {
         queueCloudSnapshot('profile_push');
         queueCloudProfile('profile_push');
+        queueStructuredMatchHistory('profile_push');
         queueLeaderboardEntry('profile_push');
         queueDisciplineLeaderboardEntries('profile_push');
         return flushFirebaseSyncQueue()
