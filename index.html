@@ -276,6 +276,15 @@
                   &nbsp;Tutorial</button>
               </div>
 
+              <div class="card" style="margin-top:16px;padding:12px 14px;">
+                <div class="card-hd" style="margin-bottom:8px;">Konto-Sync</div>
+                <div id="accountSyncStatus" style="font-size:.8rem;color:rgba(255,255,255,.72);margin-bottom:10px;">Noch nicht verbunden.</div>
+                <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                  <button class="btn-sec" style="font-size:0.6rem;" onclick="showAccountSyncCode()">Sync-Code erzeugen</button>
+                  <button class="btn-sec" style="font-size:0.6rem;" onclick="connectDeviceWithLinkCode()">Gerät verbinden</button>
+                </div>
+              </div>
+
               <!-- Reset Button -->
               <div style="margin-top:12px; text-align:center; padding-bottom:10px;">
                 <button class="btn-sec"
@@ -780,14 +789,18 @@
         <div class="card-hd" style="margin-bottom:8px;">Scope</div>
         <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
           <div style="font-size:.85rem;color:rgba(255,255,255,.72);">Aktiv: <span id="lbScopeLabel">Global</span></div>
-          <select id="lbScopeSelect" onchange="setLeaderboardScope(this.value)" style="min-width:180px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;">
-          </select>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="lbPeriodSelect" onchange="setLeaderboardPeriod(this.value)" style="min-width:150px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;">
+            </select>
+            <select id="lbScopeSelect" onchange="setLeaderboardScope(this.value)" style="min-width:180px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;">
+            </select>
+          </div>
         </div>
       </div>
 
       <!-- Leaderboard list -->
       <div class="card" style="padding:12px 14px;">
-        <div class="card-hd">◆ Rangliste · Score = XP + Streak×5</div>
+        <div class="card-hd" id="lbCardTitle">◆ Rangliste · Score = XP + Streak×5</div>
         <div id="lbScopeHint" style="font-size:.8rem;color:rgba(255,255,255,.62);margin:6px 0 10px;">Global nutzt Score = XP + Streak x 5.</div>
         <div class="lb-list" data-lb-list>
           <div class="lb-loading">⏳</div>

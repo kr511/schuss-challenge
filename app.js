@@ -183,6 +183,7 @@
       weapon: 'lg',          // 'lg' | 'kk'
       username: StorageManager.getRaw('username', ''),
       lbScope: StorageManager.getRaw('lb_scope', 'global'),
+      lbPeriod: StorageManager.getRaw('lb_period', 'alltime'),
       discipline: 'lg40',    // 'lg40' | 'lg60' | 'kk50' | 'kk100' | 'kk3x20'
       shots: 40,             // Schussanzahl (aus Disziplin oder manuell)
       burst: false,          // 5er-Salve Modus
@@ -257,10 +258,17 @@
       kk: ['kk50', 'kk100', 'kk3x20'],
     };
     const LEADERBOARD_DISCIPLINE_ROOT = 'leaderboard_disciplines_v1';
+    const ACCOUNT_LINK_ROOT = 'account_links_v1';
+    const SEASON_ROOT = 'seasons_v1';
+    const ADMIN_ACCOUNTS_ROOT = 'admin_accounts_v1';
 
     function normalizeLeaderboardScope(scope) {
       if (scope === 'global') return 'global';
       return Object.prototype.hasOwnProperty.call(DISC, scope) ? scope : 'global';
+    }
+
+    function normalizeLeaderboardPeriod(period) {
+      return period === 'season' ? 'season' : 'alltime';
     }
 
     function getActiveLeaderboardScope() {
@@ -269,8 +277,29 @@
       return nextScope;
     }
 
+    function getActiveLeaderboardPeriod() {
+      const nextPeriod = normalizeLeaderboardPeriod(G.lbPeriod);
+      if (nextPeriod !== G.lbPeriod) G.lbPeriod = nextPeriod;
+      return nextPeriod;
+    }
+
     function getLeaderboardScopeLabel(scope = getActiveLeaderboardScope()) {
       return scope === 'global' ? 'Global' : (DISC[scope]?.name || scope);
+    }
+
+    function getCurrentSeasonInfo(now = Date.now()) {
+      const date = new Date(now);
+      const year = date.getFullYear();
+      const month = `${date.getMonth() + 1}`.padStart(2, '0');
+      const seasonId = `${year}-${month}`;
+      const startAt = new Date(year, date.getMonth(), 1).getTime();
+      const endAt = new Date(year, date.getMonth() + 1, 1).getTime() - 1;
+      const label = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+      return { id: seasonId, label, startAt, endAt };
+    }
+
+    function getCurrentSeasonId(now = Date.now()) {
+      return getCurrentSeasonInfo(now).id;
     }
 
     /* ─── CONFIG ─────────────────────────────── */
@@ -687,12 +716,14 @@
       setEl('psKKDetail', `${kkStats.wins} Siege · ${kkStats.wins + kkStats.losses} Spiele`);
       setEl('psLGStreak', bestLG > 0 ? '🔥 ' + bestLG : '–');
       setEl('psKKStreak', bestKK > 0 ? '🔥 ' + bestKK : '–');
+      updateAccountSyncStatus();
 
       // Active tab refresh
       const activeTab = document.querySelector('.ps-tab.active');
       if (activeTab) {
         const t = activeTab.dataset.tab;
         if (t === 'sun') renderSunGrid();
+        if (t === 'lb') loadLeaderboard(true);
         if (t === 'history') renderHistory();
         if (t === 'debug') renderDebugPanel();
       }
@@ -851,14 +882,16 @@
             diff: G.diff || 'unknown',
             username: safeUsername,
             userHash,
-            uid: fbUser?.uid || '',
+            uid: getFirebaseOwnerId(),
+            authUid: fbUser?.uid || '',
+            accountId: getFirebaseOwnerId(),
             ts: Date.now(),
             date: new Date().toLocaleDateString('de-DE', {
               day: '2-digit', month: '2-digit', year: 'numeric',
               hour: '2-digit', minute: '2-digit'
             })
           };
-          entry.key = `${entry.ts}_${fbUser?.uid || userHash}`;
+          entry.key = `${entry.ts}_${getFirebaseOwnerId() || userHash}`;
           queueFeedbackEntry(entry);
         }
 
@@ -1770,6 +1803,7 @@
     };
 
     let fbApp = null, fbDb = null, fbAuth = null, fbUser = null, fbReady = false;
+    let fbAccountId = '';
     let fbAuthListenerBound = false;
     let fbCloudBootstrapUid = '';
     let fbCloudProfileCache = null;
@@ -1777,6 +1811,8 @@
     let fbCloudFlushPromise = null;
     let debugRemoteState = null;
     let debugRemoteFetchInFlight = false;
+    let debugFeedbackState = null;
+    let debugFeedbackFetchInFlight = false;
     const LEADERBOARD_CACHE_KEY = 'sd_lb_cache_v1';
     const CLOUD_SYNC_SCHEMA_VERSION = 1;
     const CLOUD_SYNC_META_KEY = 'cloud_sync_meta_v1';
@@ -1800,6 +1836,7 @@
       'tutorial_done',
       'sound',
       'lb_scope',
+      'lb_period',
       'enhanced_analytics',
       'enhanced_achievements',
       'sun'
@@ -1814,18 +1851,66 @@
       return sanitizeUsername(username);
     }
 
-    function getLeaderboardCacheKey(scope = getActiveLeaderboardScope()) {
-      return `${LEADERBOARD_CACHE_KEY}_${normalizeLeaderboardScope(scope)}`;
+    function getFirebaseOwnerId() {
+      return fbAccountId || fbUser?.uid || '';
     }
 
-    function getCachedLeaderboardEntries(scope = getActiveLeaderboardScope()) {
+    function getFirebaseOwnerPath(suffix = '') {
+      const ownerId = getFirebaseOwnerId();
+      if (!ownerId) return '';
+      return suffix ? `users/${ownerId}/${suffix}` : `users/${ownerId}`;
+    }
+
+    function getFirebaseOwnerDedupe(prefix = 'owner') {
+      const ownerId = getFirebaseOwnerId();
+      return ownerId ? `${prefix}:${ownerId}` : '';
+    }
+
+    function getLeaderboardCacheKey(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
+      return `${LEADERBOARD_CACHE_KEY}_${normalizeLeaderboardPeriod(period)}_${normalizeLeaderboardScope(scope)}`;
+    }
+
+    function getCachedLeaderboardEntries(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
       try {
-        const cached = JSON.parse(localStorage.getItem(getLeaderboardCacheKey(scope)) || '[]');
+        const cached = JSON.parse(localStorage.getItem(getLeaderboardCacheKey(scope, period)) || '[]');
         return Array.isArray(cached) ? cached.filter(entry => entry && typeof entry === 'object') : [];
       } catch (error) {
         console.warn('Leaderboard cache read failed:', error);
         return [];
       }
+    }
+
+    function getShortOwnerId(value) {
+      const text = String(value || '');
+      return text ? `${text.slice(0, 6)}...${text.slice(-4)}` : '–';
+    }
+
+    function updateAccountSyncStatus() {
+      const node = document.getElementById('accountSyncStatus');
+      if (!node) return;
+
+      if (!fbReady) {
+        node.textContent = 'Firebase ist aktuell nicht aktiv.';
+        return;
+      }
+
+      const ownerId = getFirebaseOwnerId();
+      const authUid = fbUser?.uid || '';
+      const meta = loadCloudSyncMeta();
+      const queue = loadCloudSyncQueue();
+      const isLinked = !!ownerId && !!authUid && ownerId !== authUid;
+      const backoffUntil = Number(meta.queueBackoffUntil) || 0;
+      const retryText = backoffUntil > Date.now()
+        ? ` · Retry ${new Date(backoffUntil).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+        : '';
+
+      if (!authUid) {
+        node.textContent = 'Firebase verbindet dieses Gerät gerade...';
+        return;
+      }
+
+      const modeText = isLinked ? 'mit anderem Gerät verknüpft' : 'lokales Hauptkonto';
+      node.textContent = `Konto ${getShortOwnerId(ownerId || authUid)} · ${modeText} · Queue ${queue.length}${retryText}`;
     }
 
     function isDebugToolsEnabled() {
@@ -1868,23 +1953,30 @@
       setDebugToolsEnabled(false);
     }
 
-    function cacheLeaderboardEntries(entries, scope = getActiveLeaderboardScope()) {
+    function cacheLeaderboardEntries(entries, scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
       try {
-        localStorage.setItem(getLeaderboardCacheKey(scope), JSON.stringify(Array.isArray(entries) ? entries.slice(0, 50) : []));
+        localStorage.setItem(getLeaderboardCacheKey(scope, period), JSON.stringify(Array.isArray(entries) ? entries.slice(0, 50) : []));
       } catch (error) {
         console.warn('Leaderboard cache write failed:', error);
       }
     }
 
-    function renderCachedLeaderboard(scope = getActiveLeaderboardScope()) {
-      const cachedEntries = getCachedLeaderboardEntries(scope);
+    function renderCachedLeaderboard(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
+      const cachedEntries = getCachedLeaderboardEntries(scope, period);
       if (!cachedEntries.length) return false;
-      renderLeaderboard(cachedEntries, scope);
+      renderLeaderboard(cachedEntries, scope, period);
       return true;
     }
 
-    function getLeaderboardPath(scope = getActiveLeaderboardScope()) {
+    function getLeaderboardPath(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
       const normalizedScope = normalizeLeaderboardScope(scope);
+      const normalizedPeriod = normalizeLeaderboardPeriod(period);
+      if (normalizedPeriod === 'season') {
+        const seasonId = getCurrentSeasonId();
+        return normalizedScope === 'global'
+          ? `${SEASON_ROOT}/${seasonId}/leaderboard_v1`
+          : `${SEASON_ROOT}/${seasonId}/disciplines/${normalizedScope}`;
+      }
       return normalizedScope === 'global'
         ? 'leaderboard_v2'
         : `${LEADERBOARD_DISCIPLINE_ROOT}/${normalizedScope}`;
@@ -1932,7 +2024,8 @@
       const { rank } = getRank(G.xp);
 
       return {
-        uid: fbUser?.uid || '',
+        uid: getFirebaseOwnerId(),
+        authUid: fbUser?.uid || '',
         name: sanitizeUsername(G.username || 'Anonym'),
         username: sanitizeUsername(G.username || 'Anonym'),
         discipline: key,
@@ -1987,11 +2080,96 @@
       }
     }
 
+    function getStructuredHistoryList() {
+      const matches = buildStructuredMatchHistory();
+      return Object.values(matches).filter(Boolean).sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+    }
+
+    function buildSeasonLeaderboardEntry(discipline = null) {
+      const seasonInfo = getCurrentSeasonInfo();
+      const matches = getStructuredHistoryList().filter((entry) => {
+        const timestamp = Number(entry.timestamp) || 0;
+        if (timestamp < seasonInfo.startAt || timestamp > seasonInfo.endAt) return false;
+        if (discipline) return entry.discipline === discipline;
+        return true;
+      });
+
+      if (!matches.length || !G.username) return null;
+
+      const wins = matches.filter((entry) => entry.result === 'win').length;
+      const draws = matches.filter((entry) => entry.result === 'draw').length;
+      const losses = matches.filter((entry) => entry.result === 'lose').length;
+      const scores = matches.map((entry) => Number(entry.playerPts) || 0);
+      const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+      const bestScore = Math.max(...scores);
+      const seasonPoints = wins * 3 + draws;
+      const sortScore = seasonPoints * 100000 + Math.round(averageScore * 10);
+      const { rank } = getRank(G.xp);
+
+      return {
+        uid: getFirebaseOwnerId(),
+        name: sanitizeUsername(G.username || 'Anonym'),
+        username: sanitizeUsername(G.username || 'Anonym'),
+        seasonId: seasonInfo.id,
+        seasonLabel: seasonInfo.label,
+        discipline: discipline || 'global',
+        disciplineName: discipline ? (DISC[discipline]?.name || discipline) : 'Global',
+        rank: rank.name,
+        rankIcon: rank.icon,
+        weapon: discipline ? (DISC[discipline]?.weapon || G.weapon) : G.weapon,
+        totalGames: matches.length,
+        wins,
+        draws,
+        losses,
+        seasonPoints,
+        averageScore,
+        bestScore,
+        score: sortScore,
+        date: new Date().toLocaleDateString('de-DE')
+      };
+    }
+
+    function queueSeasonLeaderboardEntries(reason = 'season_sync') {
+      const ownerId = getFirebaseOwnerId();
+      if (!ownerId || !G.username) return false;
+
+      const seasonInfo = getCurrentSeasonInfo();
+      enqueueFirebaseSet(
+        `${SEASON_ROOT}/${seasonInfo.id}/meta`,
+        seasonInfo,
+        `season-meta:${seasonInfo.id}`,
+        { requiresAuth: false }
+      );
+
+      let wroteAnyEntry = false;
+      const globalEntry = buildSeasonLeaderboardEntry(null);
+      enqueueFirebaseSet(
+        `${SEASON_ROOT}/${seasonInfo.id}/leaderboard_v1/${ownerId}`,
+        globalEntry,
+        `season:${seasonInfo.id}:global:${ownerId}`,
+        { requiresAuth: !!fbUser }
+      );
+      if (globalEntry) wroteAnyEntry = true;
+
+      Object.keys(DISC).forEach((discipline) => {
+        const entry = buildSeasonLeaderboardEntry(discipline);
+        enqueueFirebaseSet(
+          `${SEASON_ROOT}/${seasonInfo.id}/disciplines/${discipline}/${ownerId}`,
+          entry,
+          `season:${seasonInfo.id}:${discipline}:${ownerId}`,
+          { requiresAuth: !!fbUser }
+        );
+        if (entry) wroteAnyEntry = true;
+      });
+
+      return wroteAnyEntry;
+    }
+
     function queueDisciplineLeaderboardEntries(reason = 'discipline_leaderboard_sync') {
       if (!G.username) return false;
 
       let wroteAnyEntry = false;
-      const leaderboardKey = fbUser?.uid || getFirebaseProfileKey(G.username);
+      const leaderboardKey = getFirebaseOwnerId() || getFirebaseProfileKey(G.username);
       Object.keys(DISC).forEach((discipline) => {
         const entry = buildDisciplineLeaderboardEntry(discipline);
         enqueueFirebaseSet(
@@ -2007,11 +2185,13 @@
     }
 
     function queueStructuredMatchHistory(reason = 'matches_sync') {
-      if (!fbUser) return false;
+      const ownerPath = getFirebaseOwnerPath('matches');
+      const ownerId = getFirebaseOwnerId();
+      if (!fbUser || !ownerPath || !ownerId) return false;
       enqueueFirebaseSet(
-        `users/${fbUser.uid}/matches`,
+        ownerPath,
         buildStructuredMatchHistory(),
-        `matches:${fbUser.uid}`,
+        `matches:${ownerId}`,
         { requiresAuth: true }
       );
       return true;
@@ -2019,9 +2199,10 @@
 
     function updateLeaderboardScopeControl() {
       const select = document.getElementById('lbScopeSelect');
-      if (!select) return;
+      const periodSelect = document.getElementById('lbPeriodSelect');
+      if (!select && !periodSelect) return;
 
-      if (!select.options.length) {
+      if (select && !select.options.length) {
         select.innerHTML = [
           '<option value="global">Global</option>',
           ...Object.entries(DISC).map(([key, cfg]) => `<option value="${key}">${cfg.name}</option>`)
@@ -2029,16 +2210,39 @@
       }
 
       const scope = getActiveLeaderboardScope();
-      select.value = scope;
+      const period = getActiveLeaderboardPeriod();
+      if (select) select.value = scope;
+      if (periodSelect) {
+        periodSelect.innerHTML = [
+          '<option value="alltime">All-Time</option>',
+          `<option value="season">Saison ${getCurrentSeasonInfo().label}</option>`
+        ].join('');
+      }
+      if (periodSelect) periodSelect.value = period;
 
       const label = document.getElementById('lbScopeLabel');
-      if (label) label.textContent = getLeaderboardScopeLabel(scope);
+      if (label) {
+        const periodText = period === 'season' ? ` · ${getCurrentSeasonInfo().label}` : '';
+        label.textContent = `${getLeaderboardScopeLabel(scope)}${periodText}`;
+      }
 
       const hint = document.getElementById('lbScopeHint');
+      const title = document.getElementById('lbCardTitle');
+      if (title) {
+        title.textContent = period === 'season'
+          ? `Rangliste · Saison ${getCurrentSeasonInfo().label}`
+          : 'Rangliste · Score = XP + Streak×5';
+      }
       if (hint) {
-        hint.textContent = scope === 'global'
-          ? 'Global nutzt Score = XP + Streak x 5.'
-          : `${getLeaderboardScopeLabel(scope)} nutzt die persoenliche Bestleistung als Sortierung.`;
+        if (period === 'season') {
+          hint.textContent = scope === 'global'
+            ? `Saisonwertung ${getCurrentSeasonInfo().label}: Punkte = Siege x 3 + Unentschieden.`
+            : `${getLeaderboardScopeLabel(scope)} in ${getCurrentSeasonInfo().label}: Saisonpunkte mit Best- und Durchschnittswert.`;
+        } else {
+          hint.textContent = scope === 'global'
+            ? 'Global nutzt Score = XP + Streak x 5.'
+            : `${getLeaderboardScopeLabel(scope)} nutzt die persoenliche Bestleistung als Sortierung.`;
+        }
       }
     }
 
@@ -2052,6 +2256,158 @@
       return normalizedScope;
     }
 
+    function setLeaderboardPeriod(period, options = {}) {
+      const normalizedPeriod = normalizeLeaderboardPeriod(period);
+      G.lbPeriod = normalizedPeriod;
+      StorageManager.setRaw('lb_period', normalizedPeriod);
+      updateLeaderboardScopeControl();
+      if (options.reload === false) return normalizedPeriod;
+      loadLeaderboard(true);
+      return normalizedPeriod;
+    }
+
+    function normalizePairCode(code) {
+      return String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    }
+
+    function generatePairCode() {
+      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 6; i++) {
+        code += alphabet[Math.floor(Math.random() * alphabet.length)];
+      }
+      return code;
+    }
+
+    function getAccountLinkMapPath(uid) {
+      return `${ACCOUNT_LINK_ROOT}/by_uid/${uid}`;
+    }
+
+    function getAccountPairCodePath(code) {
+      return `${ACCOUNT_LINK_ROOT}/pair_codes/${normalizePairCode(code)}`;
+    }
+
+    async function resolveFirebaseAccountId(user, options = {}) {
+      if (!user || !fbDb) return '';
+      const authUid = user.uid;
+      const force = options.force === true;
+      if (fbAccountId && !force) return fbAccountId;
+
+      try {
+        const mappingSnap = await fbDb.ref(getAccountLinkMapPath(authUid)).once('value');
+        const existing = mappingSnap.val();
+        const mappedAccountId = typeof existing?.accountId === 'string' && existing.accountId ? existing.accountId : '';
+        if (mappedAccountId) {
+          fbAccountId = mappedAccountId;
+          return mappedAccountId;
+        }
+
+        fbAccountId = authUid;
+        await fbDb.ref(getAccountLinkMapPath(authUid)).set({
+          accountId: authUid,
+          authUid,
+          linkedAt: Date.now(),
+          source: 'self',
+          pairCode: '',
+          createdByUid: ''
+        });
+        return fbAccountId;
+      } catch (error) {
+        console.warn('Account resolution failed:', error?.code || error?.message || error);
+        fbAccountId = authUid;
+        return fbAccountId;
+      }
+    }
+
+    async function generateAccountLinkCode() {
+      if (!fbReady) return null;
+      const user = fbUser || await ensureFirebaseAnonymousAuth();
+      if (!user || !fbDb) return null;
+
+      const accountId = await resolveFirebaseAccountId(user);
+      if (!accountId) return null;
+
+      let code = generatePairCode();
+      let attempts = 0;
+      while (attempts < 5) {
+        const existing = await fbDb.ref(getAccountPairCodePath(code)).once('value');
+        if (!existing.exists()) break;
+        code = generatePairCode();
+        attempts += 1;
+      }
+
+      const payload = {
+        accountId,
+        authUid: user.uid,
+        username: sanitizeUsername(G.username || 'Anonym'),
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (15 * 60 * 1000)
+      };
+
+      await fbDb.ref(getAccountPairCodePath(code)).set(payload);
+      return { code, expiresAt: payload.expiresAt, accountId };
+    }
+
+    async function connectDeviceWithLinkCode(rawCode) {
+      const code = normalizePairCode(rawCode || prompt('Sync-Code eingeben'));
+      if (!code) return false;
+
+      const user = fbUser || await ensureFirebaseAnonymousAuth();
+      if (!user || !fbDb) {
+        alert('Firebase ist aktuell nicht bereit.');
+        return false;
+      }
+
+      const linkSnap = await fbDb.ref(getAccountPairCodePath(code)).once('value');
+      const link = linkSnap.val();
+      if (!link || !link.accountId) {
+        alert('Sync-Code nicht gefunden.');
+        return false;
+      }
+      if (Number(link.expiresAt) < Date.now()) {
+        await fbDb.ref(getAccountPairCodePath(code)).remove().catch(() => {});
+        alert('Sync-Code ist abgelaufen.');
+        return false;
+      }
+
+      await fbDb.ref(getAccountLinkMapPath(user.uid)).set({
+        accountId: link.accountId,
+        authUid: user.uid,
+        linkedAt: Date.now(),
+        source: 'pair_code',
+        pairCode: code,
+        createdByUid: link.authUid || ''
+      });
+      await fbDb.ref(getAccountPairCodePath(code)).remove().catch(() => {});
+
+      fbAccountId = link.accountId;
+      fbCloudBootstrapUid = '';
+      await bootstrapCloudUser(user, { force: true });
+      updateAccountSyncStatus();
+      refreshDebugPanel();
+      alert(`Gerät verbunden. Konto: ${link.username || link.accountId}`);
+      return true;
+    }
+
+    async function showAccountSyncCode() {
+      try {
+        const data = await generateAccountLinkCode();
+        if (!data) {
+          alert('Sync-Code konnte nicht erzeugt werden.');
+          return;
+        }
+        try {
+          if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(data.code);
+        } catch (error) {
+          console.warn('Clipboard write failed:', error);
+        }
+        alert(`Sync-Code: ${data.code}\nGueltig bis: ${new Date(data.expiresAt).toLocaleTimeString('de-DE')}\n\nAuf dem zweiten Geraet in "Geraet verbinden" eingeben.`);
+      } catch (error) {
+        console.warn('Sync code generation failed:', error);
+        alert('Sync-Code konnte nicht erzeugt werden.');
+      }
+    }
+
     function loadCloudSyncMeta() {
       const raw = StorageManager.get(CLOUD_SYNC_META_KEY, {});
       return {
@@ -2059,6 +2415,9 @@
         lastAppliedAt: Number(raw.lastAppliedAt) || 0,
         lastQueuedAt: Number(raw.lastQueuedAt) || 0,
         lastQueueFlushAt: Number(raw.lastQueueFlushAt) || 0,
+        lastQueueErrorAt: Number(raw.lastQueueErrorAt) || 0,
+        lastQueueErrorCode: typeof raw.lastQueueErrorCode === 'string' ? raw.lastQueueErrorCode : '',
+        queueBackoffUntil: Number(raw.queueBackoffUntil) || 0,
         lastLocalReason: typeof raw.lastLocalReason === 'string' ? raw.lastLocalReason : '',
         schemaVersion: CLOUD_SYNC_SCHEMA_VERSION
       };
@@ -2074,7 +2433,17 @@
 
     function loadCloudSyncQueue() {
       const queue = StorageManager.get(CLOUD_SYNC_QUEUE_KEY, []);
-      return Array.isArray(queue) ? queue.filter(item => item && typeof item === 'object' && typeof item.path === 'string') : [];
+      return Array.isArray(queue)
+        ? queue
+          .filter(item => item && typeof item === 'object' && typeof item.path === 'string')
+          .map(item => ({
+            ...item,
+            attempts: Number(item.attempts) || 0,
+            nextAttemptAt: Number(item.nextAttemptAt) || 0,
+            lastErrorAt: Number(item.lastErrorAt) || 0,
+            lastErrorCode: typeof item.lastErrorCode === 'string' ? item.lastErrorCode : ''
+          }))
+        : [];
     }
 
     function saveCloudSyncQueue(queue) {
@@ -2137,9 +2506,11 @@
       const gameStats = loadGameStats();
       const lgStats = loadWeaponStats('lg');
       const kkStats = loadWeaponStats('kk');
+      const ownerId = getFirebaseOwnerId();
 
       return {
-        uid: fbUser?.uid || '',
+        uid: ownerId,
+        authUid: fbUser?.uid || '',
         username: sanitizeUsername(G.username || StorageManager.getRaw('username', 'Anonym')),
         createdAt: Number(fbCloudProfileCache?.createdAt) || Date.now(),
         updatedAt: Date.now(),
@@ -2197,7 +2568,11 @@
         value,
         dedupeKey: dedupeKey || '',
         requiresAuth: options.requiresAuth !== false,
-        queuedAt: Date.now()
+        queuedAt: Date.now(),
+        attempts: Number(options.attempts) || 0,
+        nextAttemptAt: Number(options.nextAttemptAt) || 0,
+        lastErrorAt: Number(options.lastErrorAt) || 0,
+        lastErrorCode: typeof options.lastErrorCode === 'string' ? options.lastErrorCode : ''
       };
 
       if (task.dedupeKey) {
@@ -2219,10 +2594,19 @@
       fbCloudFlushPromise = (async () => {
         const queue = loadCloudSyncQueue();
         if (!queue.length) return true;
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
 
         const pending = [];
+        const now = Date.now();
+        let queueErrorCode = '';
+        let queueBackoffUntil = 0;
         for (const task of queue) {
           if (!task || task.type !== 'set' || typeof task.path !== 'string') continue;
+          if (Number(task.nextAttemptAt) > now) {
+            pending.push(task);
+            queueBackoffUntil = Math.max(queueBackoffUntil, Number(task.nextAttemptAt) || 0);
+            continue;
+          }
           if (task.requiresAuth && !fbUser) {
             pending.push(task);
             continue;
@@ -2232,12 +2616,29 @@
             await fbDb.ref(task.path).set(task.value);
           } catch (error) {
             console.warn('Firebase queue write failed:', task.path, error?.code || error?.message || error);
-            pending.push(task);
+            const attempts = (Number(task.attempts) || 0) + 1;
+            const backoffMs = Math.min(60000, 1000 * Math.pow(2, Math.min(attempts, 6)));
+            const nextAttemptAt = Date.now() + backoffMs;
+            queueErrorCode = error?.code || error?.message || 'queue_write_failed';
+            queueBackoffUntil = Math.max(queueBackoffUntil, nextAttemptAt);
+            pending.push({
+              ...task,
+              attempts,
+              nextAttemptAt,
+              lastErrorAt: Date.now(),
+              lastErrorCode: queueErrorCode
+            });
           }
         }
 
         saveCloudSyncQueue(pending);
-        saveCloudSyncMeta({ lastQueueFlushAt: Date.now() });
+        saveCloudSyncMeta({
+          lastQueueFlushAt: Date.now(),
+          lastQueueErrorAt: queueErrorCode ? Date.now() : 0,
+          lastQueueErrorCode: queueErrorCode,
+          queueBackoffUntil
+        });
+        if (queueBackoffUntil > Date.now()) scheduleFirebaseQueueFlush(Math.max(1500, queueBackoffUntil - Date.now()));
         return pending.length === 0;
       })().finally(() => {
         fbCloudFlushPromise = null;
@@ -2255,24 +2656,28 @@
     }
 
     function queueCloudSnapshot(reason = 'cloud_snapshot') {
-      if (!fbUser) return false;
+      const ownerPath = getFirebaseOwnerPath('cloud');
+      const ownerId = getFirebaseOwnerId();
+      if (!fbUser || !ownerPath || !ownerId) return false;
       enqueueFirebaseSet(
-        `users/${fbUser.uid}/cloud`,
+        ownerPath,
         collectCloudSnapshot(),
-        `cloud:${fbUser.uid}`,
+        `cloud:${ownerId}`,
         { requiresAuth: true }
       );
       return true;
     }
 
     function queueCloudProfile(reason = 'profile_sync') {
-      if (!fbUser) return false;
+      const ownerPath = getFirebaseOwnerPath('profile');
+      const ownerId = getFirebaseOwnerId();
+      if (!fbUser || !ownerPath || !ownerId) return false;
       const profile = buildCloudProfile();
       fbCloudProfileCache = profile;
       enqueueFirebaseSet(
-        `users/${fbUser.uid}/profile`,
+        ownerPath,
         profile,
-        `profile:${fbUser.uid}`,
+        `profile:${ownerId}`,
         { requiresAuth: true }
       );
       return true;
@@ -2284,9 +2689,10 @@
       const entry = buildFirebaseEntry();
       entry.name = sanitizeUsername(entry.name);
       entry.username = sanitizeUsername(entry.username);
-      entry.uid = fbUser?.uid || '';
+      entry.uid = getFirebaseOwnerId();
+      entry.authUid = fbUser?.uid || '';
 
-      const leaderboardKey = fbUser?.uid || getFirebaseProfileKey(entry.username);
+      const leaderboardKey = getFirebaseOwnerId() || getFirebaseProfileKey(entry.username);
       enqueueFirebaseSet(
         `leaderboard_v2/${leaderboardKey}`,
         entry,
@@ -2305,17 +2711,22 @@
         queueStructuredMatchHistory(reason);
         if (G.username) queueLeaderboardEntry(reason);
         if (G.username) queueDisciplineLeaderboardEntries(reason);
+        if (G.username) queueSeasonLeaderboardEntries(reason);
       } else if (fbReady) {
         ensureFirebaseAnonymousAuth().then((user) => {
           if (!user) return;
           fbUser = user;
-          queueCloudSnapshot(reason);
-          queueCloudProfile(reason);
-          queueStructuredMatchHistory(reason);
-          if (G.username) queueLeaderboardEntry(reason);
-          if (G.username) queueDisciplineLeaderboardEntries(reason);
-          if (options.immediate) flushFirebaseSyncQueue();
-          else scheduleFirebaseQueueFlush(options.delay ?? 800);
+          resolveFirebaseAccountId(user)
+            .then(() => {
+              queueCloudSnapshot(reason);
+              queueCloudProfile(reason);
+              queueStructuredMatchHistory(reason);
+              if (G.username) queueLeaderboardEntry(reason);
+              if (G.username) queueDisciplineLeaderboardEntries(reason);
+              if (G.username) queueSeasonLeaderboardEntries(reason);
+              if (options.immediate) flushFirebaseSyncQueue();
+              else scheduleFirebaseQueueFlush(options.delay ?? 800);
+            });
         });
       }
 
@@ -2327,11 +2738,14 @@
 
     function queueFeedbackEntry(entry) {
       if (!entry || typeof entry !== 'object') return;
-      const key = entry.key || `${entry.ts || Date.now()}_${fbUser?.uid || entry.userHash || 'anon'}`;
+      const ownerId = getFirebaseOwnerId();
+      const key = entry.key || `${entry.ts || Date.now()}_${ownerId || entry.userHash || 'anon'}`;
       const payload = {
         ...entry,
-        uid: fbUser?.uid || entry.uid || '',
-        username: sanitizeUsername(entry.username || G.username || 'Anonym')
+        uid: ownerId || entry.uid || '',
+        authUid: fbUser?.uid || entry.authUid || '',
+        username: sanitizeUsername(entry.username || G.username || 'Anonym'),
+        accountId: ownerId || entry.accountId || ''
       };
       delete payload.key;
 
@@ -2343,6 +2757,106 @@
       const value = Number(ts);
       if (!Number.isFinite(value) || value <= 0) return '–';
       return new Date(value).toLocaleString('de-DE');
+    }
+
+    function summarizeFeedbackEntries(entries) {
+      const safeEntries = Array.isArray(entries) ? entries.filter(entry => entry && typeof entry === 'object') : [];
+      const total = safeEntries.length;
+      const avgScore = total
+        ? (safeEntries.reduce((sum, entry) => sum + (Number(entry.score) || 0), 0) / total)
+        : 0;
+
+      const byDiscipline = {};
+      safeEntries.forEach((entry) => {
+        const key = typeof entry.discipline === 'string' && entry.discipline ? entry.discipline : 'unknown';
+        if (!byDiscipline[key]) byDiscipline[key] = { count: 0, avg: 0, sum: 0 };
+        byDiscipline[key].count += 1;
+        byDiscipline[key].sum += Number(entry.score) || 0;
+      });
+
+      const disciplineRows = Object.entries(byDiscipline)
+        .map(([discipline, value]) => ({
+          discipline,
+          label: DISC[discipline]?.name || discipline,
+          count: value.count,
+          avg: value.count ? value.sum / value.count : 0
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 3);
+
+      const latest = safeEntries
+        .slice()
+        .sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0))
+        .slice(0, 5);
+
+      return {
+        total,
+        avgScore,
+        latest,
+        disciplineRows,
+        lastTs: latest.length ? Number(latest[0].ts) || 0 : 0
+      };
+    }
+
+    function renderDebugFeedbackSection() {
+      if (!debugFeedbackState) {
+        return '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Feedback</div><div class="phi-meta">Noch nicht geladen.</div></div></div>';
+      }
+
+      const state = debugFeedbackState;
+      const summary = summarizeFeedbackEntries(state.entries);
+      const summaryLine = state.error
+        ? `Feedback-Read fehlgeschlagen: ${state.error}`
+        : state.mode === 'remote'
+          ? `Remote-Feedback: ${summary.total} Einträge · Ø ${summary.avgScore.toFixed(2)} · Letztes ${formatDebugTimestamp(summary.lastTs)}`
+        : state.mode === 'restricted'
+          ? 'Remote-Feedback ist nur für Admin-Konten lesbar.'
+          : `Lokale Vorschau: ${summary.total} Einträge · Ø ${summary.avgScore.toFixed(2)}`;
+
+      const disciplineHtml = summary.disciplineRows.length
+        ? summary.disciplineRows.map((row) => `
+            <div class="ps-history-item">
+              <div class="phi-info">
+                <div class="phi-title">${escHtml(row.label)}</div>
+                <div class="phi-meta">${row.count} Feedbacks · Ø ${row.avg.toFixed(2)}</div>
+              </div>
+            </div>
+          `).join('')
+        : '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Disziplinen</div><div class="phi-meta">Noch keine Daten.</div></div></div>';
+
+      const latestHtml = summary.latest.length
+        ? summary.latest.map((entry) => {
+            const score = Number(entry.score) || 0;
+            const username = entry.username || 'Anonym';
+            const disciplineLabel = DISC[entry.discipline]?.name || entry.discipline || 'unknown';
+            const detail = [
+              `${score}/5`,
+              disciplineLabel,
+              entry.diff || 'n/a',
+              formatDebugTimestamp(entry.ts)
+            ].join(' · ');
+            return `
+              <div class="ps-history-item">
+                <div class="phi-info">
+                  <div class="phi-title">${escHtml(username)}</div>
+                  <div class="phi-meta">${escHtml(detail)}</div>
+                </div>
+              </div>
+            `;
+          }).join('')
+        : '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Letzte Einträge</div><div class="phi-meta">Noch keine Daten.</div></div></div>';
+
+      return `
+        <div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Feedback-Dashboard</div>
+        <div class="ps-history-item">
+          <div class="phi-info">
+            <div class="phi-title">Status</div>
+            <div class="phi-meta">${escHtml(summaryLine)}</div>
+          </div>
+        </div>
+        ${disciplineHtml}
+        ${latestHtml}
+      `;
     }
 
     function renderDebugPanel() {
@@ -2361,11 +2875,16 @@
       const analyticsRaw = StorageManager.get('enhanced_analytics', {});
       const analyticsGames = Array.isArray(analyticsRaw?.games) ? analyticsRaw.games : [];
       const scope = getActiveLeaderboardScope();
-      const uid = fbUser?.uid || '';
+      const period = getActiveLeaderboardPeriod();
+      const ownerId = getFirebaseOwnerId();
+      const authUid = fbUser?.uid || '';
       const remote = debugRemoteState;
       const currentDisciplineEntry = Object.prototype.hasOwnProperty.call(DISC, G.discipline)
         ? buildDisciplineLeaderboardEntry(G.discipline)
         : null;
+      const seasonInfo = getCurrentSeasonInfo();
+      const backoffUntil = Number(meta.queueBackoffUntil) || 0;
+      const currentScopeLabel = `${getLeaderboardScopeLabel(scope)} · ${period === 'season' ? seasonInfo.label : 'All-Time'}`;
 
       mount.innerHTML = `
         <div class="ps-stats-grid">
@@ -2389,31 +2908,36 @@
             <div class="ps-sc-val">${analyticsGames.length}</div>
             <div class="ps-sc-sub">Spiele im Analytics-Speicher</div>
           </div>
+          <div class="ps-stat-card">
+            <div class="ps-sc-label">Feedback</div>
+            <div class="ps-sc-val">${debugFeedbackState ? summarizeFeedbackEntries(debugFeedbackState.entries).total : feedbackEntries.length}</div>
+            <div class="ps-sc-sub">${debugFeedbackState?.mode === 'remote' ? 'remote gelesen' : 'lokale Vorschau'}</div>
+          </div>
         </div>
 
         <div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Sync-Status</div>
         <div class="ps-history-item">
           <div class="phi-info">
             <div class="phi-title">User</div>
-            <div class="phi-meta">Username: ${escHtml(G.username || '–')} · UID: ${escHtml(uid || '–')}</div>
+            <div class="phi-meta">Username: ${escHtml(G.username || '–')} · Konto: ${escHtml(ownerId || '–')} · Auth: ${escHtml(authUid || '–')}</div>
           </div>
         </div>
         <div class="ps-history-item">
           <div class="phi-info">
             <div class="phi-title">Laufzeit</div>
-            <div class="phi-meta">Disziplin: ${escHtml(G.discipline)} · Schwierigkeit: ${escHtml(G.diff)} · Leaderboard: ${escHtml(scope)}</div>
+            <div class="phi-meta">Disziplin: ${escHtml(G.discipline)} · Schwierigkeit: ${escHtml(G.diff)} · Leaderboard: ${escHtml(currentScopeLabel)}</div>
           </div>
         </div>
         <div class="ps-history-item">
           <div class="phi-info">
             <div class="phi-title">Queue-Meta</div>
-            <div class="phi-meta">Letzte lokale Änderung: ${escHtml(formatDebugTimestamp(meta.lastLocalChangeAt))} · Letzter Flush: ${escHtml(formatDebugTimestamp(meta.lastQueueFlushAt))}</div>
+            <div class="phi-meta">Letzte lokale Änderung: ${escHtml(formatDebugTimestamp(meta.lastLocalChangeAt))} · Letzter Flush: ${escHtml(formatDebugTimestamp(meta.lastQueueFlushAt))} · Backoff bis: ${escHtml(formatDebugTimestamp(backoffUntil))}</div>
           </div>
         </div>
         <div class="ps-history-item">
           <div class="phi-info">
             <div class="phi-title">Pfade</div>
-            <div class="phi-meta">/users/${escHtml(uid || '<uid>')}/profile · /cloud · /matches · /leaderboard_v2/${escHtml(uid || '<uid>')}</div>
+            <div class="phi-meta">/users/${escHtml(ownerId || '<accountId>')}/profile · /cloud · /matches · /leaderboard_v2/${escHtml(ownerId || '<accountId>')}</div>
           </div>
         </div>
         <div class="ps-history-item">
@@ -2434,6 +2958,7 @@
             <div class="phi-meta">Feedback lokal: ${Array.isArray(feedbackEntries) ? feedbackEntries.length : 0} · Rookie-Plan: ${StorageManager.get('rookie_plan_v1', {}).introSeen ? 'gesehen' : 'offen'}</div>
           </div>
         </div>
+        ${renderDebugFeedbackSection()}
 
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
           <button class="btn-sec" style="font-size:0.6rem;" onclick="debugSyncNow()">Sync jetzt</button>
@@ -2444,32 +2969,74 @@
     }
 
     function refreshDebugPanel() {
+      if (!debugFeedbackState) {
+        debugFeedbackState = {
+          mode: 'local',
+          entries: StorageManager.get('feedback_entries', [])
+        };
+      }
       renderDebugPanel();
       if (!isDebugToolsEnabled() || debugRemoteFetchInFlight || !fbReady || !fbDb || !fbUser) return;
 
       debugRemoteFetchInFlight = true;
-      const uid = fbUser.uid;
+      const ownerId = getFirebaseOwnerId() || fbUser.uid;
       const scope = getActiveLeaderboardScope();
-      const scopePath = getLeaderboardPath(scope);
+      const period = getActiveLeaderboardPeriod();
+      const scopePath = getLeaderboardPath(scope, period);
+      const seasonId = getCurrentSeasonId();
 
       Promise.all([
-        fbDb.ref(`users/${uid}/profile`).once('value'),
-        fbDb.ref(`users/${uid}/cloud`).once('value'),
-        fbDb.ref(`users/${uid}/matches`).once('value'),
-        fbDb.ref(`leaderboard_v2/${uid}`).once('value'),
-        scope === 'global' ? Promise.resolve(null) : fbDb.ref(`${scopePath}/${uid}`).once('value')
+        fbDb.ref(`users/${ownerId}/profile`).once('value'),
+        fbDb.ref(`users/${ownerId}/cloud`).once('value'),
+        fbDb.ref(`users/${ownerId}/matches`).once('value'),
+        fbDb.ref(`leaderboard_v2/${ownerId}`).once('value'),
+        fbDb.ref(`${SEASON_ROOT}/${seasonId}/leaderboard_v1/${ownerId}`).once('value'),
+        (period === 'alltime' && scope === 'global') ? Promise.resolve(null) : fbDb.ref(`${scopePath}/${ownerId}`).once('value'),
+        fbDb.ref(`${ADMIN_ACCOUNTS_ROOT}/${ownerId}`).once('value')
       ])
-        .then(([profileSnap, cloudSnap, matchesSnap, globalLbSnap, scopedLbSnap]) => {
+        .then(async ([profileSnap, cloudSnap, matchesSnap, globalLbSnap, seasonLbSnap, scopedLbSnap, adminSnap]) => {
           const matchCount = matchesSnap?.numChildren ? matchesSnap.numChildren() : Object.keys(matchesSnap?.val() || {}).length;
-          const scopedExists = scope === 'global' ? 'n/a' : (scopedLbSnap?.exists?.() ? 'ja' : 'nein');
+          const scopedExists = scopedLbSnap?.exists?.() ? 'ja' : ((period === 'alltime' && scope === 'global') ? 'n/a' : 'nein');
+          const isAdmin = adminSnap?.val() === true;
           debugRemoteState = {
-            summary: `Profil: ${profileSnap?.exists?.() ? 'ja' : 'nein'} · Cloud: ${cloudSnap?.exists?.() ? 'ja' : 'nein'} · Matches: ${matchCount} · Global LB: ${globalLbSnap?.exists?.() ? 'ja' : 'nein'} · Scope LB: ${scopedExists}`
+            summary: `Profil: ${profileSnap?.exists?.() ? 'ja' : 'nein'} · Cloud: ${cloudSnap?.exists?.() ? 'ja' : 'nein'} · Matches: ${matchCount} · Global LB: ${globalLbSnap?.exists?.() ? 'ja' : 'nein'} · Saison LB: ${seasonLbSnap?.exists?.() ? 'ja' : 'nein'} · Scope LB: ${scopedExists} · Admin: ${isAdmin ? 'ja' : 'nein'}`
           };
+
+          if (isAdmin && !debugFeedbackFetchInFlight) {
+            debugFeedbackFetchInFlight = true;
+            try {
+              const feedbackSnap = await fbDb.ref('feedback_v1').orderByChild('ts').limitToLast(50).once('value');
+              const entries = [];
+              feedbackSnap.forEach((child) => {
+                const value = child.val();
+                if (value && typeof value === 'object') entries.push(value);
+              });
+              entries.sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
+              debugFeedbackState = { mode: 'remote', entries };
+            } catch (error) {
+              debugFeedbackState = {
+                mode: 'remote',
+                entries: [],
+                error: error?.code || error?.message || 'feedback-read-failed'
+              };
+            } finally {
+              debugFeedbackFetchInFlight = false;
+            }
+          } else if (!isAdmin) {
+            debugFeedbackState = {
+              mode: 'restricted',
+              entries: StorageManager.get('feedback_entries', [])
+            };
+          }
           renderDebugPanel();
         })
         .catch((error) => {
           debugRemoteState = {
             summary: `Remote-Fehler: ${error?.code || error?.message || 'unbekannt'}`
+          };
+          debugFeedbackState = {
+            mode: 'local',
+            entries: StorageManager.get('feedback_entries', [])
           };
           renderDebugPanel();
         })
@@ -2483,20 +3050,23 @@
       refreshDebugPanel();
     }
 
-    async function bootstrapCloudUser(user) {
+    async function bootstrapCloudUser(user, options = {}) {
       if (!user || !fbDb) return;
 
-      if (fbCloudBootstrapUid === user.uid) {
+      const accountId = await resolveFirebaseAccountId(user, options);
+      if (!accountId) return;
+
+      if (fbCloudBootstrapUid === accountId && !options.force) {
         scheduleFirebaseQueueFlush(200);
         return;
       }
 
-      fbCloudBootstrapUid = user.uid;
+      fbCloudBootstrapUid = accountId;
 
       try {
         const [profileSnap, cloudSnap] = await Promise.all([
-          fbDb.ref(`users/${user.uid}/profile`).once('value'),
-          fbDb.ref(`users/${user.uid}/cloud`).once('value')
+          fbDb.ref(`users/${accountId}/profile`).once('value'),
+          fbDb.ref(`users/${accountId}/cloud`).once('value')
         ]);
 
         const remoteProfile = profileSnap.val() || null;
@@ -2525,10 +3095,14 @@
           queueStructuredMatchHistory('cloud_bootstrap');
           queueLeaderboardEntry('cloud_bootstrap');
           queueDisciplineLeaderboardEntries('cloud_bootstrap');
+          queueSeasonLeaderboardEntries('cloud_bootstrap');
           scheduleFirebaseQueueFlush(200);
         }
+        updateAccountSyncStatus();
+        refreshDebugPanel();
       } catch (error) {
         console.warn('Cloud bootstrap failed:', error?.code || error?.message || error);
+        updateAccountSyncStatus();
       }
     }
 
@@ -2556,9 +3130,12 @@
       fbAuth.onAuthStateChanged((user) => {
         fbUser = user || null;
         if (!fbUser) {
+          fbAccountId = '';
+          updateAccountSyncStatus();
           ensureFirebaseAnonymousAuth();
           return;
         }
+        updateAccountSyncStatus();
         bootstrapCloudUser(fbUser);
       });
 
@@ -2659,7 +3236,7 @@
 
       const markup = entries.map((e, i) => {
         const displayName = e.name || e.username || 'Anonym';
-        const isMe = (fbUser?.uid && e.uid === fbUser.uid) || (G.username && (e.name === G.username || e.username === G.username));
+        const isMe = (getFirebaseOwnerId() && e.uid === getFirebaseOwnerId()) || (G.username && (e.name === G.username || e.username === G.username));
         const weaponIcon = e.weapon === 'kk' ? '🎯' : '🌬️';
         const score = Number(e.score ?? e.xp ?? 0) || 0;
         const xp = Number(e.xp ?? 0) || 0;
@@ -2707,7 +3284,8 @@
       // Score = XP + Streak-Bonus (jeder Best-Streak-Punkt = 5 Bonus-Punkte)
       const score = G.xp + bestStreak * 5;
       return {
-        uid: fbUser?.uid || '',
+        uid: getFirebaseOwnerId(),
+        authUid: fbUser?.uid || '',
         name: G.username || 'Anonym',
         username: G.username || 'Anonym',
         xp: G.xp,
@@ -2735,7 +3313,9 @@
     function updateLbStatusBadge() {
       const el = document.getElementById('lbStatusBadge');
       if (!el || !G.username) return;
-      el.textContent = `✓ Eingetragen als "${G.username}"`;
+      const ownerId = getFirebaseOwnerId();
+      const syncSuffix = ownerId && fbUser?.uid && ownerId !== fbUser.uid ? ' · Sync aktiv' : '';
+      el.textContent = `✓ Eingetragen als "${G.username}"${syncSuffix}`;
       el.style.color = 'rgba(140,200,60,.8)';
     }
 
@@ -2751,39 +3331,54 @@
         else alert('Offline – Eintrag konnte nicht gespeichert werden.');
       });
     }
-    renderLeaderboard = function renderLeaderboardPatched(entries, scope = getActiveLeaderboardScope()) {
+    renderLeaderboard = function renderLeaderboardPatched(entries, scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
       const lists = getLeaderboardLists();
       if (!lists.length) return;
 
       setLeaderboardLoadingState(false);
       updateLeaderboardScopeControl();
+      const normalizedPeriod = normalizeLeaderboardPeriod(period);
+      const isSeason = normalizedPeriod === 'season';
+      const seasonLabel = getCurrentSeasonInfo().label;
 
       if (!entries.length) {
-        const emptyText = scope === 'global'
-          ? 'Noch keine Eintraege. Sei der Erste! 🏆'
-          : `Noch keine Eintraege fuer ${getLeaderboardScopeLabel(scope)}.`;
+        const emptyText = isSeason
+          ? (scope === 'global'
+              ? `Noch keine Saison-Eintraege fuer ${seasonLabel}.`
+              : `Noch keine Saison-Eintraege fuer ${getLeaderboardScopeLabel(scope)} in ${seasonLabel}.`)
+          : (scope === 'global'
+              ? 'Noch keine Eintraege. Sei der Erste! 🏆'
+              : `Noch keine Eintraege fuer ${getLeaderboardScopeLabel(scope)}.`);
         setLeaderboardMarkup(`<div class="lb-empty">${emptyText}</div>`);
         return;
       }
 
       const markup = entries.map((entry, index) => {
         const displayName = entry.name || entry.username || 'Anonym';
-        const isMe = (fbUser?.uid && entry.uid === fbUser.uid) || (G.username && (entry.name === G.username || entry.username === G.username));
+        const isMe = (getFirebaseOwnerId() && entry.uid === getFirebaseOwnerId()) || (G.username && (entry.name === G.username || entry.username === G.username));
         const weaponIcon = entry.weapon === 'kk' ? '🎯' : '🌬️';
         const numericScore = Number(entry.score ?? entry.xp ?? 0) || 0;
         const numericXp = Number(entry.xp ?? 0) || 0;
         const numericStreak = Number(entry.streak ?? 0) || 0;
         const entryDiscipline = entry.discipline || (scope === 'global' ? null : scope);
         const isDisciplineScope = scope !== 'global';
-        const subline = isDisciplineScope
-          ? `${weaponIcon} ${entry.rank || 'Schuetze'} · ${Math.round((Number(entry.winRate) || 0) * 100)}% Siege`
-          : `${weaponIcon} ${entry.rank || 'Schuetze'}`;
-        const topLine = isDisciplineScope
-          ? `${formatLeaderboardScore(entry.bestScore ?? numericScore, entryDiscipline)} Best`
-          : `${numericScore} Score`;
-        const bottomLine = isDisciplineScope
-          ? `Ø ${formatLeaderboardScore(entry.averageScore, entryDiscipline)} · ${Number(entry.totalGames || 0)} Spiele`
-          : `${numericXp} XP · 🔥 ${numericStreak}`;
+        const topLine = isSeason
+          ? `${Number(entry.seasonPoints || 0)} Saison-Pkt`
+          : (isDisciplineScope
+              ? `${formatLeaderboardScore(entry.bestScore ?? numericScore, entryDiscipline)} Best`
+              : `${numericScore} Score`);
+        const bottomLine = isSeason
+          ? (isDisciplineScope
+              ? `Ø ${formatLeaderboardScore(entry.averageScore, entryDiscipline)} · ${formatLeaderboardScore(entry.bestScore, entryDiscipline)} Best · ${Number(entry.totalGames || 0)} Spiele`
+              : `${Number(entry.wins || 0)} Siege · ${Number(entry.draws || 0)} U · ${Number(entry.totalGames || 0)} Spiele`)
+          : (isDisciplineScope
+              ? `Ø ${formatLeaderboardScore(entry.averageScore, entryDiscipline)} · ${Number(entry.totalGames || 0)} Spiele`
+              : `${numericXp} XP · 🔥 ${numericStreak}`);
+        const subline = isSeason
+          ? `${weaponIcon} ${entry.rank || 'Schuetze'} · ${seasonLabel}`
+          : (isDisciplineScope
+              ? `${weaponIcon} ${entry.rank || 'Schuetze'} · ${Math.round((Number(entry.winRate) || 0) * 100)}% Siege`
+              : `${weaponIcon} ${entry.rank || 'Schuetze'}`);
 
         return `
           <div class="lb-row ${isMe ? 'me' : ''}">
@@ -2818,7 +3413,8 @@
       updateLbStatusBadge();
 
       const scope = getActiveLeaderboardScope();
-      const path = getLeaderboardPath(scope);
+      const period = getActiveLeaderboardPeriod();
+      const path = getLeaderboardPath(scope, period);
 
       const finishLoad = (markup) => {
         setLeaderboardLoadingState(false);
@@ -2831,7 +3427,7 @@
             setTimeout(() => tryLoad(attempts - 1), 800);
             return;
           }
-          if (renderCachedLeaderboard(scope)) return;
+          if (renderCachedLeaderboard(scope, period)) return;
           finishLoad('<div class="lb-empty">Offline - Bestenliste nicht verfuegbar.</div>');
           return;
         }
@@ -2846,12 +3442,12 @@
               }
             });
             entries.sort((a, b) => (Number(b.score ?? b.xp ?? 0) || 0) - (Number(a.score ?? a.xp ?? 0) || 0));
-            cacheLeaderboardEntries(entries, scope);
-            renderLeaderboard(entries, scope);
+            cacheLeaderboardEntries(entries, scope, period);
+            renderLeaderboard(entries, scope, period);
           })
           .catch(err => {
             console.error('Leaderboard load error:', err?.code, err?.message);
-            if (renderCachedLeaderboard(scope)) return;
+            if (renderCachedLeaderboard(scope, period)) return;
             finishLoad('<div class="lb-empty">Fehler beim Laden.</div>');
           });
       };
@@ -2873,6 +3469,7 @@
         queueStructuredMatchHistory('profile_push');
         queueLeaderboardEntry('profile_push');
         queueDisciplineLeaderboardEntries('profile_push');
+        queueSeasonLeaderboardEntries('profile_push');
         return flushFirebaseSyncQueue()
           .then(() => finish(true))
           .catch((err) => {
@@ -5402,6 +5999,9 @@ requestAnimationFrame(() => {
       showScreen,
       loadLeaderboard,
       setLeaderboardScope,
+      setLeaderboardPeriod,
+      showAccountSyncCode,
+      connectDeviceWithLinkCode,
       selDisc,
       selDist,
       selDiff,
@@ -5461,8 +6061,7 @@ requestAnimationFrame(() => {
     _tryInitFb();
 
     window.addEventListener('online', () => {
-      scheduleCloudSync('went_online');
-      scheduleFirebaseQueueFlush(100);
+      scheduleCloudSync('went_online', { immediate: true });
     });
 
     document.addEventListener('visibilitychange', () => {
