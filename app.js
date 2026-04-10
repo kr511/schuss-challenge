@@ -1728,6 +1728,41 @@
     };
 
     let fbApp = null, fbDb = null, fbReady = false;
+    const LEADERBOARD_CACHE_KEY = 'sd_lb_cache_v1';
+
+    function sanitizeUsername(rawName) {
+      const fallbackName = String(rawName ?? '').trim() || 'Anonym';
+      return fallbackName.substring(0, 15).replace(/[.#$/\[\]]/g, '_');
+    }
+
+    function getFirebaseProfileKey(username) {
+      return sanitizeUsername(username);
+    }
+
+    function getCachedLeaderboardEntries() {
+      try {
+        const cached = JSON.parse(localStorage.getItem(LEADERBOARD_CACHE_KEY) || '[]');
+        return Array.isArray(cached) ? cached.filter(entry => entry && typeof entry === 'object') : [];
+      } catch (error) {
+        console.warn('Leaderboard cache read failed:', error);
+        return [];
+      }
+    }
+
+    function cacheLeaderboardEntries(entries) {
+      try {
+        localStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify(Array.isArray(entries) ? entries.slice(0, 50) : []));
+      } catch (error) {
+        console.warn('Leaderboard cache write failed:', error);
+      }
+    }
+
+    function renderCachedLeaderboard(emptyMarkup) {
+      const cachedEntries = getCachedLeaderboardEntries();
+      if (!cachedEntries.length) return false;
+      renderLeaderboard(cachedEntries);
+      return true;
+    }
 
     function initFirebase() {
       try {
@@ -1897,6 +1932,76 @@
         else alert('Offline – Eintrag konnte nicht gespeichert werden.');
       });
     }
+    loadLeaderboard = function loadLeaderboardPatched(force = false) {
+      const lists = getLeaderboardLists();
+      if (!lists.length) return;
+
+      const isLoading = lists.some(list => list.dataset.loading === 'true');
+      const hasRows = lists.some(list => !!list.querySelector('.lb-row'));
+      if (!force && (hasRows || isLoading)) return;
+
+      setLeaderboardLoadingState(true);
+      setLeaderboardMarkup('<div class="lb-loading">...</div>');
+      updateLbStatusBadge();
+
+      const finishLoad = (markup) => {
+        setLeaderboardLoadingState(false);
+        setLeaderboardMarkup(markup);
+      };
+
+      const tryLoad = (attempts) => {
+        if (!fbReady) {
+          if (attempts > 0) {
+            setTimeout(() => tryLoad(attempts - 1), 800);
+            return;
+          }
+          if (renderCachedLeaderboard()) return;
+          finishLoad('<div class="lb-empty">Offline - Bestenliste nicht verfuegbar.</div>');
+          return;
+        }
+
+        fbDb.ref('leaderboard_v2').orderByChild('score').limitToLast(50).once('value')
+          .then(snap => {
+            const entries = [];
+            snap.forEach(child => {
+              const value = child.val();
+              if (value && typeof value === 'object') {
+                entries.push({ ...value, username: value.username || child.key });
+              }
+            });
+            entries.sort((a, b) => (Number(b.score ?? b.xp ?? 0) || 0) - (Number(a.score ?? a.xp ?? 0) || 0));
+            cacheLeaderboardEntries(entries);
+            renderLeaderboard(entries);
+          })
+          .catch(err => {
+            console.error('Leaderboard load error:', err?.code, err?.message);
+            if (renderCachedLeaderboard()) return;
+            finishLoad('<div class="lb-empty">Fehler beim Laden.</div>');
+          });
+      };
+
+      tryLoad(15);
+    };
+
+    pushProfileToFirebase = function pushProfileToFirebasePatched(onDone) {
+      if (!fbReady || !G.username) { if (onDone) onDone(false); return; }
+
+      const entry = buildFirebaseEntry();
+      entry.name = sanitizeUsername(entry.name);
+      entry.username = sanitizeUsername(entry.username);
+
+      const profileKey = getFirebaseProfileKey(entry.username);
+      fbDb.ref('leaderboard_v2/' + profileKey).set(entry)
+        .then(() => {
+          updateLbStatusBadge();
+          if (onDone) onDone(true);
+        })
+        .catch((err) => {
+          console.error('Leaderboard push error:', err?.code, err?.message);
+          if (onDone) onDone(false);
+        });
+    };
+
     const DOM = {};
     function initDOMCache() {
       const ids = [
@@ -2372,7 +2477,16 @@
       DOM.logoTag.textContent = `Du vs. Bot · ${dc.name} · ${dc.shots} Schuss · Wer trifft besser?`;
 
       // Aktualisiere Schwierigkeitsinformation, falls bereits eine Schwierigkeit ausgewählt ist
-      if (G.diff) {
+      const adaptiveDiff = typeof AdaptiveBotSystem !== 'undefined' &&
+        typeof AdaptiveBotSystem.getCurrentDifficulty === 'function' &&
+        typeof AdaptiveBotSystem.isEnabled === 'function' &&
+        AdaptiveBotSystem.isEnabled()
+        ? AdaptiveBotSystem.getCurrentDifficulty(discKey)
+        : null;
+
+      if (adaptiveDiff && DIFF[adaptiveDiff]) {
+        setDifficulty(adaptiveDiff, { persist: false });
+      } else if (G.diff) {
         DOM.diffInfoTxt.innerHTML = getDiffInfo(G.diff);
       }
     }
@@ -2383,8 +2497,9 @@
       return;
     }
 
-    function setDifficulty(diff) {
+    function setDifficulty(diff, options = {}) {
       if (!diff || !DIFF[diff]) return;
+      const persist = options.persist !== false;
 
       G.diff = diff;
       document.querySelectorAll('#diffGroup .dif').forEach((button) => {
@@ -2399,10 +2514,24 @@
         DOM.battleBadge.textContent = DIFF[diff].lbl;
         DOM.battleBadge.className = 'diff-badge ' + DIFF[diff].cls;
       }
+
+      if (
+        persist &&
+        typeof AdaptiveBotSystem !== 'undefined' &&
+        typeof AdaptiveBotSystem.setCurrentDifficulty === 'function' &&
+        typeof AdaptiveBotSystem.isEnabled === 'function' &&
+        AdaptiveBotSystem.isEnabled() &&
+        G.discipline
+      ) {
+        AdaptiveBotSystem.setCurrentDifficulty(G.discipline, diff, {
+          recordHistory: false,
+          reason: typeof options.reason === 'string' ? options.reason : 'Manual selection'
+        });
+      }
     }
 
     function selDiff(btn) {
-      setDifficulty(btn.dataset.diff);
+      setDifficulty(btn.dataset.diff, { reason: 'Manual selection' });
     }
 
     function selShots(btn) {
@@ -4299,11 +4428,15 @@ requestAnimationFrame(() => {
 
     // Check Welcome screen on init
     function checkFirstVisit() {
-      const savedName = localStorage.getItem('sd_username');
-      if (!savedName) {
+      const savedNameRaw = localStorage.getItem('sd_username');
+      if (!savedNameRaw) {
         document.getElementById('welcomeOverlay').classList.add('active');
         setTimeout(() => document.getElementById('welcomeNameInp')?.focus(), 400);
       } else {
+        const savedName = sanitizeUsername(savedNameRaw);
+        if (savedName !== savedNameRaw) {
+          localStorage.setItem('sd_username', savedName);
+        }
         G.username = savedName;
         // Bekannter User: Profil im Hintergrund synchronisieren
         setTimeout(() => pushProfileToFirebase(), 1500);
@@ -4313,15 +4446,15 @@ requestAnimationFrame(() => {
     }
 
     window.addEventListener('difficultyAdapted', function(event) {
-      console.log('🎯 Schwierigkeit angepasst:', event.detail.oldDifficulty, '→', event.detail.newDifficulty);
-      setDifficulty(event.detail.newDifficulty);
+      const detail = event.detail || {};
+      console.log('🎯 Schwierigkeit angepasst:', detail.discipline || 'global', detail.oldDifficulty, '→', detail.newDifficulty);
+      if (detail.discipline && detail.discipline !== G.discipline) return;
+      setDifficulty(detail.newDifficulty, { persist: false });
     });
 
     function saveWelcomeName() {
       const inp = document.getElementById('welcomeNameInp');
-      let name = inp.value.trim();
-      if (!name) name = 'Anonym';
-      name = name.substring(0, 15).replace(/[.#$\[\]]/g, '_');
+      const name = sanitizeUsername(inp.value);
 
       localStorage.setItem('sd_username', name);
       G.username = name;
