@@ -2712,9 +2712,13 @@ requestAnimationFrame(() => {
       const missingShots = Math.min(G.botShotsLeft, Math.max(0, playerFired - botFired));
 
       for (let i = 0; i < missingShots; i++) {
-        fireSingleShot(true);
+        const res = fireSingleShot(true);
+        // 3×20: botTotalInt manuell inkrementieren (fireSingleShot tut es nicht bei 3×20)
+        if (res && G.is3x20) {
+          G.botTotalInt += Math.floor(res.pts);
+        }
       }
-      updateBattleUI(); // Update UI directly after syncing
+      updateBattleUI();
     }
 
     function startBattle() {
@@ -3115,12 +3119,21 @@ requestAnimationFrame(() => {
         }
       }
 
+      // ── Spieler schießt in echt → nur Zähler runterzählen ──
       const count = G.burst ? Math.min(5, G.playerShotsLeft) : 1;
-      const results = [];
-      for (let i = 0; i < count; i++) {
-        const res = fireSingleShot(false);
-        if (res) results.push(res); // Nur gültige Shots sammeln
-      }
+      G.playerShotsLeft -= count;
+
+      // ── Bot-Schüsse synchronisieren ──────────────────────
+      const _botBefore = G.botShots.length;
+      syncBotScoreToPlayerProgress();
+      const results = G.botShots.slice(_botBefore);
+      // Bot-Treffer auf der sichtbaren Zielscheibe anzeigen
+      results.forEach(s => {
+        G.targetShots.push({
+          dx: s.dx, dy: s.dy, pts: s.pts, label: s.label, isX: s.isX,
+          cracks: s.cracks
+        });
+      });
 
       // FX — kein overflow-Toggle (verursachte hellgrünen Flackerstreifen unten)
       const f = DOM.muzzleFlash;
@@ -3144,7 +3157,7 @@ requestAnimationFrame(() => {
         else Sounds.lowHit();
       }
 
-      // ── Add pills to log ────────────────────────
+      // ── Bot-Pills ins Log einfügen ────────────────────────
       results.forEach(bRes => {
         const pillCls = bRes.isX ? 'x' : bRes.pts >= 9 ? 'hi' : bRes.pts >= 6 ? 'mid' : bRes.pts >= 1 ? 'lo' : 'miss';
         // KK 3x20: nur ganze Ringe anzeigen
@@ -3158,7 +3171,7 @@ requestAnimationFrame(() => {
           if (container) {
             const pill = document.createElement('span');
             pill.className = 'sl-pill ' + pillCls;
-            pill.textContent = '👤' + pillTxt;
+            pill.textContent = '🤖' + pillTxt;
             container.appendChild(pill);
           }
           // Update position tracking
@@ -3212,38 +3225,30 @@ requestAnimationFrame(() => {
           if (DOM.shotLog) {
             const pill = document.createElement('span');
             pill.className = 'sl-pill ' + pillCls;
-            pill.textContent = '👤' + pillTxt;
+            pill.textContent = '🤖' + pillTxt;
             DOM.shotLog.appendChild(pill);
             while (DOM.shotLog.children.length > 10) DOM.shotLog.removeChild(DOM.shotLog.firstChild);
           }
         }
       });
 
-      // Spieler-Schüsse für Analytics speichern
-      results.forEach(bRes => {
-        G.playerShots.push({
-          dx: bRes.dx ?? 0,
-          dy: bRes.dy ?? 0,
-          pts: bRes.pts
-        });
-      });
-
-      syncBotScoreToPlayerProgress();
-
-      // ── Info text ────────────────────────────────
+      // ── Info text (nur Bot-Ergebnis) ────────────────────────────────
       const mkBotScore = () => isKK3x20WholeRingsOnly()
         ? `${G.botTotalInt}`
         : `${fmtPts(G.botTotal)} <span style="color:rgba(240,130,110,.45);font-size:.85em;">(${G.botTotalInt} ganze)</span>`;
 
-      if (count > 1) {
+      if (results.length === 0) {
+        // Bot hat bereits alle Schüsse abgefeuert
+        DOM.lastShotTxt.innerHTML = `🤖 Bot Gesamt: <b>${mkBotScore()}</b>`;
+      } else if (count > 1 && results.length > 1) {
         const sumPts = results.reduce((a, r) => a + r.pts, 0);
         const xCount = results.filter(r => r.isX).length;
         const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
         const sumDisp = isKK3x20WholeRingsOnly() ? Math.floor(sumPts) : fmtPts(Math.round(sumPts * 10) / 10);
         if (!G.is3x20) DOM.lastShotTxt.innerHTML =
-          `⚡ <b>5er-Salve</b>: +<b>${sumDisp}</b>${xStr} &nbsp;|&nbsp; Bot Gesamt: <b>${mkBotScore()}</b>`;
+          `🤖 ⚡ <b>5er-Salve</b>: +<b>${sumDisp}</b>${xStr} &nbsp;|&nbsp; Gesamt: <b>${mkBotScore()}</b>`;
       } else {
-        const bRes = results[0];
+        const bRes = results[results.length - 1];
         const ptsDisp = isKK3x20WholeRingsOnly() ? Math.floor(bRes.pts) : fmtPts(bRes.pts);
         const emoji = bRes.isX ? '✦' : bRes.pts >= 9.5 ? '🔥' : bRes.pts >= 8 ? '💥' : bRes.pts >= 6 ? '🎯' : bRes.pts >= 4 ? '👌' : bRes.pts >= 2 ? '😬' : '😅';
         const scoreDisp = bRes.isX
@@ -3251,7 +3256,7 @@ requestAnimationFrame(() => {
           : `<b>${bRes.label} · ${ptsDisp}</b>`;
         if (!G.is3x20 || G.posShots < G.perPos)
           DOM.lastShotTxt.innerHTML =
-            `${emoji} ${scoreDisp} &nbsp;|&nbsp; Bot Gesamt: <b>${mkBotScore()}</b>`;
+            `🤖 ${emoji} ${scoreDisp} &nbsp;|&nbsp; Gesamt: <b>${mkBotScore()}</b>`;
       }
 
       setTimeout(() => {
@@ -3308,10 +3313,9 @@ requestAnimationFrame(() => {
       } else {
         DOM.botFinalDetail.textContent = `aus ${G.botShots.length} Schuss · Ø ${avg} Pkt${xStr}`;
       }
-      const prefillTenths = Math.round((G.playerTotal || 0) * 10) / 10;
-      const prefillInt = Math.max(0, parseInt(G.playerTotalInt || 0, 10));
-      DOM.playerInp.value = kk3x20 ? '' : prefillTenths.toFixed(1);
-      if (DOM.playerInpInt) DOM.playerInpInt.value = String(prefillInt);
+      // Eingabefeld bleibt leer, da der Spieler seine realen Werte eintragen soll
+      DOM.playerInp.value = '';
+      if (DOM.playerInpInt) DOM.playerInpInt.value = '';
       clearInpState();
       if (DOM.autoInt) {
         DOM.autoIntVal.textContent = '–';
@@ -3322,8 +3326,8 @@ requestAnimationFrame(() => {
       const kk3x20Only = G.is3x20 && G.weapon === 'kk';
       DOM.playerInp.style.display = kk3x20Only ? 'none' : '';
       setInpHint(kk3x20Only
-        ? 'Ergebnis automatisch übernommen – bei Bedarf anpassen.'
-        : 'Zehntel und Ganze automatisch übernommen – bei Bedarf anpassen.', false);
+        ? 'Bitte deine geschossenen Ringe eintragen'
+        : 'Bitte Zehntel und Ganze eintragen', false);
       const ecLbl = DOM.playerInp.closest('.ec-row')?.previousElementSibling;
       if (ecLbl) ecLbl.textContent = kk3x20Only
         ? '◈ Dein Ergebnis eingeben (Ganze Ringe)'
