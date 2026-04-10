@@ -825,6 +825,7 @@
             weapon: G.weapon || 'unknown',
             discipline: G.discipline || 'unknown',
             diff: G.diff || 'unknown',
+            username: sanitizeUsername(G.username || 'Anonym'),
             userHash,
             ts: Date.now(),
             date: new Date().toLocaleDateString('de-DE', {
