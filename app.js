@@ -182,6 +182,7 @@
       dist: '10', diff: 'easy',
       weapon: 'lg',          // 'lg' | 'kk'
       username: StorageManager.getRaw('username', ''),
+      lbScope: StorageManager.getRaw('lb_scope', 'global'),
       discipline: 'lg40',    // 'lg40' | 'lg60' | 'kk50' | 'kk100' | 'kk3x20'
       shots: 40,             // Schussanzahl (aus Disziplin oder manuell)
       burst: false,          // 5er-Salve Modus
@@ -255,6 +256,22 @@
       lg: ['lg40', 'lg60'],
       kk: ['kk50', 'kk100', 'kk3x20'],
     };
+    const LEADERBOARD_DISCIPLINE_ROOT = 'leaderboard_disciplines_v1';
+
+    function normalizeLeaderboardScope(scope) {
+      if (scope === 'global') return 'global';
+      return Object.prototype.hasOwnProperty.call(DISC, scope) ? scope : 'global';
+    }
+
+    function getActiveLeaderboardScope() {
+      const nextScope = normalizeLeaderboardScope(G.lbScope);
+      if (nextScope !== G.lbScope) G.lbScope = nextScope;
+      return nextScope;
+    }
+
+    function getLeaderboardScopeLabel(scope = getActiveLeaderboardScope()) {
+      return scope === 'global' ? 'Global' : (DISC[scope]?.name || scope);
+    }
 
     /* ─── CONFIG ─────────────────────────────── */
     const DIST_INFO = {
@@ -1763,6 +1780,8 @@
       'daily_challenge',
       'tutorial_done',
       'sound',
+      'lb_scope',
+      'enhanced_analytics',
       'enhanced_achievements',
       'sun'
     ];
@@ -1776,9 +1795,13 @@
       return sanitizeUsername(username);
     }
 
-    function getCachedLeaderboardEntries() {
+    function getLeaderboardCacheKey(scope = getActiveLeaderboardScope()) {
+      return `${LEADERBOARD_CACHE_KEY}_${normalizeLeaderboardScope(scope)}`;
+    }
+
+    function getCachedLeaderboardEntries(scope = getActiveLeaderboardScope()) {
       try {
-        const cached = JSON.parse(localStorage.getItem(LEADERBOARD_CACHE_KEY) || '[]');
+        const cached = JSON.parse(localStorage.getItem(getLeaderboardCacheKey(scope)) || '[]');
         return Array.isArray(cached) ? cached.filter(entry => entry && typeof entry === 'object') : [];
       } catch (error) {
         console.warn('Leaderboard cache read failed:', error);
@@ -1786,19 +1809,140 @@
       }
     }
 
-    function cacheLeaderboardEntries(entries) {
+    function cacheLeaderboardEntries(entries, scope = getActiveLeaderboardScope()) {
       try {
-        localStorage.setItem(LEADERBOARD_CACHE_KEY, JSON.stringify(Array.isArray(entries) ? entries.slice(0, 50) : []));
+        localStorage.setItem(getLeaderboardCacheKey(scope), JSON.stringify(Array.isArray(entries) ? entries.slice(0, 50) : []));
       } catch (error) {
         console.warn('Leaderboard cache write failed:', error);
       }
     }
 
-    function renderCachedLeaderboard(emptyMarkup) {
-      const cachedEntries = getCachedLeaderboardEntries();
+    function renderCachedLeaderboard(scope = getActiveLeaderboardScope()) {
+      const cachedEntries = getCachedLeaderboardEntries(scope);
       if (!cachedEntries.length) return false;
-      renderLeaderboard(cachedEntries);
+      renderLeaderboard(cachedEntries, scope);
       return true;
+    }
+
+    function getLeaderboardPath(scope = getActiveLeaderboardScope()) {
+      const normalizedScope = normalizeLeaderboardScope(scope);
+      return normalizedScope === 'global'
+        ? 'leaderboard_v2'
+        : `${LEADERBOARD_DISCIPLINE_ROOT}/${normalizedScope}`;
+    }
+
+    function formatLeaderboardScore(value, discipline = null) {
+      const numericValue = Number(value);
+      if (!Number.isFinite(numericValue)) return '0';
+      if (discipline === 'kk3x20') return `${Math.round(numericValue)}`;
+      return numericValue.toFixed(1);
+    }
+
+    function getDisciplineGames(discipline) {
+      if (!discipline) return [];
+      try {
+        const raw = JSON.parse(localStorage.getItem('sd_enhanced_analytics') || '{}');
+        const games = Array.isArray(raw?.games) ? raw.games : [];
+        return games.filter((game) => (
+          game &&
+          game.discipline === discipline &&
+          Number.isFinite(Number(game.playerScore))
+        ));
+      } catch (error) {
+        console.warn('Enhanced analytics read failed:', error);
+        return [];
+      }
+    }
+
+    function buildDisciplineLeaderboardEntry(discipline) {
+      const key = Object.prototype.hasOwnProperty.call(DISC, discipline) ? discipline : null;
+      if (!key || !G.username) return null;
+
+      const games = getDisciplineGames(key);
+      if (!games.length) return null;
+
+      const scores = games
+        .map((game) => Number(game.playerScore))
+        .filter((score) => Number.isFinite(score));
+
+      if (!scores.length) return null;
+
+      const wins = games.filter((game) => game.result === 'win' || game.playerWon === true).length;
+      const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+      const bestScore = Math.max(...scores);
+      const { rank } = getRank(G.xp);
+
+      return {
+        uid: fbUser?.uid || '',
+        name: sanitizeUsername(G.username || 'Anonym'),
+        username: sanitizeUsername(G.username || 'Anonym'),
+        discipline: key,
+        disciplineName: DISC[key].name,
+        rank: rank.name,
+        rankIcon: rank.icon,
+        weapon: DISC[key].weapon,
+        totalGames: scores.length,
+        wins,
+        winRate: scores.length ? wins / scores.length : 0,
+        averageScore,
+        bestScore,
+        score: bestScore,
+        date: new Date().toLocaleDateString('de-DE')
+      };
+    }
+
+    function queueDisciplineLeaderboardEntries(reason = 'discipline_leaderboard_sync') {
+      if (!G.username) return false;
+
+      let wroteAnyEntry = false;
+      const leaderboardKey = fbUser?.uid || getFirebaseProfileKey(G.username);
+      Object.keys(DISC).forEach((discipline) => {
+        const entry = buildDisciplineLeaderboardEntry(discipline);
+        enqueueFirebaseSet(
+          `${LEADERBOARD_DISCIPLINE_ROOT}/${discipline}/${leaderboardKey}`,
+          entry,
+          `leaderboard:${discipline}:${leaderboardKey}`,
+          { requiresAuth: !!fbUser }
+        );
+        if (entry) wroteAnyEntry = true;
+      });
+
+      return wroteAnyEntry;
+    }
+
+    function updateLeaderboardScopeControl() {
+      const select = document.getElementById('lbScopeSelect');
+      if (!select) return;
+
+      if (!select.options.length) {
+        select.innerHTML = [
+          '<option value="global">Global</option>',
+          ...Object.entries(DISC).map(([key, cfg]) => `<option value="${key}">${cfg.name}</option>`)
+        ].join('');
+      }
+
+      const scope = getActiveLeaderboardScope();
+      select.value = scope;
+
+      const label = document.getElementById('lbScopeLabel');
+      if (label) label.textContent = getLeaderboardScopeLabel(scope);
+
+      const hint = document.getElementById('lbScopeHint');
+      if (hint) {
+        hint.textContent = scope === 'global'
+          ? 'Global nutzt Score = XP + Streak x 5.'
+          : `${getLeaderboardScopeLabel(scope)} nutzt die persoenliche Bestleistung als Sortierung.`;
+      }
+    }
+
+    function setLeaderboardScope(scope, options = {}) {
+      const normalizedScope = normalizeLeaderboardScope(scope);
+      G.lbScope = normalizedScope;
+      StorageManager.setRaw('lb_scope', normalizedScope);
+      updateLeaderboardScopeControl();
+      if (options.reload === false) return normalizedScope;
+      loadLeaderboard(true);
+      return normalizedScope;
     }
 
     function loadCloudSyncMeta() {
@@ -1921,6 +2065,7 @@
 
       if (DOM.psUsername) DOM.psUsername.textContent = G.username || 'Anonym';
       if (DOM.profileOverlay?.classList.contains('active')) refreshProfileSheet();
+      updateLeaderboardScopeControl();
 
       if (DOM.diffInfoTxt && typeof AdaptiveBotSystem !== 'undefined' && typeof AdaptiveBotSystem.getCurrentDifficulty === 'function') {
         const syncedDiff = AdaptiveBotSystem.getCurrentDifficulty(G.discipline);
@@ -2050,6 +2195,7 @@
         queueCloudSnapshot(reason);
         queueCloudProfile(reason);
         if (G.username) queueLeaderboardEntry(reason);
+        if (G.username) queueDisciplineLeaderboardEntries(reason);
       } else if (fbReady) {
         ensureFirebaseAnonymousAuth().then((user) => {
           if (!user) return;
@@ -2057,6 +2203,7 @@
           queueCloudSnapshot(reason);
           queueCloudProfile(reason);
           if (G.username) queueLeaderboardEntry(reason);
+          if (G.username) queueDisciplineLeaderboardEntries(reason);
           if (options.immediate) flushFirebaseSyncQueue();
           else scheduleFirebaseQueueFlush(options.delay ?? 800);
         });
@@ -2122,6 +2269,7 @@
           queueCloudSnapshot('cloud_bootstrap');
           queueCloudProfile('cloud_bootstrap');
           queueLeaderboardEntry('cloud_bootstrap');
+          queueDisciplineLeaderboardEntries('cloud_bootstrap');
           scheduleFirebaseQueueFlush(200);
         }
       } catch (error) {
@@ -2240,12 +2388,16 @@
       tryLoad(15);
     }
 
-    function renderLeaderboard(entries) {
+    function renderLeaderboard(entries, scope = getActiveLeaderboardScope()) {
       const lists = getLeaderboardLists();
       if (!lists.length) return;
 
       setLeaderboardLoadingState(false);
+      updateLeaderboardScopeControl();
       if (!entries.length) {
+        const emptyText = scope === 'global'
+          ? 'Noch keine Eintraege. Sei der Erste! 🏆'
+          : `Noch keine Eintraege fuer ${getLeaderboardScopeLabel(scope)}.`;
         setLeaderboardMarkup('<div class="lb-empty">Noch keine Einträge. Sei der Erste! 🏆</div>');
         return;
       }
@@ -2257,6 +2409,17 @@
         const score = Number(e.score ?? e.xp ?? 0) || 0;
         const xp = Number(e.xp ?? 0) || 0;
         const streak = Number(e.streak ?? 0) || 0;
+        const entryDiscipline = e.discipline || (scope === 'global' ? null : scope);
+        const isDisciplineScope = scope !== 'global';
+        const headlineValue = isDisciplineScope
+          ? `${formatLeaderboardScore(e.bestScore ?? score, entryDiscipline)} Best`
+          : `${score} Score`;
+        const detailValue = isDisciplineScope
+          ? `Ø ${formatLeaderboardScore(e.averageScore, entryDiscipline)} · ${Number(e.totalGames || 0)} Spiele`
+          : `${xp} XP · 🔥 ${streak}`;
+        const subline = isDisciplineScope
+          ? `${weaponIcon} ${e.rank || 'Schuetze'} · ${Math.round((Number(e.winRate) || 0) * 100)}% Siege`
+          : `${weaponIcon} ${e.rank || 'Schuetze'}`;
         return `
           <div class="lb-row ${isMe ? 'me' : ''}">
             <div class="lb-rank-num">${i + 1}</div>
@@ -2333,6 +2496,59 @@
         else alert('Offline – Eintrag konnte nicht gespeichert werden.');
       });
     }
+    renderLeaderboard = function renderLeaderboardPatched(entries, scope = getActiveLeaderboardScope()) {
+      const lists = getLeaderboardLists();
+      if (!lists.length) return;
+
+      setLeaderboardLoadingState(false);
+      updateLeaderboardScopeControl();
+
+      if (!entries.length) {
+        const emptyText = scope === 'global'
+          ? 'Noch keine Eintraege. Sei der Erste! 🏆'
+          : `Noch keine Eintraege fuer ${getLeaderboardScopeLabel(scope)}.`;
+        setLeaderboardMarkup(`<div class="lb-empty">${emptyText}</div>`);
+        return;
+      }
+
+      const markup = entries.map((entry, index) => {
+        const displayName = entry.name || entry.username || 'Anonym';
+        const isMe = (fbUser?.uid && entry.uid === fbUser.uid) || (G.username && (entry.name === G.username || entry.username === G.username));
+        const weaponIcon = entry.weapon === 'kk' ? '🎯' : '🌬️';
+        const numericScore = Number(entry.score ?? entry.xp ?? 0) || 0;
+        const numericXp = Number(entry.xp ?? 0) || 0;
+        const numericStreak = Number(entry.streak ?? 0) || 0;
+        const entryDiscipline = entry.discipline || (scope === 'global' ? null : scope);
+        const isDisciplineScope = scope !== 'global';
+        const subline = isDisciplineScope
+          ? `${weaponIcon} ${entry.rank || 'Schuetze'} · ${Math.round((Number(entry.winRate) || 0) * 100)}% Siege`
+          : `${weaponIcon} ${entry.rank || 'Schuetze'}`;
+        const topLine = isDisciplineScope
+          ? `${formatLeaderboardScore(entry.bestScore ?? numericScore, entryDiscipline)} Best`
+          : `${numericScore} Score`;
+        const bottomLine = isDisciplineScope
+          ? `Ø ${formatLeaderboardScore(entry.averageScore, entryDiscipline)} · ${Number(entry.totalGames || 0)} Spiele`
+          : `${numericXp} XP · 🔥 ${numericStreak}`;
+
+        return `
+          <div class="lb-row ${isMe ? 'me' : ''}">
+            <div class="lb-rank-num">${index + 1}</div>
+            <div class="lb-avatar">${entry.rankIcon || '👤'}</div>
+            <div class="lb-info">
+              <div class="lb-name">${escHtml(displayName)}${isMe ? ' (Du)' : ''}</div>
+              <div class="lb-sub">${subline}</div>
+            </div>
+            <div class="lb-stats">
+              <div class="lb-xp">${topLine}</div>
+              <div class="lb-streak">${bottomLine}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      setLeaderboardMarkup(markup);
+    };
+
     loadLeaderboard = function loadLeaderboardPatched(force = false) {
       const lists = getLeaderboardLists();
       if (!lists.length) return;
@@ -2343,7 +2559,11 @@
 
       setLeaderboardLoadingState(true);
       setLeaderboardMarkup('<div class="lb-loading">...</div>');
+      updateLeaderboardScopeControl();
       updateLbStatusBadge();
+
+      const scope = getActiveLeaderboardScope();
+      const path = getLeaderboardPath(scope);
 
       const finishLoad = (markup) => {
         setLeaderboardLoadingState(false);
@@ -2356,12 +2576,12 @@
             setTimeout(() => tryLoad(attempts - 1), 800);
             return;
           }
-          if (renderCachedLeaderboard()) return;
+          if (renderCachedLeaderboard(scope)) return;
           finishLoad('<div class="lb-empty">Offline - Bestenliste nicht verfuegbar.</div>');
           return;
         }
 
-        fbDb.ref('leaderboard_v2').orderByChild('score').limitToLast(50).once('value')
+        fbDb.ref(path).orderByChild('score').limitToLast(50).once('value')
           .then(snap => {
             const entries = [];
             snap.forEach(child => {
@@ -2371,12 +2591,12 @@
               }
             });
             entries.sort((a, b) => (Number(b.score ?? b.xp ?? 0) || 0) - (Number(a.score ?? a.xp ?? 0) || 0));
-            cacheLeaderboardEntries(entries);
-            renderLeaderboard(entries);
+            cacheLeaderboardEntries(entries, scope);
+            renderLeaderboard(entries, scope);
           })
           .catch(err => {
             console.error('Leaderboard load error:', err?.code, err?.message);
-            if (renderCachedLeaderboard()) return;
+            if (renderCachedLeaderboard(scope)) return;
             finishLoad('<div class="lb-empty">Fehler beim Laden.</div>');
           });
       };
@@ -2396,6 +2616,7 @@
         queueCloudSnapshot('profile_push');
         queueCloudProfile('profile_push');
         queueLeaderboardEntry('profile_push');
+        queueDisciplineLeaderboardEntries('profile_push');
         return flushFirebaseSyncQueue()
           .then(() => finish(true))
           .catch((err) => {
@@ -4810,6 +5031,7 @@ requestAnimationFrame(() => {
     updateSchuetzenpass();
     if (typeof DailyChallenge !== 'undefined') DailyChallenge.init();
     if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.init();
+    updateLeaderboardScopeControl();
 
     // Firebase Init: nur über _tryInitFb() am Ende der Datei
     checkSunAchievements(); // Check on load in case new achievements unlocked
@@ -4918,6 +5140,7 @@ requestAnimationFrame(() => {
       switchWeapon,
       showScreen,
       loadLeaderboard,
+      setLeaderboardScope,
       selDisc,
       selDist,
       selDiff,
