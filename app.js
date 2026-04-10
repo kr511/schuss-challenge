@@ -474,6 +474,7 @@
 
     function saveXP() {
       StorageManager.set('xp', G.xp);
+      scheduleCloudSync('xp_changed');
     }
 
     function awardXP(diff) {
@@ -715,7 +716,8 @@
     }
 
     function saveGameStats(s) {
-      try { localStorage.setItem('sd_gamestats', JSON.stringify(s)); } catch (e) { }
+      StorageManager.set('gamestats', s);
+      scheduleCloudSync('gamestats_changed');
     }
 
     const FEEDBACK_MIN_DUELS = 3;
@@ -737,7 +739,8 @@
     }
 
     function saveFeedbackMeta(meta) {
-      try { localStorage.setItem('sd_feedback_meta', JSON.stringify(meta)); } catch (e) { }
+      StorageManager.set('feedback_meta', meta);
+      scheduleCloudSync('feedback_meta_changed');
     }
 
     function ensureFeedbackSchedule() {
@@ -812,9 +815,10 @@
         while (entries.length > 100) entries.pop();
         try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) {}
 
-        if (fbReady && fbDb) {
-          const userHash = G.username
-            ? G.username.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
+        {
+          const safeUsername = sanitizeUsername(G.username || 'Anonym');
+          const userHash = safeUsername
+            ? safeUsername.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
                 .toString(36).replace('-', 'n')
             : 'anon';
           const emojis = { 1: '😡', 2: '🙁', 3: '😐', 4: '🙂', 5: '🤩' };
@@ -825,17 +829,17 @@
             weapon: G.weapon || 'unknown',
             discipline: G.discipline || 'unknown',
             diff: G.diff || 'unknown',
-            username: sanitizeUsername(G.username || 'Anonym'),
+            username: safeUsername,
             userHash,
+            uid: fbUser?.uid || '',
             ts: Date.now(),
             date: new Date().toLocaleDateString('de-DE', {
               day: '2-digit', month: '2-digit', year: 'numeric',
               hour: '2-digit', minute: '2-digit'
             })
           };
-          const key = Date.now() + '_' + userHash;
-          fbDb.ref('feedback_v1/' + key).set(entry)
-            .catch(err => console.warn('Feedback Firebase-Fehler:', err?.code));
+          entry.key = `${entry.ts}_${fbUser?.uid || userHash}`;
+          queueFeedbackEntry(entry);
         }
 
         // Show thank you message
@@ -872,7 +876,8 @@
     }
 
     function saveWeaponStats(w, s) {
-      try { localStorage.setItem(`sd_wstats_${w}`, JSON.stringify(s)); } catch (e) { }
+      StorageManager.set(`wstats_${w}`, s);
+      scheduleCloudSync(`weapon_stats_${w}`);
     }
 
     function todayIdLocal() {
@@ -1362,7 +1367,8 @@
     /* ─── HISTORY ────────────────────────────── */
     function addHistoryEntry(result, diff, weapon, playerPts, botPts) {
       try {
-        const hist = JSON.parse(localStorage.getItem('sd_history') || '[]');
+        const hist = StorageManager.get('history', []);
+        if (!Array.isArray(hist)) return;
         const DIFF_NAMES = { easy: 'Einfach', real: 'Mittel', hard: 'Elite', elite: 'Profi' };
         const WEAPON_NAMES = { lg: 'Luftgewehr', kk: 'Kleinkaliber' };
         hist.unshift({
@@ -1376,7 +1382,8 @@
           date: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
         });
         if (hist.length > 30) hist.splice(30);
-        localStorage.setItem('sd_history', JSON.stringify(hist));
+        StorageManager.set('history', hist);
+        scheduleCloudSync('history_changed');
       } catch (e) { }
     }
 
@@ -1728,8 +1735,37 @@
       appId: "1:884784314045:web:03c1af3dd3d91bfb2569d4"
     };
 
-    let fbApp = null, fbDb = null, fbReady = false;
+    let fbApp = null, fbDb = null, fbAuth = null, fbUser = null, fbReady = false;
+    let fbAuthListenerBound = false;
+    let fbCloudBootstrapUid = '';
+    let fbCloudProfileCache = null;
+    let fbCloudSyncTimer = null;
+    let fbCloudFlushPromise = null;
     const LEADERBOARD_CACHE_KEY = 'sd_lb_cache_v1';
+    const CLOUD_SYNC_SCHEMA_VERSION = 1;
+    const CLOUD_SYNC_META_KEY = 'cloud_sync_meta_v1';
+    const CLOUD_SYNC_QUEUE_KEY = 'cloud_sync_queue_v1';
+    const CLOUD_SYNC_KEYS = [
+      'username',
+      'xp',
+      'gamestats',
+      'history',
+      'feedback_meta',
+      'lg_streak',
+      'lg_best',
+      'kk_streak',
+      'kk_best',
+      'wstats_lg',
+      'wstats_kk',
+      'rookie_plan_v1',
+      'healthy_engagement_v1',
+      'adaptive_data',
+      'daily_challenge',
+      'tutorial_done',
+      'sound',
+      'enhanced_achievements',
+      'sun'
+    ];
 
     function sanitizeUsername(rawName) {
       const fallbackName = String(rawName ?? '').trim() || 'Anonym';
@@ -1765,6 +1801,367 @@
       return true;
     }
 
+    function loadCloudSyncMeta() {
+      const raw = StorageManager.get(CLOUD_SYNC_META_KEY, {});
+      return {
+        lastLocalChangeAt: Number(raw.lastLocalChangeAt) || 0,
+        lastAppliedAt: Number(raw.lastAppliedAt) || 0,
+        lastQueuedAt: Number(raw.lastQueuedAt) || 0,
+        lastQueueFlushAt: Number(raw.lastQueueFlushAt) || 0,
+        lastLocalReason: typeof raw.lastLocalReason === 'string' ? raw.lastLocalReason : '',
+        schemaVersion: CLOUD_SYNC_SCHEMA_VERSION
+      };
+    }
+
+    function saveCloudSyncMeta(meta) {
+      StorageManager.set(CLOUD_SYNC_META_KEY, {
+        ...loadCloudSyncMeta(),
+        ...(meta || {}),
+        schemaVersion: CLOUD_SYNC_SCHEMA_VERSION
+      });
+    }
+
+    function loadCloudSyncQueue() {
+      const queue = StorageManager.get(CLOUD_SYNC_QUEUE_KEY, []);
+      return Array.isArray(queue) ? queue.filter(item => item && typeof item === 'object' && typeof item.path === 'string') : [];
+    }
+
+    function saveCloudSyncQueue(queue) {
+      StorageManager.set(CLOUD_SYNC_QUEUE_KEY, Array.isArray(queue) ? queue : []);
+    }
+
+    function markCloudStateDirty(reason = 'local_change') {
+      saveCloudSyncMeta({
+        lastLocalChangeAt: Date.now(),
+        lastLocalReason: reason
+      });
+    }
+
+    function collectCloudSnapshot() {
+      const values = {};
+      CLOUD_SYNC_KEYS.forEach((key) => {
+        const rawValue = localStorage.getItem(StorageManager.PREFIX + key);
+        values[key] = rawValue === null ? null : rawValue;
+      });
+
+      return {
+        schemaVersion: CLOUD_SYNC_SCHEMA_VERSION,
+        updatedAt: Date.now(),
+        username: sanitizeUsername(StorageManager.getRaw('username', G.username || 'Anonym')),
+        values
+      };
+    }
+
+    function applyCloudSnapshot(snapshot) {
+      if (!snapshot || typeof snapshot !== 'object' || !snapshot.values || typeof snapshot.values !== 'object') return false;
+
+      let changed = false;
+      CLOUD_SYNC_KEYS.forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(snapshot.values, key)) return;
+
+        const nextValue = snapshot.values[key];
+        const storageKey = StorageManager.PREFIX + key;
+        const currentValue = localStorage.getItem(storageKey);
+
+        if (nextValue === null) {
+          if (currentValue !== null) {
+            localStorage.removeItem(storageKey);
+            changed = true;
+          }
+          return;
+        }
+
+        const normalizedValue = String(nextValue);
+        if (currentValue !== normalizedValue) {
+          localStorage.setItem(storageKey, normalizedValue);
+          changed = true;
+        }
+      });
+
+      return changed;
+    }
+
+    function buildCloudProfile() {
+      const { rank } = getRank(G.xp);
+      const gameStats = loadGameStats();
+      const lgStats = loadWeaponStats('lg');
+      const kkStats = loadWeaponStats('kk');
+
+      return {
+        uid: fbUser?.uid || '',
+        username: sanitizeUsername(G.username || StorageManager.getRaw('username', 'Anonym')),
+        createdAt: Number(fbCloudProfileCache?.createdAt) || Date.now(),
+        updatedAt: Date.now(),
+        lastSeenAt: Date.now(),
+        favoriteDiscipline: G.discipline || 'lg40',
+        preferredWeapon: G.weapon || 'lg',
+        rankSnapshot: {
+          xp: Number(G.xp) || 0,
+          rank: rank.name,
+          rankIcon: rank.icon
+        },
+        statsSummary: {
+          totalDuels: getTotalDuels(gameStats),
+          wins: Number(gameStats.wins || 0),
+          losses: Number(gameStats.losses || 0),
+          draws: Number(gameStats.draws || 0),
+          lgGames: Number((lgStats.wins || 0) + (lgStats.losses || 0) + (lgStats.draws || 0)),
+          kkGames: Number((kkStats.wins || 0) + (kkStats.losses || 0) + (kkStats.draws || 0))
+        }
+      };
+    }
+
+    function refreshStateFromLocalStorage() {
+      const savedName = StorageManager.getRaw('username', '');
+      G.username = savedName ? sanitizeUsername(savedName) : '';
+      loadXP();
+      loadAllStreaks();
+      updateSchuetzenpass();
+      updateProfileMenu();
+
+      if (DOM.psUsername) DOM.psUsername.textContent = G.username || 'Anonym';
+      if (DOM.profileOverlay?.classList.contains('active')) refreshProfileSheet();
+
+      if (DOM.diffInfoTxt && typeof AdaptiveBotSystem !== 'undefined' && typeof AdaptiveBotSystem.getCurrentDifficulty === 'function') {
+        const syncedDiff = AdaptiveBotSystem.getCurrentDifficulty(G.discipline);
+        if (syncedDiff && DIFF[syncedDiff]) setDifficulty(syncedDiff, { persist: false });
+      }
+
+      const welcomeOverlay = document.getElementById('welcomeOverlay');
+      if (welcomeOverlay && G.username) welcomeOverlay.classList.remove('active');
+
+      if (typeof RookiePlan !== 'undefined') {
+        RookiePlan.evaluateAndRender(true);
+        RookiePlan.showIntroIfNeeded(false);
+      }
+    }
+
+    function enqueueFirebaseSet(path, value, dedupeKey = null, options = {}) {
+      const queue = loadCloudSyncQueue();
+      const task = {
+        type: 'set',
+        path,
+        value,
+        dedupeKey: dedupeKey || '',
+        requiresAuth: options.requiresAuth !== false,
+        queuedAt: Date.now()
+      };
+
+      if (task.dedupeKey) {
+        const existingIndex = queue.findIndex(item => item && item.dedupeKey === task.dedupeKey);
+        if (existingIndex >= 0) queue.splice(existingIndex, 1, task);
+        else queue.push(task);
+      } else {
+        queue.push(task);
+      }
+
+      saveCloudSyncQueue(queue);
+      saveCloudSyncMeta({ lastQueuedAt: Date.now() });
+    }
+
+    async function flushFirebaseSyncQueue() {
+      if (fbCloudFlushPromise) return fbCloudFlushPromise;
+      if (!fbReady || !fbDb) return false;
+
+      fbCloudFlushPromise = (async () => {
+        const queue = loadCloudSyncQueue();
+        if (!queue.length) return true;
+
+        const pending = [];
+        for (const task of queue) {
+          if (!task || task.type !== 'set' || typeof task.path !== 'string') continue;
+          if (task.requiresAuth && !fbUser) {
+            pending.push(task);
+            continue;
+          }
+
+          try {
+            await fbDb.ref(task.path).set(task.value);
+          } catch (error) {
+            console.warn('Firebase queue write failed:', task.path, error?.code || error?.message || error);
+            pending.push(task);
+          }
+        }
+
+        saveCloudSyncQueue(pending);
+        saveCloudSyncMeta({ lastQueueFlushAt: Date.now() });
+        return pending.length === 0;
+      })().finally(() => {
+        fbCloudFlushPromise = null;
+      });
+
+      return fbCloudFlushPromise;
+    }
+
+    function scheduleFirebaseQueueFlush(delay = 600) {
+      if (fbCloudSyncTimer) clearTimeout(fbCloudSyncTimer);
+      fbCloudSyncTimer = setTimeout(() => {
+        fbCloudSyncTimer = null;
+        flushFirebaseSyncQueue();
+      }, delay);
+    }
+
+    function queueCloudSnapshot(reason = 'cloud_snapshot') {
+      if (!fbUser) return false;
+      enqueueFirebaseSet(
+        `users/${fbUser.uid}/cloud`,
+        collectCloudSnapshot(),
+        `cloud:${fbUser.uid}`,
+        { requiresAuth: true }
+      );
+      return true;
+    }
+
+    function queueCloudProfile(reason = 'profile_sync') {
+      if (!fbUser) return false;
+      const profile = buildCloudProfile();
+      fbCloudProfileCache = profile;
+      enqueueFirebaseSet(
+        `users/${fbUser.uid}/profile`,
+        profile,
+        `profile:${fbUser.uid}`,
+        { requiresAuth: true }
+      );
+      return true;
+    }
+
+    function queueLeaderboardEntry(reason = 'leaderboard_sync') {
+      if (!G.username) return false;
+
+      const entry = buildFirebaseEntry();
+      entry.name = sanitizeUsername(entry.name);
+      entry.username = sanitizeUsername(entry.username);
+      entry.uid = fbUser?.uid || '';
+
+      const leaderboardKey = fbUser?.uid || getFirebaseProfileKey(entry.username);
+      enqueueFirebaseSet(
+        `leaderboard_v2/${leaderboardKey}`,
+        entry,
+        `leaderboard:${leaderboardKey}`,
+        { requiresAuth: !!fbUser }
+      );
+      return true;
+    }
+
+    function scheduleCloudSync(reason = 'local_change', options = {}) {
+      markCloudStateDirty(reason);
+
+      if (fbUser) {
+        queueCloudSnapshot(reason);
+        queueCloudProfile(reason);
+        if (G.username) queueLeaderboardEntry(reason);
+      } else if (fbReady) {
+        ensureFirebaseAnonymousAuth().then((user) => {
+          if (!user) return;
+          fbUser = user;
+          queueCloudSnapshot(reason);
+          queueCloudProfile(reason);
+          if (G.username) queueLeaderboardEntry(reason);
+          if (options.immediate) flushFirebaseSyncQueue();
+          else scheduleFirebaseQueueFlush(options.delay ?? 800);
+        });
+      }
+
+      if (options.immediate) return flushFirebaseSyncQueue();
+
+      scheduleFirebaseQueueFlush(options.delay ?? 800);
+      return Promise.resolve(true);
+    }
+
+    function queueFeedbackEntry(entry) {
+      if (!entry || typeof entry !== 'object') return;
+      const key = entry.key || `${entry.ts || Date.now()}_${fbUser?.uid || entry.userHash || 'anon'}`;
+      const payload = {
+        ...entry,
+        uid: fbUser?.uid || entry.uid || '',
+        username: sanitizeUsername(entry.username || G.username || 'Anonym')
+      };
+      delete payload.key;
+
+      enqueueFirebaseSet(`feedback_v1/${key}`, payload, null, { requiresAuth: false });
+      scheduleFirebaseQueueFlush(400);
+    }
+
+    async function bootstrapCloudUser(user) {
+      if (!user || !fbDb) return;
+
+      if (fbCloudBootstrapUid === user.uid) {
+        scheduleFirebaseQueueFlush(200);
+        return;
+      }
+
+      fbCloudBootstrapUid = user.uid;
+
+      try {
+        const [profileSnap, cloudSnap] = await Promise.all([
+          fbDb.ref(`users/${user.uid}/profile`).once('value'),
+          fbDb.ref(`users/${user.uid}/cloud`).once('value')
+        ]);
+
+        const remoteProfile = profileSnap.val() || null;
+        const remoteCloud = cloudSnap.val() || null;
+        const meta = loadCloudSyncMeta();
+        const remoteUpdatedAt = Number(remoteCloud?.updatedAt || remoteProfile?.updatedAt || 0);
+        const localUpdatedAt = Number(meta.lastLocalChangeAt || 0);
+
+        fbCloudProfileCache = remoteProfile;
+
+        if (remoteCloud && remoteUpdatedAt > localUpdatedAt) {
+          const changed = applyCloudSnapshot(remoteCloud);
+          saveCloudSyncMeta({
+            lastAppliedAt: remoteUpdatedAt,
+            lastLocalChangeAt: remoteUpdatedAt
+          });
+          if (changed) refreshStateFromLocalStorage();
+        } else if (remoteProfile && remoteProfile.username && !StorageManager.getRaw('username')) {
+          StorageManager.setRaw('username', sanitizeUsername(remoteProfile.username));
+          refreshStateFromLocalStorage();
+        }
+
+        if (G.username) {
+          queueCloudSnapshot('cloud_bootstrap');
+          queueCloudProfile('cloud_bootstrap');
+          queueLeaderboardEntry('cloud_bootstrap');
+          scheduleFirebaseQueueFlush(200);
+        }
+      } catch (error) {
+        console.warn('Cloud bootstrap failed:', error?.code || error?.message || error);
+      }
+    }
+
+    function ensureFirebaseAnonymousAuth() {
+      if (!fbReady || !fbApp || !firebase || typeof firebase.auth !== 'function') {
+        return Promise.resolve(null);
+      }
+
+      if (!fbAuth) fbAuth = firebase.auth(fbApp);
+      if (fbAuth.currentUser) return Promise.resolve(fbAuth.currentUser);
+
+      return fbAuth.signInAnonymously()
+        .then(result => result?.user || fbAuth.currentUser || null)
+        .catch((error) => {
+          console.warn('Firebase anonymous auth failed:', error?.code || error?.message || error);
+          return null;
+        });
+    }
+
+    function bindFirebaseAuth() {
+      if (!fbReady || fbAuthListenerBound || !firebase || typeof firebase.auth !== 'function') return;
+
+      fbAuth = firebase.auth(fbApp);
+      fbAuthListenerBound = true;
+      fbAuth.onAuthStateChanged((user) => {
+        fbUser = user || null;
+        if (!fbUser) {
+          ensureFirebaseAnonymousAuth();
+          return;
+        }
+        bootstrapCloudUser(fbUser);
+      });
+
+      ensureFirebaseAnonymousAuth();
+    }
+
     function initFirebase() {
       try {
         if (!firebase || !firebase.apps) return;
@@ -1775,6 +2172,8 @@
         }
         fbDb = firebase.database(fbApp);
         fbReady = true;
+        bindFirebaseAuth();
+        scheduleFirebaseQueueFlush(1200);
       } catch (e) { console.warn('Firebase init failed:', e); fbReady = false; }
     }
 
@@ -1853,7 +2252,7 @@
 
       const markup = entries.map((e, i) => {
         const displayName = e.name || e.username || 'Anonym';
-        const isMe = G.username && (e.name === G.username || e.username === G.username);
+        const isMe = (fbUser?.uid && e.uid === fbUser.uid) || (G.username && (e.name === G.username || e.username === G.username));
         const weaponIcon = e.weapon === 'kk' ? '🎯' : '🌬️';
         const score = Number(e.score ?? e.xp ?? 0) || 0;
         const xp = Number(e.xp ?? 0) || 0;
@@ -1890,6 +2289,7 @@
       // Score = XP + Streak-Bonus (jeder Best-Streak-Punkt = 5 Bonus-Punkte)
       const score = G.xp + bestStreak * 5;
       return {
+        uid: fbUser?.uid || '',
         name: G.username || 'Anonym',
         username: G.username || 'Anonym',
         xp: G.xp,
@@ -1985,21 +2385,49 @@
     };
 
     pushProfileToFirebase = function pushProfileToFirebasePatched(onDone) {
-      if (!fbReady || !G.username) { if (onDone) onDone(false); return; }
+      if (!G.username) { if (onDone) onDone(false); return; }
 
-      const entry = buildFirebaseEntry();
-      entry.name = sanitizeUsername(entry.name);
-      entry.username = sanitizeUsername(entry.username);
+      const finish = (ok) => {
+        if (ok) updateLbStatusBadge();
+        if (onDone) onDone(ok);
+      };
 
-      const profileKey = getFirebaseProfileKey(entry.username);
-      fbDb.ref('leaderboard_v2/' + profileKey).set(entry)
-        .then(() => {
-          updateLbStatusBadge();
-          if (onDone) onDone(true);
+      const syncNow = () => {
+        queueCloudSnapshot('profile_push');
+        queueCloudProfile('profile_push');
+        queueLeaderboardEntry('profile_push');
+        return flushFirebaseSyncQueue()
+          .then(() => finish(true))
+          .catch((err) => {
+            console.error('Leaderboard push error:', err?.code, err?.message);
+            finish(false);
+          });
+      };
+
+      scheduleCloudSync('profile_push');
+
+      if (!fbReady || !fbDb) {
+        finish(true);
+        return;
+      }
+
+      if (fbUser) {
+        syncNow();
+        return;
+      }
+
+      ensureFirebaseAnonymousAuth()
+        .then((user) => {
+          if (!user) {
+            finish(false);
+            return;
+          }
+          fbUser = user;
+          syncNow();
         })
         .catch((err) => {
-          console.error('Leaderboard push error:', err?.code, err?.message);
-          if (onDone) onDone(false);
+          console.error('Firebase auth sync error:', err?.code, err?.message);
+          finish(false);
         });
     };
 
@@ -2611,6 +3039,7 @@
       const newBest = Math.max(streak, best);
       StorageManager.set(`${w}_streak`, streak);
       StorageManager.set(`${w}_best`, newBest);
+      scheduleCloudSync(`streak_${w}`);
 
       STREAK_CACHE[w] = { streak, best: newBest };
       G.streak = streak;
@@ -4316,7 +4745,7 @@ requestAnimationFrame(() => {
       if (!confirm("Möchtest du wirklich deinen gesamten Fortschritt (XP, Siege, Erfolge und Streaks) löschen? Dies kann nicht rückgängig gemacht werden!")) return;
 
       const backupName = G.username;
-      StorageManager.clearAll(['reset_v3', 'username']);
+      StorageManager.clearAll(['reset_v3', 'reset_v4', 'username']);
       StorageManager.setRaw('reset_v3', 'true');
       if (backupName) StorageManager.setRaw('username', backupName);
 
@@ -4327,6 +4756,7 @@ requestAnimationFrame(() => {
       loadAllStreaks();
       updateSchuetzenpass();
       checkSunAchievements();
+      scheduleCloudSync('hard_reset');
 
       alert("Alle lokalen Daten wurden zurückgesetzt.");
       location.reload(); // Am sichersten für einen kompletten Reset
@@ -4429,14 +4859,14 @@ requestAnimationFrame(() => {
 
     // Check Welcome screen on init
     function checkFirstVisit() {
-      const savedNameRaw = localStorage.getItem('sd_username');
+      const savedNameRaw = StorageManager.getRaw('username');
       if (!savedNameRaw) {
         document.getElementById('welcomeOverlay').classList.add('active');
         setTimeout(() => document.getElementById('welcomeNameInp')?.focus(), 400);
       } else {
         const savedName = sanitizeUsername(savedNameRaw);
         if (savedName !== savedNameRaw) {
-          localStorage.setItem('sd_username', savedName);
+          StorageManager.setRaw('username', savedName);
         }
         G.username = savedName;
         // Bekannter User: Profil im Hintergrund synchronisieren
@@ -4457,7 +4887,7 @@ requestAnimationFrame(() => {
       const inp = document.getElementById('welcomeNameInp');
       const name = sanitizeUsername(inp.value);
 
-      localStorage.setItem('sd_username', name);
+      StorageManager.setRaw('username', name);
       G.username = name;
 
       // Update profile sheet name
@@ -4466,6 +4896,7 @@ requestAnimationFrame(() => {
 
       document.getElementById('welcomeOverlay').classList.remove('active');
 
+      scheduleCloudSync('username_changed', { immediate: true });
       // Sofort in Firebase registrieren (Erstanmeldung)
       pushProfileToFirebase();
       // Tutorial für neue Nutzer starten
@@ -4544,6 +4975,18 @@ requestAnimationFrame(() => {
       }
     };
     _tryInitFb();
+
+    window.addEventListener('online', () => {
+      scheduleCloudSync('went_online');
+      scheduleFirebaseQueueFlush(100);
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        scheduleCloudSync('page_hidden');
+        flushFirebaseSyncQueue();
+      }
+    });
 
     let _rzTimer = null;
     window.addEventListener('resize', () => {
