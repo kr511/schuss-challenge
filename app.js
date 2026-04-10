@@ -186,7 +186,7 @@
       shots: 40,             // Schussanzahl (aus Disziplin oder manuell)
       burst: false,          // 5er-Salve Modus
       targetShots: [],       // Sichtbare Treffer auf der Scheibe
-      botShots: [], botTotal: 0, botTotalInt: 0, _botTotalTenths: 0,
+      botShots: [], botPlan: null, botTotal: 0, botTotalInt: 0, _botTotalTenths: 0,
       playerTotal: 0, playerTotalInt: 0, _playerTotalTenths: 0,
       playerShotsLeft: 40, botShotsLeft: 40, maxShots: 40,
       xp: 0,                 // XP-Stand
@@ -421,11 +421,15 @@
 
     // Hilfsfunktion zum Abrufen der disziplinspezifischen Schwierigkeits-Info
     function getDiffInfo(diff) {
+      if (typeof BattleBalance !== 'undefined') {
+        const info = BattleBalance.getDifficultyInfo(G.discipline, diff);
+        if (info) return info;
+      }
       const discSpecificInfos = DIFF_INFO_BY_DISC[G.discipline];
       if (discSpecificInfos && discSpecificInfos[diff]) {
         return discSpecificInfos[diff];
       }
-      return DIFF[diff].info; // Fallback zu Standard-Info
+      return DIFF[diff]?.info || '';
     }
 
     /** KK 3×20: nur ganze Ringe, keine Zehntel in UI/Vergleich (KK 50/100m verhalten sich wie LG) */
@@ -2379,11 +2383,26 @@
       return;
     }
 
+    function setDifficulty(diff) {
+      if (!diff || !DIFF[diff]) return;
+
+      G.diff = diff;
+      document.querySelectorAll('#diffGroup .dif').forEach((button) => {
+        button.classList.toggle('active', button.dataset.diff === diff);
+      });
+
+      if (DOM.diffInfoTxt) {
+        DOM.diffInfoTxt.innerHTML = getDiffInfo(diff);
+      }
+
+      if (DOM.battleBadge) {
+        DOM.battleBadge.textContent = DIFF[diff].lbl;
+        DOM.battleBadge.className = 'diff-badge ' + DIFF[diff].cls;
+      }
+    }
+
     function selDiff(btn) {
-      document.querySelectorAll('#diffGroup .dif').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      G.diff = btn.dataset.diff;
-      DOM.diffInfoTxt.innerHTML = getDiffInfo(G.diff);
+      setDifficulty(btn.dataset.diff);
     }
 
     function selShots(btn) {
@@ -2727,7 +2746,7 @@ requestAnimationFrame(() => {
       G.playerShotsLeft = dc.shots;
       G.botShotsLeft = dc.shots;
       G.targetShots = [];
-      G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
+      G.botShots = []; G.botPlan = null; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.playerTotal = 0; G.playerTotalInt = 0; G._playerTotalTenths = 0;
       G.playerShots = [];
       G._gameStartTime = Date.now();
@@ -2750,6 +2769,7 @@ requestAnimationFrame(() => {
       G.posShots = 0;
       G.perPos = 20;
       G.posResults = dc.is3x20 ? dc.positions.map(() => ({ total: 0, int: 0, _tenths: 0, playerShots: [] })) : [];
+      G.botPlan = buildCurrentBotPlan();
 
       setSz(); drawTarget([]);
 
@@ -2952,11 +2972,101 @@ requestAnimationFrame(() => {
       'Stehend': { mult: 1.80, noise: 0.50 }, // realistisch streut, 8-10
     };
 
+    function getTargetMaxRadius() {
+      return canvas && canvas.width ? (canvas.width / 2 - 3) : 132;
+    }
+
+    function createShotCracks() {
+      return Array.from({ length: 7 }, (_, i) => ({
+        a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
+        len: 1.4 + Math.random()
+      }));
+    }
+
+    function buildFallbackShot(isBot) {
+      const dc = DIFF[G.diff] || DIFF.real;
+      const sig = SIGMA[G.dist] || SIGMA['50'];
+      let botSig;
+
+      if (G.is3x20 && G.weapon === 'kk' && G.positions.length > 0) {
+        const posName = G.positions[G.posIdx] || 'Liegend';
+        const pm = POS_MULT[posName] || POS_MULT['Stehend'];
+        botSig = sig * dc.mult * pm.mult + (dc.noise * pm.mult + pm.noise) * Math.random();
+      } else if (G.weapon === 'kk' && !G.is3x20) {
+        const KK60_BASE = { easy: 15.4, real: 13.4, hard: 11.3, elite: 9.8 };
+        const KK60_NOISE = { easy: 2.5, real: 1.5, hard: 0.8, elite: 0.2 };
+        botSig = (KK60_BASE[G.diff] ?? 13.4) + (KK60_NOISE[G.diff] ?? 1.5) * Math.random();
+      } else if (G.discipline === 'lg40') {
+        const LG40_BASE = { easy: 22.7, real: 17.2, hard: 12.5, elite: 8.8 };
+        const LG40_NOISE = { easy: 3, real: 2, hard: 1, elite: 0.2 };
+        botSig = (LG40_BASE[G.diff] ?? 17.2) + (LG40_NOISE[G.diff] ?? 2) * Math.random();
+      } else if (G.discipline === 'lg60') {
+        const LG60_BASE = { easy: 16.6, real: 12.9, hard: 9.4, elite: 7.9 };
+        const LG60_NOISE = { easy: 2, real: 1.5, hard: 0.8, elite: 0.2 };
+        botSig = (LG60_BASE[G.diff] ?? 12.9) + (LG60_NOISE[G.diff] ?? 1.5) * Math.random();
+      } else {
+        botSig = sig * dc.mult + dc.noise * Math.random();
+      }
+
+      if (!isBot) botSig *= 1.1;
+
+      const dx = gauss(botSig);
+      const dy = gauss(botSig);
+      const scored = scoreHit(dx, dy);
+
+      return {
+        dx,
+        dy,
+        pts: scored.pts,
+        label: scored.label,
+        isX: scored.isX,
+        wholePts: Math.floor(scored.pts),
+        errorType: 'fallback_gauss'
+      };
+    }
+
+    function buildCurrentBotPlan() {
+      if (typeof BattleBalance === 'undefined') return null;
+
+      try {
+        return BattleBalance.generateBotBattlePlan(
+          G.discipline,
+          G.diff,
+          `${Date.now()}:${G.discipline}:${G.diff}:${Math.random()}`
+        );
+      } catch (error) {
+        console.warn('Balance plan generation failed, using fallback bot shot logic.', error);
+        return null;
+      }
+    }
+
+    function consumePlannedBotShot() {
+      if (!G.botPlan) {
+        G.botPlan = buildCurrentBotPlan();
+      }
+      if (!G.botPlan || !Array.isArray(G.botPlan.shots)) return null;
+
+      const planShot = G.botPlan.shots[G.botShots.length];
+      if (!planShot) return null;
+
+      const radius = getTargetMaxRadius();
+      return {
+        dx: planShot.nx * radius,
+        dy: planShot.ny * radius,
+        pts: planShot.pts,
+        label: planShot.label,
+        isX: planShot.isX,
+        wholePts: planShot.wholePts,
+        position: planShot.position || null,
+        errorType: 'planned_balance'
+      };
+    }
+
     function fireSingleShot(isBot = true) {
       if (isBot && G.botShotsLeft <= 0) return false;
       if (!isBot && G.playerShotsLeft <= 0) return false;
 
-      let bdx, bdy, dominantError = 'wobble';
+      let bdx, bdy, dominantError = 'wobble', plannedShot = null;
 
       // DEAKTIVIERT: AdaptiveBotSystem-Physik produziert Scores die nicht
       // zu den Schwierigkeitsbeschreibungen passen (z.B. "~360-375 Pkt").
@@ -2999,21 +3109,30 @@ requestAnimationFrame(() => {
         bdy = gauss(botSig);
       }
 
-      const bRes = scoreHit(bdx, bdy);
+      if (isBot) {
+        plannedShot = consumePlannedBotShot();
+        if (plannedShot) {
+          bdx = plannedShot.dx;
+          bdy = plannedShot.dy;
+          dominantError = plannedShot.errorType || 'planned_balance';
+        }
+      }
+
+      const bRes = plannedShot
+        ? { pts: plannedShot.pts, label: plannedShot.label, isX: plannedShot.isX }
+        : scoreHit(bdx, bdy);
+      const wholePts = plannedShot?.wholePts ?? Math.floor(bRes.pts);
 
       if (isBot) {
         G.botShots.push({
           dx: bdx, dy: bdy, pts: bRes.pts, label: bRes.label, isX: bRes.isX,
           errorType: dominantError,
-          cracks: Array.from({ length: 7 }, (_, i) => ({
-            a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
-            len: 1.4 + Math.random()
-          }))
+          position: plannedShot?.position || null,
+          cracks: createShotCracks()
         });
 
         if (G.is3x20 && G.weapon === 'kk') {
-          const wholeRing = Math.floor(bRes.pts);
-          G._botTotalTenths = (G._botTotalTenths || 0) + wholeRing * 10;
+          G._botTotalTenths = (G._botTotalTenths || 0) + wholePts * 10;
           G.botTotal = G._botTotalTenths / 10;
         } else {
           G._botTotalTenths = (G._botTotalTenths || 0) + Math.round(bRes.pts * 10);
@@ -3027,10 +3146,9 @@ requestAnimationFrame(() => {
       } else {
         G.playerShotsLeft--;
         if (G.is3x20 && G.weapon === 'kk') {
-          const wholeRing = Math.floor(bRes.pts);
-          G._playerTotalTenths = (G._playerTotalTenths || 0) + wholeRing * 10;
+          G._playerTotalTenths = (G._playerTotalTenths || 0) + wholePts * 10;
           G.playerTotal = G._playerTotalTenths / 10;
-          G.playerTotalInt += wholeRing;
+          G.playerTotalInt += wholePts;
         } else {
           G._playerTotalTenths = (G._playerTotalTenths || 0) + Math.round(bRes.pts * 10);
           G.playerTotal = G._playerTotalTenths / 10;
@@ -3039,10 +3157,7 @@ requestAnimationFrame(() => {
         // Spieler-Schuss auf der sichtbaren Zielscheibe speichern
         G.targetShots.push({
           dx: bdx, dy: bdy, pts: bRes.pts, label: bRes.label, isX: bRes.isX,
-          cracks: Array.from({ length: 7 }, (_, i) => ({
-            a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
-            len: 1.4 + Math.random()
-          }))
+          cracks: createShotCracks()
         });
       }
 
@@ -3053,7 +3168,7 @@ requestAnimationFrame(() => {
         else if (bRes.pts <= 5) MobileFeatures.hapticMiss();
       }
 
-      return { ...bRes, dx: bdx, dy: bdy };
+      return { ...bRes, dx: bdx, dy: bdy, position: plannedShot?.position || null };
     }
 
     function skipProbe() {
@@ -4078,7 +4193,7 @@ requestAnimationFrame(() => {
       // Reload everything
       loadXP();
       G.targetShots = [];
-      G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
+      G.botShots = []; G.botPlan = null; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       loadAllStreaks();
       updateSchuetzenpass();
       checkSunAchievements();
@@ -4091,7 +4206,7 @@ requestAnimationFrame(() => {
       clearPendingFeedbackPrompt();
       clearBattleTimers();
       G.targetShots = [];
-      G.botShots = []; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
+      G.botShots = []; G.botPlan = null; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
       G.playerTotal = 0; G.playerTotalInt = 0; G._playerTotalTenths = 0;
       G.playerShotsLeft = G.shots; G.botShotsLeft = G.shots; G.maxShots = G.shots;
       G.dnf = false;
@@ -4199,10 +4314,7 @@ requestAnimationFrame(() => {
 
     window.addEventListener('difficultyAdapted', function(event) {
       console.log('🎯 Schwierigkeit angepasst:', event.detail.oldDifficulty, '→', event.detail.newDifficulty);
-      // Optional: UI aktualisieren
-      if (DOM.diffInfoTxt) {
-        DOM.diffInfoTxt.innerHTML = getDiffInfo(event.detail.newDifficulty);
-      }
+      setDifficulty(event.detail.newDifficulty);
     });
 
     function saveWelcomeName() {

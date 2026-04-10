@@ -175,6 +175,15 @@ const QATestSuite = (function() {
       {
         name: 'Profile menu accessible',
         check: () => document.getElementById('profileIcon') !== null
+      },
+      {
+        name: 'Battle balance plans validate',
+        check: () => {
+          if (typeof BattleBalance === 'undefined') return false;
+          const report = BattleBalance.runBalanceVerification({ sampleCount: 1, seedPrefix: 'qa-smoke' });
+          window.__battleBalanceSmoke = report;
+          return report.ok;
+        }
       }
     ];
 

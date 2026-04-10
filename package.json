@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "verify:balance": "node verify-balance.js",
     "d1:migrate:local": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql --local",
     "d1:migrate:remote": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql"
   },
