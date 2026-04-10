@@ -273,19 +273,19 @@
     const SIGMA = { '10': 18, '50': 46, '100': 72 };
     const DIFF = {
       easy: {
-        mult: 0.88, noise: 5, lbl: '😊 EINFACH', cls: 'easy',
+        mult: 0.33, noise: 5, lbl: '😊 EINFACH', cls: 'easy',
         info: '<b>Einfach</b> – Solider Einstieg. ~360–375 Pkt. Schaffbar mit Konzentration!'
       },
       real: {
-        mult: 0.60, noise: 3.0, lbl: '🎯 MITTEL', cls: 'real',
+        mult: 0.30, noise: 3.0, lbl: '🎯 MITTEL', cls: 'real',
         info: '<b>Mittel</b> – Fast nur 9er und 10er. ~380–390 Pkt. Kein Spaziergang!'
       },
       hard: {
-        mult: 0.22, noise: 0.5, lbl: '💪 ELITE', cls: 'hard',
+        mult: 0.28, noise: 0.5, lbl: '💪 ELITE', cls: 'hard',
         info: '<b>Elite</b> – Trifft sehr präzise. ~395–405 Pkt. Kaum zu schlagen!'
       },
       elite: {
-        mult: 0.11, noise: 0.08, lbl: '💫 PROFI', cls: 'elite',
+        mult: 0.25, noise: 0.08, lbl: '💫 PROFI', cls: 'elite',
         info: '<b>Profi</b> – Immer ≥410 Zehntel. Extrem präzise. Viel Glück!'
       }
     };
@@ -2958,22 +2958,10 @@ requestAnimationFrame(() => {
 
       let bdx, bdy, dominantError = 'wobble';
 
-      // Wenn Bot schießt: Physiologische Simulation nutzen falls verfügbar
-      if (isBot && typeof AdaptiveBotSystem !== 'undefined' && AdaptiveBotSystem.isEnabled()) {
-        const difficulty = G.diff; // 'easy', 'real', 'hard', 'elite'
-        const discipline = G.discipline || (G.weapon === 'kk' ? 'kk50' : 'lg40');
-
-        const shot = AdaptiveBotSystem.fireSingleShot(difficulty, discipline);
-        // AdaptiveBotSystem gibt mm zurück, wir brauchen Pixel (Sigma-Äquivalent)
-        // In app.js entspricht Sigma ~13px bei LG10m
-        // Physics-Engine: Ring 10 Radius = 0.5mm
-        // app.js: Ring 10 Radius = 13.2px (ca. 10% der maxR)
-        // Skalierungsfaktor mm -> px: ~26 (0.5mm * 26.4 = 13.2px)
-        const scale = G.weapon === 'kk' ? 2.5 : 26.4;
-        bdx = shot.x * scale;
-        bdy = shot.y * scale;
-        dominantError = shot.dominantError;
-      } else {
+      // DEAKTIVIERT: AdaptiveBotSystem-Physik produziert Scores die nicht
+      // zu den Schwierigkeitsbeschreibungen passen (z.B. "~360-375 Pkt").
+      // Immer kalibrierte Gauß-Sigma-Werte nutzen.
+      {
         // Fallback oder Spieler-Schuss: Bestehende Gauß-Logik
         const dc = DIFF[G.diff] || DIFF.real;
         const sig = SIGMA[G.dist] || SIGMA['50'];
@@ -2986,20 +2974,20 @@ requestAnimationFrame(() => {
           const pm = POS_MULT[posName] || POS_MULT['Stehend'];
           botSig = sig * dc.mult * pm.mult + (dc.noise * pm.mult + pm.noise) * Math.random();
         } else if (G.weapon === 'kk' && !G.is3x20) {
-          // KK 50m/100m (60 Schuss Liegend): kalibriert auf 580–620 Zehntel
-          const KK60_BASE  = { easy: 11.5, real: 9.5, hard: 7.5, elite: 6.5 };
-          const KK60_NOISE = { easy: 2.5,  real: 1.5, hard: 0.8, elite: 0.2 };
-          botSig = (KK60_BASE[G.diff] ?? 9.5) + (KK60_NOISE[G.diff] ?? 1.5) * Math.random();
+          // KK 50m/100m (60 Schuss Liegend): kalibriert auf 580–614 Zehntel
+          const KK60_BASE  = { easy: 15.4, real: 13.4, hard: 11.3, elite: 9.8 };
+          const KK60_NOISE = { easy: 2.5,  real: 1.5,  hard: 0.8,  elite: 0.2 };
+          botSig = (KK60_BASE[G.diff] ?? 13.4) + (KK60_NOISE[G.diff] ?? 1.5) * Math.random();
         } else if (G.discipline === 'lg40') {
-          // LG 40 (40 Schuss, 10m): kalibriert auf 360–415 Zehntel
-          const LG40_BASE  = { easy: 17, real: 13, hard: 9, elite: 6 };
-          const LG40_NOISE = { easy:  3, real:  2, hard: 1, elite: 0.2 };
-          botSig = (LG40_BASE[G.diff] ?? 13) + (LG40_NOISE[G.diff] ?? 2) * Math.random();
+          // LG 40 (40 Schuss, 10m): kalibriert auf 360–412 Zehntel
+          const LG40_BASE  = { easy: 22.7, real: 17.2, hard: 12.5, elite: 8.8 };
+          const LG40_NOISE = { easy:  3,   real:  2,   hard: 1,    elite: 0.2 };
+          botSig = (LG40_BASE[G.diff] ?? 17.2) + (LG40_NOISE[G.diff] ?? 2) * Math.random();
         } else if (G.discipline === 'lg60') {
-          // LG 60 (60 Schuss, 10m): kalibriert auf 575–625 Zehntel
-          const LG60_BASE  = { easy: 12, real: 9, hard: 6.5, elite: 5.5 };
-          const LG60_NOISE = { easy:  2, real: 1.5, hard: 0.8, elite: 0.2 };
-          botSig = (LG60_BASE[G.diff] ?? 9) + (LG60_NOISE[G.diff] ?? 1.5) * Math.random();
+          // LG 60 (60 Schuss, 10m): kalibriert auf 575–622 Zehntel
+          const LG60_BASE  = { easy: 16.6, real: 12.9, hard: 9.4, elite: 7.9 };
+          const LG60_NOISE = { easy:  2,   real: 1.5,  hard: 0.8, elite: 0.2 };
+          botSig = (LG60_BASE[G.diff] ?? 12.9) + (LG60_NOISE[G.diff] ?? 1.5) * Math.random();
         } else {
           botSig = sig * dc.mult + dc.noise * Math.random();
         }
