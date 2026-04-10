@@ -176,6 +176,7 @@
             <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
             <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
             <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
+            <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
           </div>
 
           <!-- Body -->
@@ -319,6 +320,12 @@
               <div id="psHistoryList">
                 <div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu
                   sehen!</div>
+              </div>
+            </div>
+
+            <div class="ps-panel" id="psPanel-debug" style="display:none;">
+              <div id="psDebugMount">
+                <div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>
               </div>
             </div>
 

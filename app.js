@@ -604,6 +604,7 @@
         ov.classList.remove('active');
         if (icon) icon.classList.remove('active');
       } else {
+        refreshDebugToolsVisibility();
         refreshProfileSheet();
         ov.classList.add('active');
         if (icon) icon.classList.add('active');
@@ -630,6 +631,7 @@
       if (tab === 'sun') renderSunGrid();
       if (tab === 'lb') loadLeaderboard();
       if (tab === 'history') renderHistory();
+      if (tab === 'debug') refreshDebugPanel();
       if (tab === 'stats') {
         requestAnimationFrame(() => renderPerformanceChart());
         if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.renderUI();
@@ -692,6 +694,7 @@
         const t = activeTab.dataset.tab;
         if (t === 'sun') renderSunGrid();
         if (t === 'history') renderHistory();
+        if (t === 'debug') renderDebugPanel();
       }
 
       // Update Header Streak Badge
@@ -1772,6 +1775,8 @@
     let fbCloudProfileCache = null;
     let fbCloudSyncTimer = null;
     let fbCloudFlushPromise = null;
+    let debugRemoteState = null;
+    let debugRemoteFetchInFlight = false;
     const LEADERBOARD_CACHE_KEY = 'sd_lb_cache_v1';
     const CLOUD_SYNC_SCHEMA_VERSION = 1;
     const CLOUD_SYNC_META_KEY = 'cloud_sync_meta_v1';
@@ -1821,6 +1826,46 @@
         console.warn('Leaderboard cache read failed:', error);
         return [];
       }
+    }
+
+    function isDebugToolsEnabled() {
+      try {
+        const params = new URLSearchParams(window.location.search || '');
+        if (params.get('debug') === '1' || params.get('debug') === 'true') return true;
+      } catch (error) {
+        console.warn('Debug query read failed:', error);
+      }
+      return StorageManager.getRaw('debug_tools_v1', '0') === '1';
+    }
+
+    function refreshDebugToolsVisibility() {
+      const enabled = isDebugToolsEnabled();
+      const debugTab = document.querySelector('.ps-tab[data-tab="debug"]');
+      const debugPanel = document.getElementById('psPanel-debug');
+      if (debugTab) debugTab.style.display = enabled ? '' : 'none';
+      if (debugPanel) debugPanel.style.display = enabled ? '' : 'none';
+
+      if (!enabled) {
+        const activeDebugTab = document.querySelector('.ps-tab.active[data-tab="debug"]');
+        if (activeDebugTab) switchProfileTab('stats');
+      }
+    }
+
+    function setDebugToolsEnabled(enabled) {
+      StorageManager.setRaw('debug_tools_v1', enabled ? '1' : '0');
+      refreshDebugToolsVisibility();
+      if (enabled) {
+        refreshDebugPanel();
+        switchProfileTab('debug');
+      }
+    }
+
+    function enableDebugTools() {
+      setDebugToolsEnabled(true);
+    }
+
+    function disableDebugTools() {
+      setDebugToolsEnabled(false);
     }
 
     function cacheLeaderboardEntries(entries, scope = getActiveLeaderboardScope()) {
@@ -2128,6 +2173,7 @@
       if (DOM.psUsername) DOM.psUsername.textContent = G.username || 'Anonym';
       if (DOM.profileOverlay?.classList.contains('active')) refreshProfileSheet();
       updateLeaderboardScopeControl();
+      refreshDebugToolsVisibility();
 
       if (DOM.diffInfoTxt && typeof AdaptiveBotSystem !== 'undefined' && typeof AdaptiveBotSystem.getCurrentDifficulty === 'function') {
         const syncedDiff = AdaptiveBotSystem.getCurrentDifficulty(G.discipline);
@@ -2291,6 +2337,150 @@
 
       enqueueFirebaseSet(`feedback_v1/${key}`, payload, null, { requiresAuth: false });
       scheduleFirebaseQueueFlush(400);
+    }
+
+    function formatDebugTimestamp(ts) {
+      const value = Number(ts);
+      if (!Number.isFinite(value) || value <= 0) return '–';
+      return new Date(value).toLocaleString('de-DE');
+    }
+
+    function renderDebugPanel() {
+      const mount = document.getElementById('psDebugMount');
+      if (!mount) return;
+
+      if (!isDebugToolsEnabled()) {
+        mount.innerHTML = '<div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>';
+        return;
+      }
+
+      const meta = loadCloudSyncMeta();
+      const queue = loadCloudSyncQueue();
+      const history = StorageManager.get('history', []);
+      const feedbackEntries = StorageManager.get('feedback_entries', []);
+      const analyticsRaw = StorageManager.get('enhanced_analytics', {});
+      const analyticsGames = Array.isArray(analyticsRaw?.games) ? analyticsRaw.games : [];
+      const scope = getActiveLeaderboardScope();
+      const uid = fbUser?.uid || '';
+      const remote = debugRemoteState;
+      const currentDisciplineEntry = Object.prototype.hasOwnProperty.call(DISC, G.discipline)
+        ? buildDisciplineLeaderboardEntry(G.discipline)
+        : null;
+
+      mount.innerHTML = `
+        <div class="ps-stats-grid">
+          <div class="ps-stat-card">
+            <div class="ps-sc-label">Firebase</div>
+            <div class="ps-sc-val">${fbReady ? 'AN' : 'AUS'}</div>
+            <div class="ps-sc-sub">${fbUser ? 'Auth aktiv' : 'keine Auth'}</div>
+          </div>
+          <div class="ps-stat-card">
+            <div class="ps-sc-label">Queue</div>
+            <div class="ps-sc-val">${queue.length}</div>
+            <div class="ps-sc-sub">ausstehende Writes</div>
+          </div>
+          <div class="ps-stat-card">
+            <div class="ps-sc-label">Matches</div>
+            <div class="ps-sc-val">${Array.isArray(history) ? history.length : 0}</div>
+            <div class="ps-sc-sub">lokal gespeichert</div>
+          </div>
+          <div class="ps-stat-card">
+            <div class="ps-sc-label">Analytics</div>
+            <div class="ps-sc-val">${analyticsGames.length}</div>
+            <div class="ps-sc-sub">Spiele im Analytics-Speicher</div>
+          </div>
+        </div>
+
+        <div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Sync-Status</div>
+        <div class="ps-history-item">
+          <div class="phi-info">
+            <div class="phi-title">User</div>
+            <div class="phi-meta">Username: ${escHtml(G.username || '–')} · UID: ${escHtml(uid || '–')}</div>
+          </div>
+        </div>
+        <div class="ps-history-item">
+          <div class="phi-info">
+            <div class="phi-title">Laufzeit</div>
+            <div class="phi-meta">Disziplin: ${escHtml(G.discipline)} · Schwierigkeit: ${escHtml(G.diff)} · Leaderboard: ${escHtml(scope)}</div>
+          </div>
+        </div>
+        <div class="ps-history-item">
+          <div class="phi-info">
+            <div class="phi-title">Queue-Meta</div>
+            <div class="phi-meta">Letzte lokale Änderung: ${escHtml(formatDebugTimestamp(meta.lastLocalChangeAt))} · Letzter Flush: ${escHtml(formatDebugTimestamp(meta.lastQueueFlushAt))}</div>
+          </div>
+        </div>
+        <div class="ps-history-item">
+          <div class="phi-info">
+            <div class="phi-title">Pfade</div>
+            <div class="phi-meta">/users/${escHtml(uid || '<uid>')}/profile · /cloud · /matches · /leaderboard_v2/${escHtml(uid || '<uid>')}</div>
+          </div>
+        </div>
+        <div class="ps-history-item">
+          <div class="phi-info">
+            <div class="phi-title">Aktuelle Disziplin-Leistung</div>
+            <div class="phi-meta">${currentDisciplineEntry ? `Best ${formatLeaderboardScore(currentDisciplineEntry.bestScore, G.discipline)} · Ø ${formatLeaderboardScore(currentDisciplineEntry.averageScore, G.discipline)} · ${currentDisciplineEntry.totalGames} Spiele` : 'Noch keine Daten fuer diese Disziplin.'}</div>
+          </div>
+        </div>
+        <div class="ps-history-item">
+          <div class="phi-info">
+            <div class="phi-title">Remote-Status</div>
+            <div class="phi-meta">${remote ? escHtml(remote.summary) : 'Noch nicht geladen.'}</div>
+          </div>
+        </div>
+        <div class="ps-history-item">
+          <div class="phi-info">
+            <div class="phi-title">Lokale Puffer</div>
+            <div class="phi-meta">Feedback lokal: ${Array.isArray(feedbackEntries) ? feedbackEntries.length : 0} · Rookie-Plan: ${StorageManager.get('rookie_plan_v1', {}).introSeen ? 'gesehen' : 'offen'}</div>
+          </div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+          <button class="btn-sec" style="font-size:0.6rem;" onclick="debugSyncNow()">Sync jetzt</button>
+          <button class="btn-sec" style="font-size:0.6rem;" onclick="refreshDebugPanel()">Neu laden</button>
+          <button class="btn-sec" style="font-size:0.6rem;" onclick="disableDebugTools()">Debug aus</button>
+        </div>
+      `;
+    }
+
+    function refreshDebugPanel() {
+      renderDebugPanel();
+      if (!isDebugToolsEnabled() || debugRemoteFetchInFlight || !fbReady || !fbDb || !fbUser) return;
+
+      debugRemoteFetchInFlight = true;
+      const uid = fbUser.uid;
+      const scope = getActiveLeaderboardScope();
+      const scopePath = getLeaderboardPath(scope);
+
+      Promise.all([
+        fbDb.ref(`users/${uid}/profile`).once('value'),
+        fbDb.ref(`users/${uid}/cloud`).once('value'),
+        fbDb.ref(`users/${uid}/matches`).once('value'),
+        fbDb.ref(`leaderboard_v2/${uid}`).once('value'),
+        scope === 'global' ? Promise.resolve(null) : fbDb.ref(`${scopePath}/${uid}`).once('value')
+      ])
+        .then(([profileSnap, cloudSnap, matchesSnap, globalLbSnap, scopedLbSnap]) => {
+          const matchCount = matchesSnap?.numChildren ? matchesSnap.numChildren() : Object.keys(matchesSnap?.val() || {}).length;
+          const scopedExists = scope === 'global' ? 'n/a' : (scopedLbSnap?.exists?.() ? 'ja' : 'nein');
+          debugRemoteState = {
+            summary: `Profil: ${profileSnap?.exists?.() ? 'ja' : 'nein'} · Cloud: ${cloudSnap?.exists?.() ? 'ja' : 'nein'} · Matches: ${matchCount} · Global LB: ${globalLbSnap?.exists?.() ? 'ja' : 'nein'} · Scope LB: ${scopedExists}`
+          };
+          renderDebugPanel();
+        })
+        .catch((error) => {
+          debugRemoteState = {
+            summary: `Remote-Fehler: ${error?.code || error?.message || 'unbekannt'}`
+          };
+          renderDebugPanel();
+        })
+        .finally(() => {
+          debugRemoteFetchInFlight = false;
+        });
+    }
+
+    function debugSyncNow() {
+      scheduleCloudSync('debug_manual_sync', { immediate: true });
+      refreshDebugPanel();
     }
 
     async function bootstrapCloudUser(user) {
@@ -5098,6 +5288,7 @@ requestAnimationFrame(() => {
     if (typeof DailyChallenge !== 'undefined') DailyChallenge.init();
     if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.init();
     updateLeaderboardScopeControl();
+    refreshDebugToolsVisibility();
 
     // Firebase Init: nur über _tryInitFb() am Ende der Datei
     checkSunAchievements(); // Check on load in case new achievements unlocked
@@ -5200,6 +5391,10 @@ requestAnimationFrame(() => {
       toggleProfileMenu,
       handleOverlayClick,
       switchProfileTab,
+      enableDebugTools,
+      disableDebugTools,
+      refreshDebugPanel,
+      debugSyncNow,
       setPerfWeapon,
       toggleSoundSetting,
       hardResetProgress,
