@@ -275,15 +275,15 @@ const V2VisionEngine = (function() {
 
     if (btnStart) {
       btnStart.addEventListener('click', async () => {
-        // Initialisiere Modell bei Klick (falls noch nicht geladen)
-        await loadModel();
-        
-        // Start Video Stream
+        // iOS Safari Fix: Kamera MUSS sofort nach dem Klick ohne langes Await gestartet werden!
         const started = await startLiveScanner('v2ScannerVideo');
         if (started) {
-          // UI Wechseln
+          // UI Wechseln, damit der Nutzer die Kamera sofort sieht
           modeSelection.style.display = 'none';
           scannerView.style.display = 'block';
+          
+          // Lade Modell erst WÄHREND die Kamera schon läuft
+          await loadModel();
           
           // Loop starten
           _isScanningLoop = true;
