@@ -8,12 +8,13 @@ No extra hardware. No subscriptions. Just your browser and a target.
 
 ## ✨ Key Features
 
-- **Real photo scoring** — Upload or capture photos of your shot targets → AI detects hits, calculates points, measures grouping (extreme spread, mean radius, etc.)
-- **Gemini AI Coaching** — Get smart, personalized feedback on your groups, tendencies (high/low/left/right), and improvement tips
+- **Real photo scoring** — Upload or capture photos of your shot targets (including monitors!) → Local AI detects and calculates points automatically
+- **100% Offline & Private** — All image processing and OCR logic happens entirely on your device. No cloud uploads, no hidden APIs, full privacy.
+- **Advanced Target Preprocessing** — Built-in Moiré-reduction, adaptive thresholding, and distortion correction for reading digital scoring displays perfectly.
 - **Adaptive Training Bot** — Difficulty and target size adjust automatically based on your performance
 - **Multiple Training Modes** — Standard 10-shot groups, timed challenges, weak-hand only, stress drills, and more
 - **Haptic & Sound Feedback** — Vibration and audio cues on hit/miss (great on mobile)
-- **Offline-first PWA** — Installable on phone/home screen, works without internet after first load
+- **Offline-first PWA** — Installable on phone/home screen, works seamlessly without internet after first load
 - **Progress Tracking & Achievements** — Local stats, best groups, improvement graphs
 - **Mobile-optimized** — Touch controls, camera integration, responsive design
 

@@ -351,6 +351,29 @@ window.ImageCompare = (function () {
     const contrast = Number.isFinite(Number(options.contrast)) ? Number(options.contrast) : 1;
     const invert = !!options.invert;
 
+    // --- WEICHZEICHNER (BLUR) ZUR MOIRÉ-MINDERUNG BEI BILDSCHIRMFOTOS ---
+    // Ein einfacher 3x3 Box-Blur tilgt das Bildschirm-Pixelraster
+    const width = canvas.width;
+    const height = canvas.height;
+    const blurred = new Uint8ClampedArray(data);
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        for (let c = 0; c < 3; c++) {
+          let sum = 0;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              sum += data[((y + dy) * width + (x + dx)) * 4 + c];
+            }
+          }
+          blurred[(y * width + x) * 4 + c] = sum / 9;
+        }
+        blurred[(y * width + x) * 4 + 3] = data[(y * width + x) * 4 + 3];
+      }
+    }
+    for (let i = 0; i < data.length; i++) {
+      data[i] = blurred[i];
+    }
+
     for (let i = 0; i < data.length; i += 4) {
       let r = data[i];
       let g = data[i + 1];
@@ -908,60 +931,7 @@ window.ImageCompare = (function () {
 
     resultCard.classList.remove('active');
 
-    // ═══ PRIMÄR: Gemini Vision API für Score-Erkennung + Coaching ═══
-    if (typeof GeminiCoach !== 'undefined' && GeminiCoach.isAvailable()) {
-      try {
-        updateProgress(overlay, 15, '🤖 KI analysiert dein Foto...');
-
-        // Spiel-Kontext aus globalem State (G)
-        const difficulty = (typeof G !== 'undefined' && G.diff) ? G.diff : 'real';
-        const gameDiscipline = (typeof G !== 'undefined' && G.discipline) ? G.discipline : discipline;
-
-        updateProgress(overlay, 40, '🤖 Gemini erkennt Score & erstellt Coaching...');
-
-        const geminiResult = await GeminiCoach.analyzePhoto(file, difficulty, gameDiscipline, isKK);
-
-        if (geminiResult && !geminiResult.error) {
-          // Score aus Gemini-Antwort in das bestehende Format konvertieren
-          const parsed = {
-            bestMatch: geminiResult.score != null
-              ? { value: geminiResult.score, confidence: 0.97, type: isKK ? 'integer' : 'decimal' }
-              : null,
-            alternatives: [],
-            rawText: '(Gemini Vision KI-Erkennung)'
-          };
-
-          if (parsed.bestMatch) {
-            _ocrCache.set(cacheKey, parsed);
-            if (geminiResult.shots) {
-              overlay._detectedShots = geminiResult.shots;
-            }
-            while (_ocrCache.size > OCR_CACHE_MAX) {
-              const first = _ocrCache.keys().next().value;
-              _ocrCache.delete(first);
-            }
-          }
-
-          updateProgress(overlay, 100, '✅ KI-Analyse abgeschlossen');
-          renderOCRResult(parsed, parsed.rawText, overlay, isKK);
-
-          // Coaching-Tipps anzeigen
-          showCoachingTips(geminiResult.tips);
-
-          safeRevoke();
-          _isProcessing = false;
-          return;
-        }
-
-        // Gemini hatte einen Fehler → Fallback
-        console.warn('[ImageCompare] Gemini returned error, falling back to Tesseract:', geminiResult.error);
-        showCoachingTips(geminiResult.tips || '');
-      } catch (geminiErr) {
-        console.warn('[ImageCompare] Gemini call failed, falling back to Tesseract:', geminiErr);
-      }
-    }
-
-    // ═══ FALLBACK: Lokale Tesseract OCR ═══
+    // ═══ LOKALE TESSERACT OCR (Ohne KI) ═══
     try {
       updateProgress(overlay, 20, '📷 Lokale Texterkennung wird geladen...');
 
@@ -1076,53 +1046,6 @@ window.ImageCompare = (function () {
     }
 
     resultCard.classList.remove('active');
-
-    if (typeof GeminiCoach !== 'undefined' && GeminiCoach.isAvailable()) {
-      try {
-        updateProgress(overlay, 15, '🤖 KI analysiert dein Foto...');
-
-        const difficulty = (typeof G !== 'undefined' && G.diff) ? G.diff : 'real';
-        const gameDiscipline = (typeof G !== 'undefined' && G.discipline) ? G.discipline : discipline;
-
-        updateProgress(overlay, 40, '🤖 Gemini erkennt Score & erstellt Coaching...');
-
-        const geminiResult = await GeminiCoach.analyzePhoto(file, difficulty, gameDiscipline, isKK);
-
-        if (geminiResult && !geminiResult.error) {
-          const parsed = {
-            bestMatch: geminiResult.score != null
-              ? { value: geminiResult.score, confidence: 0.97, type: isKK ? 'integer' : 'decimal' }
-              : null,
-            alternatives: [],
-            rawText: '(Gemini Vision KI-Erkennung)'
-          };
-
-          if (parsed.bestMatch) {
-            _ocrCache.set(cacheKey, parsed);
-            if (geminiResult.shots) {
-              overlay._detectedShots = geminiResult.shots;
-            }
-            while (_ocrCache.size > OCR_CACHE_MAX) {
-              const first = _ocrCache.keys().next().value;
-              _ocrCache.delete(first);
-            }
-          }
-
-          updateProgress(overlay, 100, '✅ KI-Analyse abgeschlossen');
-          renderOCRResult(parsed, parsed.rawText, overlay, isKK);
-          showCoachingTips(geminiResult.tips);
-
-          safeRevoke();
-          _isProcessing = false;
-          return;
-        }
-
-        console.warn('[ImageCompare] Gemini returned error, falling back to local OCR:', geminiResult && geminiResult.error);
-        showCoachingTips((geminiResult && geminiResult.tips) || '');
-      } catch (geminiErr) {
-        console.warn('[ImageCompare] Gemini call failed, falling back to local OCR:', geminiErr);
-      }
-    }
 
     try {
       const parsed = await performEnhancedLocalOCR(objectUrl, overlay, isKK, discipline);
@@ -1244,11 +1167,6 @@ window.ImageCompare = (function () {
     delete overlay._currentFile;
     delete overlay._detectedShots;
 
-    // KI-Coaching Box zurücksetzen
-    const aiBox = document.getElementById('aiCoachingBox');
-    if (aiBox) aiBox.style.display = 'none';
-    const aiContent = document.getElementById('aiCoachingContent');
-    if (aiContent) aiContent.textContent = 'Wird analysiert…';
   }
 
   function maybeSendToFormspree(file, expectedScore, detectedScore) {
@@ -1281,25 +1199,6 @@ window.ImageCompare = (function () {
     }
   }
 
-  /**
-   * Zeigt die KI-Coaching-Tipps in der Coaching-Box an
-   */
-  function showCoachingTips(tips) {
-    const box = document.getElementById('aiCoachingBox');
-    const content = document.getElementById('aiCoachingContent');
-    const spinner = document.getElementById('aiCoachingSpinner');
-    if (!box || !content) return;
-
-    if (!tips || tips.length === 0) {
-      box.style.display = 'none';
-      return;
-    }
-
-    box.style.display = '';
-    content.textContent = tips;
-    content.style.opacity = '1';
-    if (spinner) spinner.classList.remove('active');
-  }
 
   return {
     init() {

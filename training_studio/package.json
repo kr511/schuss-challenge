@@ -1,0 +1,13 @@
+{
+  "name": "v2-training-studio",
+  "version": "1.0.0",
+  "description": "Lokales Trainingstool für Schussduell V2 YOLO/CNN Modelle",
+  "main": "train.js",
+  "scripts": {
+    "train": "node train.js"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^4.10.0",
+    "canvas": "^2.11.2"
+  }
+}

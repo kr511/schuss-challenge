@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir *)",
+      "Bash(findstr *)",
+      "Bash(f)",
+      "Bash(do *)",
+      "Bash('find /c /v \"\" \"%f\" 2^>nul')",
+      "Bash(node *)"
+    ]
+  },
+  "$version": 3
+}
