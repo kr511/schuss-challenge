@@ -1612,6 +1612,34 @@ function refreshPremiumDashboard() {
     if (lvlEl) lvlEl.innerText = streakHeaderVal + ' Tage';
   }
 
+  // 5. Last 3 Duels dynamic rendering
+  const last3Container = document.getElementById('pdLast3Duels');
+  if (last3Container && historyV2.length > 0) {
+    // historyV2 is already sorted or we sort it here to be safe
+    const sorted = [...historyV2].sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+    const latest3 = sorted.slice(0, 3);
+    
+    let l3Html = '';
+    latest3.forEach(game => {
+      const isWin = game.result === 'win' || game.result === 'Sieg';
+      const color = isWin ? '#7ab030' : '#f06050';
+      const label = isWin ? '✓ Sieg' : '✗ Niederlage';
+      const weapon = (game.weapon || 'LG').toUpperCase();
+      const disc = game.discipline || (game.shotsCount || 40);
+      const diff = game.difficulty || 'Mittel';
+      
+      l3Html += `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
+          <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${weapon} ${disc}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
+          <div style="font-size:0.75rem;font-weight:600;color:${color};">${label}</div>
+        </div>
+      `;
+    });
+    last3Container.innerHTML = l3Html;
+  } else if (last3Container) {
+    last3Container.innerHTML = `<div style="padding:10px; text-align:center; color:rgba(255,255,255,0.2); font-size:0.75rem;">Noch keine Duelle absolviert</div>`;
+  }
+
   // ══ DAILY MISSIONS RENDERING ══
   const questsContainer = document.getElementById('pdQuestsContainer');
   if (questsContainer) {
