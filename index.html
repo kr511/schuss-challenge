@@ -116,7 +116,8 @@
     </div>
   </div>
 
-  </div><div id="muzzleFlash"></div>
+  </div>
+  <div id="muzzleFlash"></div>
 
   <!-- ══════════════════════════ SETUP ══════════════════════════ -->
   <div id="screenSetup" class="screen active">
@@ -125,29 +126,41 @@
       <div class="hdr-top">
         <!-- <div id="hdrStreakMount"></div> -->
         <div class="logo">SCHUSS<em>DUELL</em></div>
-        <div class="schuetzenpass-icon" id="profileIcon" style="visibility:hidden;" onclick="toggleProfileMenu()">👤</div>
+        <div class="schuetzenpass-icon" id="profileIcon" style="visibility:hidden;" onclick="toggleProfileMenu()">👤
+        </div>
       </div>
       <div class="logo-tag" id="logoTag" style="display:none;">Du vs. Bot · 40 Schuss · Wer trifft besser?</div>
     </div> <!-- close hdr -->
-    
+
     <!-- ════ PREMIUM DASHBOARD (PIXEL-PERFECT REBUILD) ════ -->
-    
+
     <!-- PREMIUM GLOW BACKGROUNDS -->
-    <div style="position:fixed;top:-10%;left:-20%;width:70vw;height:70vw;background:radial-gradient(circle, rgba(0,195,255,0.15) 0%, transparent 70%);border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;"></div>
-    <div style="position:fixed;bottom:10%;right:-20%;width:80vw;height:80vw;background:radial-gradient(circle, rgba(122,176,48,0.1) 0%, transparent 70%);border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;"></div>
-    
-    <div id="premiumDashboard" style="width:100%;max-width:500px;margin:0 auto;padding:18px;position:relative;z-index:10;font-family:'Outfit',sans-serif;">
+    <div
+      style="position:fixed;top:-10%;left:-20%;width:70vw;height:70vw;background:radial-gradient(circle, rgba(0,195,255,0.15) 0%, transparent 70%);border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;">
+    </div>
+    <div
+      style="position:fixed;bottom:10%;right:-20%;width:80vw;height:80vw;background:radial-gradient(circle, rgba(122,176,48,0.1) 0%, transparent 70%);border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;">
+    </div>
+
+    <div id="premiumDashboard"
+      style="width:100%;max-width:500px;margin:0 auto;padding:18px;position:relative;z-index:10;font-family:'Outfit',sans-serif;">
 
       <!-- ══ GREETING ROW ══ -->
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;">
         <div>
-          <h2 id="pdGreeting" style="font-size:1.35rem;margin:0 0 3px 0;font-weight:700;color:#fff;">Guten Tag, <span style="color:#7ab030;" id="pdUserName">Alex</span>!</h2>
+          <h2 id="pdGreeting" style="font-size:1.35rem;margin:0 0 3px 0;font-weight:700;color:#fff;">Guten Tag, <span
+              style="color:#7ab030;" id="pdUserName">Alex</span>!</h2>
           <div id="pdDate" style="font-size:0.78rem;color:rgba(255,255,255,0.4);">11. Apr. 2026</div>
         </div>
-        <div id="pdProfileBtn" onclick="if(window.toggleProfileMenu) window.toggleProfileMenu(); else console.error('toggleProfileMenu missing');" style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
+        <div id="pdProfileBtn"
+          onclick="if(window.toggleProfileMenu) window.toggleProfileMenu(); else console.error('toggleProfileMenu missing');"
+          style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
           <span id="pdProfileInitial">A</span>
         </div>
       </div>
+  
+        <!-- ══ XP PROGRESS BAR ══ -->
+        <div id="pdXPBarContainer" style="margin-bottom:20px;"></div>
 
       <!-- ══ ÜBERSICHT TITEL ══ -->
       <div style="margin-bottom:14px;">
@@ -159,85 +172,114 @@
       <div style="display:flex;gap:12px;margin-bottom:20px;">
 
         <!-- LINKS: Letzte 3 Duelle -->
-        <div style="flex:1.6;background:linear-gradient(145deg, rgba(50,55,60,0.4) 0%, rgba(15,18,20,0.8) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.15);border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.05);">
-          <div style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-bottom:8px;font-weight:600;letter-spacing:0.05em;">LETZTE 3 DUELLE</div>
-          
+        <div
+          style="flex:1.6;background:linear-gradient(145deg, rgba(50,55,60,0.4) 0%, rgba(15,18,20,0.8) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.15);border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.05);">
+          <div
+            style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-bottom:8px;font-weight:600;letter-spacing:0.05em;">
+            LETZTE 3 DUELLE</div>
+
           <div id="pdLast3Duels" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #7ab030;">
-              <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">LG 40</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">Mittel</span></div>
+            <div
+              style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #7ab030;">
+              <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">LG 40</span> <span
+                  style="font-size:0.65rem;color:rgba(255,255,255,0.35);">Mittel</span></div>
               <div style="font-size:0.75rem;font-weight:600;color:#7ab030;">✓ Sieg</div>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #f06050;">
-              <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">KK 60</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">Elite</span></div>
+            <div
+              style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #f06050;">
+              <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">KK 60</span> <span
+                  style="font-size:0.65rem;color:rgba(255,255,255,0.35);">Elite</span></div>
               <div style="font-size:0.75rem;font-weight:600;color:#f06050;">✗ Niederlage</div>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #7ab030;">
-              <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">LG 40</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">Einfach</span></div>
+            <div
+              style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #7ab030;">
+              <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">LG 40</span> <span
+                  style="font-size:0.65rem;color:rgba(255,255,255,0.35);">Einfach</span></div>
               <div style="font-size:0.75rem;font-weight:600;color:#7ab030;">✓ Sieg</div>
             </div>
           </div>
 
           <!-- UNTERE STATS REIHE -->
-          <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;margin-top:12px;">
+          <div
+            style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;margin-top:12px;">
             <div style="text-align:center;flex:1;">
               <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:3px;">Siege</div>
               <div id="pdStatWins" style="font-size:0.85rem;font-weight:600;color:#7ab030;">0</div>
             </div>
-            <div style="text-align:center;flex:1;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
+            <div
+              style="text-align:center;flex:1;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
               <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:3px;">Siegquote</div>
               <div id="pdStatWinrate" style="font-size:0.85rem;font-weight:600;color:#fff;">–</div>
             </div>
             <div style="text-align:center;flex:1;">
               <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:3px;">Gesamt XP</div>
-              <div id="pdStatScore" style="font-size:0.85rem;font-weight:600;color:#7ab030;text-shadow:0 0 6px rgba(122,176,48,0.3);">0</div>
+              <div id="pdStatScore"
+                style="font-size:0.85rem;font-weight:600;color:#7ab030;text-shadow:0 0 6px rgba(122,176,48,0.3);">0
+              </div>
             </div>
           </div>
         </div>
 
         <!-- RECHTS: Tages-Statistik -->
         <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
-          <div style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
+          <div
+            style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
             <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Siegesserie</div>
             <div id="pdSideStreak" style="font-size:1.2rem;font-weight:700;color:#fff;">🔥 0</div>
             <div style="height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin-top:6px;overflow:hidden;">
-              <div id="pdSideStreakBar" style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35,#ff9500);border-radius:3px;"></div>
+              <div id="pdSideStreakBar"
+                style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35,#ff9500);border-radius:3px;"></div>
             </div>
           </div>
-          <div style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
+          <div
+            style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
             <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Spiele heute</div>
             <div id="pdSideGamesToday" style="font-size:1.2rem;font-weight:700;color:#fff;">0</div>
             <div style="height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin-top:6px;overflow:hidden;">
-              <div id="pdSideGamesTodayBar" style="height:100%;width:0%;background:linear-gradient(90deg,#00c3ff,#7ab030);border-radius:3px;"></div>
+              <div id="pdSideGamesTodayBar"
+                style="height:100%;width:0%;background:linear-gradient(90deg,#00c3ff,#7ab030);border-radius:3px;"></div>
             </div>
           </div>
-          <div style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
+          <div
+            style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
             <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Rang</div>
             <div id="pdSideRank" style="font-size:1rem;font-weight:700;color:#fff;">🎯 Anfänger</div>
           </div>
         </div>
       </div>
 
+      <!-- ══ DAILY MISSIONS ══ -->
+      <div id="pdQuestsContainer" style="margin-bottom:24px;"></div>
+
       <!-- ══ ACHIEVEMENT BADGES ══ -->
       <div style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:12px;">Erfolge</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
-        <div style="background:linear-gradient(145deg, rgba(122,176,48,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(122,176,48,0.25);border-top:1px solid rgba(122,176,48,0.4);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(122,176,48,0.2);">
+        <div
+          style="background:linear-gradient(145deg, rgba(122,176,48,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(122,176,48,0.25);border-top:1px solid rgba(122,176,48,0.4);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(122,176,48,0.2);">
           <div style="font-size:1.7rem;margin-bottom:5px;">🎯</div>
-          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">Volltreffer<br>König</div>
+          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">
+            Volltreffer<br>König</div>
           <div style="font-size:0.58rem;color:#7ab030;font-weight:500;">Stufe 5</div>
         </div>
-        <div style="background:linear-gradient(145deg, rgba(0,195,255,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(0,195,255,0.25);border-top:1px solid rgba(0,195,255,0.4);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(0,195,255,0.2);">
+        <div
+          style="background:linear-gradient(145deg, rgba(0,195,255,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(0,195,255,0.25);border-top:1px solid rgba(0,195,255,0.4);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(0,195,255,0.2);">
           <div style="font-size:1.7rem;margin-bottom:5px;">🛡️</div>
-          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">Perfektes<br>Ergebnis</div>
+          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">
+            Perfektes<br>Ergebnis</div>
           <div style="font-size:0.58rem;color:#00c3ff;font-weight:500;">Meister</div>
         </div>
-        <div style="background:linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3);opacity:0.6;">
+        <div
+          style="background:linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3);opacity:0.6;">
           <div style="font-size:1.7rem;margin-bottom:5px;filter:grayscale(1);">🏆</div>
-          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">Wochen<br>Kämpfer</div>
+          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">
+            Wochen<br>Kämpfer</div>
           <div style="font-size:0.58rem;color:rgba(255,255,255,0.4);font-weight:500;">Silber</div>
         </div>
-        <div id="pdBadgeStreak" style="background:linear-gradient(145deg, rgba(122,176,48,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(122,176,48,0.25);border-top:1px solid rgba(122,176,48,0.4);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(122,176,48,0.2);">
+        <div id="pdBadgeStreak"
+          style="background:linear-gradient(145deg, rgba(122,176,48,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(122,176,48,0.25);border-top:1px solid rgba(122,176,48,0.4);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(122,176,48,0.2);">
           <div style="font-size:1.7rem;margin-bottom:5px;">✅</div>
-          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">Tages<br>Serie</div>
+          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">Tages<br>Serie
+          </div>
           <div id="pdStreakDays" style="font-size:0.58rem;color:#7ab030;font-weight:500;">8 Tage</div>
         </div>
       </div>
@@ -245,38 +287,50 @@
       <!-- ══ RECENT SESSIONS ══ -->
       <div style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:10px;">Letzte Duelle</div>
       <div id="pdRecentList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
-        <div style="background:linear-gradient(145deg, rgba(40,45,50,0.4) 0%, rgba(10,12,15,0.7) 100%);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;text-align:center;color:rgba(255,255,255,0.3);font-size:0.8rem;box-shadow:0 6px 20px rgba(0,0,0,0.4);">
+        <div
+          style="background:linear-gradient(145deg, rgba(40,45,50,0.4) 0%, rgba(10,12,15,0.7) 100%);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;text-align:center;color:rgba(255,255,255,0.3);font-size:0.8rem;box-shadow:0 6px 20px rgba(0,0,0,0.4);">
           Noch keine Duelle gespielt. Starte dein erstes Duell!
         </div>
       </div>
 
       <!-- ══ FLOATING DUELL STARTEN BUTTON ══ -->
-      <button id="btnOpenDuelSetup" onclick="openDuelSetup()" style="position:fixed;bottom:25px;left:50%;transform:translateX(-50%);z-index:8999;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;border:none;border-radius:30px;padding:15px 36px;font-weight:800;font-size:1.05rem;box-shadow:0 8px 30px rgba(122,176,48,0.45),0 0 60px rgba(0,195,255,0.15);cursor:pointer;letter-spacing:0.6px;">
+      <button id="btnOpenDuelSetup" onclick="openDuelSetup()"
+        style="position:fixed;bottom:25px;left:50%;transform:translateX(-50%);z-index:8999;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;border:none;border-radius:30px;padding:15px 36px;font-weight:800;font-size:1.05rem;box-shadow:0 8px 30px rgba(122,176,48,0.45),0 0 60px rgba(0,195,255,0.15);cursor:pointer;letter-spacing:0.6px;">
         <span style="font-size:1.2rem;">🎯</span> DUELL STARTEN
       </button>
 
       <!-- ══ BOTTOM SHEET OVERLAY (Duel Setup) ══ -->
-      <div id="duelSetupSheetOverlay" onclick="closeDuelSetup(event)" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;opacity:0;transition:opacity 0.3s ease;">
-        <div id="duelSetupSheet" style="position:absolute;bottom:-100%;left:0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(18,18,20,0.97);border-top:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;padding:20px 25px 35px 25px;transition:bottom 0.4s cubic-bezier(0.175,0.885,0.32,1);box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
-          <div style="width:40px;height:5px;background:rgba(255,255,255,0.2);border-radius:5px;margin:0 auto 20px auto;"></div>
+      <div id="duelSetupSheetOverlay" onclick="closeDuelSetup(event)"
+        style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;opacity:0;transition:opacity 0.3s ease;">
+        <div id="duelSetupSheet"
+          style="position:absolute;bottom:-100%;left:0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(18,18,20,0.97);border-top:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;padding:20px 25px 35px 25px;transition:bottom 0.4s cubic-bezier(0.175,0.885,0.32,1);box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
+          <div
+            style="width:40px;height:5px;background:rgba(255,255,255,0.2);border-radius:5px;margin:0 auto 20px auto;">
+          </div>
           <h3 style="color:#fff;margin:0 0 20px 0;font-weight:700;font-size:1.3rem;">DUELL EINSTELLUNGEN</h3>
           <div id="duelSetupContentMount"><!-- Legacy setup elements move here --></div>
-          <button class="btn-fire" onclick="startBattle();setTimeout(closeDuelSetup,500);" style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(122,176,48,0.35);">
+          <button class="btn-fire" onclick="startBattle();setTimeout(closeDuelSetup,500);"
+            style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(122,176,48,0.35);">
             🎯 Duell starten.
           </button>
         </div>
       </div>
 
       <!-- ══ V2 Scanner View ══ -->
-      <div id="v2ScannerView" style="display:none;position:fixed;top:0;left:0;width:100%;height:100vh;z-index:99999;background:#000;">
-        <video id="v2ScannerVideo" playsinline autoplay muted style="width:100%;height:100%;object-fit:cover;display:block;"></video>
-        <canvas id="v2ScannerCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+      <div id="v2ScannerView"
+        style="display:none;position:fixed;top:0;left:0;width:100%;height:100vh;z-index:99999;background:#000;">
+        <video id="v2ScannerVideo" playsinline autoplay muted
+          style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+        <canvas id="v2ScannerCanvas"
+          style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
         <div style="position:absolute;bottom:40px;left:0;width:100%;text-align:center;">
-          <div style="background:rgba(0,0,0,0.6);display:inline-block;padding:10px 20px;border-radius:30px;font-size:0.9rem;color:#7ab030;font-weight:600;backdrop-filter:blur(8px);border:1px solid rgba(122,176,48,0.3);">
+          <div
+            style="background:rgba(0,0,0,0.6);display:inline-block;padding:10px 20px;border-radius:30px;font-size:0.9rem;color:#7ab030;font-weight:600;backdrop-filter:blur(8px);border:1px solid rgba(122,176,48,0.3);">
             Halte den Score in das Bild...
           </div>
         </div>
-        <button id="btnStopLiveScan" style="position:absolute;top:50px;right:20px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;line-height:40px;text-align:center;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
+        <button id="btnStopLiveScan"
+          style="position:absolute;top:50px;right:20px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;line-height:40px;text-align:center;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
       </div>
 
     </div>
@@ -294,19 +348,19 @@
             if (pdProfileInitial) pdProfileInitial.innerText = username.charAt(0).toUpperCase();
           }
         }
-        
+
         const hour = new Date().getHours();
         let greeting = "Guten Abend";
         if (hour >= 5 && hour < 12) greeting = "Guten Morgen";
         else if (hour >= 12 && hour < 18) greeting = "Guten Tag";
-        
+
         const pdGreeting = document.getElementById('pdGreeting');
         if (pdGreeting) {
-           const pdUserName = document.getElementById('pdUserName');
-           const name = pdUserName ? pdUserName.innerText : "";
-           pdGreeting.innerHTML = greeting + ', <span class="pd-name" style="color:#7ab030">' + (name || 'Schütze') + '</span>!';
+          const pdUserName = document.getElementById('pdUserName');
+          const name = pdUserName ? pdUserName.innerText : "";
+          pdGreeting.innerHTML = greeting + ', <span class="pd-name" style="color:#7ab030">' + (name || 'Schütze') + '</span>!';
         }
-        
+
         const pdDate = document.getElementById('pdDate');
         if (pdDate) {
           const options = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -315,229 +369,235 @@
       }
       document.addEventListener('DOMContentLoaded', () => setTimeout(updatePDGreeting, 100));
     </script>
-    
-    
 
-      <!-- Profil Menu (legacy, hidden) -->
-      <div class="profile-menu" id="profileMenu"></div>
 
-      <!-- ═══ PROFIL OVERLAY (Bottom-Sheet) ═══ -->
-      <div class="profile-overlay" id="profileOverlay" onclick="handleOverlayClick(event)">
-        <div class="profile-sheet" id="profileSheet">
-          <div class="profile-sheet-handle"></div>
 
-          <!-- Sheet Header -->
-          <div class="ps-header">
-            <div class="ps-title">🎯 Schützenpass</div>
-            <button class="ps-close" onclick="toggleProfileMenu()">✕</button>
+    <!-- Profil Menu (legacy, hidden) -->
+    <div class="profile-menu" id="profileMenu"></div>
+
+    <!-- ═══ PROFIL OVERLAY (Bottom-Sheet) ═══ -->
+    <div class="profile-overlay" id="profileOverlay" onclick="handleOverlayClick(event)">
+      <div class="profile-sheet" id="profileSheet">
+        <div class="profile-sheet-handle"></div>
+
+        <!-- Sheet Header -->
+        <div class="ps-header">
+          <div class="ps-title">🎯 Schützenpass</div>
+          <button class="ps-close" onclick="toggleProfileMenu()">✕</button>
+        </div>
+
+        <!-- Hero -->
+        <div class="ps-hero">
+          <div class="ps-avatar" id="psAvatar">
+            <div class="ps-avatar-ring"></div>
+            <span id="psAvatarIcon">🎯</span>
+          </div>
+          <div class="ps-info">
+            <div class="ps-name" id="psUsername">Schütze</div>
+            <div class="ps-rank-badge">
+              <span class="ps-rank-icon" id="psRankIcon">🎯</span>
+              <span class="ps-rank-name" id="psRankName">Anfänger</span>
+            </div>
+            <div class="ps-level">Level <span id="psLevel">1</span> · <span id="psTotalXP">0</span> XP gesamt</div>
+          </div>
+        </div>
+
+        <!-- XP Bar -->
+        <div class="ps-xp-wrap">
+          <div class="ps-xp-row">
+            <span class="ps-xp-label">XP zum nächsten Rang</span>
+            <span class="ps-xp-val"><span id="psXpCur">0</span> / <span id="psXpNext">100</span></span>
+          </div>
+          <div class="ps-xp-bar">
+            <div class="ps-xp-fill" id="psXpFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="ps-tabs">
+          <div class="ps-tab active" data-tab="stats" onclick="switchProfileTab('stats')">📊 Stats</div>
+          <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
+          <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
+          <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
+          <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
+        </div>
+
+        <!-- Body -->
+        <div class="ps-body">
+
+          <!-- ── STATS PANEL ── -->
+          <div class="ps-panel active" id="psPanel-stats">
+            <div class="ps-stats-grid">
+              <div class="ps-stat-card highlight">
+                <div class="ps-sc-label">Siege</div>
+                <div class="ps-sc-val green" id="psStat-wins">0</div>
+                <div class="ps-sc-sub">Duelle gewonnen</div>
+              </div>
+              <div class="ps-stat-card highlight">
+                <div class="ps-sc-label">Niederlagen</div>
+                <div class="ps-sc-val" style="color:#f08070;" id="psStat-losses">0</div>
+                <div class="ps-sc-sub">Duelle verloren</div>
+              </div>
+              <div class="ps-stat-card">
+                <div class="ps-sc-label">Spiele</div>
+                <div class="ps-sc-val" id="psStat-games">0</div>
+                <div class="ps-sc-sub">Gesamt gespielt</div>
+              </div>
+              <div class="ps-stat-card">
+                <div class="ps-sc-label">Winrate</div>
+                <div class="ps-sc-val gold" id="psStat-winrate">–</div>
+                <div class="ps-sc-sub">Siegquote</div>
+              </div>
+              <div class="ps-stat-card full">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                  <div class="ps-sc-label" style="margin-bottom:0;">Best Streak</div>
+                  <div class="ps-sc-label" style="margin-bottom:0; color:#ff9500;">Aktuell</div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                  <div class="ps-sc-val purple" id="psStat-streak" style="margin-bottom:0;">–</div>
+                  <div class="ps-sc-val" id="psStat-curStreak"
+                    style="margin-bottom:0; color:#ff9500; font-size:1.5rem;">–</div>
+                </div>
+                <div class="ps-sc-sub" style="margin-top:8px;">Siegesserie Übersicht</div>
+              </div>
+            </div>
+
+            <!-- Waffe Breakdown -->
+            <div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Waffen-Statistik</div>
+            <div class="ps-weapon-row">
+              <div class="ps-weapon-icon">🌬️</div>
+              <div class="ps-weapon-info">
+                <div class="ps-weapon-name">Luftgewehr</div>
+                <div class="ps-weapon-detail" id="psLGDetail">0 Siege · 0 Spiele</div>
+              </div>
+              <div>
+                <div class="ps-weapon-streak" id="psLGXP" style="min-width: 50px; text-align: center;">0 ✨</div>
+                <div class="ps-weapon-streak-lbl">XP</div>
+              </div>
+            </div>
+            <div class="ps-weapon-row">
+              <div class="ps-weapon-icon">🎯</div>
+              <div class="ps-weapon-info">
+                <div class="ps-weapon-name">Kleinkaliber</div>
+                <div class="ps-weapon-detail" id="psKKDetail">0 Siege · 0 Spiele</div>
+              </div>
+              <div>
+                <div class="ps-weapon-streak" id="psKKXP" style="min-width: 50px; text-align: center;">0 ✨</div>
+                <div class="ps-weapon-streak-lbl">XP</div>
+              </div>
+            </div>
+
+            <!-- Leistungskurve -->
+            <div class="perf-chart-wrap">
+              <div class="perf-chart-header">
+                <span class="perf-chart-title">◇ LEISTUNGSKURVE</span>
+                <div class="perf-toggle-group">
+                  <button class="perf-toggle active" id="perfToggleLG" onclick="setPerfWeapon('lg')">🌬️ LG</button>
+                  <button class="perf-toggle" id="perfToggleKK" onclick="setPerfWeapon('kk')">🎯 KK</button>
+                </div>
+              </div>
+              <div class="perf-chart-box" style="height:160px;position:relative;width:100%;">
+                <canvas id="perfChart" style="display:block;"></canvas>
+                <div class="perf-chart-empty" id="perfChartEmpty" style="display:flex;">Noch keine Daten.<br>Spiel ein
+                  Duell!</div>
+              </div>
+            </div>
+
+            <div id="rookiePlanMount" style="margin-top: 20px;"></div>
+            <div id="enhancedAnalyticsMount" style="margin-top: 20px;"></div>
+            <!-- HEATMAP SECTION -->
+            <div id="heatmapMount" style="margin-top: 20px; display: none;">
+              <div class="metric-card">
+                <div class="metric-title">🔥 Real-Life Heatmap</div>
+                <div class="metric-sub">Basierend auf deinen Foto-Uploads</div>
+                <div
+                  style="position: relative; width: 100%; aspect-ratio: 1; margin-top: 15px; background: #000; border-radius: 8px; overflow: hidden;">
+                  <canvas id="heatmapCanvas" style="width: 100%; height: 100%;"></canvas>
+                </div>
+                <div class="metric-sub" style="margin-top: 10px; font-size: 0.7rem;">Diese Analyse zeigt systematische
+                  Abweichungen deiner echten Schüsse.</div>
+              </div>
+            </div>
+
+            <!-- Einstellungen -->
+            <div style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+              <button class="btn-sec" id="soundToggleBtn" style="font-size:0.6rem;"
+                onclick="toggleSoundSetting(this)">🔊 &nbsp;Sound: AN</button>
+              <button class="btn-sec" style="font-size:0.6rem;"
+                onclick="if(typeof Tutorial!=='undefined'){Tutorial.reset();Tutorial.start();}">🎓
+                &nbsp;Tutorial</button>
+            </div>
+
+            <div class="card" style="margin-top:16px;padding:12px 14px;">
+              <div class="card-hd" style="margin-bottom:8px;">Konto-Sync</div>
+              <div id="accountSyncStatus" style="font-size:.8rem;color:rgba(255,255,255,.72);margin-bottom:10px;">Noch
+                nicht verbunden.</div>
+              <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                <button class="btn-sec" style="font-size:0.6rem;" onclick="showAccountSyncCode()">Sync-Code
+                  erzeugen</button>
+                <button class="btn-sec" style="font-size:0.6rem;" onclick="connectDeviceWithLinkCode()">Gerät
+                  verbinden</button>
+              </div>
+            </div>
+
+            <!-- Reset Button -->
+            <div style="margin-top:12px; text-align:center; padding-bottom:10px;">
+              <button class="btn-sec"
+                style="font-size:0.55rem; color:rgba(240,110,110,0.5); border-color:rgba(240,110,110,0.15);"
+                onclick="hardResetProgress()">✕ &nbsp;Alle Daten (Fortschritt & Erfolge) löschen</button>
+            </div>
           </div>
 
-          <!-- Hero -->
-          <div class="ps-hero">
-            <div class="ps-avatar" id="psAvatar">
-              <div class="ps-avatar-ring"></div>
-              <span id="psAvatarIcon">🎯</span>
-            </div>
-            <div class="ps-info">
-              <div class="ps-name" id="psUsername">Schütze</div>
-              <div class="ps-rank-badge">
-                <span class="ps-rank-icon" id="psRankIcon">🎯</span>
-                <span class="ps-rank-name" id="psRankName">Anfänger</span>
+          <!-- ── SUN PANEL ── -->
+          <div class="ps-panel" id="psPanel-sun">
+            <!-- Gesamt-Badge -->
+            <div class="sun-total-badge">
+              <div class="sun-total-left">
+                <div class="sun-total-label">⭐ SUN-Sterne verdient</div>
+                <div class="sun-total-val" id="sunTotalVal">0 / 12</div>
               </div>
-              <div class="ps-level">Level <span id="psLevel">1</span> · <span id="psTotalXP">0</span> XP gesamt</div>
+              <div class="sun-stars" id="sunStarsRow">
+                <span class="sun-star">⭐</span><span class="sun-star">⭐</span><span class="sun-star">⭐</span>
+                <span class="sun-star">⭐</span><span class="sun-star">⭐</span>
+              </div>
+            </div>
+
+            <div class="sun-section-title">◇ Erste Schritte</div>
+            <div class="sun-grid" id="sunGrid-basic"></div>
+
+            <div class="sun-section-title">◇ Kampf-Erfolge</div>
+            <div class="sun-grid" id="sunGrid-battle"></div>
+
+            <div class="sun-section-title">◇ Meister-Erfolge</div>
+            <div class="sun-grid" id="sunGrid-master"></div>
+          </div>
+
+          <!-- ── LEADERBOARD PANEL ── -->
+          <div class="ps-panel" id="psPanel-lb">
+            <div class="lb-panel" data-lb-list>
+              <div class="lb-loading">⏳</div>
             </div>
           </div>
 
-          <!-- XP Bar -->
-          <div class="ps-xp-wrap">
-            <div class="ps-xp-row">
-              <span class="ps-xp-label">XP zum nächsten Rang</span>
-              <span class="ps-xp-val"><span id="psXpCur">0</span> / <span id="psXpNext">100</span></span>
-            </div>
-            <div class="ps-xp-bar">
-              <div class="ps-xp-fill" id="psXpFill" style="width:0%"></div>
+          <!-- ── HISTORY PANEL ── -->
+          <div class="ps-panel" id="psPanel-history">
+            <div id="psHistoryList">
+              <div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu
+                sehen!</div>
             </div>
           </div>
 
-          <!-- Tabs -->
-          <div class="ps-tabs">
-            <div class="ps-tab active" data-tab="stats" onclick="switchProfileTab('stats')">📊 Stats</div>
-            <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
-            <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
-            <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
-            <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
+          <div class="ps-panel" id="psPanel-debug" style="display:none;">
+            <div id="psDebugMount">
+              <div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>
+            </div>
           </div>
 
-          <!-- Body -->
-          <div class="ps-body">
+        </div><!-- /ps-body -->
+      </div><!-- /profile-sheet -->
+    </div><!-- /profile-overlay -->
 
-            <!-- ── STATS PANEL ── -->
-            <div class="ps-panel active" id="psPanel-stats">
-              <div class="ps-stats-grid">
-                <div class="ps-stat-card highlight">
-                  <div class="ps-sc-label">Siege</div>
-                  <div class="ps-sc-val green" id="psStat-wins">0</div>
-                  <div class="ps-sc-sub">Duelle gewonnen</div>
-                </div>
-                <div class="ps-stat-card highlight">
-                  <div class="ps-sc-label">Niederlagen</div>
-                  <div class="ps-sc-val" style="color:#f08070;" id="psStat-losses">0</div>
-                  <div class="ps-sc-sub">Duelle verloren</div>
-                </div>
-                <div class="ps-stat-card">
-                  <div class="ps-sc-label">Spiele</div>
-                  <div class="ps-sc-val" id="psStat-games">0</div>
-                  <div class="ps-sc-sub">Gesamt gespielt</div>
-                </div>
-                <div class="ps-stat-card">
-                  <div class="ps-sc-label">Winrate</div>
-                  <div class="ps-sc-val gold" id="psStat-winrate">–</div>
-                  <div class="ps-sc-sub">Siegquote</div>
-                </div>
-                <div class="ps-stat-card full">
-                  <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
-                    <div class="ps-sc-label" style="margin-bottom:0;">Best Streak</div>
-                    <div class="ps-sc-label" style="margin-bottom:0; color:#ff9500;">Aktuell</div>
-                  </div>
-                  <div style="display:flex; justify-content:space-between; align-items:flex-end;">
-                    <div class="ps-sc-val purple" id="psStat-streak" style="margin-bottom:0;">–</div>
-                    <div class="ps-sc-val" id="psStat-curStreak" style="margin-bottom:0; color:#ff9500; font-size:1.5rem;">–</div>
-                  </div>
-                  <div class="ps-sc-sub" style="margin-top:8px;">Siegesserie Übersicht</div>
-                </div>
-              </div>
-
-              <!-- Waffe Breakdown -->
-              <div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Waffen-Statistik</div>
-              <div class="ps-weapon-row">
-                <div class="ps-weapon-icon">🌬️</div>
-                <div class="ps-weapon-info">
-                  <div class="ps-weapon-name">Luftgewehr</div>
-                  <div class="ps-weapon-detail" id="psLGDetail">0 Siege · 0 Spiele</div>
-                </div>
-                <div>
-                  <div class="ps-weapon-streak" id="psLGXP" style="min-width: 50px; text-align: center;">0 ✨</div>
-                  <div class="ps-weapon-streak-lbl">XP</div>
-                </div>
-              </div>
-              <div class="ps-weapon-row">
-                <div class="ps-weapon-icon">🎯</div>
-                <div class="ps-weapon-info">
-                  <div class="ps-weapon-name">Kleinkaliber</div>
-                  <div class="ps-weapon-detail" id="psKKDetail">0 Siege · 0 Spiele</div>
-                </div>
-                <div>
-                  <div class="ps-weapon-streak" id="psKKXP" style="min-width: 50px; text-align: center;">0 ✨</div>
-                  <div class="ps-weapon-streak-lbl">XP</div>
-                </div>
-              </div>
-
-              <!-- Leistungskurve -->
-              <div class="perf-chart-wrap">
-                <div class="perf-chart-header">
-                  <span class="perf-chart-title">◇ LEISTUNGSKURVE</span>
-                  <div class="perf-toggle-group">
-                    <button class="perf-toggle active" id="perfToggleLG" onclick="setPerfWeapon('lg')">🌬️ LG</button>
-                    <button class="perf-toggle" id="perfToggleKK" onclick="setPerfWeapon('kk')">🎯 KK</button>
-                  </div>
-                </div>
-                <div class="perf-chart-box" style="height:160px;position:relative;width:100%;">
-                  <canvas id="perfChart" style="display:block;"></canvas>
-                  <div class="perf-chart-empty" id="perfChartEmpty" style="display:flex;">Noch keine Daten.<br>Spiel ein
-                    Duell!</div>
-                </div>
-              </div>
-
-              <div id="rookiePlanMount" style="margin-top: 20px;"></div>
-              <div id="enhancedAnalyticsMount" style="margin-top: 20px;"></div>
-              <!-- HEATMAP SECTION -->
-              <div id="heatmapMount" style="margin-top: 20px; display: none;">
-                <div class="metric-card">
-                  <div class="metric-title">🔥 Real-Life Heatmap</div>
-                  <div class="metric-sub">Basierend auf deinen Foto-Uploads</div>
-                  <div style="position: relative; width: 100%; aspect-ratio: 1; margin-top: 15px; background: #000; border-radius: 8px; overflow: hidden;">
-                    <canvas id="heatmapCanvas" style="width: 100%; height: 100%;"></canvas>
-                  </div>
-                  <div class="metric-sub" style="margin-top: 10px; font-size: 0.7rem;">Diese Analyse zeigt systematische Abweichungen deiner echten Schüsse.</div>
-                </div>
-              </div>
-
-              <!-- Einstellungen -->
-              <div style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-                <button class="btn-sec" id="soundToggleBtn" style="font-size:0.6rem;"
-                  onclick="toggleSoundSetting(this)">🔊 &nbsp;Sound: AN</button>
-                <button class="btn-sec" style="font-size:0.6rem;"
-                  onclick="if(typeof Tutorial!=='undefined'){Tutorial.reset();Tutorial.start();}">🎓
-                  &nbsp;Tutorial</button>
-              </div>
-
-              <div class="card" style="margin-top:16px;padding:12px 14px;">
-                <div class="card-hd" style="margin-bottom:8px;">Konto-Sync</div>
-                <div id="accountSyncStatus" style="font-size:.8rem;color:rgba(255,255,255,.72);margin-bottom:10px;">Noch nicht verbunden.</div>
-                <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-                  <button class="btn-sec" style="font-size:0.6rem;" onclick="showAccountSyncCode()">Sync-Code erzeugen</button>
-                  <button class="btn-sec" style="font-size:0.6rem;" onclick="connectDeviceWithLinkCode()">Gerät verbinden</button>
-                </div>
-              </div>
-
-              <!-- Reset Button -->
-              <div style="margin-top:12px; text-align:center; padding-bottom:10px;">
-                <button class="btn-sec"
-                  style="font-size:0.55rem; color:rgba(240,110,110,0.5); border-color:rgba(240,110,110,0.15);"
-                  onclick="hardResetProgress()">✕ &nbsp;Alle Daten (Fortschritt & Erfolge) löschen</button>
-              </div>
-            </div>
-
-            <!-- ── SUN PANEL ── -->
-            <div class="ps-panel" id="psPanel-sun">
-              <!-- Gesamt-Badge -->
-              <div class="sun-total-badge">
-                <div class="sun-total-left">
-                  <div class="sun-total-label">⭐ SUN-Sterne verdient</div>
-                  <div class="sun-total-val" id="sunTotalVal">0 / 12</div>
-                </div>
-                <div class="sun-stars" id="sunStarsRow">
-                  <span class="sun-star">⭐</span><span class="sun-star">⭐</span><span class="sun-star">⭐</span>
-                  <span class="sun-star">⭐</span><span class="sun-star">⭐</span>
-                </div>
-              </div>
-
-              <div class="sun-section-title">◇ Erste Schritte</div>
-              <div class="sun-grid" id="sunGrid-basic"></div>
-
-              <div class="sun-section-title">◇ Kampf-Erfolge</div>
-              <div class="sun-grid" id="sunGrid-battle"></div>
-
-              <div class="sun-section-title">◇ Meister-Erfolge</div>
-              <div class="sun-grid" id="sunGrid-master"></div>
-            </div>
-
-            <!-- ── LEADERBOARD PANEL ── -->
-            <div class="ps-panel" id="psPanel-lb">
-              <div class="lb-panel" data-lb-list>
-                <div class="lb-loading">⏳</div>
-              </div>
-            </div>
-
-            <!-- ── HISTORY PANEL ── -->
-            <div class="ps-panel" id="psPanel-history">
-              <div id="psHistoryList">
-                <div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu
-                  sehen!</div>
-              </div>
-            </div>
-
-            <div class="ps-panel" id="psPanel-debug" style="display:none;">
-              <div id="psDebugMount">
-                <div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>
-              </div>
-            </div>
-
-          </div><!-- /ps-body -->
-        </div><!-- /profile-sheet -->
-      </div><!-- /profile-overlay -->
-
-      <div style="display:none;"><!-- LEGACY SETUP (hidden, moved to bottom-sheet by JS) -->
+    <div style="display:none;"><!-- LEGACY SETUP (hidden, moved to bottom-sheet by JS) -->
       <!-- Weapon Tabs -->
       <div class="hdr-spacer" aria-hidden="true" style="display:flex; justify-content:center; margin-bottom: 5px;">
         <button id="muteBtn" onclick="toggleMute()"
@@ -891,28 +951,32 @@
     </div>
     <div class="go-reason" id="goReason"></div>
     <div class="go-margin" id="goMargin" style="display:none;"></div>
-    
+
     <!-- RESULT TARGET PREVIEW -->
     <div class="go-target-preview fade-up" style="margin-top: 15px; position: relative;">
-      <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #1a2015; padding: 2px 10px; border-radius: 10px; border: 1px solid rgba(122,176,48,0.3); font-size: 0.65rem; color: #7ab030; z-index: 2; font-weight: 700; letter-spacing: 0.1em;">TREFFERBILD</div>
-      <div style="background: #000; padding: 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-        <canvas id="goTargetCanvas" style="width: 100%; height: auto; max-width: 200px; display: block; margin: 0 auto;"></canvas>
+      <div
+        style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #1a2015; padding: 2px 10px; border-radius: 10px; border: 1px solid rgba(122,176,48,0.3); font-size: 0.65rem; color: #7ab030; z-index: 2; font-weight: 700; letter-spacing: 0.1em;">
+        TREFFERBILD</div>
+      <div
+        style="background: #000; padding: 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <canvas id="goTargetCanvas"
+          style="width: 100%; height: auto; max-width: 200px; display: block; margin: 0 auto;"></canvas>
       </div>
     </div>
 
     <div id="analysisResult"></div>
-      <div class="go-actions" style="display: flex; gap: 10px; margin-top: 15px; width: 100%; max-width: 320px;">
-        <button class="btn primary" onclick="restartGame()" style="flex: 1.2;">
-          <span class="btn-icon">🏠</span> <span>Hauptmenü</span>
-        </button>
-        <button class="btn secondary" onclick="shareTarget()" style="flex: 1;">
-          <span class="btn-icon">📤</span> <span>Teilen</span>
-        </button>
-      </div>
+    <div class="go-actions" style="display: flex; gap: 10px; margin-top: 15px; width: 100%; max-width: 320px;">
+      <button class="btn primary" onclick="restartGame()" style="flex: 1.2;">
+        <span class="btn-icon">🏠</span> <span>Hauptmenü</span>
+      </button>
+      <button class="btn secondary" onclick="shareTarget()" style="flex: 1;">
+        <span class="btn-icon">📤</span> <span>Teilen</span>
+      </button>
+    </div>
   </div>
 
   <!-- ══════════════════════════ LEADERBOARD ══════════════════════════ -->
-    <!-- FEEDBACK -->
+  <!-- FEEDBACK -->
   <!-- FEEDBACK SCREEN -->
   <div id="screenFeedback" class="screen">
     <div class="hdr">
@@ -921,7 +985,8 @@
       <div class="hdr-tag" id="feedbackCount">◆ DUELL ◆</div>
     </div>
 
-    <div class="content fb-content" style="display: flex; align-items: center; justify-content: center; flex: 1; width: 100%;">
+    <div class="content fb-content"
+      style="display: flex; align-items: center; justify-content: center; flex: 1; width: 100%;">
       <div class="fb-card">
         <div class="fb-title">Wie gefällt dir die Seite?</div>
         <div class="fb-sub">Bitte wähle ein Emoji:</div>
@@ -949,31 +1014,33 @@
   <!-- LEADERBOARD -->
   <div id="screenLeaderboard" class="screen">
     <div class="hdr" style="position:relative;">
-      <button onclick="showScreen('screenSetup')" style="position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(255,255,255,.45);font-size:1.4rem;cursor:pointer;z-index:2;padding:4px 8px;" aria-label="Schließen">✕</button>
+      <button onclick="showScreen('screenSetup')"
+        style="position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(255,255,255,.45);font-size:1.4rem;cursor:pointer;z-index:2;padding:4px 8px;"
+        aria-label="Schließen">✕</button>
       <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">🏆 WELT<em>RANGLISTE</em></div>
       <div class="logo-tag">XP · Streak · Score – Wer ist der beste Schütze?</div>
-        <div class="hdr-tag">◆ TOP SCHÜTZEN ◆</div>
+      <div class="hdr-tag">◆ TOP SCHÜTZEN ◆</div>
     </div>
 
     <div class="content" style="padding-top:14px;">
 
       <!-- Mein Profil-Snapshot -->
-        <div class="lb-my-best">
-          <div>
-            <div class="lb-my-lbl">Mein Streak</div>
-            <div class="lb-my-val" id="lbMyBest" style="color:#c880ff;">–</div>
-          </div>
-          <div style="flex:1;"></div>
-          <div style="text-align:center;">
-            <div class="lb-my-lbl">Score</div>
-            <div class="lb-my-val" id="lbMyScore" style="color:#ffc840;">–</div>
-          </div>
-          <div style="flex:1;"></div>
-          <div style="text-align:right;">
-            <div class="lb-my-lbl">Meine XP</div>
-            <div class="lb-my-val" id="lbMyXP" style="color:#70aaf0;">–</div>
-          </div>
+      <div class="lb-my-best">
+        <div>
+          <div class="lb-my-lbl">Mein Streak</div>
+          <div class="lb-my-val" id="lbMyBest" style="color:#c880ff;">–</div>
         </div>
+        <div style="flex:1;"></div>
+        <div style="text-align:center;">
+          <div class="lb-my-lbl">Score</div>
+          <div class="lb-my-val" id="lbMyScore" style="color:#ffc840;">–</div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="text-align:right;">
+          <div class="lb-my-lbl">Meine XP</div>
+          <div class="lb-my-val" id="lbMyXP" style="color:#70aaf0;">–</div>
+        </div>
+      </div>
 
       <!-- Status-Badge (eingeloggt als...) -->
       <div id="lbStatusBadge" style="
@@ -987,9 +1054,11 @@
         <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
           <div style="font-size:.85rem;color:rgba(255,255,255,.72);">Aktiv: <span id="lbScopeLabel">Global</span></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <select id="lbPeriodSelect" onchange="setLeaderboardPeriod(this.value)" style="min-width:150px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;">
+            <select id="lbPeriodSelect" onchange="setLeaderboardPeriod(this.value)"
+              style="min-width:150px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;">
             </select>
-            <select id="lbScopeSelect" onchange="setLeaderboardScope(this.value)" style="min-width:180px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;">
+            <select id="lbScopeSelect" onchange="setLeaderboardScope(this.value)"
+              style="min-width:180px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;">
             </select>
           </div>
         </div>
@@ -998,7 +1067,8 @@
       <!-- Leaderboard list -->
       <div class="card" style="padding:12px 14px;">
         <div class="card-hd" id="lbCardTitle">◆ Rangliste · Score = XP + Streak×5</div>
-        <div id="lbScopeHint" style="font-size:.8rem;color:rgba(255,255,255,.62);margin:6px 0 10px;">Global nutzt Score = XP + Streak x 5.</div>
+        <div id="lbScopeHint" style="font-size:.8rem;color:rgba(255,255,255,.62);margin:6px 0 10px;">Global nutzt Score
+          = XP + Streak x 5.</div>
         <div class="lb-list" data-lb-list>
           <div class="lb-loading">⏳</div>
         </div>
@@ -1023,30 +1093,37 @@
       <div class="ic-body">
         <!-- Mode Selection Buttons -->
         <div id="v2ModeSelection" style="display:flex;gap:10px;margin-bottom:15px;">
-          <button id="btnStartLiveScan" style="flex:1;background:#7ab030;color:#000;border:none;padding:12px;border-radius:12px;font-weight:bold;cursor:pointer;font-size:1rem;box-shadow:0 0 15px rgba(122,176,48,0.4);">
+          <button id="btnStartLiveScan"
+            style="flex:1;background:#7ab030;color:#000;border:none;padding:12px;border-radius:12px;font-weight:bold;cursor:pointer;font-size:1rem;box-shadow:0 0 15px rgba(122,176,48,0.4);">
             🔍 Live Scanner
           </button>
           <div style="position:relative;flex:1;">
-            <input type="file" class="ic-upload-input" id="icFileInput" accept="image/*" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
-            <button style="width:100%;height:100%;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.2);padding:12px;border-radius:12px;font-weight:bold;pointer-events:none;">
+            <input type="file" class="ic-upload-input" id="icFileInput" accept="image/*"
+              style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+            <button
+              style="width:100%;height:100%;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.2);padding:12px;border-radius:12px;font-weight:bold;pointer-events:none;">
               📂 Galerie
             </button>
           </div>
         </div>
 
         <!-- Live Scanner View (Hidden by default) -->
-        <div id="v2ScannerView" style="display:none;position:relative;width:100%;border-radius:14px;overflow:hidden;background:#000;margin-bottom:15px;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+        <div id="v2ScannerView"
+          style="display:none;position:relative;width:100%;border-radius:14px;overflow:hidden;background:#000;margin-bottom:15px;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
           <!-- Video Stream -->
           <video id="v2ScannerVideo" playsinline autoplay muted style="width:100%;height:auto;display:block;"></video>
           <!-- Canvas Overlay for YOLO Bounding Boxes -->
-          <canvas id="v2ScannerCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
-          
+          <canvas id="v2ScannerCanvas"
+            style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+
           <div style="position:absolute;bottom:10px;left:0;width:100%;text-align:center;">
-            <div style="background:rgba(0,0,0,0.6);display:inline-block;padding:6px 12px;border-radius:20px;font-size:0.75rem;color:#7ab030;backdrop-filter:blur(4px);">
+            <div
+              style="background:rgba(0,0,0,0.6);display:inline-block;padding:6px 12px;border-radius:20px;font-size:0.75rem;color:#7ab030;backdrop-filter:blur(4px);">
               Halte den Score in das Bild...
             </div>
           </div>
-          <button id="btnStopLiveScan" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:1rem;line-height:32px;text-align:center;cursor:pointer;">✕</button>
+          <button id="btnStopLiveScan"
+            style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:1rem;line-height:32px;text-align:center;cursor:pointer;">✕</button>
         </div>
 
         <!-- Classic Upload Zone (visible when file dropped/selected) -->
@@ -1110,7 +1187,7 @@
 
         <div class="ic-info">
           🔒 <b>100% Offline KI:</b> Dein Foto wird lokal auf deinem Gerät analysiert.
-          
+
         </div>
       </div>
     </div>
@@ -1158,8 +1235,7 @@
 
       <!-- Fallback: Copy-Link wenn Web Share API fehlt -->
       <div class="share-copy-row" id="shareCopyRow" style="display:none;">
-        <input class="share-copy-inp" id="shareCopyInp" readonly
-               value="https://kr511.github.io/schuss-challenge/" />
+        <input class="share-copy-inp" id="shareCopyInp" readonly value="https://kr511.github.io/schuss-challenge/" />
         <button class="share-copy-btn" onclick="copyShareLink()">
           📋 Kopieren
         </button>
@@ -1169,68 +1245,68 @@
   </div>
 
 
-<script>
-  function openDuelSetup() {
-    if(typeof triggerHaptic === 'function') triggerHaptic();
-    const ov = document.getElementById('duelSetupSheetOverlay');
-    const sheet = document.getElementById('duelSetupSheet');
-    ov.style.display = 'block';
-    
-    // Move ALL setup elements into the bottom sheet mount
-    const mount = document.getElementById('duelSetupContentMount');
-    if(mount.children.length === 0) {
-      // Weapon tabs (LG / KK)
-      const weapTabs = document.getElementById('weaponTabs');
-      if(weapTabs) { weapTabs.style.display = ''; mount.appendChild(weapTabs); }
-      
-      // Discipline sub-tabs
-      const discTabs = document.getElementById('discTabs');
-      if(discTabs) { discTabs.style.display = ''; mount.appendChild(discTabs); }
-      
-      // Setup tag (shows current selection)
-      const setupTag = document.getElementById('setupTag');
-      if(setupTag) { setupTag.style.display = ''; setupTag.style.textAlign = 'center'; setupTag.style.margin = '10px 0'; mount.appendChild(setupTag); }
-      
-      // Difficulty card
-      const diffGrp = document.getElementById('diffGroup');
-      if(diffGrp && diffGrp.parentElement) mount.appendChild(diffGrp.parentElement);
-      
-      // Difficulty info
-      const diffInfo = document.getElementById('diffInfo');
-      if(diffInfo) mount.appendChild(diffInfo);
-      
-      // Distance card
-      const dist = document.getElementById('distCard');
-      if(dist) mount.appendChild(dist);
-      
-      // Shot count card
-      const shc = document.getElementById('shotCountCard');
-      if(shc) mount.appendChild(shc);
-      
-      // Burst toggle
-      const brst = document.getElementById('burstBtn');
-      if(brst) mount.appendChild(brst);
-      
-      // Hide old start button
-      const oldBtnList = document.querySelectorAll('.actions .btn-fire');
-      oldBtnList.forEach(b => { if(b.innerText.includes('STARTEN') && !b.closest('#duelSetupSheet')) b.parentElement.style.display = 'none'; });
-    }
-    
-    requestAnimationFrame(() => {
-      ov.style.opacity = '1';
-      sheet.style.bottom = '0';
-    });
-  }
+  <script>
+    function openDuelSetup() {
+      if (typeof triggerHaptic === 'function') triggerHaptic();
+      const ov = document.getElementById('duelSetupSheetOverlay');
+      const sheet = document.getElementById('duelSetupSheet');
+      ov.style.display = 'block';
 
-  function closeDuelSetup(e) {
-    if(e && e.target && e.target.id !== 'duelSetupSheetOverlay') return;
-    const ov = document.getElementById('duelSetupSheetOverlay');
-    const sheet = document.getElementById('duelSetupSheet');
-    sheet.style.bottom = '-100%';
-    ov.style.opacity = '0';
-    setTimeout(() => { ov.style.display = 'none'; }, 400);
-  }
-</script>
+      // Move ALL setup elements into the bottom sheet mount
+      const mount = document.getElementById('duelSetupContentMount');
+      if (mount.children.length === 0) {
+        // Weapon tabs (LG / KK)
+        const weapTabs = document.getElementById('weaponTabs');
+        if (weapTabs) { weapTabs.style.display = ''; mount.appendChild(weapTabs); }
+
+        // Discipline sub-tabs
+        const discTabs = document.getElementById('discTabs');
+        if (discTabs) { discTabs.style.display = ''; mount.appendChild(discTabs); }
+
+        // Setup tag (shows current selection)
+        const setupTag = document.getElementById('setupTag');
+        if (setupTag) { setupTag.style.display = ''; setupTag.style.textAlign = 'center'; setupTag.style.margin = '10px 0'; mount.appendChild(setupTag); }
+
+        // Difficulty card
+        const diffGrp = document.getElementById('diffGroup');
+        if (diffGrp && diffGrp.parentElement) mount.appendChild(diffGrp.parentElement);
+
+        // Difficulty info
+        const diffInfo = document.getElementById('diffInfo');
+        if (diffInfo) mount.appendChild(diffInfo);
+
+        // Distance card
+        const dist = document.getElementById('distCard');
+        if (dist) mount.appendChild(dist);
+
+        // Shot count card
+        const shc = document.getElementById('shotCountCard');
+        if (shc) mount.appendChild(shc);
+
+        // Burst toggle
+        const brst = document.getElementById('burstBtn');
+        if (brst) mount.appendChild(brst);
+
+        // Hide old start button
+        const oldBtnList = document.querySelectorAll('.actions .btn-fire');
+        oldBtnList.forEach(b => { if (b.innerText.includes('STARTEN') && !b.closest('#duelSetupSheet')) b.parentElement.style.display = 'none'; });
+      }
+
+      requestAnimationFrame(() => {
+        ov.style.opacity = '1';
+        sheet.style.bottom = '0';
+      });
+    }
+
+    function closeDuelSetup(e) {
+      if (e && e.target && e.target.id !== 'duelSetupSheetOverlay') return;
+      const ov = document.getElementById('duelSetupSheetOverlay');
+      const sheet = document.getElementById('duelSetupSheet');
+      sheet.style.bottom = '-100%';
+      ov.style.opacity = '0';
+      setTimeout(() => { ov.style.display = 'none'; }, 400);
+    }
+  </script>
 
 </body>
 

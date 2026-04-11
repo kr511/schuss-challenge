@@ -1491,6 +1491,41 @@ function refreshPremiumDashboard() {
 
   // 2. Score & XP
   const xp = StorageManager.get('xp', 0);
+  
+  // ══ XP PROGRESS BAR RENDERING ══
+  const xpBarContainer = document.getElementById('pdXPBarContainer');
+  if (xpBarContainer) {
+    const rankInfo = getRank(xp);
+    const curRank = rankInfo.rank;
+    const nextRank = RANKS[rankInfo.idx + 1] || curRank;
+    
+    let pct = 0;
+    let xpDiff = xp - curRank.min;
+    let range = (nextRank.min === curRank.min) ? 1000 : (nextRank.min - curRank.min);
+    if (nextRank !== curRank) {
+      pct = Math.min(100, Math.max(0, (xpDiff / range) * 100));
+    } else {
+      pct = 100; // Legende
+    }
+
+    xpBarContainer.innerHTML = `
+      <div style="background:linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(20,25,30,0.6) 100%); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.1); border-radius:18px; padding:16px; box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
+          <div>
+            <div style="font-size:0.75rem; color:rgba(255,255,255,0.4); font-weight:600; letter-spacing:0.05em; margin-bottom:4px;">RANG FORTSCHRITT</div>
+            <div style="font-size:1.1rem; font-weight:700; color:#fff;">${curRank.icon} ${curRank.name}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.9rem; font-weight:700; color:#7ab030;">${xp} <span style="font-size:0.7rem; color:rgba(255,255,255,0.4); font-weight:500;">/ ${nextRank.min === Infinity ? '∞' : nextRank.min} XP</span></div>
+          </div>
+        </div>
+        <div style="height:10px; background:rgba(255,255,255,0.08); border-radius:5px; overflow:hidden; position:relative; box-shadow:inset 0 1px 3px rgba(0,0,0,0.3);">
+          <div style="height:100%; width:${pct}%; background:linear-gradient(90deg, #7ab030, #a0d84a); border-radius:5px; transition:width 1s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 0 12px rgba(122,176,48,0.5);"></div>
+        </div>
+      </div>
+    `;
+  }
+
   const statScore = document.querySelector('.pd-stats-row .pd-stat-val[style*="color:var(--accent)"]');
   if (statScore) statScore.innerText = xp + ' XP';
 
@@ -1503,7 +1538,6 @@ function refreshPremiumDashboard() {
     historyV2 = JSON.parse(localStorage.getItem('sd_history_v2') || '[]');
   } catch (e) { }
 
-  // Calculate from today's history
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
 
@@ -1517,11 +1551,10 @@ function refreshPremiumDashboard() {
       } else {
         hits += 40; // Default fallback if finished
       }
-      // Approx accuracy if playerPts and shots are present
       if (game.playerPts > 0) {
         const pts = game.playerPts;
         count++;
-        accSum += (pts / 40); // very rough average
+        accSum += (pts / 40); 
       }
     }
   });
@@ -1536,7 +1569,6 @@ function refreshPremiumDashboard() {
     statAcc.innerText = '- Ø';
   }
 
-
   // 4.5. Side Metrics (Streak & Games Today)
   const pdCurLG = Number(localStorage.getItem('sd_lg_streak') || 0) || 0;
   const pdCurKK = Number(localStorage.getItem('sd_kk_streak') || 0) || 0;
@@ -1549,15 +1581,85 @@ function refreshPremiumDashboard() {
 
   let gamesTodayCount = historyV2.filter(g => g.timestamp && g.timestamp >= startOfDay.getTime()).length;
   const elSideGamesToday = document.getElementById('pdSideGamesToday');
-  if (elSideGamesToday) elSideGamesToday.innerText = gamesTodayCount + ' / 10';
+  if (elSideGamesToday) elSideGamesToday.innerText = gamesTodayCount;
   const elSideGamesTodayBar = document.getElementById('pdSideGamesTodayBar');
   if (elSideGamesTodayBar) elSideGamesTodayBar.style.width = Math.min(gamesTodayCount * 10, 100) + '%';
 
   // 4. Update Badges
-  const streak = getHeaderStreakValue();
+  const streakHeaderVal = (typeof getHeaderStreakValue === 'function') ? getHeaderStreakValue() : 0;
   const badgeStreak = document.querySelectorAll('.pd-badge-card')[3];
   if (badgeStreak) {
-    badgeStreak.querySelector('.pd-badge-lvl').innerText = streak + ' Tage';
+    const lvlEl = badgeStreak.querySelector('.pd-badge-lvl');
+    if (lvlEl) lvlEl.innerText = streakHeaderVal + ' Tage';
+  }
+
+  // ══ DAILY MISSIONS RENDERING ══
+  const questsContainer = document.getElementById('pdQuestsContainer');
+  if (questsContainer) {
+    let dailyState = { challenges: [] };
+    try {
+      const stored = localStorage.getItem('sd_daily_challenge');
+      if (stored) dailyState = JSON.parse(stored);
+    } catch (e) { }
+
+    let questHtml = `
+      <div style="font-size:1.05rem; font-weight:600; color:#fff; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+        <span>Tägliche Missionen</span>
+        <span style="font-size:0.7rem; color:rgba(255,255,255,0.4); font-weight:400;">Resets um 00:00</span>
+      </div>
+      <div style="background:linear-gradient(145deg, rgba(30,35,40,0.5) 0%, rgba(10,12,15,0.8) 100%); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:6px; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+    `;
+
+    if (Array.isArray(dailyState.challenges) && dailyState.challenges.length > 0) {
+      dailyState.challenges.forEach((c, idx) => {
+        let icon = '🎯';
+        if (c.id.includes('win')) icon = '🥇';
+        else if (c.id.includes('play')) icon = '🔫';
+        else if (c.id.includes('score')) icon = '⭐';
+        else if (c.id.includes('shot')) icon = '⚡';
+
+        let desc = "Mission wird geladen...";
+        let target = 1;
+        if (typeof DailyChallenge !== 'undefined') {
+          const ref = DailyChallenge.CHALLENGES?.find(rc => rc.id === c.id);
+          if (ref) {
+            desc = ref.desc;
+            target = ref.target;
+          }
+        }
+
+        const isLast = idx === dailyState.challenges.length - 1;
+        const pct = Math.min(100, Math.floor((c.progress / target) * 100));
+
+        questHtml += `
+          <div style="display:flex; align-items:center; gap:14px; padding:12px 14px; ${!isLast ? 'border-bottom:1px solid rgba(255,255,255,0.05);' : ''}">
+            <div style="width:40px; height:40px; border-radius:10px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+              ${c.completed ? '✅' : icon}
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:0.82rem; font-weight:500; color:${c.completed ? 'rgba(255,255,255,0.5)' : '#fff'}; margin-bottom:6px; line-height:1.3;">
+                ${desc}
+              </div>
+              <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
+                <div style="height:100%; width:${pct}%; background:${c.completed ? '#7ab030' : 'linear-gradient(90deg, #00c3ff, #0088ff)'}; border-radius:2px; transition:width 0.8s ease;"></div>
+              </div>
+            </div>
+            <div style="font-size:0.75rem; font-weight:700; color:${c.completed ? '#7ab030' : 'rgba(255,255,255,0.3)'}; min-width:35px; text-align:right;">
+              ${c.completed ? 'ERLEDIGT' : c.progress + '/' + target}
+            </div>
+          </div>
+        `;
+      });
+    } else {
+      questHtml += `
+        <div style="padding:20px; text-align:center; color:rgba(255,255,255,0.4); font-size:0.85rem;">
+          Aktuell keine Missionen verfügbar. Starte ein Duell!
+        </div>
+      `;
+    }
+
+    questHtml += `</div>`;
+    questsContainer.innerHTML = questHtml;
   }
 
   // 5. Recent Sessions List
@@ -1568,7 +1670,6 @@ function refreshPremiumDashboard() {
     recentGames.forEach(game => {
       const wName = game.weapon === 'lg' ? 'Luftgewehr' : 'Kleinkaliber';
       const diff = game.difficulty || 'Mittel';
-      // Time ago calc
       let timeAgo = "Kürzlich";
       if (game.timestamp) {
         const mins = Math.floor((Date.now() - game.timestamp) / 60000);
