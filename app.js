@@ -6086,7 +6086,6 @@ function checkFirstVisit() {
     // Bekannter User: Profil im Hintergrund synchronisieren
     setTimeout(() => pushProfileToFirebase(), 1500);
     RookiePlan.evaluateAndRender(true);
-    RookiePlan.showIntroIfNeeded(false);
   }
 }
 
@@ -6119,10 +6118,7 @@ function saveWelcomeName() {
   // Premium Dashboard sofort mit neuem Namen aktualisieren
   if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
 
-  // Tutorial für neue Nutzer starten
-  if (typeof Tutorial !== 'undefined') Tutorial.startIfNew();
   RookiePlan.evaluateAndRender(true);
-  RookiePlan.showIntroIfNeeded(true);
 }
 
 // Make inline onclick handlers robustly available from global scope.

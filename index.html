@@ -285,19 +285,35 @@
     <!-- Script for Dynamic Greeting --><!-- Script for Dynamic Greeting -->
     <script>
       function updatePDGreeting() {
+        if (typeof StorageManager !== 'undefined') {
+          const username = StorageManager.getRaw('username') || "";
+          if (username) {
+            const pdUserName = document.getElementById('pdUserName');
+            if (pdUserName) pdUserName.innerText = username;
+            const pdProfileInitial = document.getElementById('pdProfileInitial');
+            if (pdProfileInitial) pdProfileInitial.innerText = username.charAt(0).toUpperCase();
+          }
+        }
+        
         const hour = new Date().getHours();
         let greeting = "Guten Abend";
-        if(hour >= 5 && hour < 12) greeting = "Guten Morgen";
-        else if(hour >= 12 && hour < 18) greeting = "Guten Tag";
+        if (hour >= 5 && hour < 12) greeting = "Guten Morgen";
+        else if (hour >= 12 && hour < 18) greeting = "Guten Tag";
         
-        const username = localStorage.getItem('sd_username') || "Schulze";
-        document.getElementById('pdGreeting').innerHTML = greeting + ', <span class="pd-name" style="color:var(--accent)">' + username + '</span>!';
-        document.getElementById('pdProfileInitial').innerText = username.charAt(0).toUpperCase();
+        const pdGreeting = document.getElementById('pdGreeting');
+        if (pdGreeting) {
+           const pdUserName = document.getElementById('pdUserName');
+           const name = pdUserName ? pdUserName.innerText : "";
+           pdGreeting.innerHTML = greeting + ', <span class="pd-name" style="color:#7ab030">' + (name || 'Schütze') + '</span>!';
+        }
         
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
-        document.getElementById('pdDate').innerText = new Date().toLocaleDateString('de-DE', options);
+        const pdDate = document.getElementById('pdDate');
+        if (pdDate) {
+          const options = { year: 'numeric', month: 'short', day: 'numeric' };
+          pdDate.innerText = new Date().toLocaleDateString('de-DE', options);
+        }
       }
-      document.addEventListener('DOMContentLoaded', updatePDGreeting);
+      document.addEventListener('DOMContentLoaded', () => setTimeout(updatePDGreeting, 100));
     </script>
     
     
