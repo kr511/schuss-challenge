@@ -18,15 +18,6 @@ const DailyChallenge = (function () {
       check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite')
     },
     {
-      id: 'win_streak_3',
-      type: 'streak',
-      difficulty: 'hard',
-      desc: 'Erreiche eine Siegesserie von 3 in beliebiger Disziplin.',
-      target: 3,
-      xpReward: 40,
-      check: (game, stats) => stats.currentStreak >= 3
-    },
-    {
       id: 'play_1_kk',
       type: 'play',
       difficulty: 'easy',
@@ -163,13 +154,13 @@ const DailyChallenge = (function () {
       check: (game, stats) => (game.consistency || 0) >= 90
     },
     {
-      id: 'play_3_disciplines',
-      type: 'discipline_count',
-      difficulty: 'medium',
-      desc: 'Spiele heute Duelle in 3 verschiedenen Disziplinen.',
+      id: 'win_3_hard',
+      type: 'win',
+      difficulty: 'hard',
+      desc: 'Gewinne 3 Duelle auf "Mittel" oder höher.',
       target: 3,
-      xpReward: 45,
-      check: (game, stats) => true // Wird über Disziplin-Wechsel getrackt
+      xpReward: 50,
+      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite')
     }
   ];
 
@@ -417,17 +408,22 @@ const DailyChallenge = (function () {
     }
 
     if (state.dateId !== today) {
-      // Neuer Tag prüfen auf Streak
+      // Neuen Tag prüfen - Streak logik
       const prevIsYesterday = isYesterday(state.dateId, today);
       const allCompletedYesterday = state.challenges && state.challenges.length === 3 && state.challenges.every(c => c.completed);
+      const toolboxClaimedYesterday = state.toolboxDroppedForDate === state.dateId;
 
-      if (allCompletedYesterday && prevIsYesterday) {
-        // Streak beibehalten – Erhöhung erfolgt ausschließlich in openFinalChest
+      if (allCompletedYesterday && prevIsYesterday && toolboxClaimedYesterday) {
+        // Streak erhöhen: Vortag completed + Truhe geöffnet
+        state.streak += 1;
+      } else if (allCompletedYesterday && !prevIsYesterday && toolboxClaimedYesterday) {
+        // Vortag completed aber Tage übersprungen → Streak auf 1 (neuer Start)
+        state.streak = 1;
       } else if (!allCompletedYesterday && prevIsYesterday) {
-        // Streak zurücksetzen bei verpasstem Tag
+        // Vortag nicht completed → Streak zurücksetzen
         state.streak = 0;
       } else if (!allCompletedYesterday && !prevIsYesterday && state.dateId !== '') {
-        // Streak zurücksetzen bei mehreren verpassten Tagen
+        // Mehrere Tage verpasst → Streak zurücksetzen
         state.streak = 0;
       }
 
@@ -461,6 +457,13 @@ const DailyChallenge = (function () {
       if (c.completed) return;
       const ref = getChallengeRef(c.id);
       if (!ref) return;
+
+      // Spezialfall: no_loss Quest - bei Verlust Progress reseten
+      if (ref.type === 'no_loss' && gameData.result === 'lose') {
+        c.progress = 0;
+        updatedAny = true;
+        return;
+      }
 
       if (ref.check(gameData, statsData)) {
         // Progress basierend auf Quest-Typ aktualisieren
@@ -576,7 +579,9 @@ const DailyChallenge = (function () {
       setTimeout(() => {
         xpText.style.opacity = '1';
         xpText.style.transform = 'scale(1)';
-        if (typeof awardXP === 'function') {
+        if (typeof awardFlatXP === 'function') {
+          awardFlatXP(amount);
+        } else if (typeof awardXP === 'function') {
           awardXP(amount);
         }
       }, 300);
@@ -645,8 +650,7 @@ const DailyChallenge = (function () {
     const allCompleted = state.challenges.length === 3 && state.challenges.every(c => c.completed);
     if (!allCompleted || state.toolboxDroppedForDate === state.dateId) return;
 
-    // Track as claimed
-    state.streak += 1;
+    // Track as claimed (Streak-Erhöhung erfolgt in checkDailyReset beim nächsten Tag)
     state.toolboxDroppedForDate = state.dateId;
     saveState();
     renderUI();
@@ -662,7 +666,7 @@ const DailyChallenge = (function () {
          <div id="finalChestTitle" style="color: gold; font-weight: 800; font-size: 1.8rem; text-shadow: 0 0 15px gold; margin-bottom: 20px; opacity: 0; transform: translateY(-20px); transition: all 0.5s;">ALLE MISSIONEN ERFÜLLT!</div>
          <img src="gold_toolbox.png" id="finalChestImg" class="toolbox-img shake" alt="Goldkiste" style="width: 180px;"/>
          <div id="finalChestXP" class="toolbox-open-text" style="opacity: 0; transform: scale(0.5); transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); margin-top: 20px;">+${extraXP} XP Bonus!</div>
-         <div id="finalChestStreak" style="opacity: 0; color: #1cb0f6; font-weight: 800; margin-top: 10px; transition: all 0.5s;">🔥 Streak erhöht auf ${state.streak} Tage!</div>
+         <div id="finalChestStreak" style="opacity: 0; color: #1cb0f6; font-weight: 800; margin-top: 10px; transition: all 0.5s;">🔥 Aktueller Streak: ${state.streak} Tage</div>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -696,7 +700,9 @@ const DailyChallenge = (function () {
         xpText.style.opacity = '1';
         xpText.style.transform = 'scale(1)';
         streakText.style.opacity = '1';
-        if (typeof awardXP === 'function') {
+        if (typeof awardFlatXP === 'function') {
+          awardFlatXP(extraXP);
+        } else if (typeof awardXP === 'function') {
           awardXP(extraXP);
         }
       }, 300);
