@@ -538,6 +538,9 @@ function awardXP(diff) {
   updateSchuetzenpass();
   showXPPop(gained);
 
+  // Daily Bonus erst beim 1. Duell-Abschluss prüfen
+  if (typeof initDailyLoginRewards === 'function') initDailyLoginRewards();
+
   // Rank Check
   const { rank: newRank, idx: newIdx } = getRank(G.xp);
   if (newIdx > oldIdx) {
@@ -1479,7 +1482,7 @@ function addHistoryEntry(result, diff, weapon, playerPts, botPts) {
 /* ════ PREMIUM DASHBOARD DATA BINDING ════ */
 function refreshPremiumDashboard() {
   // 1. Greeting Name
-  const username = localStorage.getItem('schuss_username') || "Schulze";
+  const username = StorageManager.getRaw('username') || "Schulze";
   const pdUserName = document.getElementById('pdUserName');
   if (pdUserName) pdUserName.innerText = username;
 
@@ -6013,7 +6016,7 @@ initDOMCache();
 setSz();
 drawTarget([]);
 loadXP();
-initDailyLoginRewards();
+// initDailyLoginRewards(); // Verschoben nach awardXP
 updateSchuetzenpass();
 // Premium Dashboard beim Laden mit echten Daten füllen
 if (typeof refreshPremiumDashboard === 'function') setTimeout(refreshPremiumDashboard, 500);
@@ -6110,6 +6113,10 @@ function saveWelcomeName() {
   scheduleCloudSync('username_changed', { immediate: true });
   // Sofort in Firebase registrieren (Erstanmeldung)
   pushProfileToFirebase();
+
+  // Premium Dashboard sofort mit neuem Namen aktualisieren
+  if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+
   // Tutorial für neue Nutzer starten
   if (typeof Tutorial !== 'undefined') Tutorial.startIfNew();
   RookiePlan.evaluateAndRender(true);
