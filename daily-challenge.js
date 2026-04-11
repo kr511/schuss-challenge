@@ -255,9 +255,24 @@ const DailyChallenge = (function () {
       return picked;
     };
 
+    const assignReward = () => {
+      // ~40% Kiste, ~60% einfache XP
+      const rewardRoll = rng();
+      if (rewardRoll < 0.40) {
+        return { type: 'chest', amount: 100 };
+      } else {
+        return { type: 'xp', amount: 25 };
+      }
+    };
+
     const addPickedChallenge = (challenge) => {
       if (!challenge) return;
-      selected.push({ id: challenge.id, progress: 0, completed: false });
+      selected.push({ 
+        id: challenge.id, 
+        progress: 0, 
+        completed: false,
+        reward: assignReward()
+      });
     };
 
     for (const desiredTier of pattern) {
@@ -379,12 +394,14 @@ const DailyChallenge = (function () {
           c.progress = ref.target;
           c.completed = true;
           anyNewlyCompleted = true;
-          
-          // Belohnung: XP sind Standard, Kiste ist selten (15% Chance)
-          const roll = Math.random();
-          if (roll < 0.15) {
-             awardRareChest();
+
+          // Belohnung austeilen (festgelegt bei Generierung)
+          if (c.reward && c.reward.type === 'chest') {
+             awardRareChest(c.reward.amount);
+          } else if (c.reward && c.reward.type === 'xp') {
+             awardChallengeXP(c.reward.amount);
           } else {
+             // Fallback: alte Logik mit ref.xpReward
              awardChallengeXP(ref.xpReward);
           }
         }
@@ -411,10 +428,10 @@ const DailyChallenge = (function () {
     }
   }
 
-  function awardRareChest() {
+  function awardRareChest(amount = 100) {
     // Rare Chest gives a lot of XP and a special message
-    const amount = 100; // Rare chests give 100 XP instead of standard
-    
+    const xpAmount = amount;
+
     // Trigger Chest Animation
     const overlay = document.createElement('div');
     overlay.className = 'toolbox-overlay rare-drop';
@@ -423,8 +440,8 @@ const DailyChallenge = (function () {
       <div class="toolbox-container pop-in">
          <div class="toolbox-glow gold"></div>
          <div id="chestRareTitle" style="color: gold; font-weight: 800; font-size: 1.5rem; text-shadow: 0 0 10px rgba(255,215,0,0.5); margin-bottom: 20px; opacity: 0; transform: translateY(-20px); transition: all 0.5s;">SELTERER FUND!</div>
-         <img src="wood_toolbox.png" id="chestImg" class="toolbox-img shake" alt="Holzkiste" style="width: 150px;"/>
-         <div id="chestRareXP" class="toolbox-open-text" style="opacity: 0; transform: scale(0.5); transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); margin-top: 20px;">+${amount} XP Bonus!</div>
+         <div id="chestImg" class="toolbox-img chest-placeholder shake" style="width:150px;height:150px;margin:0 auto;background:linear-gradient(135deg,#8B6914,#C5961F);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:3.5rem;box-shadow:0 4px 20px rgba(139,105,20,0.4);">🎁</div>
+         <div id="chestRareXP" class="toolbox-open-text" style="opacity: 0; transform: scale(0.5); transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); margin-top: 20px;">+${xpAmount} XP Bonus!</div>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -619,13 +636,26 @@ const DailyChallenge = (function () {
     state.challenges.forEach((c, index) => {
        const ref = getChallengeRef(c.id);
        if (!ref) return;
-       
+
        const isLast = (index === 2);
-       // Chest images from artifacts copied to root
-       const chestImg = index === 0 ? 'wood_toolbox.png' : (index === 1 ? 'silver_toolbox.png' : 'gold_toolbox.png');
-       
+       // CSS placeholder statt fehlender Bilder
+       const chestStyle = index === 0
+         ? 'background:linear-gradient(135deg,#8B6914,#C5961F)'
+         : (index === 1 ? 'background:linear-gradient(135deg,#8899AA,#B0C4DE)' : 'background:linear-gradient(135deg,#DAA520,#FFD700)');
+       const chestEmoji = ['🪵', '🥈', '🥇'][index] || '🎁';
+
        const pct = Math.min(100, Math.floor((c.progress / ref.target) * 100));
        const isComplete = c.completed;
+
+       // Belohnungs-Anzeige
+       let rewardDisplay = '';
+       if (c.reward) {
+         if (c.reward.type === 'chest') {
+           rewardDisplay = `<div class="duo-quest-reward chest-reward" title="Kiste: ${c.reward.amount} XP">🎁 <span style="font-size:0.7rem; color:#C5961F;">Kiste</span></div>`;
+         } else {
+           rewardDisplay = `<div class="duo-quest-reward xp-reward" title="${c.reward.amount} XP">+${c.reward.amount} XP</div>`;
+         }
+       }
 
        html += `
          <div class="duo-quest-row ${isLast ? 'no-border' : ''}">
@@ -637,8 +667,11 @@ const DailyChallenge = (function () {
                   </div>
                   ${(c.progress === 0 && !isComplete) ? `<span class="duo-quest-bar-text empty">${c.progress} / ${ref.target}</span>` : ''}
                </div>
-               <div class="duo-quest-chest">
-                  <img src="${chestImg}" alt="Chest" class="${isComplete ? 'opened' : 'closed'}" />
+               <div class="duo-quest-reward-container">
+                  <div class="duo-quest-chest">
+                     <div class="chest-placeholder ${isComplete ? 'opened' : 'closed'}" style="${chestStyle}width:36px;height:36px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 2px 6px rgba(0,0,0,0.3);vertical-align:middle;">${chestEmoji}</div>
+                  </div>
+                  ${rewardDisplay}
                </div>
             </div>
          </div>
