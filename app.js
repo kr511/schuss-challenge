@@ -1604,6 +1604,21 @@ function refreshPremiumDashboard() {
   const elSideGamesTodayBar = document.getElementById('pdSideGamesTodayBar');
   if (elSideGamesTodayBar) elSideGamesTodayBar.style.width = Math.min(gamesTodayCount * 10, 100) + '%';
 
+  // 4.6. Calculate and display statistics (Siege, Siegquote, Gesamt XP)
+  const totalWins = historyV2.filter(g => g.result === 'win' || g.result === 'Sieg').length;
+  const totalGames = historyV2.length;
+  const winRate = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(0) : 0;
+  const totalXP = historyV2.reduce((sum, g) => sum + (g.playerScore || 0), 0);
+
+  const elPdStatWins = document.getElementById('pdStatWins');
+  if (elPdStatWins) elPdStatWins.innerText = totalWins;
+
+  const elPdStatWinrate = document.getElementById('pdStatWinrate');
+  if (elPdStatWinrate) elPdStatWinrate.innerText = totalGames > 0 ? winRate + '%' : '–';
+
+  const elPdStatScore = document.getElementById('pdStatScore');
+  if (elPdStatScore) elPdStatScore.innerText = totalXP;
+
   // 4. Update Badges
   const streakHeaderVal = (typeof getHeaderStreakValue === 'function') ? getHeaderStreakValue() : 0;
   const badgeStreak = document.querySelectorAll('.pd-badge-card')[3];
@@ -1632,10 +1647,10 @@ function refreshPremiumDashboard() {
       }
       // Ergebnis: "LG 60"
       const diff = game.difficulty || 'Mittel';
-      
+
       l3Html += `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
-          <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${finalDiscLabel}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
+          <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${displayDisc}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
           <div style="font-size:0.75rem;font-weight:600;color:${color};">${label}</div>
         </div>
       `;
