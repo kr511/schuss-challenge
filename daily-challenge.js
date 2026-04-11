@@ -99,7 +99,77 @@ const DailyChallenge = (function () {
       desc: 'Schieße insgesamt 40 Mal in Duellen.',
       target: 40,
       xpReward: 50,
-      check: (game, stats) => true // We add progress by length in trackGame
+      check: (game, stats) => game.shots && game.shots.length > 0
+    },
+    // NEUE QUESTS:
+    {
+      id: 'play_5_games',
+      type: 'play_count',
+      difficulty: 'easy',
+      desc: 'Spiele heute 5 Duelle (beliebige Disziplin).',
+      target: 5,
+      xpReward: 35,
+      check: (game, stats) => true // Progress wird in trackGame addiert
+    },
+    {
+      id: 'hit_5_tens',
+      type: 'tens_count',
+      difficulty: 'medium',
+      desc: 'Triff mindestens 5x eine 10.x in Duellen.',
+      target: 5,
+      xpReward: 45,
+      check: (game, stats) => {
+        if (!Array.isArray(game.shots) || game.shots.length === 0) return false;
+        return game.shots.some(s => {
+          const points = Number(s.points ?? s.pts ?? s.ring ?? 0) || 0;
+          return points >= 10.0;
+        });
+      }
+    },
+    {
+      id: 'win_with_pistol',
+      type: 'win',
+      difficulty: 'medium',
+      desc: 'Gewinne 1 Duell mit der Sportpistole.',
+      target: 1,
+      xpReward: 40,
+      check: (game, stats) => game.result === 'win' && game.weapon === 'sp'
+    },
+    {
+      id: 'score_perfect_10',
+      type: 'score',
+      difficulty: 'hard',
+      desc: 'Erreiche ein Duell-Ergebnis von mind. 100.0 Ringen.',
+      target: 1,
+      xpReward: 50,
+      check: (game, stats) => (game.totalScore || 0) >= 100.0
+    },
+    {
+      id: 'no_loss_streak_3',
+      type: 'no_loss',
+      difficulty: 'medium',
+      desc: 'Verliere 3 Duelle nicht hintereinander (Sieg oder Unentschieden).',
+      target: 3,
+      xpReward: 40,
+      check: (game, stats) => game.result !== 'lose'
+    },
+    {
+      id: 'high_consistency_90',
+      type: 'consistency',
+      difficulty: 'hard',
+      desc: 'Erreiche eine Konstanz von mind. 90% in einem Duell.',
+      target: 1,
+      xpReward: 55,
+      check: (game, stats) => (game.consistency || 0) >= 90
+    },
+    {
+      id: 'play_3_disciplines',
+      type: 'discipline_count',
+      difficulty: 'medium',
+      desc: 'Spiele heute Duelle in 3 verschiedenen Disziplinen.',
+      target: 3,
+      xpReward: 45,
+      check: (game, stats) => true // Wird über Disziplin-Wechsel getrackt
     }
   ];
 
@@ -350,13 +420,16 @@ const DailyChallenge = (function () {
       // Neuer Tag prüfen auf Streak
       const prevIsYesterday = isYesterday(state.dateId, today);
       const allCompletedYesterday = state.challenges && state.challenges.length === 3 && state.challenges.every(c => c.completed);
-      
+
       if (allCompletedYesterday && prevIsYesterday) {
-        // Streak beibehalten
-      } else if (!allCompletedYesterday && !prevIsYesterday && state.dateId !== '') {
-        state.streak = 0;
+        // Streak erhöhen für erfolgreichen Vortag
+        state.streak += 1;
       } else if (!allCompletedYesterday && prevIsYesterday) {
-        state.streak = 0; 
+        // Streak zurücksetzen bei verpasstem Tag
+        state.streak = 0;
+      } else if (!allCompletedYesterday && !prevIsYesterday && state.dateId !== '') {
+        // Streak zurücksetzen bei mehreren verpassten Tagen
+        state.streak = 0;
       }
 
       state.dateId = today;
@@ -391,11 +464,24 @@ const DailyChallenge = (function () {
       if (!ref) return;
 
       if (ref.check(gameData, statsData)) {
-        if (ref.type === 'streak' || ref.type === 'score_avg' || ref.type === 'shot' || ref.type === 'consistency') {
+        // Progress basierend auf Quest-Typ aktualisieren
+        if (ref.type === 'streak' || ref.type === 'score_avg' || ref.type === 'shot' || 
+            ref.type === 'consistency' || ref.type === 'score') {
+          // Einmalige Quests - sofort abgeschlossen
           c.progress = ref.target;
         } else if (ref.type === 'shots_count') {
+          // Kumulativ - Schüsse addieren
           c.progress += (gameData.shots ? gameData.shots.length : 0);
+        } else if (ref.type === 'play_count' || ref.type === 'tens_count' || 
+                   ref.type === 'no_loss') {
+          // Spiel-basierte Quests - pro Duell +1
+          c.progress += 1;
+        } else if (ref.type === 'discipline_count') {
+          // Disziplin-Quest - prüfe einzigartige Disziplinen
+          const playedDisciplines = statsData && statsData.disciplinesToday ? new Set(statsData.disciplinesToday) : new Set([gameData.weapon]);
+          c.progress = playedDisciplines.size;
         } else {
+          // Standard +1 pro Duell
           c.progress += 1;
         }
 
@@ -429,11 +515,14 @@ const DailyChallenge = (function () {
   }
 
   function awardChallengeXP(amount) {
-    if (typeof awardXP === 'function') {
-      awardXP(amount);
+    if (typeof awardFlatXP === 'function') {
+      awardFlatXP(amount);
       if (typeof showXPPop === 'function') {
         setTimeout(() => showXPPop(amount + ' XP'), 800);
       }
+    } else if (typeof awardXP === 'function') {
+      // Fallback falls awardFlatXP nicht verfügbar
+      awardXP(amount);
     }
   }
 
@@ -504,6 +593,8 @@ const DailyChallenge = (function () {
   function spawnChestParticles(parent) {
     const count = 30;
     const container = parent.querySelector('.toolbox-container');
+    if (!container) return;
+    
     for (let i = 0; i < count; i++) {
       const p = document.createElement('div');
       p.className = 'chest-particle';
@@ -522,7 +613,7 @@ const DailyChallenge = (function () {
 
   function checkAllCompleted() {
     // Only show single completion banner, manual open for final chest
-    const allCompleted = state.challenges.every(c => c.completed);
+    const allCompleted = state.challenges.length === 3 && state.challenges.every(c => c.completed);
     if (!allCompleted) {
       showSingleCompletionBanner();
     } else {
@@ -547,7 +638,7 @@ const DailyChallenge = (function () {
   }
 
   function openFinalChest() {
-    const allCompleted = state.challenges.every(c => c.completed);
+    const allCompleted = state.challenges.length === 3 && state.challenges.every(c => c.completed);
     if (!allCompleted || state.toolboxDroppedForDate === state.dateId) return;
 
     // Track as claimed
@@ -633,7 +724,7 @@ const DailyChallenge = (function () {
       }
     }
 
-    const allCompleted = state.challenges.every(c => c.completed);
+    const allCompleted = state.challenges.length === 3 && state.challenges.every(c => c.completed);
     const claimed = state.toolboxDroppedForDate === state.dateId;
 
     let html = `
