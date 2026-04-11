@@ -1482,12 +1482,12 @@ function addHistoryEntry(result, diff, weapon, playerPts, botPts) {
 /* ════ PREMIUM DASHBOARD DATA BINDING ════ */
 function refreshPremiumDashboard() {
   // 1. Greeting Name
-  const username = StorageManager.getRaw('username') || "Schulze";
+  const username = StorageManager.getRaw('username') || "";
   const pdUserName = document.getElementById('pdUserName');
-  if (pdUserName) pdUserName.innerText = username;
+  if (pdUserName && username) pdUserName.innerText = username;
 
   const pdProfileInitial = document.getElementById('pdProfileInitial');
-  if (pdProfileInitial) pdProfileInitial.innerText = username.charAt(0).toUpperCase();
+  if (pdProfileInitial && username) pdProfileInitial.innerText = username.charAt(0).toUpperCase();
 
   // 2. Score & XP
   const xp = StorageManager.get('xp', 0);
@@ -6104,9 +6104,11 @@ function saveWelcomeName() {
   StorageManager.setRaw('username', name);
   G.username = name;
 
-  // Update profile sheet name
-  const psName = document.getElementById('psUsername');
-  if (psName) psName.textContent = name;
+  // Dashboard sofort mit dem neuen Namen aktualisieren
+  const pdUserName = document.getElementById('pdUserName');
+  if (pdUserName) pdUserName.innerText = name;
+  const pdProfileInitial = document.getElementById('pdProfileInitial');
+  if (pdProfileInitial) pdProfileInitial.innerText = name.charAt(0).toUpperCase();
 
   document.getElementById('welcomeOverlay').classList.remove('active');
 
