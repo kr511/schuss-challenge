@@ -1631,8 +1631,8 @@ function refreshPremiumDashboard() {
         displayDisc = displayDisc.substring(weaponUpper.length).trim();
       }
       // Ergebnis: "LG 60"
-      const finalDiscLabel = `${weaponUpper} ${displayDisc}`;
-
+      const diff = game.difficulty || 'Mittel';
+      
       l3Html += `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
           <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${finalDiscLabel}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
