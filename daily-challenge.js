@@ -127,13 +127,13 @@ const DailyChallenge = (function () {
       }
     },
     {
-      id: 'win_with_pistol',
-      type: 'win',
+      id: 'hit_5_tens_kk',
+      type: 'tens_count',
       difficulty: 'medium',
-      desc: 'Gewinne 1 Duell mit der Sportpistole.',
-      target: 1,
+      desc: 'Triff mindestens 5x eine 10 mit dem Kleinkaliber (KK).',
+      target: 5,
       xpReward: 40,
-      check: (game, stats) => game.result === 'win' && game.weapon === 'sp'
+      check: (game, stats) => game.weapon === 'kk' && Array.isArray(game.shots) && game.shots.some(s => (Number(s.points ?? s.pts ?? s.ring ?? 0) || 0) >= 10.0)
     },
     {
       id: 'score_perfect_10',
