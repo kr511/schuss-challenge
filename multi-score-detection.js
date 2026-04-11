@@ -738,17 +738,48 @@ const MultiScoreDetection = (function() {
   }
   
   /**
-   * Kontrast-Erhöhung
+   * Otsu Thresholding anstelle starrer Kontrasterhöhung
    */
   function enhanceContrast(imageData) {
     const data = imageData.data;
-    const contrast = 1.5;
-    const intercept = 128 * (1 - contrast);
+    const hist = new Array(256).fill(0);
     
     for (let i = 0; i < data.length; i += 4) {
-      data[i] = data[i] * contrast + intercept;
-      data[i + 1] = data[i + 1] * contrast + intercept;
-      data[i + 2] = data[i + 2] * contrast + intercept;
+      const gray = (data[i] * 0.299) + (data[i+1] * 0.587) + (data[i+2] * 0.114);
+      hist[Math.floor(gray)]++;
+    }
+
+    const total = data.length / 4;
+    let sum = 0;
+    for (let i = 0; i < 256; i++) sum += i * hist[i];
+
+    let sumBackground = 0;
+    let weightBackground = 0;
+    let maxVariance = 0;
+    let threshold = 128;
+
+    for (let i = 0; i < 256; i++) {
+      weightBackground += hist[i];
+      if (!weightBackground) continue;
+
+      const weightForeground = total - weightBackground;
+      if (!weightForeground) break;
+
+      sumBackground += i * hist[i];
+      const meanBackground = sumBackground / weightBackground;
+      const meanForeground = (sum - sumBackground) / weightForeground;
+      const varianceBetween = weightBackground * weightForeground * Math.pow(meanBackground - meanForeground, 2);
+
+      if (varianceBetween > maxVariance) {
+        maxVariance = varianceBetween;
+        threshold = i;
+      }
+    }
+
+    for (let i = 0; i < data.length; i += 4) {
+      const gray = (data[i] * 0.299) + (data[i+1] * 0.587) + (data[i+2] * 0.114);
+      const bw = gray >= threshold ? 255 : 0;
+      data[i] = data[i + 1] = data[i + 2] = bw;
     }
   }
   
