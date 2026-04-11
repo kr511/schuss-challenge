@@ -70,6 +70,12 @@ const V2VisionEngine = (function() {
     
     try {
       video.srcObject = _videoStream;
+      // WICHTIG: iOS Safari benötigt dieses Event, um den Screen aufzubauen
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          resolve();
+        };
+      });
       await video.play();
       return true;
     } catch (err) {
