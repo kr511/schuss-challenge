@@ -6599,21 +6599,122 @@ body.slow-network .profile-sheet {
   align-items: center;
 }
 
-/* OVERRIDE THE FLOATING BUTTON FROM MOCKUP */
-#btnStartLiveScan {
+/* ════ FLOATING "DUELL STARTEN" BUTTON ════ */
+#btnOpenDuelSetup {
   position: fixed;
   bottom: 25px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 9999;
-  background: linear-gradient(90deg, #00c3ff 0%, #7ab030 100%);
+  z-index: 8999;
+  background: linear-gradient(135deg, #00c3ff 0%, #7ab030 100%);
   color: #000;
   border: none;
   border-radius: 30px;
-  padding: 14px 30px;
+  padding: 15px 36px;
   font-weight: 800;
-  font-size: 1rem;
-  box-shadow: 0 10px 30px rgba(122, 176, 48, 0.5);
+  font-size: 1.05rem;
+  box-shadow: 0 8px 30px rgba(122, 176, 48, 0.45), 0 0 60px rgba(0,195,255,0.15);
   cursor: pointer;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+#btnOpenDuelSetup:active {
+  transform: translateX(-50%) scale(0.95);
+  box-shadow: 0 4px 15px rgba(122, 176, 48, 0.3);
+}
+
+/* ════ DUEL SETUP BOTTOM SHEET ════ */
+.duel-setup-overlay {
+  -webkit-tap-highlight-color: transparent;
+}
+.duel-setup-sheet {
+  max-height: 85vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.duel-setup-sheet .card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.duel-setup-sheet .card-hd {
+  color: rgba(255,255,255,0.5);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+.duel-setup-sheet .diff-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.duel-setup-sheet .dif {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 10px 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.duel-setup-sheet .dif.active {
+  border-color: var(--accent);
+  background: rgba(122,176,48,0.1);
+  box-shadow: 0 0 15px rgba(122,176,48,0.15);
+}
+.duel-setup-sheet .dif-ico {
+  font-size: 1.3rem;
+  display: block;
+  margin-bottom: 4px;
+}
+.duel-setup-sheet .dif-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-main);
+  display: block;
+}
+.duel-setup-sheet .dif-desc {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 2px;
+}
+.duel-setup-sheet .info-row {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.duel-setup-sheet .btn-burst {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 12px;
+  color: var(--text-main);
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-bottom: 5px;
+}
+.duel-setup-sheet .btn-fire {
+  background: linear-gradient(135deg, #00c3ff 0%, #7ab030 100%);
+  color: #000;
+  font-weight: 800;
+  border: none;
+  border-radius: 14px;
+  padding: 16px;
+  font-size: 1.1rem;
+  width: 100%;
+  cursor: pointer;
+  box-shadow: 0 6px 25px rgba(122,176,48,0.35);
+  transition: transform 0.15s ease;
+}
+.duel-setup-sheet .btn-fire:active {
+  transform: scale(0.97);
 }

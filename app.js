@@ -914,6 +914,8 @@
 
       scheduleNextFeedback(totalDuels);
       showScreen('screenSetup');
+      // Dashboard mit frischen Daten aktualisieren
+      if(typeof refreshPremiumDashboard === 'function') setTimeout(refreshPremiumDashboard, 200);
     }
 
     function skipSiteFeedback() {
@@ -1452,6 +1454,97 @@
         return historyEntry;
       } catch (e) { }
       return null;
+    }
+
+    
+    /* ════ PREMIUM DASHBOARD DATA BINDING ════ */
+    function refreshPremiumDashboard() {
+      // 1. Greeting Name
+      const username = localStorage.getItem('schuss_username') || "Schulze";
+      const pdUserName = document.getElementById('pdUserName');
+      if(pdUserName) pdUserName.innerText = username;
+      
+      const pdProfileInitial = document.getElementById('pdProfileInitial');
+      if(pdProfileInitial) pdProfileInitial.innerText = username.charAt(0).toUpperCase();
+
+      // 2. Score & XP
+      const xp = StorageManager.get('xp', 0);
+      const statScore = document.querySelector('.pd-stats-row .pd-stat-val[style*="color:var(--accent)"]');
+      if(statScore) statScore.innerText = xp + ' XP';
+
+      // 3. Stats Today (EnhancedAnalytics)
+      let hits = 0;
+      let accSum = 0;
+      let count = 0;
+      let historyV2 = [];
+      try {
+         historyV2 = JSON.parse(localStorage.getItem('sd_history_v2') || '[]');
+      } catch (e) { }
+      
+      // Calculate from today's history
+      const startOfDay = new Date();
+      startOfDay.setHours(0,0,0,0);
+      
+      historyV2.forEach(game => {
+         if(game.timestamp && game.timestamp >= startOfDay.getTime()) {
+            if(game.shotsLeft && game.shotsLeft < 40) {
+               const shotsFired = 40 - game.shotsLeft;
+               hits += shotsFired;
+            } else if (game.shots) {
+               hits += game.shots.length;
+            } else {
+               hits += 40; // Default fallback if finished
+            }
+            // Approx accuracy if playerPts and shots are present
+            if(game.playerPts > 0) {
+              const pts = game.playerPts;
+              count++;
+              accSum += (pts / 40); // very rough average
+            }
+         }
+      });
+      
+      const statHits = document.querySelector('.pd-stats-row > div:nth-child(1) .pd-stat-val');
+      if(statHits) statHits.innerHTML = hits + ' <span style="font-size:0.7em;color:var(--text-muted)">Schuss</span>';
+      
+      const statAcc = document.querySelector('.pd-stats-row > div:nth-child(2) .pd-stat-val');
+      if(count > 0 && statAcc) {
+         statAcc.innerText = (accSum / count).toFixed(1) + ' Ø';
+      } else if (statAcc) {
+         statAcc.innerText = '- Ø';
+      }
+
+      // 4. Update Badges
+      const streak = getHeaderStreakValue();
+      const badgeStreak = document.querySelectorAll('.pd-badge-card')[3];
+      if(badgeStreak) {
+         badgeStreak.querySelector('.pd-badge-lvl').innerText = streak + ' Tage';
+      }
+
+      // 5. Recent Sessions List
+      const recentList = document.querySelector('.pd-recent-list');
+      if(recentList && historyV2.length > 0) {
+         let listHtml = '';
+         const recentGames = historyV2.slice(Math.max(historyV2.length - 2, 0)).reverse();
+         recentGames.forEach(game => {
+            const wName = game.weapon === 'lg' ? 'Luftgewehr' : 'Kleinkaliber';
+            const diff = game.difficulty || 'Mittel';
+            // Time ago calc
+            let timeAgo = "Kürzlich";
+            if(game.timestamp) {
+               const mins = Math.floor((Date.now() - game.timestamp)/60000);
+               if(mins < 60) timeAgo = mins + 'm ago';
+               else if(mins < 1440) timeAgo = Math.floor(mins/60) + 'h ago';
+               else timeAgo = Math.floor(mins/1440) + 'd ago';
+            }
+            listHtml += `
+            <div class="pd-recent-item">
+              <div><span style="color:var(--text-main);font-weight:500;">${wName}</span> <span style="color:var(--text-muted);font-size:0.8rem;">(${game.playerPts || 0} pts)</span></div>
+              <div style="color:var(--text-dim);font-size:0.8rem;">${timeAgo}</div>
+            </div>`;
+         });
+         recentList.innerHTML = listHtml;
+      }
     }
 
     function renderHistory() {
@@ -5870,6 +5963,8 @@ requestAnimationFrame(() => {
       document.getElementById(id).classList.add('active');
       if (id === 'screenSetup') {
         RookiePlan.evaluateAndRender(true);
+        if(typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+        if(typeof updatePDGreeting === 'function') updatePDGreeting();
       } else if (id === 'screenBattle') {
         HealthyEngagement.hideBreakOverlay();
       }
@@ -5882,6 +5977,8 @@ requestAnimationFrame(() => {
     loadXP();
     initDailyLoginRewards();
     updateSchuetzenpass();
+    // Premium Dashboard beim Laden mit echten Daten füllen
+    if(typeof refreshPremiumDashboard === 'function') setTimeout(refreshPremiumDashboard, 500);
     if (typeof DailyChallenge !== 'undefined') DailyChallenge.init();
     if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.init();
     updateLeaderboardScopeControl();
@@ -6102,3 +6199,8 @@ requestAnimationFrame(() => {
     }
 
 
+
+
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(refreshPremiumDashboard, 300);
+    });

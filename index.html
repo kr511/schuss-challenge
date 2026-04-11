@@ -221,8 +221,25 @@
       </div>
       
       <!-- FIXED LIVE SCANNER BUTTON MOUNTED HERE FOR PREVIEW, OR ABSOLUTE -->
-      <button id="btnStartLiveScan">
-        <span style="font-size:1.2rem;">🎯</span> LIVE SCANNER
+
+  <!-- ════ PREMIUM DUELL SETUP (BOTTOM SHEET) ════ -->
+  <div id="duelSetupSheetOverlay" class="duel-setup-overlay" onclick="closeDuelSetup(event)" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:var(--glass-blur); -webkit-backdrop-filter:var(--glass-blur); z-index:9000; opacity:0; transition:opacity 0.3s ease;">
+    <div id="duelSetupSheet" class="duel-setup-sheet" style="position:absolute; bottom:-100%; left:0; width:100%; background:var(--glass-bg); border-top:1px solid var(--glass-border); border-radius:24px 24px 0 0; padding:25px; transition:bottom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1); box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
+      <div style="width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 5px; margin: 0 auto 20px auto;"></div>
+      <h3 style="color:#fff; margin-top:0; font-weight:700; font-size:1.4rem; margin-bottom: 20px;">DUELL EINSTELLUNGEN</h3>
+      
+      <div id="duelSetupContentMount">
+        <!-- Legacy setup content will be moved here -->
+      </div>
+      
+      <button class="btn-fire" onclick="startBattle(); setTimeout(closeDuelSetup, 500);" style="margin-top:20px; width:100%; border-radius: 12px; padding: 15px; font-weight: 800; font-size: 1.1rem; box-shadow: 0 4px 20px rgba(122,176,48,0.3);">
+        🎯 SCANNER ÖFFNEN & STARTEN
+      </button>
+    </div>
+  </div>
+
+      <button id="btnOpenDuelSetup" onclick="openDuelSetup()">
+        <span style="font-size:1.2rem;">🎯</span> DUELL STARTEN
       </button>
 
       <div id="v2ScannerView" style="display:none;position:fixed;top:0;left:0;width:100%;height:100vh;z-index:99999;background:#000;">
@@ -257,7 +274,7 @@
       document.addEventListener('DOMContentLoaded', updatePDGreeting);
     </script>
     
-    <div style="display:none;"><!-- Hide old setup temporarily -->
+    <!-- BEGIN LEGACY SETUP WRAPPER -->
 
       <!-- Profil Menu (legacy, hidden) -->
       <div class="profile-menu" id="profileMenu"></div>
@@ -1100,6 +1117,49 @@
 
     </div>
   </div>
+
+
+<script>
+  function openDuelSetup() {
+    triggerHaptic();
+    const ov = document.getElementById('duelSetupSheetOverlay');
+    const sheet = document.getElementById('duelSetupSheet');
+    ov.style.display = 'block';
+    
+    // Move legacy setup into mount if not moved yet
+    const mount = document.getElementById('duelSetupContentMount');
+    if(mount.children.length === 0) {
+      const dist = document.getElementById('distCard');
+      const diffInfo = document.getElementById('diffInfo');
+      const diffGrp = document.getElementById('diffGroup').parentElement;
+      const shc = document.getElementById('shotCountCard');
+      const brst = document.getElementById('burstBtn');
+      if(dist) mount.appendChild(dist);
+      if(diffGrp) mount.appendChild(diffGrp);
+      if(diffInfo) mount.appendChild(diffInfo);
+      if(shc) mount.appendChild(shc);
+      if(brst) mount.appendChild(brst);
+      
+      // Hide the legacy start button to prevent confusion
+      const oldBtnList = document.querySelectorAll('.actions .btn-fire');
+      oldBtnList.forEach(b => { if(b.innerText.includes('STARTEN') && b.parentElement.id !== 'duelSetupSheet') b.parentElement.style.display = 'none'; });
+    }
+    
+    requestAnimationFrame(() => {
+      ov.style.opacity = '1';
+      sheet.style.bottom = '0';
+    });
+  }
+
+  function closeDuelSetup(e) {
+    if(e && e.target.id !== 'duelSetupSheetOverlay' && e.target.tagName !== 'BUTTON' && !e.target.closest('#btnStopLiveScan')) return;
+    const ov = document.getElementById('duelSetupSheetOverlay');
+    const sheet = document.getElementById('duelSetupSheet');
+    sheet.style.bottom = '-100%';
+    ov.style.opacity = '0';
+    setTimeout(() => { ov.style.display = 'none'; }, 400);
+  }
+</script>
 
 </body>
 
