@@ -161,10 +161,19 @@ const DailyChallenge = (function () {
     const progressRaw = Number(entry && entry.progress);
     const progress = Number.isFinite(progressRaw) ? Math.max(0, Math.min(ref.target, Math.floor(progressRaw))) : 0;
     const completed = !!entry && !!entry.completed;
+    
+    // Belohnung aus entry übernehmen oder Standard zuweisen
+    let reward = entry && entry.reward;
+    if (!reward) {
+      // Fallback für alte Challenges ohne reward-Feld
+      reward = { type: 'xp', amount: ref.xpReward || 25 };
+    }
+    
     return {
       id: ref.id,
       progress,
-      completed: completed || progress >= ref.target
+      completed: completed || progress >= ref.target,
+      reward
     };
   }
 
