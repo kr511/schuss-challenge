@@ -378,7 +378,7 @@ function initDailyLoginRewards() {
 }
 
 function awardLoginReward(streak) {
-  let rewardXP = 5; // Basisbelohnung
+  let rewardXP = streak > 1 ? 5 : 0; // Kein XP am 1. Tag, 5 XP als Basis danach
   let hasMysteryBonus = false;
 
   // Streak-Boni (nur der höchste Bonus zählt)
