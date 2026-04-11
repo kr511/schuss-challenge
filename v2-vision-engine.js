@@ -281,10 +281,13 @@ const V2VisionEngine = (function() {
 
     if (btnStart) {
       btnStart.addEventListener('click', async () => {
+        // Haptisches Premium Feedback
+        if(navigator.vibrate) navigator.vibrate([15, 30, 15]);
+        
         // WICHTIG FÜR iOS: Das Video-Element MUSS sichtbar (display: block) sein,
         // bevor .play() aufgerufen wird, sonst bleibt der Screen auf dem iPhone schwarz!
-        modeSelection.style.display = 'none';
-        scannerView.style.display = 'block';
+        if (modeSelection) modeSelection.style.display = 'none';
+        if (scannerView) scannerView.style.display = 'block';
 
         // Kamera sofort nach Klick starten
         const started = await startLiveScanner('v2ScannerVideo');
