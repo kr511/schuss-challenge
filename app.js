@@ -487,12 +487,12 @@ const WEAPON_CFG = {
   lg: {
     icon: '🌬️', name: 'Luftgewehr', badgeCls: 'lg', defaultDist: '10',
     allowedDists: ['10'],
-    setupTag: (disc, dist) => `◆ LUFTGEWEHR · ${DISC[disc]?.name || disc} · ${dist} METER ◆`
+    setupTag: (disc, dist) => `◆ LUFTGEWEHR · ${(DISC[disc]?.name || disc).toUpperCase()} · ${dist} METER ◆`
   },
   kk: {
     icon: '🎯', name: 'Kleinkaliber', badgeCls: 'kk', defaultDist: '50',
     allowedDists: ['50', '100'],
-    setupTag: (disc, dist) => `◆ Kleinkaliber · ${DISC[disc]?.name || disc} · ${dist} METER ◆`
+    setupTag: (disc, dist) => `◆ KLEINKALIBER · ${(DISC[disc]?.name || disc).toUpperCase()} · ${dist} METER ◆`
   }
 };
 
@@ -1491,14 +1491,14 @@ function refreshPremiumDashboard() {
 
   // 2. Score & XP
   const xp = StorageManager.get('xp', 0);
-  
+
   // ══ XP PROGRESS BAR RENDERING ══
   const xpBarContainer = document.getElementById('pdXPBarContainer');
   if (xpBarContainer) {
     const rankInfo = getRank(xp);
     const curRank = rankInfo.rank;
     const nextRank = RANKS[rankInfo.idx + 1] || curRank;
-    
+
     let pct = 0;
     let xpDiff = xp - curRank.min;
     let range = (nextRank.min === curRank.min) ? 1000 : (nextRank.min - curRank.min);
@@ -1555,7 +1555,7 @@ function refreshPremiumDashboard() {
       if (game.playerPts > 0) {
         const pts = game.playerPts;
         count++;
-        accSum += (pts / 40); 
+        accSum += (pts / 40);
       }
     }
   });
@@ -1616,21 +1616,26 @@ function refreshPremiumDashboard() {
   const last3Container = document.getElementById('pdLast3Duels');
   if (last3Container && historyV2.length > 0) {
     // historyV2 is already sorted or we sort it here to be safe
-    const sorted = [...historyV2].sort((a,b) => (b.timestamp || 0) - (a.timestamp || 0));
+    const sorted = [...historyV2].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     const latest3 = sorted.slice(0, 3);
-    
+
     let l3Html = '';
     latest3.forEach(game => {
       const isWin = game.result === 'win' || game.result === 'Sieg';
       const color = isWin ? '#7ab030' : '#f06050';
       const label = isWin ? '✓ Sieg' : '✗ Niederlage';
-      const weapon = (game.weapon || 'LG').toUpperCase();
-      const disc = game.discipline || (game.shotsCount || 40);
-      const diff = game.difficulty || 'Mittel';
-      
+      const weaponUpper = (game.weapon || 'LG').toUpperCase();
+      let displayDisc = (game.discipline || (game.shotsCount || 40)).toString().toUpperCase();
+      // Wenn disc bereits mit der Waffe beginnt (z.B. "LG40"), bereinigen wir es für die Anzeige
+      if (displayDisc.startsWith(weaponUpper)) {
+        displayDisc = displayDisc.substring(weaponUpper.length).trim();
+      }
+      // Ergebnis: "LG 60"
+      const finalDiscLabel = `${weaponUpper} ${displayDisc}`;
+
       l3Html += `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
-          <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${weapon} ${disc}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
+          <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${finalDiscLabel}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
           <div style="font-size:0.75rem;font-weight:600;color:${color};">${label}</div>
         </div>
       `;
@@ -1714,7 +1719,13 @@ function refreshPremiumDashboard() {
     let listHtml = '';
     const recentGames = historyV2.slice(Math.max(historyV2.length - 2, 0)).reverse();
     recentGames.forEach(game => {
-      const wName = game.weapon === 'lg' ? 'Luftgewehr' : 'Kleinkaliber';
+      const weaponUpper = (game.weapon || 'LG').toUpperCase();
+      let displayDisc = (game.discipline || (game.shotsCount || 40)).toString().toUpperCase();
+      if (displayDisc.startsWith(weaponUpper)) {
+        displayDisc = displayDisc.substring(weaponUpper.length).trim();
+      }
+      const finalDiscLabel = `${weaponUpper} ${displayDisc}`;
+
       const diff = game.difficulty || 'Mittel';
       let timeAgo = "Kürzlich";
       if (game.timestamp) {
@@ -1725,7 +1736,7 @@ function refreshPremiumDashboard() {
       }
       listHtml += `
             <div class="pd-recent-item">
-              <div><span style="color:var(--text-main);font-weight:500;">${wName}</span> <span style="color:var(--text-muted);font-size:0.8rem;">(${game.playerPts || 0} Ring)</span></div>
+              <div><span style="color:var(--text-main);font-weight:500;">${finalDiscLabel}</span> <span style="color:var(--text-muted);font-size:0.8rem;">(${game.playerPts || 0} Ring)</span></div>
               <div style="color:var(--text-dim);font-size:0.8rem;">${timeAgo}</div>
             </div>`;
     });
@@ -1746,10 +1757,17 @@ function renderHistory() {
       const resLabel = h.result === 'win' ? 'S' : h.result === 'lose' ? 'N' : 'U';
       const pPts = h.playerPts != null ? parseFloat(h.playerPts).toFixed(1) : '–';
       const bPts = h.botPts != null ? parseFloat(h.botPts).toFixed(1) : '–';
+      const weaponUpper = (h.weapon || (h.weaponName === 'Luftgewehr' ? 'lg' : h.weaponName === 'Kleinkaliber' ? 'kk' : h.weaponName) || 'LG').toUpperCase();
+      let discUpper = (h.disciplineName || h.discipline || '').toString().toUpperCase();
+      if (discUpper.startsWith(weaponUpper)) {
+        discUpper = discUpper.substring(weaponUpper.length).trim();
+      }
+      const finalTitle = `${weaponUpper} ${discUpper} · ${h.diffName || h.diff || 'Mittel'}`;
+
       return `<div class="ps-history-item">
             <div class="phi-result ${h.result}">${resLabel}</div>
             <div class="phi-info">
-              <div class="phi-title">${h.weaponName} · ${h.diffName}</div>
+              <div class="phi-title">${finalTitle}</div>
               <div class="phi-sub">${h.date}</div>
             </div>
             <div class="phi-score ${h.result}">${pPts} <span style="opacity:.4;font-size:.7em">vs</span> ${bPts}</div>
