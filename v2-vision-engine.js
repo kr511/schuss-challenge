@@ -52,14 +52,28 @@ const V2VisionEngine = (function() {
     if (!video) return false;
 
     try {
+      // 1. Versuch: Rückkamera mit hoher Auflösung
       _videoStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 } }
       });
+    } catch (e) {
+      console.warn("Rückkamera nicht gefunden. Versuche Standardkamera...", e);
+      try {
+        // 2. Versuch: Irgendeine Kamera (z.B. Desktop Webcam)
+        _videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (err2) {
+        console.error('Kamera-Zugriff komplett verweigert oder keine Kamera vorhanden:', err2);
+        alert("Kamera-Fehler! Bitte erlaube den Kamera-Zugriff in deinem Browser.");
+        return false;
+      }
+    }
+    
+    try {
       video.srcObject = _videoStream;
       await video.play();
       return true;
     } catch (err) {
-      console.error('Kamera-Fehler:', err);
+      console.error('Fehler beim Video-Playback:', err);
       return false;
     }
   }
@@ -261,15 +275,15 @@ const V2VisionEngine = (function() {
 
     if (btnStart) {
       btnStart.addEventListener('click', async () => {
-        // Initialisiere Modell bei Klick (falls noch nicht geladen)
-        await loadModel();
-        
-        // Start Video Stream
+        // iOS Safari Fix: Kamera MUSS sofort nach dem Klick ohne langes Await gestartet werden!
         const started = await startLiveScanner('v2ScannerVideo');
         if (started) {
-          // UI Wechseln
+          // UI Wechseln, damit der Nutzer die Kamera sofort sieht
           modeSelection.style.display = 'none';
           scannerView.style.display = 'block';
+          
+          // Lade Modell erst WÄHREND die Kamera schon läuft
+          await loadModel();
           
           // Loop starten
           _isScanningLoop = true;
