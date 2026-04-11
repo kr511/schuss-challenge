@@ -422,8 +422,7 @@ const DailyChallenge = (function () {
       const allCompletedYesterday = state.challenges && state.challenges.length === 3 && state.challenges.every(c => c.completed);
 
       if (allCompletedYesterday && prevIsYesterday) {
-        // Streak erhöhen für erfolgreichen Vortag
-        state.streak += 1;
+        // Streak beibehalten – Erhöhung erfolgt ausschließlich in openFinalChest
       } else if (!allCompletedYesterday && prevIsYesterday) {
         // Streak zurücksetzen bei verpasstem Tag
         state.streak = 0;
@@ -472,8 +471,13 @@ const DailyChallenge = (function () {
         } else if (ref.type === 'shots_count') {
           // Kumulativ - Schüsse addieren
           c.progress += (gameData.shots ? gameData.shots.length : 0);
-        } else if (ref.type === 'play_count' || ref.type === 'tens_count' || 
-                   ref.type === 'no_loss') {
+        } else if (ref.type === 'tens_count') {
+          // Tatsächliche Anzahl 10.x-Treffer im Spiel addieren
+          const tensHit = Array.isArray(gameData.shots)
+            ? gameData.shots.filter(s => (Number(s.points ?? s.pts ?? s.ring ?? 0) || 0) >= 10.0).length
+            : 0;
+          c.progress += tensHit;
+        } else if (ref.type === 'play_count' || ref.type === 'no_loss') {
           // Spiel-basierte Quests - pro Duell +1
           c.progress += 1;
         } else if (ref.type === 'discipline_count') {
