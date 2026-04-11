@@ -270,7 +270,7 @@
           <h3 style="color:#fff;margin:0 0 20px 0;font-weight:700;font-size:1.3rem;">DUELL EINSTELLUNGEN</h3>
           <div id="duelSetupContentMount"><!-- Legacy setup elements move here --></div>
           <button class="btn-fire" onclick="startBattle();setTimeout(closeDuelSetup,500);" style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(122,176,48,0.35);">
-            🎯 SCANNER ÖFFNEN & STARTEN
+            🎯 Duell starten.
           </button>
         </div>
       </div>
@@ -298,7 +298,7 @@
         if(hour >= 5 && hour < 12) greeting = "Guten Morgen";
         else if(hour >= 12 && hour < 18) greeting = "Guten Tag";
         
-        const username = localStorage.getItem('schuss_username') || "Schulze";
+        const username = localStorage.getItem('sd_username') || "Schulze";
         document.getElementById('pdGreeting').innerHTML = greeting + ', <span class="pd-name" style="color:var(--accent)">' + username + '</span>!';
         document.getElementById('pdProfileInitial').innerText = username.charAt(0).toUpperCase();
         
@@ -1155,28 +1155,49 @@
 
 <script>
   function openDuelSetup() {
-    triggerHaptic();
+    if(typeof triggerHaptic === 'function') triggerHaptic();
     const ov = document.getElementById('duelSetupSheetOverlay');
     const sheet = document.getElementById('duelSetupSheet');
     ov.style.display = 'block';
     
-    // Move legacy setup into mount if not moved yet
+    // Move ALL setup elements into the bottom sheet mount
     const mount = document.getElementById('duelSetupContentMount');
     if(mount.children.length === 0) {
-      const dist = document.getElementById('distCard');
+      // Weapon tabs (LG / KK)
+      const weapTabs = document.getElementById('weaponTabs');
+      if(weapTabs) { weapTabs.style.display = ''; mount.appendChild(weapTabs); }
+      
+      // Discipline sub-tabs
+      const discTabs = document.getElementById('discTabs');
+      if(discTabs) { discTabs.style.display = ''; mount.appendChild(discTabs); }
+      
+      // Setup tag (shows current selection)
+      const setupTag = document.getElementById('setupTag');
+      if(setupTag) { setupTag.style.display = ''; setupTag.style.textAlign = 'center'; setupTag.style.margin = '10px 0'; mount.appendChild(setupTag); }
+      
+      // Difficulty card
+      const diffGrp = document.getElementById('diffGroup');
+      if(diffGrp && diffGrp.parentElement) mount.appendChild(diffGrp.parentElement);
+      
+      // Difficulty info
       const diffInfo = document.getElementById('diffInfo');
-      const diffGrp = document.getElementById('diffGroup').parentElement;
-      const shc = document.getElementById('shotCountCard');
-      const brst = document.getElementById('burstBtn');
-      if(dist) mount.appendChild(dist);
-      if(diffGrp) mount.appendChild(diffGrp);
       if(diffInfo) mount.appendChild(diffInfo);
+      
+      // Distance card
+      const dist = document.getElementById('distCard');
+      if(dist) mount.appendChild(dist);
+      
+      // Shot count card
+      const shc = document.getElementById('shotCountCard');
       if(shc) mount.appendChild(shc);
+      
+      // Burst toggle
+      const brst = document.getElementById('burstBtn');
       if(brst) mount.appendChild(brst);
       
-      // Hide the legacy start button to prevent confusion
+      // Hide old start button
       const oldBtnList = document.querySelectorAll('.actions .btn-fire');
-      oldBtnList.forEach(b => { if(b.innerText.includes('STARTEN') && b.parentElement.id !== 'duelSetupSheet') b.parentElement.style.display = 'none'; });
+      oldBtnList.forEach(b => { if(b.innerText.includes('STARTEN') && !b.closest('#duelSetupSheet')) b.parentElement.style.display = 'none'; });
     }
     
     requestAnimationFrame(() => {
@@ -1186,7 +1207,7 @@
   }
 
   function closeDuelSetup(e) {
-    if(e && e.target.id !== 'duelSetupSheetOverlay' && e.target.tagName !== 'BUTTON' && !e.target.closest('#btnStopLiveScan')) return;
+    if(e && e.target && e.target.id !== 'duelSetupSheetOverlay') return;
     const ov = document.getElementById('duelSetupSheetOverlay');
     const sheet = document.getElementById('duelSetupSheet');
     sheet.style.bottom = '-100%';
