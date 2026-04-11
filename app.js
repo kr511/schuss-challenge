@@ -1620,8 +1620,8 @@ function refreshPremiumDashboard() {
 
         let desc = "Mission wird geladen...";
         let target = 1;
-        if (typeof DailyChallenge !== 'undefined') {
-          const ref = DailyChallenge.CHALLENGES?.find(rc => rc.id === c.id);
+        if (typeof DailyChallenge !== 'undefined' && typeof DailyChallenge.getChallengeRef === 'function') {
+          const ref = DailyChallenge.getChallengeRef(c.id);
           if (ref) {
             desc = ref.desc;
             target = ref.target;

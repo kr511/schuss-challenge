@@ -815,6 +815,7 @@ const DailyChallenge = (function () {
     init,
     trackGame,
     openFinalChest,
-    getState: () => state
+    getState: () => state,
+    getChallengeRef
   };
 })();
