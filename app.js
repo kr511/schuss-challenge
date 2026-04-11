@@ -1360,6 +1360,7 @@ function recordGameResult(result, diff, weapon, playerPts, botPts) {
       botScore: botPts,
       scoreDifference: playerPts - botPts,
       discipline: G.discipline,
+      disciplineName: DISC[G.discipline]?.name || G.discipline,
       weapon: weapon,
       difficulty: diff,
       shots: G.playerShots || [], // Spieler-Schüsse falls verfügbar
@@ -1639,14 +1640,34 @@ function refreshPremiumDashboard() {
       const isWin = game.result === 'win' || game.result === 'Sieg';
       const color = isWin ? '#7ab030' : '#f06050';
       const label = isWin ? '✓ Sieg' : '✗ Niederlage';
-      const weaponUpper = (game.weapon || 'LG').toUpperCase();
-      let displayDisc = (game.discipline || (game.shotsCount || 40)).toString().toUpperCase();
-      // Wenn disc bereits mit der Waffe beginnt (z.B. "LG40"), bereinigen wir es für die Anzeige
-      if (displayDisc.startsWith(weaponUpper)) {
-        displayDisc = displayDisc.substring(weaponUpper.length).trim();
-      }
-      // Ergebnis: "LG 60"
       const diff = game.difficulty || 'Mittel';
+      
+      // Disziplin-Name korrekt auflösen: "LG 40", "LG 60", "KK 50m", "KK 100m", "KK 3×20"
+      let displayDisc = '';
+      if (game.discipline && DISC[game.discipline]) {
+        displayDisc = DISC[game.discipline].name;
+      } else if (game.disciplineName) {
+        displayDisc = game.disciplineName;
+      } else {
+        // Fallback: Versuche aus weapon + shotsCount zu rekonstruieren
+        const weapon = (game.weapon || 'lg').toLowerCase();
+        const shotsCount = game.shotsCount || 40;
+        let discKey = `${weapon}${shotsCount}`;
+        
+        // Spezielle Fälle für KK
+        if (weapon === 'kk' && shotsCount === 60) {
+          // Standard ist KK 50m, aber wir prüfen auch auf 100m
+          discKey = 'kk50';
+        }
+        
+        if (DISC[discKey]) {
+          displayDisc = DISC[discKey].name;
+        } else {
+          // Letzter Fallback
+          const weaponUpper = weapon.toUpperCase();
+          displayDisc = `${weaponUpper} ${shotsCount}`;
+        }
+      }
 
       l3Html += `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
@@ -1734,14 +1755,25 @@ function refreshPremiumDashboard() {
     let listHtml = '';
     const recentGames = historyV2.slice(Math.max(historyV2.length - 2, 0)).reverse();
     recentGames.forEach(game => {
-      const weaponUpper = (game.weapon || 'LG').toUpperCase();
-      let displayDisc = (game.discipline || (game.shotsCount || 40)).toString().toUpperCase();
-      if (displayDisc.startsWith(weaponUpper)) {
-        displayDisc = displayDisc.substring(weaponUpper.length).trim();
-      }
-      const finalDiscLabel = `${weaponUpper} ${displayDisc}`;
-
       const diff = game.difficulty || 'Mittel';
+      
+      // Disziplin-Name korrekt auflösen (gleiche Logik wie oben)
+      let displayDisc = '';
+      if (game.discipline && DISC[game.discipline]) {
+        displayDisc = DISC[game.discipline].name;
+      } else if (game.disciplineName) {
+        displayDisc = game.disciplineName;
+      } else {
+        const weapon = (game.weapon || 'lg').toLowerCase();
+        const shotsCount = game.shotsCount || 40;
+        let discKey = `${weapon}${shotsCount}`;
+        if (weapon === 'kk' && shotsCount === 60) discKey = 'kk50';
+        if (DISC[discKey]) {
+          displayDisc = DISC[discKey].name;
+        } else {
+          displayDisc = `${weapon.toUpperCase()} ${shotsCount}`;
+        }
+      }
       let timeAgo = "Kürzlich";
       if (game.timestamp) {
         const mins = Math.floor((Date.now() - game.timestamp) / 60000);
@@ -1751,7 +1783,7 @@ function refreshPremiumDashboard() {
       }
       listHtml += `
             <div class="pd-recent-item">
-              <div><span style="color:var(--text-main);font-weight:500;">${finalDiscLabel}</span> <span style="color:var(--text-muted);font-size:0.8rem;">(${game.playerPts || 0} Ring)</span></div>
+              <div><span style="color:var(--text-main);font-weight:500;">${displayDisc}</span> <span style="color:var(--text-muted);font-size:0.8rem;">(${game.playerPts || 0} Ring)</span></div>
               <div style="color:var(--text-dim);font-size:0.8rem;">${timeAgo}</div>
             </div>`;
     });
