@@ -70,6 +70,12 @@ const V2VisionEngine = (function() {
     
     try {
       video.srcObject = _videoStream;
+      // WICHTIG: iOS Safari benötigt dieses Event, um den Screen aufzubauen
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => {
+          resolve();
+        };
+      });
       await video.play();
       return true;
     } catch (err) {
@@ -275,19 +281,24 @@ const V2VisionEngine = (function() {
 
     if (btnStart) {
       btnStart.addEventListener('click', async () => {
-        // iOS Safari Fix: Kamera MUSS sofort nach dem Klick ohne langes Await gestartet werden!
+        // WICHTIG FÜR iOS: Das Video-Element MUSS sichtbar (display: block) sein,
+        // bevor .play() aufgerufen wird, sonst bleibt der Screen auf dem iPhone schwarz!
+        modeSelection.style.display = 'none';
+        scannerView.style.display = 'block';
+
+        // Kamera sofort nach Klick starten
         const started = await startLiveScanner('v2ScannerVideo');
         if (started) {
-          // UI Wechseln, damit der Nutzer die Kamera sofort sieht
-          modeSelection.style.display = 'none';
-          scannerView.style.display = 'block';
-          
           // Lade Modell erst WÄHREND die Kamera schon läuft
           await loadModel();
           
           // Loop starten
           _isScanningLoop = true;
           _scanLoop();
+        } else {
+          // Falls Kamera fehlschlägt, wieder zurück zum Menü
+          scannerView.style.display = 'none';
+          modeSelection.style.display = 'flex';
         }
       });
     }
