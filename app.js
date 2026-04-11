@@ -1549,7 +1549,8 @@ function refreshPremiumDashboard() {
   if (elSideGamesToday) elSideGamesToday.innerText = gamesTodayCount + ' / 10';
   const elSideGamesTodayBar = document.getElementById('pdSideGamesTodayBar');
   if (elSideGamesTodayBar) elSideGamesTodayBar.style.width = Math.min(gamesTodayCount * 10, 100) + '%';
-\n  // 4. Update Badges
+
+  // 4. Update Badges
   const streak = getHeaderStreakValue();
   const badgeStreak = document.querySelectorAll('.pd-badge-card')[3];
   if (badgeStreak) {
