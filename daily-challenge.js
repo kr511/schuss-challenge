@@ -213,6 +213,10 @@ const DailyChallenge = (function () {
       // keep countdown fresh and handle day rollover while app stays open
       checkDailyReset();
       renderUI();
+      // Ensure the main dashboard also refreshes its daily stats
+      if (typeof window.refreshPremiumDashboard === 'function') {
+        window.refreshPremiumDashboard();
+      }
     }, 30000);
   }
 

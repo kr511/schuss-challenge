@@ -1535,7 +1535,8 @@ function refreshPremiumDashboard() {
   let count = 0;
   let historyV2 = [];
   try {
-    historyV2 = JSON.parse(localStorage.getItem('sd_history_v2') || '[]');
+    const analytics = JSON.parse(localStorage.getItem('sd_enhanced_analytics') || '{}');
+    historyV2 = Array.isArray(analytics.games) ? analytics.games : [];
   } catch (e) { }
 
   const startOfDay = new Date();
@@ -1558,6 +1559,24 @@ function refreshPremiumDashboard() {
       }
     }
   });
+
+  // HIDE OVERVIEW UNTIL FIRST DUEL
+  const overviewHeader = document.getElementById('pdOverviewHeader');
+  const mainStatsRow = document.getElementById('pdMainStatsRow');
+  const recentListHeader = document.getElementById('pdRecentListHeader');
+  const recentList = document.getElementById('pdRecentList');
+
+  if (historyV2.length === 0) {
+    if (overviewHeader) overviewHeader.style.display = 'none';
+    if (mainStatsRow) mainStatsRow.style.display = 'none';
+    if (recentListHeader) recentListHeader.style.display = 'none';
+    if (recentList) recentList.style.display = 'none';
+  } else {
+    if (overviewHeader) overviewHeader.style.display = 'block';
+    if (mainStatsRow) mainStatsRow.style.display = 'flex';
+    if (recentListHeader) recentListHeader.style.display = 'block';
+    if (recentList) recentList.style.display = 'flex';
+  }
 
   const statHits = document.querySelector('.pd-stats-row > div:nth-child(1) .pd-stat-val');
   if (statHits) statHits.innerHTML = hits + ' <span style="font-size:0.7em;color:var(--text-muted)">Schuss</span>';
@@ -1663,7 +1682,6 @@ function refreshPremiumDashboard() {
   }
 
   // 5. Recent Sessions List
-  const recentList = document.querySelector('.pd-recent-list');
   if (recentList && historyV2.length > 0) {
     let listHtml = '';
     const recentGames = historyV2.slice(Math.max(historyV2.length - 2, 0)).reverse();
@@ -1673,13 +1691,13 @@ function refreshPremiumDashboard() {
       let timeAgo = "Kürzlich";
       if (game.timestamp) {
         const mins = Math.floor((Date.now() - game.timestamp) / 60000);
-        if (mins < 60) timeAgo = mins + 'm ago';
-        else if (mins < 1440) timeAgo = Math.floor(mins / 60) + 'h ago';
-        else timeAgo = Math.floor(mins / 1440) + 'd ago';
+        if (mins < 60) timeAgo = 'vor ' + mins + ' Min.';
+        else if (mins < 1440) timeAgo = 'vor ' + Math.floor(mins / 60) + ' Std.';
+        else timeAgo = 'vor ' + Math.floor(mins / 1440) + ' Tg.';
       }
       listHtml += `
             <div class="pd-recent-item">
-              <div><span style="color:var(--text-main);font-weight:500;">${wName}</span> <span style="color:var(--text-muted);font-size:0.8rem;">(${game.playerPts || 0} pts)</span></div>
+              <div><span style="color:var(--text-main);font-weight:500;">${wName}</span> <span style="color:var(--text-muted);font-size:0.8rem;">(${game.playerPts || 0} Ring)</span></div>
               <div style="color:var(--text-dim);font-size:0.8rem;">${timeAgo}</div>
             </div>`;
     });
