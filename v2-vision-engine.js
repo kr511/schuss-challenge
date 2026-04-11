@@ -52,14 +52,28 @@ const V2VisionEngine = (function() {
     if (!video) return false;
 
     try {
+      // 1. Versuch: Rückkamera mit hoher Auflösung
       _videoStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 } }
       });
+    } catch (e) {
+      console.warn("Rückkamera nicht gefunden. Versuche Standardkamera...", e);
+      try {
+        // 2. Versuch: Irgendeine Kamera (z.B. Desktop Webcam)
+        _videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (err2) {
+        console.error('Kamera-Zugriff komplett verweigert oder keine Kamera vorhanden:', err2);
+        alert("Kamera-Fehler! Bitte erlaube den Kamera-Zugriff in deinem Browser.");
+        return false;
+      }
+    }
+    
+    try {
       video.srcObject = _videoStream;
       await video.play();
       return true;
     } catch (err) {
-      console.error('Kamera-Fehler:', err);
+      console.error('Fehler beim Video-Playback:', err);
       return false;
     }
   }
