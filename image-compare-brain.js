@@ -14,24 +14,24 @@ window.ImageCompareBrain = (function () {
        ═══════════════════════════════════════════════════════════════════════
        Zeigt auf die model.json deines selbst trainierten TensorFlow.js-Modells.
        Das Modell sollte zwei Ausgaben liefern:
-         1. Klassifikation: "monitor" vs. "kein_monitor" (Sigmoid, 0–1)
+         1. Klassifikation: "monitor" vs. "papier" (Softmax, 2 Klassen)
          2. Optional: Bounding-Box [x, y, width, height] normalisiert (0–1)
-  
+
        Beispiel Ordnerstruktur:
          /model/
            model.json          ← Hauptdatei (Architektur + Gewichte-Referenz)
            group1-shard1of1.bin ← Gewichte (automatisch von TF.js geladen)
-  
+
        Ändere den Pfad hier, wenn dein Modell woanders liegt:
        ═══════════════════════════════════════════════════════════════════════ */
     const MODEL_PATH = './model/model.json';
 
     /* ─── Modell-Eingabe-Konfiguration ─── */
-    const MODEL_INPUT_SIZE = 224;        // Breite/Höhe für das Modell (z.B. MobileNet = 224)
-    const MONITOR_CONFIDENCE_THRESHOLD = 0.6; // Ab welcher Konfidenz gilt "Monitor erkannt"
+    const MODEL_INPUT_SIZE = 64;         // Breite/Höhe für das CNN-Modell (64x64)
+    const MONITOR_CONFIDENCE_THRESHOLD = 0.55; // Ab welcher Konfidenz gilt "Monitor erkannt"
 
-    /* Labels aus metadata.json deines Teachable Machine Modells */
-    const MODEL_LABELS = ['Monitor', 'Nichts'];
+    /* Labels aus dem trainierten Modell */
+    const MODEL_LABELS = ['Papier', 'Monitor'];
 
     /* ═══ KI-TRAINING FEEDBACK LOOP (FORMSPREE - PER E-MAIL) ════════════
        Echte User-Fotos (bei denen die KI falsch lag) direkt in dein Postfach!

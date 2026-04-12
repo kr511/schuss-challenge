@@ -4,6 +4,82 @@ window.ImageCompare = (function () {
   const Brain = window.ImageCompareBrain || null;
   const SCORE_CONFIG = Brain && Brain.SCORE_CONFIG ? Brain.SCORE_CONFIG : null;
 
+  // ═══ MODELL-BASIERTE ERKENNUNG (Optional) ═══
+  let _mlModel = null;
+  let _mlModelLoading = false;
+
+  /**
+   * Lädt das trainierte CNN-Modell zur Monitor-Erkennung
+   */
+  async function loadMLModel() {
+    if (_mlModel || _mlModelLoading) return _mlModel;
+    if (!Brain || !Brain.MODEL_PATH) return null;
+
+    _mlModelLoading = true;
+    try {
+      // Prüfe ob TensorFlow.js verfügbar ist
+      if (typeof tf === 'undefined' || !tf.loadLayersModel) {
+        console.warn('[ImageCompare] TensorFlow.js nicht verfügbar – ML-Modell deaktiviert');
+        return null;
+      }
+
+      console.log('[ImageCompare] Lade ML-Modell:', Brain.MODEL_PATH);
+      _mlModel = await tf.loadLayersModel(Brain.MODEL_PATH);
+      console.log('[ImageCompare] ML-Modell erfolgreich geladen');
+      return _mlModel;
+    } catch (err) {
+      console.warn('[ImageCompare] ML-Modell konnte nicht geladen werden:', err.message);
+      return null;
+    } finally {
+      _mlModelLoading = false;
+    }
+  }
+
+  /**
+   * Klassifiziert ein Bild mit dem ML-Modell (0=Papier, 1=Monitor)
+   */
+  async function predictMonitorType(canvas) {
+    const model = await loadMLModel();
+    if (!model) return null;
+
+    try {
+      const inputSize = Brain.MODEL_INPUT_SIZE || 64;
+
+      // Canvas auf Modellgröße skalieren und in Graustufen konvertieren
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = inputSize;
+      tempCanvas.height = inputSize;
+      const ctx = tempCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, 0, inputSize, inputSize);
+      const imageData = ctx.getImageData(0, 0, inputSize, inputSize);
+
+      // Tensor erstellen [1, height, width, 1]
+      const pixels = [];
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        const r = imageData.data[i];
+        const g = imageData.data[i + 1];
+        const b = imageData.data[i + 2];
+        pixels.push((0.299 * r + 0.587 * g + 0.114 * b) / 255.0);
+      }
+
+      const inputTensor = tf.tensor4d(pixels, [1, inputSize, inputSize, 1]);
+      const prediction = model.predict(inputTensor);
+      const probabilities = await prediction.data();
+      inputTensor.dispose();
+      prediction.dispose();
+
+      return {
+        isMonitor: probabilities[1] > (Brain.MONITOR_CONFIDENCE_THRESHOLD || 0.55),
+        confidence: probabilities[1],
+        paperProbability: probabilities[0],
+        monitorProbability: probabilities[1]
+      };
+    } catch (err) {
+      console.warn('[ImageCompare] ML-Vorhersage fehlgeschlagen:', err.message);
+      return null;
+    }
+  }
+
   const CSS_ID = 'ic-styles';
   const TESSERACT_SRC = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
   const OCR_CACHE_MAX = 5;
@@ -323,35 +399,41 @@ window.ImageCompare = (function () {
   }
 
   /**
-   * Analysiert Bildtyp (Papier vs. Monitor)
+   * ═══════════════════════════════════════════════════════════
+   * ERWEITERTE BILDTYP-ANALYSE (6 Indikatoren + adaptives Scoring)
+   * Erkennt: Papier, Monitor (LCD/IPS/OLED), Unsicher
+   * ═══════════════════════════════════════════════════════════
    */
-  function analyzeImageType(canvas) {
+  async function analyzeImageType(canvas) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     const width = canvas.width;
     const height = canvas.height;
 
-    // Sample-Punkte für Effizienz (jeder 8. Pixel)
+    // ═══ 1. BASIS-STATISTIKEN ═══
     const step = 8;
     let sumR = 0, sumG = 0, sumB = 0, sumBrightness = 0;
-    let colorVariance = 0;
     let highFreqEnergy = 0;
+    let scanlineEnergy = 0;    // Horizontal-Streifen (LCD-Scanlines)
+    let pixelPatternEnergy = 0; // RGB-Subpixel-Struktur
     let sampleCount = 0;
 
-    // Einfache Histogramm-Analyse
     const brightnessHist = new Array(256).fill(0);
+    const rHist = new Array(256).fill(0);
+    const gHist = new Array(256).fill(0);
+    const bHist = new Array(256).fill(0);
 
     for (let y = 0; y < height; y += step) {
       for (let x = 0; x < width; x += step) {
         const idx = (y * width + x) * 4;
         const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-
         const brightness = (r + g + b) / 3;
+
         sumBrightness += brightness;
         sumR += r; sumG += g; sumB += b;
 
-        // Histogramm
         brightnessHist[Math.floor(brightness)]++;
+        rHist[r]++; gHist[g]++; bHist[b]++;
 
         // Hohe Frequenz (Moiré-Indikator)
         if (x < width - step && y < height - step) {
@@ -361,20 +443,37 @@ window.ImageCompare = (function () {
           const diffG = Math.abs(g - data[idxRight + 1]);
           const diffB = Math.abs(b - data[idxRight + 2]);
           highFreqEnergy += (diffR + diffG + diffB) / 3;
+
+          // Scanline-Erkennung: horizontale Streifen
+          if (y < height - step * 2) {
+            const idxTwoDown = ((y + step * 2) * width + x) * 4;
+            const scanDiff = Math.abs(brightness - (data[idxTwoDown] + data[idxTwoDown + 1] + data[idxTwoDown + 2]) / 3);
+            scanlineEnergy += scanDiff;
+          }
+
+          // RGB-Subpixel-Muster: Monitor hat regelmäßige RGB-Unterschiede
+          if (x < width - step * 3) {
+            const idx3Right = (y * width + (x + step * 3)) * 4;
+            const rDiff = Math.abs(r - data[idx3Right]);
+            const gDiff = Math.abs(g - data[idx3Right + 1]);
+            const bDiff = Math.abs(b - data[idx3Right + 2]);
+            pixelPatternEnergy += (rDiff + gDiff + bDiff) / 3;
+          }
         }
 
         sampleCount++;
       }
     }
 
-    if (sampleCount === 0) return { isMonitor: false, confidence: 0 };
+    if (sampleCount === 0) return { isMonitor: false, isUncertain: false, confidence: 0, type: 'unknown' };
 
     const avgBrightness = sumBrightness / sampleCount;
     const avgR = sumR / sampleCount;
     const avgG = sumG / sampleCount;
     const avgB = sumB / sampleCount;
 
-    // Farb-Varianz berechnen
+    // ═══ 2. FARB-VARIANZ ═══
+    let colorVariance = 0;
     for (let y = 0; y < height; y += step * 2) {
       for (let x = 0; x < width; x += step * 2) {
         const idx = (y * width + x) * 4;
@@ -385,35 +484,183 @@ window.ImageCompare = (function () {
     colorVariance /= (sampleCount / 4);
     const stdDev = Math.sqrt(colorVariance);
 
-    // Moiré-Indikator normalisieren
-    const moiréScore = highFreqEnergy / (sampleCount * 255);
+    // ═══ 3. HISTOGRAMM-ANALYSE (Gamma-Kurve & Bimodalität) ═══
+    // Monitor-Fotos haben oft bimodale Helligkeitsverteilung (Text vs. Hintergrund)
+    let bimodalityScore = 0;
+    let peak1 = 0, peak2 = 0, peak1Pos = 0, peak2Pos = 0;
+    for (let i = 0; i < 256; i++) {
+      if (brightnessHist[i] > peak1) {
+        peak2 = peak1; peak2Pos = peak1Pos;
+        peak1 = brightnessHist[i]; peak1Pos = i;
+      } else if (brightnessHist[i] > peak2) {
+        peak2 = brightnessHist[i]; peak2Pos = i;
+      }
+    }
+    // Bimodalität: zwei getrennte Peaks = Monitor (Text auf Hintergrund)
+    const peakDistance = Math.abs(peak1Pos - peak2Pos);
+    const bimodalRatio = peak2 / Math.max(1, peak1);
+    bimodalityScore = (peakDistance > 40 && bimodalRatio > 0.15) ? (peakDistance / 255) * Math.min(1, bimodalRatio * 2) : 0;
 
-    // Monitor-Indikatoren:
-    // 1. Hohe Moiré-Energie (Pixel-Struktur des Bildschirms)
-    // 2. Geringe Farb-Varianz (flache Farbflächen auf Monitor)
-    // 3. Typische Monitor-Helligkeitsverteilung
-    const moiréIndicator = moiréScore > 0.08;
-    const flatColorIndicator = stdDev < 80;
-    const brightnessIndicator = avgBrightness > 60 && avgBrightness < 220;
+    // Gamma-Kurven-Analyse: Monitor hat typische Gamma~2.2
+    // Vereinfacht: Verhältnis von dunklen zu hellen Pixeln
+    const darkPixels = brightnessHist.slice(0, 80).reduce((a, b) => a + b, 0);
+    const midPixels = brightnessHist.slice(80, 180).reduce((a, b) => a + b, 0);
+    const lightPixels = brightnessHist.slice(180, 256).reduce((a, b) => a + b, 0);
+    const totalSamples = darkPixels + midPixels + lightPixels;
+    const gammaIndicator = totalSamples > 0 ? midPixels / totalSamples : 0.5;
 
-    // Kombinierte Bewertung
+    // ═══ 4. CHROMA-SUBSAMPLING ═══
+    // Monitor-Fotos haben oft weniger Variation im blauen Kanal
+    const rVar = varianceFromHist(rHist);
+    const gVar = varianceFromHist(gHist);
+    const bVar = varianceFromHist(bHist);
+    const blueSuppression = (rVar > 0 && gVar > 0) ? 1 - (bVar / Math.max(rVar, gVar)) : 0;
+
+    // ═══ 5. KANTENHÄRTE-VERTEILUNG ═══
+    // Papier: weichere Kanten durch Druck/Textur
+    // Monitor: härtere Kanten, aber mit Moiré
+    const edgeHardness = highFreqEnergy / (sampleCount * 255);
+    const scanlineScore = scanlineEnergy / (sampleCount * 255);
+    const pixelPatternScore = pixelPatternEnergy / (sampleCount * 255);
+
+    // ═══════════════════════════════════════════════════════════
+    // ADAPTIVES SCORING – gewichtete Summe der Indikatoren
+    // ═══════════════════════════════════════════════════════════
     let monitorScore = 0;
-    if (moiréIndicator) monitorScore += 0.4;
-    if (flatColorIndicator) monitorScore += 0.3;
-    if (brightnessIndicator) monitorScore += 0.15;
-    // Monitor-Fotos haben oft bläulichen Stich
-    if (avgB > avgR * 1.1) monitorScore += 0.15;
+    const indicators = {};
 
-    // SCHWELLE: 0.5 = sicher Monitor, 0.3-0.5 = unsicher (beide Pipelines testen)
-    return {
-      isMonitor: monitorScore > 0.5,
-      isUncertain: monitorScore > 0.3 && monitorScore <= 0.5,  // Neue Kategorie
+    // Indikator 1: Moiré-Energie (Gewicht: 0.20)
+    indicators.moiré = Math.min(1, edgeHardness / 0.12);
+    monitorScore += indicators.moiré * 0.20;
+
+    // Indikator 2: Flachfarben (Gewicht: 0.15)
+    indicators.flatColor = stdDev < 80 ? Math.max(0, 1 - stdDev / 80) : 0;
+    monitorScore += indicators.flatColor * 0.15;
+
+    // Indikator 3: Helligkeitsbereich (Gewicht: 0.08)
+    indicators.brightness = (avgBrightness > 50 && avgBrightness < 230) ? 1 : Math.max(0, 1 - Math.abs(avgBrightness - 140) / 140);
+    monitorScore += indicators.brightness * 0.08;
+
+    // Indikator 4: Blaustich (Gewicht: 0.10)
+    indicators.blueTint = avgR > 0 ? Math.max(0, Math.min(1, (avgB - avgR) / avgR + 0.1)) : 0;
+    monitorScore += indicators.blueTint * 0.10;
+
+    // Indikator 5: Bimodalität (Gewicht: 0.15)
+    indicators.bimodality = bimodalityScore;
+    monitorScore += indicators.bimodality * 0.15;
+
+    // Indikator 6: Scanlines (Gewicht: 0.12)
+    indicators.scanlines = Math.min(1, scanlineScore / 0.05);
+    monitorScore += indicators.scanlines * 0.12;
+
+    // Indikator 7: RGB-Subpixel-Muster (Gewicht: 0.10)
+    indicators.pixelPattern = Math.min(1, pixelPatternScore / 0.08);
+    monitorScore += indicators.pixelPattern * 0.10;
+
+    // Indikator 8: Gamma-Kurve (Gewicht: 0.05)
+    indicators.gamma = gammaIndicator > 0.35 && gammaIndicator < 0.65 ? 1 : Math.max(0, 1 - Math.abs(gammaIndicator - 0.5) * 4);
+    monitorScore += indicators.gamma * 0.05;
+
+    // Indikator 9: Blau-Suppression (Gewicht: 0.05)
+    indicators.blueSuppression = Math.max(0, Math.min(1, blueSuppression));
+    monitorScore += indicators.blueSuppression * 0.05;
+
+    // ═══ ML-MODELL (Optional) ═══
+    let mlResult = null;
+    try {
+      mlResult = await predictMonitorType(canvas);
+      if (mlResult) {
+        indicators.mlModel = mlResult.monitorProbability;
+        monitorScore += indicators.mlModel * 0.15; // 15% Gewicht für ML-Modell
+      }
+    } catch (e) { /* ML ist optional, ignore */ }
+
+    // ═══ SELBSTLERNEND: Kalibrierung aus LocalStorage ═══
+    const calibration = loadMonitorCalibration();
+    if (calibration.adjustmentFactor !== 1) {
+      monitorScore = Math.min(1, monitorScore * calibration.adjustmentFactor);
+    }
+
+    // ═══ DREI-KLASSEN-SYSTEM ═══
+    const result = {
+      isMonitor: monitorScore > 0.45,
+      isUncertain: monitorScore > 0.30 && monitorScore <= 0.45,
       confidence: Math.min(1, monitorScore),
+      type: monitorScore > 0.45 ? 'monitor' : monitorScore > 0.30 ? 'uncertain' : 'paper',
       avgBrightness,
       stdDev,
-      moiréScore,
-      avgColor: { r: avgR, g: avgG, b: avgB }
+      moiréScore: indicators.moiré,
+      scanlineScore: indicators.scanlines,
+      pixelPatternScore: indicators.pixelPattern,
+      bimodalityScore: indicators.bimodality,
+      mlResult,
+      avgColor: { r: avgR, g: avgG, b: avgB },
+      indicators
     };
+
+    console.log(`[ImageCompare] Bildtyp: ${result.type.toUpperCase()} (Score: ${(monitorScore * 100).toFixed(1)}%)`);
+    if (result.type === 'monitor') {
+      console.log(`  ↳ Moiré: ${(indicators.moiré * 100).toFixed(0)}%, Scanlines: ${(indicators.scanlines * 100).toFixed(0)}%, Bimodal: ${(indicators.bimodality * 100).toFixed(0)}%, PixelPattern: ${(indicators.pixelPattern * 100).toFixed(0)}%`);
+    }
+    if (mlResult) {
+      console.log(`  ↳ ML-Modell: Monitor=${(mlResult.monitorProbability * 100).toFixed(1)}%, Papier=${(mlResult.paperProbability * 100).toFixed(1)}%`);
+    }
+
+    return result;
+  }
+
+  /**
+   * Berechnet Varianz aus Histogramm
+   */
+  function varianceFromHist(hist) {
+    let total = 0, mean = 0, variance = 0;
+    for (let i = 0; i < hist.length; i++) {
+      total += hist[i];
+      mean += i * hist[i];
+    }
+    if (total === 0) return 0;
+    mean /= total;
+    for (let i = 0; i < hist.length; i++) {
+      variance += hist[i] * Math.pow(i - mean, 2);
+    }
+    return variance / total;
+  }
+
+  /**
+   * Lädt Kalibrierungsdaten aus LocalStorage
+   */
+  function loadMonitorCalibration() {
+    try {
+      const stored = localStorage.getItem('ic_monitor_calibration');
+      if (stored) {
+        const data = JSON.parse(stored);
+        if (data.feedbackCount >= 3) {
+          const accuracy = data.correctClassifications / data.feedbackCount;
+          // Wenn Genauigkeit < 70%, Score anpassen
+          if (accuracy < 0.7) return { adjustmentFactor: 1.15 };
+          if (accuracy > 0.9) return { adjustmentFactor: 0.95 };
+        }
+      }
+    } catch (e) { /* ignore */ }
+    return { adjustmentFactor: 1 };
+  }
+
+  /**
+   * Speichert Feedback für Kalibrierung
+   */
+  function saveMonitorFeedback(wasCorrect) {
+    try {
+      const stored = localStorage.getItem('ic_monitor_calibration');
+      const data = stored ? JSON.parse(stored) : { feedbackCount: 0, correctClassifications: 0 };
+      data.feedbackCount++;
+      if (wasCorrect) data.correctClassifications++;
+      // Max 50 Einträge behalten
+      if (data.feedbackCount > 50) {
+        data.feedbackCount = 25;
+        data.correctClassifications = Math.round(data.correctClassifications * 0.5);
+      }
+      localStorage.setItem('ic_monitor_calibration', JSON.stringify(data));
+    } catch (e) { /* ignore */ }
   }
 
   /**
@@ -423,7 +670,160 @@ window.ImageCompare = (function () {
    */
 
   /**
-   * Sobel-Kantenerkennung
+   * Findet Monitor-Grenzen durch Farb-Segmentierung (blau/grün)
+   * Dies ist VIEL robuster als reine Kantenerkennung
+   */
+  function findMonitorBoundary(imageData) {
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+
+    // Schritt 1: Finde alle Pixel mit blauer/grüner Bildschirmfarbe
+    // Meyton-Monitore haben typischerweise türkis/blauen Hintergrund
+    const screenPixels = [];
+
+    for (let i = 0; i < data.length; i += 32) {  // Jeder 8. Pixel für Performance
+      const r = data[i], g = data[i + 1], b = data[i + 2];
+
+      // Monitor-Farben: Hoher Blau- oder Grün-Anteil, moderate Helligkeit
+      const isBlueGreen = (b > r * 1.2 && g > r * 0.8) ||  // Bläulich
+                          (g > b * 0.9 && g > r * 1.3);     // Grünlich
+
+      const brightness = (r + g + b) / 3;
+      const isInBrightnessRange = brightness > 50 && brightness < 220;
+
+      if (isBlueGreen && isInBrightnessRange) {
+        const x = (i / 4) % width;
+        const y = Math.floor((i / 4) / width);
+        screenPixels.push({ x, y });
+      }
+    }
+
+    if (screenPixels.length < 25) {
+      console.log('[Perspective] Zu wenig Bildschirm-Pixel gefunden');
+      return null;
+    }
+
+    // Schritt 2: Finde Bounding Box der Bildschirm-Pixel
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of screenPixels) {
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
+    }
+
+    // Schritt 3: Vergrößere Bounding Box um Rand (Monitor-Rahmen)
+    const marginX = Math.round((maxX - minX) * 0.08);
+    const marginY = Math.round((maxY - minY) * 0.08);
+
+    minX = Math.max(0, minX - marginX);
+    minY = Math.max(0, minY - marginY);
+    maxX = Math.min(width - 1, maxX + marginX);
+    maxY = Math.min(height - 1, maxY + marginY);
+
+    // Schritt 4: Prüfe Aspect Ratio (Monitore sind 4:3 oder 16:9)
+    const boxWidth = maxX - minX;
+    const boxHeight = maxY - minY;
+    const aspectRatio = boxWidth / boxHeight;
+
+    // Typische Monitor-Aspect-Ratios: 1.33 (4:3) oder 1.77 (16:9)
+    const isMonitorAspectRatio = (aspectRatio > 1.1 && aspectRatio < 2.0);
+
+    if (!isMonitorAspectRatio) {
+      console.log(`[Perspective] Ungewöhnliches Aspect Ratio: ${aspectRatio.toFixed(2)}`);
+      // Trotzdem weitermachen, aber mit Warnung
+    }
+
+    console.log(`[Perspective] Monitor gefunden: (${minX},${minY})-(${maxX},${maxY}), AR=${aspectRatio.toFixed(2)}, ${screenPixels.length} Pixel`);
+
+    // Schritt 5: Verfeinere Eckpunkte durch Kantensuche in der Nähe
+    const corners = refineCornersWithEdges(imageData, width, height, { minX, minY, maxX, maxY });
+
+    return corners;
+  }
+
+  /**
+   * Verfeinert Eckpunkte durch Kantensuche
+   */
+  function refineCornersWithEdges(imageData, width, height, bbox) {
+    const { minX, minY, maxX, maxY } = bbox;
+    const data = imageData.data;
+
+    // Einfache Kantenerkennung im Bounding-Box-Bereich
+    const searchRadius = Math.min(40, Math.max(20, (maxX - minX) * 0.05));
+
+    // Finde Kanten durch Gradienten
+    const edges = [];
+    for (let y = Math.max(1, minY - searchRadius); y < Math.min(height - 1, maxY + searchRadius); y++) {
+      for (let x = Math.max(1, minX - searchRadius); x < Math.min(width - 1, maxX + searchRadius); x++) {
+        const idx = (y * width + x) * 4;
+        const rightIdx = (y * width + (x + 1)) * 4;
+        const downIdx = ((y + 1) * width + x) * 4;
+
+        const gradX = Math.abs(data[idx] - data[rightIdx]) +
+                      Math.abs(data[idx + 1] - data[rightIdx + 1]) +
+                      Math.abs(data[idx + 2] - data[rightIdx + 2]);
+
+        const gradY = Math.abs(data[idx] - data[downIdx]) +
+                      Math.abs(data[idx + 1] - data[downIdx + 1]) +
+                      Math.abs(data[idx + 2] - data[downIdx + 2]);
+
+        if (gradX + gradY > 150) {  // Kanten-Schwellwert
+          edges.push({ x, y });
+        }
+      }
+    }
+
+    if (edges.length === 0) {
+      // Fallback: Bounding Box als Ecken
+      return [
+        { x: minX, y: minY },
+        { x: maxX, y: minY },
+        { x: maxX, y: maxY },
+        { x: minX, y: maxY }
+      ];
+    }
+
+    // Finde Eckpunkte durch Clustering
+    const corners = [
+      { x: minX, y: minY },  // oben links
+      { x: maxX, y: minY },  // oben rechts
+      { x: maxX, y: maxY },  // unten rechts
+      { x: minX, y: maxY }   // unten links
+    ];
+
+    // Verfeinere jede Ecke durch Suche nach der am weitesten außen liegenden Kante
+    const refined = corners.map((corner, idx) => {
+      let bestPoint = corner;
+      let maxDist = 0;
+
+      for (const edge of edges) {
+        const dist = Math.hypot(edge.x - corner.x, edge.y - corner.y);
+        // Suche Kanten nahe der Ecke, aber außerhalb
+        if (dist < searchRadius * 2) {
+          // Berechne "äußere" Richtung
+          let isOutside = false;
+          if (idx === 0) isOutside = edge.x <= corner.x && edge.y <= corner.y;
+          else if (idx === 1) isOutside = edge.x >= corner.x && edge.y <= corner.y;
+          else if (idx === 2) isOutside = edge.x >= corner.x && edge.y >= corner.y;
+          else isOutside = edge.x <= corner.x && edge.y >= corner.y;
+
+          if (isOutside && dist > maxDist) {
+            maxDist = dist;
+            bestPoint = edge;
+          }
+        }
+      }
+
+      return bestPoint;
+    });
+
+    return refined;
+  }
+
+  /**
+   * Sobel-Kantenerkennung (Fallback)
    */
   function sobelEdgeDetection(imageData) {
     const data = imageData.data;
@@ -619,14 +1019,32 @@ window.ImageCompare = (function () {
    * Transformiert ein verzerrtes Viereck in ein Rechteck
    */
   function perspectiveTransform(sourceCanvas, corners, targetWidth, targetHeight) {
+    // Defensive Checks für Eingabeparameter
+    if (!sourceCanvas || !corners || corners.length < 4) {
+      console.warn('[Perspective] Ungültige Parameter für perspectiveTransform');
+      return sourceCanvas;
+    }
+
     const [tl, tr, br, bl] = corners;  // top-left, top-right, bottom-right, bottom-left
+
+    // Prüfe auf NaN/Infinity in Eckpunkten
+    for (const corner of [tl, tr, br, bl]) {
+      if (!Number.isFinite(corner.x) || !Number.isFinite(corner.y)) {
+        console.warn('[Perspective] Ungültige Eckpunkte (NaN/Infinity)');
+        return sourceCanvas;
+      }
+    }
+
+    // Zielgrößen validieren
+    const safeTargetWidth = Math.max(1, Math.min(2000, Math.round(targetWidth || 1)));
+    const safeTargetHeight = Math.max(1, Math.min(2000, Math.round(targetHeight || 1)));
 
     // Ziel-Koordinaten
     const dst = [
       [0, 0],
-      [targetWidth, 0],
-      [targetWidth, targetHeight],
-      [0, targetHeight]
+      [safeTargetWidth, 0],
+      [safeTargetWidth, safeTargetHeight],
+      [0, safeTargetHeight]
     ];
 
     // Quell-Koordinaten
@@ -640,20 +1058,31 @@ window.ImageCompare = (function () {
     // Homographie-Matrix berechnen (vereinfacht für 4 Punkte)
     const H = computeHomography(src, dst);
 
+    // Homographie-Matrix auf Gültigkeit prüfen (keine NaN/Infinity)
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        if (!Number.isFinite(H[row][col])) {
+          console.warn('[Perspective] Ungültige Homographie-Matrix (NaN/Infinity)');
+          return sourceCanvas;
+        }
+      }
+    }
+
     // Transformiere Bild
-    const resultCanvas = createCanvas(targetWidth, targetHeight);
+    const resultCanvas = createCanvas(safeTargetWidth, safeTargetHeight);
     const resultCtx = resultCanvas.getContext('2d', { willReadFrequently: true });
     const srcCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
     const srcData = srcCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
 
-    const resultData = resultCtx.createImageData(targetWidth, targetHeight);
+    const resultData = resultCtx.createImageData(safeTargetWidth, safeTargetHeight);
 
     // Rückwärtstransformation: für jeden Zielpixel berechne Quellpunkt
-    for (let y = 0; y < targetHeight; y++) {
-      for (let x = 0; x < targetWidth; x++) {
+    for (let y = 0; y < safeTargetHeight; y++) {
+      for (let x = 0; x < safeTargetWidth; x++) {
         const [u, v] = transformPoint(x, y, H);
 
-        if (u >= 0 && u < sourceCanvas.width - 1 && v >= 0 && v < sourceCanvas.height - 1) {
+        if (Number.isFinite(u) && Number.isFinite(v) &&
+            u >= 0 && u < sourceCanvas.width - 1 && v >= 0 && v < sourceCanvas.height - 1) {
           // Bilineare Interpolation
           const x0 = Math.floor(u), y0 = Math.floor(v);
           const x1 = x0 + 1, y1 = y0 + 1;
@@ -670,11 +1099,11 @@ window.ImageCompare = (function () {
                         (1 - dx) * dy * srcData.data[idx01] +
                         dx * dy * srcData.data[idx11];
 
-            resultData.data[(y * targetWidth + x) * 4 + c] = Math.round(val);
+            resultData.data[(y * safeTargetWidth + x) * 4 + c] = Math.round(val);
           }
         } else {
           // Weißer Hintergrund für Bereiche außerhalb
-          const idx = (y * targetWidth + x) * 4;
+          const idx = (y * safeTargetWidth + x) * 4;
           resultData.data[idx] = 255;
           resultData.data[idx + 1] = 255;
           resultData.data[idx + 2] = 255;
@@ -761,33 +1190,43 @@ window.ImageCompare = (function () {
    * Erkennt Monitor-Rand und entzerrt das Bild
    */
   function correctPerspective(canvas) {
+    if (!canvas || !canvas.getContext) {
+      console.warn('[Perspective] Ungültiges Canvas übergeben');
+      return null;
+    }
+
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const overlay = document.getElementById('icOverlay');
 
-    // 1. Kantenerkennung
-    updateProgress && updateProgress(document.getElementById('icOverlay'), 22, '🔍 Kantenerkennung...');
-    const edges = sobelEdgeDetection(imageData);
+    // 1. Versuche Farb-Segmentierung (PRIMÄR - viel robuster)
+    if (updateProgress && overlay) updateProgress(overlay, 22, '🔍 Monitor-Farbe erkennen...');
+    let corners = findMonitorBoundary(imageData);
 
-    // 2. Schwellwert
-    const binary = thresholdEdges(edges, canvas.width, canvas.height);
-
-    // 3. Größte Kontur finden
-    updateProgress && updateProgress(document.getElementById('icOverlay'), 23, '🔍 Monitor-Rand suchen...');
-    const contour = findLargestContour(binary, canvas.width, canvas.height);
-
-    if (contour.length < 4) {
-      console.log('[Perspective] Keine Kontur gefunden');
-      return null;
-    }
-
-    // 4. Quadrilateral approximieren
-    const corners = approximateQuadrilateral(contour);
+    // 2. Fallback: Kantenerkennung (wenn Farb-Segmentierung fehlschlägt)
     if (!corners) {
-      console.log('[Perspective] Kein Viereck gefunden');
-      return null;
+      console.log('[Perspective] Farb-Segmentierung fehlgeschlagen, versuche Kantenerkennung...');
+      if (updateProgress && overlay) updateProgress(overlay, 22, '🔍 Kantenerkennung...');
+
+      const edges = sobelEdgeDetection(imageData);
+      const binary = thresholdEdges(edges, canvas.width, canvas.height);
+
+      if (updateProgress && overlay) updateProgress(overlay, 23, '🔍 Monitor-Rand suchen...');
+      const contour = findLargestContour(binary, canvas.width, canvas.height);
+
+      if (contour.length < 4) {
+        console.log('[Perspective] Keine Kontur gefunden');
+        return null;
+      }
+
+      corners = approximateQuadrilateral(contour);
+      if (!corners) {
+        console.log('[Perspective] Kein Viereck gefunden');
+        return null;
+      }
     }
 
-    // 5. Zielgröße berechnen (Seitenverhältnis des Vierecks)
+    // 3. Zielgröße berechnen (Seitenverhältnis des Vierecks)
     const [tl, tr, br, bl] = corners;
     const width1 = Math.hypot(tr.x - tl.x, tr.y - tl.y);
     const width2 = Math.hypot(br.x - bl.x, br.y - bl.y);
@@ -803,8 +1242,8 @@ window.ImageCompare = (function () {
     const finalWidth = Math.round(targetWidth * scale);
     const finalHeight = Math.round(targetHeight * scale);
 
-    // 6. Perspektiv-Transformation
-    updateProgress && updateProgress(document.getElementById('icOverlay'), 24, '🔍 Bild entzerren...');
+    // 4. Perspektiv-Transformation
+    if (updateProgress && overlay) updateProgress(overlay, 24, '📐 Bild entzerren...');
     const corrected = perspectiveTransform(canvas, corners, finalWidth, finalHeight);
 
     console.log(`[Perspective] Korrektur erfolgreich: ${canvas.width}x${canvas.height} → ${finalWidth}x${finalHeight}`);
@@ -1212,7 +1651,7 @@ window.ImageCompare = (function () {
 
     // ═══ ADAPTIVE IMAGE TYPE DETECTION ═══
     updateProgress(overlay, 21, '🔍 Bildtyp wird analysiert...');
-    const imageType = analyzeImageType(sourceCanvas);
+    const imageType = await analyzeImageType(sourceCanvas);
     const isMonitor = imageType.isMonitor;
     const isUncertain = imageType.isUncertain;
 
@@ -1290,7 +1729,13 @@ window.ImageCompare = (function () {
       ...contextualized,
       rawText: rawSummary,
       attempts,
-      imageType: { isMonitor, confidence: imageType.confidence },
+      imageType: {
+        isMonitor,
+        isUncertain: imageType.isUncertain,
+        confidence: imageType.confidence,
+        type: imageType.type,
+        indicators: imageType.indicators || {}
+      },
       perspectiveCorrected
     };
   }
@@ -1856,6 +2301,39 @@ window.ImageCompare = (function () {
       });
 
       container.appendChild(btn);
+    },
+
+    /**
+     * Manuelles Feedback für Monitor-Kalibrierung speichern
+     * @param {boolean} wasCorrect - War die Bildtyp-Erkennung korrekt?
+     */
+    reportImageTypeClassification(wasCorrect) {
+      if (typeof wasCorrect === 'boolean') {
+        saveMonitorFeedback(wasCorrect);
+        console.log(`[ImageCompare] Feedback gespeichert: ${wasCorrect ? 'korrekt' : 'falsch'}`);
+      }
+    },
+
+    /**
+     * Aktuelle Kalibrierungs-Statistik abrufen
+     */
+    getCalibrationStats() {
+      try {
+        const stored = localStorage.getItem('ic_monitor_calibration');
+        return stored ? JSON.parse(stored) : { feedbackCount: 0, correctClassifications: 0 };
+      } catch (e) {
+        return { feedbackCount: 0, correctClassifications: 0 };
+      }
+    },
+
+    /**
+     * Kalibrierung zurücksetzen
+     */
+    resetCalibration() {
+      try {
+        localStorage.removeItem('ic_monitor_calibration');
+        console.log('[ImageCompare] Kalibrierung zurückgesetzt');
+      } catch (e) { /* ignore */ }
     }
   };
 })();
