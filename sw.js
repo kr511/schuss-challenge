@@ -3,7 +3,7 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v2.6';
+const CACHE_VERSION = 'v3.0' // Hard Reset: Alle alten Caches werden gelöscht
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 
 const PRECACHE = [
