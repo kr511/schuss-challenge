@@ -1226,10 +1226,146 @@ function scheduleFeedbackPrompt(totalDuels) {
   }, 800);
 }
 
-function showFeedbackScreen(totalDuels) {
+function showFeedbackScreen(totalDuels, duelData) {
   clearPendingFeedbackPrompt();
   if (DOM.feedbackCount) DOM.feedbackCount.textContent = `◆ DUELL #${totalDuels} ◆`;
+  // If duel data provided, populate the v2 feedback screen
+  if (duelData) {
+    fbSetDuel(duelData);
+  }
   showScreen('screenFeedback');
+}
+
+// ═══════════════════════════════════════════════
+// FEEDBACK v2 – Duel Result + Emoji + Tags + Comment
+// ═══════════════════════════════════════════════
+let fbRating = null;
+let fbTags = [];
+let fbDuelData = null; // { discipline, opponent, result, score }
+
+function fbSetDuel(data) {
+  fbDuelData = data;
+  fbRating = null;
+  fbTags = [];
+  const meta = FB_RESULT_META[data.result] || FB_RESULT_META.draw;
+  // Result icon
+  const iconEl = document.getElementById('fbResultIcon');
+  if (iconEl) iconEl.innerHTML = meta.icon;
+  // Title
+  const titleEl = document.getElementById('fbResultTitle');
+  const name = data.opponent || data.discipline;
+  if (titleEl) titleEl.innerHTML = `${name} — <span style="color:${meta.color}">${meta.text}</span>`;
+  // Score
+  const scoreEl = document.getElementById('fbResultScore');
+  if (scoreEl) scoreEl.textContent = data.score || '';
+  // Avatar
+  const avEl = document.getElementById('fbAvatar');
+  if (avEl) avEl.textContent = (G.username || 'T').charAt(0).toUpperCase();
+  // Reset UI
+  fbResetEmojiUI();
+  fbResetTagsUI();
+  document.getElementById('fbComment').value = '';
+  fbUpdateCounter();
+  fbUpdateSubmitBtn();
+}
+
+const FB_RESULT_META = {
+  win: { icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26Z" fill="#39FF14"/></svg>', text: 'Sieg!', color: '#39FF14' },
+  loss: { icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 6L18 18M18 6L6 18" stroke="#FF4444" stroke-width="3" stroke-linecap="round"/></svg>', text: 'Niederlage', color: '#FF4444' },
+  draw: { icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 12H19" stroke="#FFAA00" stroke-width="3" stroke-linecap="round"/></svg>', text: 'Unentschieden', color: '#FFAA00' },
+};
+
+function fbSetRating(idx) {
+  fbRating = idx;
+  fbUpdateEmojiUI();
+  fbUpdateSubmitBtn();
+}
+
+function fbUpdateEmojiUI() {
+  document.querySelectorAll('.fb-emoji-item').forEach(el => {
+    const i = parseInt(el.dataset.idx);
+    const btn = el.querySelector('.fb-emoji-btn');
+    const label = el.querySelector('span');
+    if (i === fbRating) {
+      btn.style.cssText = 'width:58px;height:58px;background:rgba(15,35,10,.8);border:2px solid #39FF14;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;transition:all .15s ease;';
+      label.style.color = '#39FF14';
+      label.style.fontWeight = '700';
+    } else {
+      btn.style.cssText = 'width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;';
+      label.style.color = 'rgba(90,140,60,.5)';
+      label.style.fontWeight = '600';
+    }
+  });
+}
+
+function fbResetEmojiUI() {
+  fbRating = null;
+  fbUpdateEmojiUI();
+}
+
+function fbToggleTag(el) {
+  const tag = el.dataset.tag;
+  if (fbTags.includes(tag)) {
+    fbTags = fbTags.filter(t => t !== tag);
+    el.style.cssText = 'background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;';
+  } else {
+    fbTags.push(tag);
+    el.style.cssText = 'background:rgba(15,35,10,.8);border:1px solid rgba(57,255,20,.35);color:#39FF14;font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;';
+  }
+}
+
+function fbResetTagsUI() {
+  fbTags = [];
+  document.querySelectorAll('.fb-tag').forEach(el => {
+    el.style.cssText = 'background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;';
+  });
+}
+
+function fbUpdateCounter() {
+  const comment = document.getElementById('fbComment').value;
+  const counter = document.getElementById('fbCounter');
+  if (counter) counter.textContent = `${comment.length} / 300`;
+}
+
+function fbUpdateSubmitBtn() {
+  const btn = document.getElementById('fbSubmitBtn');
+  if (btn) {
+    if (fbRating !== null) {
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    } else {
+      btn.style.opacity = '.35';
+      btn.style.pointerEvents = 'none';
+    }
+  }
+}
+
+function fbSubmit() {
+  if (fbRating === null) return;
+  const comment = document.getElementById('fbComment').value || '';
+
+  // Save to localStorage (compat with existing feedback system)
+  const score = fbRating + 1; // 1-5 scale
+  const totalDuels = getTotalDuels();
+  let entries = [];
+  try { entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]'); } catch (e) { entries = []; }
+  if (!Array.isArray(entries)) entries = [];
+  entries.unshift({ score, totalDuels, weapon: G.weapon, discipline: fbDuelData?.discipline || G.discipline, ts: Date.now(), tags: fbTags, comment });
+  while (entries.length > 100) entries.pop();
+  try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
+
+  console.log('[Feedback]', { rating: fbRating + 1, tags: fbTags, comment, duel: fbDuelData });
+
+  // Thank you animation
+  const card = document.getElementById('screenFeedback');
+  if (card) {
+    // Show brief thank you, then go back
+    if (typeof Sounds !== 'undefined') Sounds.win();
+    setTimeout(() => {
+      scheduleNextFeedback(totalDuels);
+      showScreen('screenSetup');
+    }, 1500);
+  }
 }
 
 function submitSiteFeedback(rating) {
@@ -4543,6 +4679,7 @@ function initDOMCache() {
     'playerInp', 'playerInpInt', 'inpHint', 'autoInt', 'autoIntVal', 'entryTag',
     'goP', 'goB', 'goPInt', 'goBInt', 'goPUnit', 'goTitle', 'goSub', 'goEmoji', 'goReason', 'goMargin', 'analysisResult',
     'feedbackCount',
+    'fbAvatar', 'fbResultIcon', 'fbResultTitle', 'fbResultScore', 'fbComment', 'fbCounter', 'fbSubmitBtn',
     'wTabLG', 'wTabKK', 'discTabs',
     'posBar', 'posItem0', 'posItem1', 'posItem2', 'posShots0', 'posShots1', 'posShots2',
     'scFire', 'scN', 'scLbl',
@@ -6710,8 +6847,18 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
   // Zuerst screenOver anzeigen, dann dynamisch zur Umfrage wechseln, falls nötig
   showScreen('screenOver');
 
+  // NEW: Show v2 feedback screen with duel data
+  const result = G.playerTotal >= G.botTotal ? 'win' : G.playerTotal < G.botTotal ? 'loss' : 'draw';
+  const duelResultData = {
+    discipline: DISC[G.discipline]?.name || G.discipline,
+    opponent: G.botName || undefined,
+    result: result,
+    score: `Score: ${G.playerTotal} / ${G.botTotal}`
+  };
+
   if (shouldShowFeedback(totalDuels)) {
-    scheduleFeedbackPrompt(totalDuels);
+    // Instead of old prompt, show v2 feedback after short delay
+    setTimeout(() => showFeedbackScreen(totalDuels, duelResultData), 2500);
   }
 
   HealthyEngagement.onMatchFinished(G.gameDuration);
@@ -7069,6 +7216,11 @@ Object.assign(window, {
   restartGame,
   submitSiteFeedback,
   skipSiteFeedback,
+  fbSetDuel,
+  fbSetRating,
+  fbToggleTag,
+  fbSubmit,
+  fbUpdateCounter,
   closeShareCard,
   doShare,
   copyShareLink

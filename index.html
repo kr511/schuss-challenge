@@ -1032,38 +1032,86 @@
   </div>
 
   <!-- ══════════════════════════ LEADERBOARD ══════════════════════════ -->
-  <!-- FEEDBACK -->
-  <!-- FEEDBACK SCREEN -->
+  <!-- FEEDBACK SCREEN (v2 – Duel Result + Emoji + Tags + Comment) -->
   <div id="screenFeedback" class="screen">
-    <div class="hdr">
-      <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">DEIN <em>FEEDBACK</em></div>
-      <div class="logo-tag">Hilf uns, Schussduell besser zu machen</div>
-      <div class="hdr-tag" id="feedbackCount">◆ DUELL ◆</div>
+    <div class="hdr" style="padding:28px 20px 8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="logo" style="font-size:1.4rem;letter-spacing:.15em;">SCHUSS<em>DUELL</em></div>
+        <div id="fbAvatar" style="width:38px;height:38px;border-radius:50%;background:#1a6a6a;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;">T</div>
+      </div>
     </div>
 
-    <div class="content fb-content"
-      style="display: flex; align-items: center; justify-content: center; flex: 1; width: 100%;">
-      <div class="fb-card">
-        <div class="fb-title">Wie gefällt dir die Seite?</div>
-        <div class="fb-sub">Bitte wähle ein Emoji:</div>
-
-        <div class="fb-emoji-row">
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(1)" title="Schlecht">😡</button>
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(2)" title="Naja">🙁</button>
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(3)" title="Okay">😐</button>
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(4)" title="Gut">🙂</button>
-          <button class="fb-emoji-btn" onclick="submitSiteFeedback(5)" title="Super!">🤩</button>
-        </div>
-
-        <div class="fb-scale-row">
-          <span>schlecht</span>
-          <span>top</span>
+    <!-- Duel Result Card -->
+    <div style="margin:14px 16px 0;background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);border-radius:14px;padding:16px 18px;">
+      <div style="font-size:.6rem;font-weight:700;letter-spacing:.15em;color:rgba(122,176,48,.6);text-transform:uppercase;margin-bottom:10px;">DUELL ERGEBNIS</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div id="fbResultIcon" style="width:46px;height:46px;border-radius:12px;background:rgba(15,35,10,.8);border:1.5px solid rgba(57,255,20,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;"></div>
+        <div style="flex:1;">
+          <div id="fbResultTitle" style="color:#fff;font-size:.95rem;font-weight:800;letter-spacing:.02em;"></div>
+          <div id="fbResultScore" style="color:rgba(122,176,48,.5);font-size:.75rem;margin-top:3px;"></div>
         </div>
       </div>
     </div>
 
-    <div class="actions">
-      <button class="btn-sec" onclick="skipSiteFeedback()">Vielleicht später</button>
+    <!-- Emoji Rating -->
+    <div style="padding:22px 20px 0;">
+      <div style="font-size:.6rem;font-weight:700;letter-spacing:.15em;color:rgba(122,176,48,.6);text-transform:uppercase;margin-bottom:14px;">DEINE BEWERTUNG</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;" id="fbEmojiRow">
+        <div class="fb-emoji-item" data-idx="0" onclick="fbSetRating(0)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">😤</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Schlecht</span>
+        </div>
+        <div class="fb-emoji-item" data-idx="1" onclick="fbSetRating(1)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">😐</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Okay</span>
+        </div>
+        <div class="fb-emoji-item" data-idx="2" onclick="fbSetRating(2)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">😄</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Gut</span>
+        </div>
+        <div class="fb-emoji-item" data-idx="3" onclick="fbSetRating(3)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">🤩</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Super</span>
+        </div>
+        <div class="fb-emoji-item" data-idx="4" onclick="fbSetRating(4)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">🔥</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Episch</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Tags -->
+    <div style="padding:20px 20px 0;">
+      <div style="font-size:.6rem;font-weight:700;letter-spacing:.15em;color:rgba(122,176,48,.6);text-transform:uppercase;margin-bottom:12px;">WAS HAT DIR GEFALLEN?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;" id="fbTags">
+        <span class="fb-tag" data-tag="Challenges" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">Challenges</span>
+        <span class="fb-tag" data-tag="Animationen" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">Animationen</span>
+        <span class="fb-tag" data-tag="Balancing" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">Balancing</span>
+        <span class="fb-tag" data-tag="Statistiken" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">Statistiken</span>
+        <span class="fb-tag" data-tag="UI-Design" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">UI-Design</span>
+      </div>
+    </div>
+
+    <!-- Comment -->
+    <div style="padding:20px 20px 0;">
+      <div style="font-size:.6rem;font-weight:700;letter-spacing:.15em;color:rgba(122,176,48,.6);text-transform:uppercase;margin-bottom:12px;">DEIN KOMMENTAR</div>
+      <div style="background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;padding:14px 16px;">
+        <textarea id="fbComment" placeholder="Was können wir besser machen? Bugs, Ideen, Lob..." style="background:transparent;border:none;outline:none;color:rgba(255,255,255,.75);font-size:.8rem;line-height:1.7;min-height:90px;resize:none;width:100%;font-family:var(--font-main);" maxlength="300" rows="3" oninput="fbUpdateCounter()"></textarea>
+        <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+          <span id="fbCounter" style="color:rgba(60,100,40,.4);font-size:.65rem;font-weight:600;">0 / 300</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div style="padding:24px 20px 0;">
+      <button id="fbSubmitBtn" onclick="fbSubmit()" style="width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);border:none;border-radius:14px;padding:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;opacity:.35;pointer-events:none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="#0c1008" stroke-width="2.5" stroke-linecap="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#0c1008" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span style="color:#0c1008;font-size:1.1rem;font-weight:900;letter-spacing:.2em;text-transform:uppercase;">FEEDBACK ABSENDEN</span>
+      </button>
+      <div style="text-align:center;margin-top:14px;">
+        <span style="color:rgba(60,100,40,.4);font-size:.75rem;font-weight:600;cursor:pointer;letter-spacing:.05em;" onclick="skipSiteFeedback()">Überspringen</span>
+      </div>
     </div>
   </div>
 
