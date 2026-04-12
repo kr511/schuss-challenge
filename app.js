@@ -1720,6 +1720,9 @@ function recordGameResult(result, diff, weapon, playerPts, botPts) {
 
   // NEU: Erweiterte Analytics - Spiel-Daten hinzufügen
   if (typeof EnhancedAnalytics !== 'undefined') {
+    // XP berechnen (nur bei Sieg)
+    const earnedXP = (result === 'win' && !G?.dnf) ? (XP_PER_WIN[diff] || 10) : 0;
+
     const gameData = {
       result: result,
       playerScore: playerPts,
@@ -1729,6 +1732,7 @@ function recordGameResult(result, diff, weapon, playerPts, botPts) {
       disciplineName: DISC[G.discipline]?.name || G.discipline,
       weapon: weapon,
       difficulty: diff,
+      xpEarned: earnedXP, // NEU: XP speichern
       shots: G.playerShots || [], // Spieler-Schüsse falls verfügbar
       shotsLeft: G.playerShotsLeft,
       maxDeficit: Math.max(0, botPts - playerPts), // Größter Rückstand
@@ -2000,8 +2004,13 @@ function refreshPremiumDashboard() {
   const totalGames = latest3ForStats.length;
   const winRate = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(0) : 0;
 
-  // Gesamt XP: Nur aus den letzten 3 Duellen, basierend auf XP_PER_WIN
+  // Gesamt XP: Nur aus den letzten 3 Duellen
   const totalXP = latest3ForStats.reduce((sum, g) => {
+    // Verwende gespeichertes xpEarned falls vorhanden, sonst berechne es
+    if (Number.isFinite(g.xpEarned)) {
+      return sum + g.xpEarned;
+    }
+    // Fallback für alte Einträge
     const isWin = g.result === 'win' || g.result === 'Sieg';
     if (!isWin) return sum; // Niederlage = 0 XP
     const diff = g.difficulty || 'easy';
@@ -2209,10 +2218,28 @@ function refreshPremiumDashboard() {
         }
       }
 
+      // XP anzeigen - verwende gespeichertes xpEarned falls vorhanden
+      let xpText = '';
+      if (Number.isFinite(game.xpEarned)) {
+        // Verwende gespeicherte XP
+        xpText = game.xpEarned > 0 ? `+${game.xpEarned} XP` : '0 XP';
+      } else {
+        // Fallback für alte Einträge
+        if (isWin) {
+          const xpGained = XP_PER_WIN[diff] || 10;
+          xpText = `+${xpGained} XP`;
+        } else {
+          xpText = '0 XP';
+        }
+      }
+
       l3Html += `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
-          <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${displayDisc}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
-          <div style="font-size:0.75rem;font-weight:600;color:${color};">${label}</div>
+        <div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${displayDisc}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
+            <div style="font-size:0.75rem;font-weight:600;color:${color};">${label}</div>
+          </div>
+          <div style="font-size:0.65rem;font-weight:500;color:rgba(255,255,255,0.5);">${xpText}</div>
         </div>
       `;
     });
