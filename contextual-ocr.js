@@ -289,37 +289,39 @@ const ContextualOCR = (function() {
   }
   
   /**
-   * Analysiert Trend und passt Score an
+   * Analysiert Trend und warnt bei Abweichungen (KEINE Score-Manipulation!)
    */
   function analyzeTrend(ocrResult, context) {
     if (context.trend.direction === 'stable' || context.recentScores.length === 0) {
       return { needsCorrection: false };
     }
-    
+
     const score = parseFloat(ocrResult.text);
     const lastScore = context.recentScores[context.recentScores.length - 1].value;
     const trend = context.trend;
-    
-    // Wenn verbessernder Trend, aber Score ist schlechter als letzter
+
+    // Wenn verbessernder Trend, aber Score ist schlechter als letzter → NUR WARNUNG
     if (trend.direction === 'improving' && score < lastScore - 15) {
       return {
-        needsCorrection: true,
-        reason: `Verbessernder Trend, aber Score ${score} ist schlechter als letzter ${lastScore}`,
-        suggestion: Math.min(score + 10, context.expectedRange.max),
-        confidence: 0.65
+        needsCorrection: false,  // KEINE Korrektur - nur Warning!
+        reason: `Ungewöhnlicher Abfall: ${score} vs. Trend (~${lastScore})`,
+        suggestion: score,  // Originalwert beibehalten
+        confidence: 0.4,  // Niedrige Confidence signalisiert Unsicherheit
+        warning: true
       };
     }
-    
-    // Wenn absteigender Trend, aber Score ist viel besser
+
+    // Wenn absteigender Trend, aber Score ist viel besser → NUR WARNUNG
     if (trend.direction === 'declining' && score > lastScore + 30) {
       return {
-        needsCorrection: true,
-        reason: `Absteigender Trend, aber Score ${score} ist viel besser als letzter ${lastScore}`,
-        suggestion: Math.max(score - 15, context.expectedRange.min),
-        confidence: 0.65
+        needsCorrection: false,  // KEINE Korrektur - nur Warning!
+        reason: `Ungewöhnlicher Anstieg: ${score} vs. Trend (~${lastScore})`,
+        suggestion: score,  // Originalwert beibehalten
+        confidence: 0.4,  // Niedrige Confidence signalisiert Unsicherheit
+        warning: true
       };
     }
-    
+
     return { needsCorrection: false };
   }
   

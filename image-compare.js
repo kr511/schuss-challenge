@@ -150,23 +150,31 @@ window.ImageCompare = (function () {
     return weights[cropKey] || 0.7;
   }
 
-  function getKeywordBonus(cleanText, index, matchLength) {
+  function getKeywordBonus(rawText, index, matchLength) {
     const keywords = SCORE_CONFIG && Array.isArray(SCORE_CONFIG.KEYWORDS)
       ? SCORE_CONFIG.KEYWORDS
       : ['gesamt', 'total', 'summe', 'ergebnis', 'result', 'ringe', 'pkt'];
 
     const start = Math.max(0, index - 18);
-    const end = Math.min(cleanText.length, index + matchLength + 18);
-    const snippet = cleanText.slice(start, end).toLowerCase();
-    return keywords.some(keyword => snippet.includes(keyword)) ? 0.08 : 0;
+    const end = Math.min(rawText.length, index + matchLength + 18);
+    // ROHEN Text durchsuchen (nicht normalisiert!), OCR-typische Varianten prüfen
+    const snippet = rawText.slice(start, end).toLowerCase();
+    const variants = [
+      snippet,
+      snippet.replace(/[0o]/g, 'o'),  // "gesam0t" → "gesamt"
+      snippet.replace(/[0o]/g, '0'),  // "gesamt" → "gesamt" (bleibt)
+      snippet.replace(/[lI|]/g, 'i'), // "Resu|t" → "result"
+      snippet.replace(/[lI|]/g, 'l'), // "Resu|t" → "result"
+    ];
+    return variants.some(v => keywords.some(keyword => v.includes(keyword))) ? 0.08 : 0;
   }
 
-  function buildCandidateConfidence(baseConfidence, meta, cleanText, index, matchLength, type) {
+  function buildCandidateConfidence(baseConfidence, meta, rawText, cleanText, index, matchLength, type) {
     const ocrConfidence = getNormalizedOCRConfidence(meta.ocrConfidence);
     const cropWeight = getCropWeight(meta.cropKey);
     const passWeight = Number.isFinite(Number(meta.passWeight)) ? Number(meta.passWeight) : 0.75;
     const compactnessBonus = cleanText.length <= 18 ? 0.03 : 0;
-    const keywordBonus = getKeywordBonus(cleanText, index, matchLength);
+    const keywordBonus = getKeywordBonus(rawText, index, matchLength);
     const typePenalty = type === 'implied_decimal' ? 0.06 : 0;
 
     return clampConfidence(
@@ -202,7 +210,7 @@ window.ImageCompare = (function () {
       if (value >= min && value <= max) {
         addCandidate(candidates, {
           value,
-          confidence: buildCandidateConfidence(0.84, meta, clean, m.index, m[0].length, 'decimal'),
+          confidence: buildCandidateConfidence(0.84, meta, text, clean, m.index, m[0].length, 'decimal'),
           type: 'decimal'
         });
       }
@@ -212,7 +220,7 @@ window.ImageCompare = (function () {
         if (collapsed >= min && collapsed <= max) {
           addCandidate(candidates, {
             value: collapsed,
-            confidence: buildCandidateConfidence(0.76, meta, clean, m.index, m[0].length, 'collapsed_integer'),
+            confidence: buildCandidateConfidence(0.76, meta, text, clean, m.index, m[0].length, 'collapsed_integer'),
             type: 'integer'
           });
         }
@@ -225,7 +233,7 @@ window.ImageCompare = (function () {
         if (value >= min && value <= max) {
           addCandidate(candidates, {
             value,
-            confidence: buildCandidateConfidence(0.72, meta, clean, m.index, m[0].length, 'split_decimal'),
+            confidence: buildCandidateConfidence(0.72, meta, text, clean, m.index, m[0].length, 'split_decimal'),
             type: 'decimal'
           });
         }
@@ -237,20 +245,22 @@ window.ImageCompare = (function () {
         if (value >= min && value <= max) {
           addCandidate(candidates, {
             value,
-            confidence: buildCandidateConfidence(0.74, meta, clean, m.index, m[0].length, 'implied_decimal'),
+            confidence: buildCandidateConfidence(0.74, meta, text, clean, m.index, m[0].length, 'implied_decimal'),
             type: 'decimal'
           });
         }
       }
     }
 
-    const intRegex = /\b(\d{2,3})\b/g;
+    // intRegex: Nur ganze Zahlen matchen, die NICHT Teil einer Dezimalzahl sind
+    // Negative Lookbehind/Lookahead verhindern Match von "405" in "405.2" oder "405,2"
+    const intRegex = /(?<![.,]\s*)(\b\d{2,3}\b)(?!\s*[.,]\s*\d)/g;
     while ((m = intRegex.exec(clean)) !== null) {
       const value = parseInt(m[1], 10);
       if (value >= min && value <= max) {
         addCandidate(candidates, {
           value,
-          confidence: buildCandidateConfidence(isKK ? 0.88 : 0.62, meta, clean, m.index, m[0].length, 'integer'),
+          confidence: buildCandidateConfidence(isKK ? 0.88 : 0.62, meta, text, clean, m.index, m[0].length, 'integer'),
           type: 'integer'
         });
       }
@@ -312,6 +322,137 @@ window.ImageCompare = (function () {
     return canvas;
   }
 
+  /**
+   * Analysiert Bildtyp (Papier vs. Monitor)
+   */
+  function analyzeImageType(canvas) {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // Sample-Punkte für Effizienz (jeder 8. Pixel)
+    const step = 8;
+    let sumR = 0, sumG = 0, sumB = 0, sumBrightness = 0;
+    let colorVariance = 0;
+    let highFreqEnergy = 0;
+    let sampleCount = 0;
+
+    // Einfache Histogramm-Analyse
+    const brightnessHist = new Array(256).fill(0);
+
+    for (let y = 0; y < height; y += step) {
+      for (let x = 0; x < width; x += step) {
+        const idx = (y * width + x) * 4;
+        const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+
+        const brightness = (r + g + b) / 3;
+        sumBrightness += brightness;
+        sumR += r; sumG += g; sumB += b;
+
+        // Histogramm
+        brightnessHist[Math.floor(brightness)]++;
+
+        // Hohe Frequenz (Moiré-Indikator)
+        if (x < width - step && y < height - step) {
+          const idxRight = (y * width + (x + step)) * 4;
+          const idxDown = ((y + step) * width + x) * 4;
+          const diffR = Math.abs(r - data[idxRight]);
+          const diffG = Math.abs(g - data[idxRight + 1]);
+          const diffB = Math.abs(b - data[idxRight + 2]);
+          highFreqEnergy += (diffR + diffG + diffB) / 3;
+        }
+
+        sampleCount++;
+      }
+    }
+
+    if (sampleCount === 0) return { isMonitor: false, confidence: 0 };
+
+    const avgBrightness = sumBrightness / sampleCount;
+    const avgR = sumR / sampleCount;
+    const avgG = sumG / sampleCount;
+    const avgB = sumB / sampleCount;
+
+    // Farb-Varianz berechnen
+    for (let y = 0; y < height; y += step * 2) {
+      for (let x = 0; x < width; x += step * 2) {
+        const idx = (y * width + x) * 4;
+        const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+        colorVariance += Math.pow(brightness - avgBrightness, 2);
+      }
+    }
+    colorVariance /= (sampleCount / 4);
+    const stdDev = Math.sqrt(colorVariance);
+
+    // Moiré-Indikator normalisieren
+    const moiréScore = highFreqEnergy / (sampleCount * 255);
+
+    // Monitor-Indikatoren:
+    // 1. Hohe Moiré-Energie (Pixel-Struktur des Bildschirms)
+    // 2. Geringe Farb-Varianz (flache Farbflächen auf Monitor)
+    // 3. Typische Monitor-Helligkeitsverteilung
+    const moiréIndicator = moiréScore > 0.08;
+    const flatColorIndicator = stdDev < 80;
+    const brightnessIndicator = avgBrightness > 60 && avgBrightness < 220;
+
+    // Kombinierte Bewertung
+    let monitorScore = 0;
+    if (moiréIndicator) monitorScore += 0.4;
+    if (flatColorIndicator) monitorScore += 0.3;
+    if (brightnessIndicator) monitorScore += 0.15;
+    // Monitor-Fotos haben oft bläulichen Stich
+    if (avgB > avgR * 1.1) monitorScore += 0.15;
+
+    return {
+      isMonitor: monitorScore > 0.5,
+      confidence: Math.min(1, monitorScore),
+      avgBrightness,
+      stdDev,
+      moiréScore,
+      avgColor: { r: avgR, g: avgG, b: avgB }
+    };
+  }
+
+  /**
+   * Erstellt monitor-optimierte Crop-Regionen
+   * (findet das linke Info-Panel auf dem Monitor)
+   */
+  function getMonitorCropPresets() {
+    return {
+      // Linke Info-Spalte (Hauptfokus)
+      left_panel: [0.02, 0.08, 0.38, 0.55],
+      // Obere linke Ecke (Score-Bereich)
+      top_left: [0.02, 0.08, 0.35, 0.25],
+      // Gesamter Monitor (Fallback)
+      monitor_full: [0.05, 0.05, 0.85, 0.75],
+      // Mittlere linke Spalte
+      mid_left: [0.02, 0.25, 0.35, 0.35],
+      // Rechte obere Ecke (Zielscheibe-Bereich)
+      target_area: [0.42, 0.15, 0.5, 0.6],
+      // Kompletter Monitor ohne Rand
+      full: [0, 0, 1, 1]
+    };
+  }
+
+  /**
+   * Monitor-spezifische OCR-Passes
+   */
+  const MONITOR_OCR_PASSES = [
+    // 1. Linke Spalte mit starkem Kontrast (Score-Bereich)
+    { name: 'Monitor-Left-Panel', options: { cropKey: 'left_panel', psm: 6, gamma: 1.2, contrast: 1.6, autoThreshold: true, upscale: 2.5 }, triggerBelow: 1.0 },
+    // 2. Top-Left Fokus (Score im oberen Bereich)
+    { name: 'Monitor-Top-Left', options: { cropKey: 'top_left', psm: 6, gamma: 1.3, contrast: 1.5, autoThreshold: true, upscale: 3.0 }, triggerBelow: 0.95 },
+    // 3. Monitor Full (Fallback)
+    { name: 'Monitor-Full-BW', options: { cropKey: 'monitor_full', psm: 6, gamma: 1.1, contrast: 1.4, autoThreshold: true, upscale: 2.0 }, triggerBelow: 0.9 },
+    // 4. Mittlere linke Spalte
+    { name: 'Monitor-Mid-Left', options: { cropKey: 'mid_left', psm: 6, gamma: 1.15, contrast: 1.5, autoThreshold: true, upscale: 2.5 }, triggerBelow: 0.85 },
+    // 5. Invertiert (für helle Hintergründe)
+    { name: 'Monitor-Left-Invert', options: { cropKey: 'left_panel', psm: 6, invert: true, contrast: 1.5, autoThreshold: true, upscale: 2.5 }, triggerBelow: 0.8 },
+    // 6. Target Area (für Dezimal-Scores neben der Scheibe)
+    { name: 'Monitor-Target-Area', options: { cropKey: 'target_area', psm: 6, gamma: 1.1, contrast: 1.4, autoThreshold: true, upscale: 2.0 }, triggerBelow: 0.75 }
+  ];
+
   function getCropRect(width, height, cropKey, discipline) {
     const isThreePosition = discipline === 'kk3x20';
     const presets = isThreePosition
@@ -341,6 +482,20 @@ window.ImageCompare = (function () {
     };
   }
 
+  /**
+   * Monitor-spezifische Crop-Region
+   */
+  function getMonitorCropRect(width, height, cropKey) {
+    const presets = getMonitorCropPresets();
+    const preset = presets[cropKey] || presets.full;
+    return {
+      x: Math.round(width * preset[0]),
+      y: Math.round(height * preset[1]),
+      width: Math.max(1, Math.round(width * preset[2])),
+      height: Math.max(1, Math.round(height * preset[3]))
+    };
+  }
+
   function applyPreprocessing(canvas, options = {}) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return canvas;
@@ -351,21 +506,27 @@ window.ImageCompare = (function () {
     const contrast = Number.isFinite(Number(options.contrast)) ? Number(options.contrast) : 1;
     const invert = !!options.invert;
 
-    // --- WEICHZEICHNER (BLUR) ZUR MOIRÉ-MINDERUNG BEI BILDSCHIRMFOTOS ---
-    // Ein einfacher 3x3 Box-Blur tilgt das Bildschirm-Pixelraster
+    // --- WEICHZEICHNER (BLUR) ZUR MOIRÉ-MINDERUNG ---
+    // Für Monitor-Fotos: stärkerer 5x5 Blur, für Papier: 3x3 Box-Blur
+    const isMonitorPass = options.isMonitor || (options.cropKey && ['left_panel', 'top_left', 'monitor_full', 'mid_left', 'target_area'].includes(options.cropKey));
+    const blurRadius = isMonitorPass ? 2 : 1;  // 5x5 für Monitor, 3x3 für Papier
+    const blurSize = blurRadius * 2 + 1;
+    const blurArea = blurSize * blurSize;
+
     const width = canvas.width;
     const height = canvas.height;
     const blurred = new Uint8ClampedArray(data);
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
+
+    for (let y = blurRadius; y < height - blurRadius; y++) {
+      for (let x = blurRadius; x < width - blurRadius; x++) {
         for (let c = 0; c < 3; c++) {
           let sum = 0;
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -blurRadius; dy <= blurRadius; dy++) {
+            for (let dx = -blurRadius; dx <= blurRadius; dx++) {
               sum += data[((y + dy) * width + (x + dx)) * 4 + c];
             }
           }
-          blurred[(y * width + x) * 4 + c] = sum / 9;
+          blurred[(y * width + x) * 4 + c] = sum / blurArea;
         }
         blurred[(y * width + x) * 4 + 3] = data[(y * width + x) * 4 + 3];
       }
@@ -374,6 +535,7 @@ window.ImageCompare = (function () {
       data[i] = blurred[i];
     }
 
+    // Gamma + Kontrast + Graustufen
     for (let i = 0; i < data.length; i += 4) {
       let r = data[i];
       let g = data[i + 1];
@@ -451,9 +613,11 @@ window.ImageCompare = (function () {
     return threshold;
   }
 
-  function createPassCanvas(sourceCanvas, pass, discipline) {
+  function createPassCanvas(sourceCanvas, pass, discipline, isMonitor = false) {
     const options = pass.options || {};
-    const cropRect = getCropRect(sourceCanvas.width, sourceCanvas.height, options.cropKey || 'full', discipline);
+    const cropRect = isMonitor
+      ? getMonitorCropRect(sourceCanvas.width, sourceCanvas.height, options.cropKey || 'full')
+      : getCropRect(sourceCanvas.width, sourceCanvas.height, options.cropKey || 'full', discipline);
     const upscale = Number.isFinite(Number(options.upscale)) ? Number(options.upscale) : 1;
     const canvas = createCanvas(cropRect.width * upscale, cropRect.height * upscale);
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -470,15 +634,24 @@ window.ImageCompare = (function () {
     return clean.length > 64 ? clean.slice(0, 64) + '…' : clean;
   }
 
-  async function recognizeCanvas(worker, canvas, pass, passIndex, totalPasses, overlay) {
+  async function recognizeCanvas(worker, canvas, pass, passIndex, totalPasses, overlay, isMonitor = false) {
     const options = pass.options || {};
     if (worker && worker.setParameters) {
-      await worker.setParameters({
-        tessedit_pageseg_mode: String(options.psm || 6),
-        preserve_interword_spaces: '1',
-        user_defined_dpi: String(options.userDefinedDpi || 300),
-        tessedit_char_whitelist: '0123456789., OolI|Ss\n'
-      });
+      // Monitor-optimierte Tesseract-Parameter
+      if (isMonitor) {
+        await worker.setParameters({
+          tessedit_pageseg_mode: String(options.psm || 6),  // Uniform block of text
+          preserve_interword_spaces: '1',
+          tessedit_char_whitelist: '0123456789.,: S:↑↓↗↘ '  // Monitor-spezifische Zeichen
+        });
+      } else {
+        await worker.setParameters({
+          tessedit_pageseg_mode: String(options.psm || 6),
+          preserve_interword_spaces: '1',
+          user_defined_dpi: String(options.userDefinedDpi || 300),
+          tessedit_char_whitelist: '0123456789., OolI|Ss\n'
+        });
+      }
     }
 
     const progressBase = 28 + (passIndex / Math.max(1, totalPasses)) * 58;
@@ -487,7 +660,10 @@ window.ImageCompare = (function () {
       updateProgress(overlay, pct, `OCR läuft: ${pass.name}`);
     };
 
-    const result = await worker.recognize(canvas.toDataURL('image/jpeg', 0.92));
+    // Monitor: PNG für bessere Schärfe, Papier: JPEG für Kompression
+    const mimeType = isMonitor ? 'image/png' : 'image/jpeg';
+    const quality = isMonitor ? undefined : 0.92;
+    const result = await worker.recognize(canvas.toDataURL(mimeType, quality));
     _ocrProgressCallback = null;
 
     return {
@@ -636,17 +812,30 @@ window.ImageCompare = (function () {
 
     const sourceImage = await loadImage(objectUrl);
     const sourceCanvas = createSourceCanvas(sourceImage);
+
+    // ═══ ADAPTIVE IMAGE TYPE DETECTION ═══
+    updateProgress(overlay, 25, '🔍 Bildtyp wird analysiert...');
+    const imageType = analyzeImageType(sourceCanvas);
+    const isMonitor = imageType.isMonitor;
+
+    console.log(`[ImageCompare] Bildtyp erkannt: ${isMonitor ? 'Monitor' : 'Papier'} (Konfidenz: ${Math.round(imageType.confidence * 100)}%)`);
+    if (isMonitor) {
+      console.log(`[ImageCompare] Monitor-Details: Helligkeit=${Math.round(imageType.avgBrightness)}, StdDev=${Math.round(imageType.stdDev)}, Moiré=${imageType.moiréScore.toFixed(3)}`);
+    }
+
     const attempts = [];
-    const passes = DEFAULT_OCR_PASSES.slice(0, 6);
+    const passes = isMonitor
+      ? MONITOR_OCR_PASSES.slice(0, 6)  // Monitor-optimierte Passes
+      : DEFAULT_OCR_PASSES.slice(0, 6);  // Standard Papier-Passes
     const multiScoreEnabled = overlay.dataset.multiScore === 'true';
     const totalPasses = passes.length + (multiScoreEnabled ? 1 : 0);
 
     for (let i = 0; i < passes.length; i++) {
       const pass = passes[i];
-      const passCanvas = createPassCanvas(sourceCanvas, pass, discipline);
+      const passCanvas = createPassCanvas(sourceCanvas, pass, discipline, isMonitor);
       updateProgress(overlay, Math.round(26 + (i / Math.max(1, totalPasses)) * 58), `OCR läuft: ${pass.name}`);
 
-      const result = await recognizeCanvas(worker, passCanvas, pass, i, totalPasses, overlay);
+      const result = await recognizeCanvas(worker, passCanvas, pass, i, totalPasses, overlay, isMonitor);
       const parsed = parseScoreFromText(result.rawText, isKK, discipline, {
         ocrConfidence: result.ocrConfidence,
         cropKey: pass.options && pass.options.cropKey,
@@ -686,7 +875,8 @@ window.ImageCompare = (function () {
     return {
       ...contextualized,
       rawText: rawSummary,
-      attempts
+      attempts,
+      imageType: { isMonitor, confidence: imageType.confidence }
     };
   }
 
