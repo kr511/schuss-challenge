@@ -7,9 +7,15 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
-    "noEmit": true
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "types": ["node"]
   },
   "include": [
-    "worker/**/*.ts"
+    "worker/**/*.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "vite.config.ts"
   ]
 }
