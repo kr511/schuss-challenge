@@ -1258,9 +1258,6 @@ function fbSetDuel(data) {
   // Score
   const scoreEl = document.getElementById('fbResultScore');
   if (scoreEl) scoreEl.textContent = data.score || '';
-  // Avatar
-  const avEl = document.getElementById('fbAvatar');
-  if (avEl) avEl.textContent = (G.username || 'T').charAt(0).toUpperCase();
   // Reset UI
   fbResetEmojiUI();
   fbResetTagsUI();
@@ -4679,7 +4676,7 @@ function initDOMCache() {
     'playerInp', 'playerInpInt', 'inpHint', 'autoInt', 'autoIntVal', 'entryTag',
     'goP', 'goB', 'goPInt', 'goBInt', 'goPUnit', 'goTitle', 'goSub', 'goEmoji', 'goReason', 'goMargin', 'analysisResult',
     'feedbackCount',
-    'fbAvatar', 'fbResultIcon', 'fbResultTitle', 'fbResultScore', 'fbComment', 'fbCounter', 'fbSubmitBtn',
+    'fbResultIcon', 'fbResultTitle', 'fbResultScore', 'fbComment', 'fbCounter', 'fbSubmitBtn',
     'wTabLG', 'wTabKK', 'discTabs',
     'posBar', 'posItem0', 'posItem1', 'posItem2', 'posShots0', 'posShots1', 'posShots2',
     'scFire', 'scN', 'scLbl',
