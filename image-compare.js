@@ -404,14 +404,411 @@ window.ImageCompare = (function () {
     // Monitor-Fotos haben oft bläulichen Stich
     if (avgB > avgR * 1.1) monitorScore += 0.15;
 
+    // SCHWELLE: 0.5 = sicher Monitor, 0.3-0.5 = unsicher (beide Pipelines testen)
     return {
       isMonitor: monitorScore > 0.5,
+      isUncertain: monitorScore > 0.3 && monitorScore <= 0.5,  // Neue Kategorie
       confidence: Math.min(1, monitorScore),
       avgBrightness,
       stdDev,
       moiréScore,
       avgColor: { r: avgR, g: avgG, b: avgB }
     };
+  }
+
+  /**
+   * ═══════════════════════════════════════════════════════════
+   * PERSPEKTIV-KORREKTUR (für schräge Monitor-Fotos)
+   * ═══════════════════════════════════════════════════════════
+   */
+
+  /**
+   * Sobel-Kantenerkennung
+   */
+  function sobelEdgeDetection(imageData) {
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+    const gray = new Float32Array(width * height);
+    const magnitude = new Float32Array(width * height);
+
+    // Graustufen
+    for (let i = 0; i < data.length; i += 4) {
+      gray[i / 4] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    }
+
+    // Sobel-Kerne
+    const sobelX = [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]];
+    const sobelY = [[-1, -2, -1], [0, 0, 0], [1, 2, 1]];
+
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        let gx = 0, gy = 0;
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const pixel = gray[(y + ky) * width + (x + kx)];
+            gx += pixel * sobelX[ky + 1][kx + 1];
+            gy += pixel * sobelY[ky + 1][kx + 1];
+          }
+        }
+        magnitude[y * width + x] = Math.sqrt(gx * gx + gy * gy);
+      }
+    }
+
+    return magnitude;
+  }
+
+  /**
+   * Kantenschwellwert (Otsu-adaptiv)
+   */
+  function thresholdEdges(magnitude, width, height) {
+    const hist = new Array(256).fill(0);
+    const maxMag = Math.max(...magnitude);
+
+    // Histogramm erstellen
+    for (let i = 0; i < magnitude.length; i++) {
+      const bin = Math.min(255, Math.floor((magnitude[i] / maxMag) * 255));
+      hist[bin]++;
+    }
+
+    // Otsu-Schwellwert
+    const total = magnitude.length;
+    let sum = 0;
+    for (let i = 0; i < 256; i++) sum += i * hist[i];
+
+    let sumB = 0, wB = 0, maxVariance = 0, threshold = 128;
+    for (let t = 0; t < 256; t++) {
+      wB += hist[t];
+      if (wB === 0) continue;
+      const wF = total - wB;
+      if (wF === 0) break;
+      sumB += t * hist[t];
+      const mB = sumB / wB;
+      const mF = (sum - sumB) / wF;
+      const variance = wB * wF * (mB - mF) * (mB - mF);
+      if (variance > maxVariance) {
+        maxVariance = variance;
+        threshold = t;
+      }
+    }
+
+    // Binärbild
+    const binary = new Uint8Array(width * height);
+    const normThreshold = (threshold / 255) * maxMag;
+    for (let i = 0; i < magnitude.length; i++) {
+      binary[i] = magnitude[i] > normThreshold ? 1 : 0;
+    }
+
+    return binary;
+  }
+
+  /**
+   * Finde die größte Kontur (zusammenhängende Kanten)
+   */
+  function findLargestContour(binary, width, height) {
+    const visited = new Uint8Array(width * height);
+    let largestContour = [];
+    let largestArea = 0;
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        if (binary[idx] && !visited[idx]) {
+          // Flood Fill
+          const contour = [];
+          const stack = [{ x, y }];
+          visited[idx] = 1;
+
+          while (stack.length > 0) {
+            const p = stack.pop();
+            contour.push(p);
+
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const nx = p.x + dx, ny = p.y + dy;
+                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                  const nIdx = ny * width + nx;
+                  if (binary[nIdx] && !visited[nIdx]) {
+                    visited[nIdx] = 1;
+                    stack.push({ x: nx, y: ny });
+                  }
+                }
+              }
+            }
+          }
+
+          if (contour.length > largestArea) {
+            largestArea = contour.length;
+            largestContour = contour;
+          }
+        }
+      }
+    }
+
+    return largestContour;
+  }
+
+  /**
+   * Approximiere Kontur als Polygon und finde 4 Eckpunkte
+   */
+  function approximateQuadrilateral(contour) {
+    if (contour.length < 4) return null;
+
+    // Bounding Box berechnen
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of contour) {
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
+    }
+
+    const bboxArea = (maxX - minX) * (maxY - minY);
+    if (bboxArea < 10000) return null;  // Zu klein
+
+    // Finde 4 Eckpunkte (Extrem-Punkte)
+    const corners = [
+      { x: minX, y: minY },  // oben links
+      { x: maxX, y: minY },  // oben rechts
+      { x: maxX, y: maxY },  // unten rechts
+      { x: minX, y: maxY }   // unten links
+    ];
+
+    // Verfeinere Eckpunkte durch Suche in der Nähe der Ecken
+    const refinedCorners = corners.map(corner => {
+      let bestDist = Infinity;
+      let bestPoint = corner;
+
+      for (const p of contour) {
+        const dist = Math.hypot(p.x - corner.x, p.y - corner.y);
+        // Suche Punkte nahe der Ecke, aber bevorzuge Punkte mit hohem Gradienten
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestPoint = p;
+        }
+      }
+
+      // Suche nochmal in einem größeren Radius nach dem am weitesten entfernten Punkt
+      const searchRadius = Math.max(30, Math.sqrt(bboxArea) * 0.1);
+      for (const p of contour) {
+        const dist = Math.hypot(p.x - corner.x, p.y - corner.y);
+        if (dist <= searchRadius) {
+          // Berechne "Eckigkeit" durch Winkel der Nachbarpunkte
+          const idx = contour.indexOf(p);
+          if (idx > 0 && idx < contour.length - 1) {
+            const prev = contour[idx - 1];
+            const next = contour[idx + 1];
+            const angle = Math.atan2(next.y - p.y, next.x - p.x) - Math.atan2(prev.y - p.y, prev.x - p.x);
+            if (Math.abs(angle) > Math.PI * 0.6) {  // Nahe 90 Grad
+              bestPoint = p;
+              break;
+            }
+          }
+        }
+      }
+
+      return bestPoint;
+    });
+
+    return refinedCorners;
+  }
+
+  /**
+   * Perspektiv-Transformation (Homographie)
+   * Transformiert ein verzerrtes Viereck in ein Rechteck
+   */
+  function perspectiveTransform(sourceCanvas, corners, targetWidth, targetHeight) {
+    const [tl, tr, br, bl] = corners;  // top-left, top-right, bottom-right, bottom-left
+
+    // Ziel-Koordinaten
+    const dst = [
+      [0, 0],
+      [targetWidth, 0],
+      [targetWidth, targetHeight],
+      [0, targetHeight]
+    ];
+
+    // Quell-Koordinaten
+    const src = [
+      [tl.x, tl.y],
+      [tr.x, tr.y],
+      [br.x, br.y],
+      [bl.x, bl.y]
+    ];
+
+    // Homographie-Matrix berechnen (vereinfacht für 4 Punkte)
+    const H = computeHomography(src, dst);
+
+    // Transformiere Bild
+    const resultCanvas = createCanvas(targetWidth, targetHeight);
+    const resultCtx = resultCanvas.getContext('2d', { willReadFrequently: true });
+    const srcCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+    const srcData = srcCtx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+
+    const resultData = resultCtx.createImageData(targetWidth, targetHeight);
+
+    // Rückwärtstransformation: für jeden Zielpixel berechne Quellpunkt
+    for (let y = 0; y < targetHeight; y++) {
+      for (let x = 0; x < targetWidth; x++) {
+        const [u, v] = transformPoint(x, y, H);
+
+        if (u >= 0 && u < sourceCanvas.width - 1 && v >= 0 && v < sourceCanvas.height - 1) {
+          // Bilineare Interpolation
+          const x0 = Math.floor(u), y0 = Math.floor(v);
+          const x1 = x0 + 1, y1 = y0 + 1;
+          const dx = u - x0, dy = v - y0;
+
+          for (let c = 0; c < 4; c++) {
+            const idx00 = (y0 * sourceCanvas.width + x0) * 4 + c;
+            const idx10 = (y0 * sourceCanvas.width + x1) * 4 + c;
+            const idx01 = (y1 * sourceCanvas.width + x0) * 4 + c;
+            const idx11 = (y1 * sourceCanvas.width + x1) * 4 + c;
+
+            const val = (1 - dx) * (1 - dy) * srcData.data[idx00] +
+                        dx * (1 - dy) * srcData.data[idx10] +
+                        (1 - dx) * dy * srcData.data[idx01] +
+                        dx * dy * srcData.data[idx11];
+
+            resultData.data[(y * targetWidth + x) * 4 + c] = Math.round(val);
+          }
+        } else {
+          // Weißer Hintergrund für Bereiche außerhalb
+          const idx = (y * targetWidth + x) * 4;
+          resultData.data[idx] = 255;
+          resultData.data[idx + 1] = 255;
+          resultData.data[idx + 2] = 255;
+          resultData.data[idx + 3] = 255;
+        }
+      }
+    }
+
+    resultCtx.putImageData(resultData, 0, 0);
+    return resultCanvas;
+  }
+
+  /**
+   * Homographie-Matrix berechnen
+   */
+  function computeHomography(src, dst) {
+    // Vereinfachte Homographie-Berechnung für 4 Punkte
+    // Löst das lineare Gleichungssystem Ax = b
+
+    const A = [];
+    const b = [];
+
+    for (let i = 0; i < 4; i++) {
+      const [x, y] = src[i];
+      const [u, v] = dst[i];
+
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]);
+      b.push(u);
+      b.push(v);
+    }
+
+    // Gauss-Elimination
+    const n = 8;
+    const M = A.map((row, i) => [...row, b[i]]);
+
+    for (let col = 0; col < n; col++) {
+      // Pivot finden
+      let maxRow = col;
+      for (let row = col + 1; row < n; row++) {
+        if (Math.abs(M[row][col]) > Math.abs(M[maxRow][col])) maxRow = row;
+      }
+      [M[col], M[maxRow]] = [M[maxRow], M[col]];
+
+      // Eliminieren
+      for (let row = col + 1; row < n; row++) {
+        const factor = M[row][col] / M[col][col];
+        for (let j = col; j <= n; j++) {
+          M[row][j] -= factor * M[col][j];
+        }
+      }
+    }
+
+    // Rückwärtseinsetzen
+    const x = new Array(n);
+    for (let i = n - 1; i >= 0; i--) {
+      x[i] = M[i][n];
+      for (let j = i + 1; j < n; j++) {
+        x[i] -= M[i][j] * x[j];
+      }
+      x[i] /= M[i][i];
+    }
+
+    // Homographie-Matrix
+    return [
+      [x[0], x[1], x[2]],
+      [x[3], x[4], x[5]],
+      [x[6], x[7], 1]
+    ];
+  }
+
+  /**
+   * Punkt mit Homographie transformieren
+   */
+  function transformPoint(x, y, H) {
+    const w = H[2][0] * x + H[2][1] * y + H[2][2];
+    const u = (H[0][0] * x + H[0][1] * y + H[0][2]) / w;
+    const v = (H[1][0] * x + H[1][1] * y + H[1][2]) / w;
+    return [u, v];
+  }
+
+  /**
+   * Hauptfunktion: Perspektiv-Korrektur
+   * Erkennt Monitor-Rand und entzerrt das Bild
+   */
+  function correctPerspective(canvas) {
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // 1. Kantenerkennung
+    updateProgress && updateProgress(document.getElementById('icOverlay'), 22, '🔍 Kantenerkennung...');
+    const edges = sobelEdgeDetection(imageData);
+
+    // 2. Schwellwert
+    const binary = thresholdEdges(edges, canvas.width, canvas.height);
+
+    // 3. Größte Kontur finden
+    updateProgress && updateProgress(document.getElementById('icOverlay'), 23, '🔍 Monitor-Rand suchen...');
+    const contour = findLargestContour(binary, canvas.width, canvas.height);
+
+    if (contour.length < 4) {
+      console.log('[Perspective] Keine Kontur gefunden');
+      return null;
+    }
+
+    // 4. Quadrilateral approximieren
+    const corners = approximateQuadrilateral(contour);
+    if (!corners) {
+      console.log('[Perspective] Kein Viereck gefunden');
+      return null;
+    }
+
+    // 5. Zielgröße berechnen (Seitenverhältnis des Vierecks)
+    const [tl, tr, br, bl] = corners;
+    const width1 = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+    const width2 = Math.hypot(br.x - bl.x, br.y - bl.y);
+    const height1 = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+    const height2 = Math.hypot(br.x - tr.x, br.y - tr.y);
+
+    const targetWidth = Math.max(width1, width2);
+    const targetHeight = Math.max(height1, height2);
+
+    // Begrenze Zielgröße für Performance
+    const maxTargetSize = 1200;
+    const scale = Math.min(1, maxTargetSize / Math.max(targetWidth, targetHeight));
+    const finalWidth = Math.round(targetWidth * scale);
+    const finalHeight = Math.round(targetHeight * scale);
+
+    // 6. Perspektiv-Transformation
+    updateProgress && updateProgress(document.getElementById('icOverlay'), 24, '🔍 Bild entzerren...');
+    const corrected = perspectiveTransform(canvas, corners, finalWidth, finalHeight);
+
+    console.log(`[Perspective] Korrektur erfolgreich: ${canvas.width}x${canvas.height} → ${finalWidth}x${finalHeight}`);
+    return corrected;
   }
 
   /**
@@ -811,16 +1208,33 @@ window.ImageCompare = (function () {
     if (!worker) throw new Error('OCR worker unavailable');
 
     const sourceImage = await loadImage(objectUrl);
-    const sourceCanvas = createSourceCanvas(sourceImage);
+    let sourceCanvas = createSourceCanvas(sourceImage);
 
     // ═══ ADAPTIVE IMAGE TYPE DETECTION ═══
-    updateProgress(overlay, 25, '🔍 Bildtyp wird analysiert...');
+    updateProgress(overlay, 21, '🔍 Bildtyp wird analysiert...');
     const imageType = analyzeImageType(sourceCanvas);
     const isMonitor = imageType.isMonitor;
+    const isUncertain = imageType.isUncertain;
 
-    console.log(`[ImageCompare] Bildtyp erkannt: ${isMonitor ? 'Monitor' : 'Papier'} (Konfidenz: ${Math.round(imageType.confidence * 100)}%)`);
+    console.log(`[ImageCompare] Bildtyp erkannt: ${isMonitor ? 'Monitor' : isUncertain ? 'Unsicher' : 'Papier'} (Konfidenz: ${Math.round(imageType.confidence * 100)}%)`);
     if (isMonitor) {
       console.log(`[ImageCompare] Monitor-Details: Helligkeit=${Math.round(imageType.avgBrightness)}, StdDev=${Math.round(imageType.stdDev)}, Moiré=${imageType.moiréScore.toFixed(3)}`);
+    }
+
+    // ═══ PERSPEKTIV-KORREKTUR (für Monitor-Fotos) ═══
+    let perspectiveCorrected = false;
+    if (isMonitor || isUncertain || imageType.confidence > 0.3) {
+      try {
+        updateProgress(overlay, 22, '📐 Perspektiv-Korrektur...');
+        const correctedCanvas = correctPerspective(sourceCanvas);
+        if (correctedCanvas) {
+          sourceCanvas = correctedCanvas;
+          perspectiveCorrected = true;
+          console.log('[ImageCompare] Perspektiv-Korrektur erfolgreich angewendet');
+        }
+      } catch (e) {
+        console.warn('[ImageCompare] Perspektiv-Korrektur fehlgeschlagen:', e);
+      }
     }
 
     const attempts = [];
@@ -876,7 +1290,8 @@ window.ImageCompare = (function () {
       ...contextualized,
       rawText: rawSummary,
       attempts,
-      imageType: { isMonitor, confidence: imageType.confidence }
+      imageType: { isMonitor, confidence: imageType.confidence },
+      perspectiveCorrected
     };
   }
 
