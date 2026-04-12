@@ -867,26 +867,12 @@ function updateBotStatusCard() {
 
 // Bot-Status während des Duells regelmäßig aktualisieren
 function startBotStatusUpdates() {
-  // NEU: Bot Panel V2 verwenden
-  if (typeof BotPanelV2 !== 'undefined') {
-    BotPanelV2.init();
-    console.log('[app.js] Bot Panel V2 gestartet');
-    return;
-  }
-
-  // Fallback: Alte Funktion
   if (_botStatusUpdateInterval) clearInterval(_botStatusUpdateInterval);
   updateBotStatusCard(); // Sofort initial anzeigen
   _botStatusUpdateInterval = setInterval(updateBotStatusCard, 2000); // Alle 2s aktualisieren
 }
 
 function stopBotStatusUpdates() {
-  // NEU: Bot Panel V2 stoppen
-  if (typeof BotPanelV2 !== 'undefined') {
-    BotPanelV2.stop();
-  }
-
-  // Fallback: Alte Funktion
   if (_botStatusUpdateInterval) {
     clearInterval(_botStatusUpdateInterval);
     _botStatusUpdateInterval = null;
