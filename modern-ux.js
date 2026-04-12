@@ -106,14 +106,11 @@
     );
 
     animatable.forEach((el, index) => {
-      el.style.opacity = '0';
-      el.style.transform = 'scale(0.9) translateY(10px)';
-      
-      setTimeout(() => {
-        el.style.transition = `all 300ms cubic-bezier(0.175, 0.885, 0.32, 1.275)`;
-        el.style.opacity = '1';
-        el.style.transform = 'scale(1) translateY(0)';
-      }, index * 50);
+      // Nur animieren wenn noch nicht geschehen
+      if (!el.classList.contains('animate-in')) {
+        el.classList.add('animate-in');
+        el.style.animationDelay = `${index * 50}ms`;
+      }
     });
   }
 
