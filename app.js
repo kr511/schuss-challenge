@@ -6617,6 +6617,13 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
   // Record stats + history + check SUN
   if (!G.dnf || gameResult !== 'win') {
     recordGameResult(gameResult, G.diff, G.weapon, pp, bp);
+    
+    // NEU: Reward System tracken
+    if (typeof RewardSystem !== 'undefined') {
+      const currentStreak = G.streak || 0;
+      RewardSystem.trackGame(gameResult, G.diff, currentStreak);
+    }
+    
     // Quests nur bei echtem Ergebnis (OCR oder manuelle Eingabe) berechnen
     // Schnellauswahl (reason enthält 'Schnellauswahl') wird ignoriert
     const isQuickResult = reason && reason.includes('Schnellauswahl');
