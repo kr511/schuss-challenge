@@ -69,8 +69,13 @@
                              document.querySelector(`[data-content="${targetId}"]`);
         
         if (targetContent) {
+          // Animation nur anwenden wenn noch nicht geschehen
+          if (!targetContent.classList.contains('animated')) {
+            targetContent.classList.add('animated');
+          }
+
           // Aktuelle View ausblenden
-          const activeContent = document.querySelector('.tab-content.active');
+          const activeContent = document.querySelector('.tab-content.animated.active');
           if (activeContent) {
             activeContent.classList.add('leaving');
             setTimeout(() => {

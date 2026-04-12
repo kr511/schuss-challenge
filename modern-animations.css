@@ -327,21 +327,29 @@ button:active::after, .btn:active::after {
 }
 
 /* ─── TAB TRANSITIONS ───────────────────────────────────── */
+/* NUR für Tabs die das Animation-System nutzen */
 .tab-content {
-  opacity: 0;
-  transform: translateX(20px);
+  opacity: 1;
+  transform: translateX(0);
   transition: opacity var(--anim-speed-normal) var(--ease-smooth),
               transform var(--anim-speed-normal) var(--ease-smooth);
+  pointer-events: auto;
+}
+
+/* Animierter Tab-Wechsel - nur wenn aktiv gesteuert */
+.tab-content.animated {
+  opacity: 0;
+  transform: translateX(20px);
   pointer-events: none;
 }
 
-.tab-content.active {
+.tab-content.animated.active {
   opacity: 1;
   transform: translateX(0);
   pointer-events: auto;
 }
 
-.tab-content.leaving {
+.tab-content.animated.leaving {
   opacity: 0;
   transform: translateX(-20px);
 }
