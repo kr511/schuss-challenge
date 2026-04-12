@@ -42,6 +42,7 @@
 
   <!-- ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile -->
   <script src="daily-challenge.js?v=3.0" defer></script>
+  <script src="streak-tracker.js?v=3.0" defer></script>
   <script src="enhanced-achievements.js?v=3.0" defer></script>
   <script src="enhanced-analytics.js?v=3.0" defer></script>
   <script src="training-modes.js?v=3.0" defer></script>
@@ -162,6 +163,12 @@
         <!-- ══ XP PROGRESS BAR ══ -->
         <div id="pdXPBarContainer" style="margin-bottom:20px;"></div>
 
+      <!-- ══ STREAK BANNER ══ -->
+      <div id="streakBanner" style="margin-bottom:16px;"></div>
+      <div id="streakProgressBar" style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;margin-bottom:16px;overflow:hidden;">
+        <div style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35,#ff9500);border-radius:4px;transition:width 0.5s ease;font-size:0.5rem;color:#fff;text-align:center;line-height:4px;"></div>
+      </div>
+
       <!-- ══ ÜBERSICHT TITEL ══ -->
       <div id="pdOverviewHeader" style="margin-bottom:14px;">
         <div style="font-size:1.1rem;font-weight:600;color:#fff;line-height:1.3;">Deine Übersicht</div>
@@ -251,37 +258,10 @@
       <!-- ══ DAILY MISSIONS ══ -->
       <div id="pdQuestsContainer" style="margin-bottom:24px;"></div>
 
-      <!-- ══ ACHIEVEMENT BADGES ══ -->
+      <!-- ══ ACHIEVEMENT BADGES (dynamisch) ══ -->
       <div style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:12px;">Erfolge</div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
-        <div
-          style="background:linear-gradient(145deg, rgba(122,176,48,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(122,176,48,0.25);border-top:1px solid rgba(122,176,48,0.4);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(122,176,48,0.2);">
-          <div style="font-size:1.7rem;margin-bottom:5px;">🎯</div>
-          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">
-            Volltreffer<br>König</div>
-          <div style="font-size:0.58rem;color:#7ab030;font-weight:500;">Stufe 5</div>
-        </div>
-        <div
-          style="background:linear-gradient(145deg, rgba(0,195,255,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(0,195,255,0.25);border-top:1px solid rgba(0,195,255,0.4);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(0,195,255,0.2);">
-          <div style="font-size:1.7rem;margin-bottom:5px;">🛡️</div>
-          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">
-            Perfektes<br>Ergebnis</div>
-          <div style="font-size:0.58rem;color:#00c3ff;font-weight:500;">Meister</div>
-        </div>
-        <div
-          style="background:linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3);opacity:0.6;">
-          <div style="font-size:1.7rem;margin-bottom:5px;filter:grayscale(1);">🏆</div>
-          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">
-            Wochen<br>Kämpfer</div>
-          <div style="font-size:0.58rem;color:rgba(255,255,255,0.4);font-weight:500;">Silber</div>
-        </div>
-        <div id="pdBadgeStreak"
-          style="background:linear-gradient(145deg, rgba(122,176,48,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid rgba(122,176,48,0.25);border-top:1px solid rgba(122,176,48,0.4);border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(122,176,48,0.2);">
-          <div style="font-size:1.7rem;margin-bottom:5px;">✅</div>
-          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">Tages<br>Serie
-          </div>
-          <div id="pdStreakDays" style="font-size:0.58rem;color:#7ab030;font-weight:500;">8 Tage</div>
-        </div>
+      <div id="pdBadgesGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+        <!-- Wird von refreshPremiumDashboard() dynamisch befüllt -->
       </div>
 
       <!-- ══ RECENT SESSIONS ══ -->
@@ -519,6 +499,35 @@
               </div>
             </div>
 
+            <!-- Profil bearbeiten -->
+            <div class="card" style="margin-top:16px;padding:14px;">
+              <div class="card-hd" style="margin-bottom:10px;">✏️ Profil bearbeiten</div>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <!-- Name ändern -->
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <span style="font-size:0.8rem;color:rgba(255,255,255,0.6);min-width:60px;">Name:</span>
+                  <input type="text" id="profileNameInput" class="score-inp" style="flex:1;padding:8px 12px;font-size:0.8rem;border-radius:8px;" placeholder="Dein Name..." maxlength="15">
+                  <button class="btn-sec" style="font-size:0.7rem;padding:6px 12px;white-space:nowrap;" onclick="changeProfileName()">Speichern</button>
+                </div>
+                <!-- Avatar Emoji -->
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <span style="font-size:0.8rem;color:rgba(255,255,255,0.6);min-width:60px;">Avatar:</span>
+                  <div id="avatarPicker" style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <span class="avatar-option" data-avatar="🎯" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎯</span>
+                    <span class="avatar-option" data-avatar="🔫" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🔫</span>
+                    <span class="avatar-option" data-avatar="⭐" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">⭐</span>
+                    <span class="avatar-option" data-avatar="🏆" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🏆</span>
+                    <span class="avatar-option" data-avatar="💫" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">💫</span>
+                    <span class="avatar-option" data-avatar="🔥" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🔥</span>
+                    <span class="avatar-option" data-avatar="🎮" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎮</span>
+                    <span class="avatar-option" data-avatar="🦅" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🦅</span>
+                    <span class="avatar-option" data-avatar="🐺" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🐺</span>
+                    <span class="avatar-option" data-avatar="🎖️" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎖️</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Einstellungen -->
             <div style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
               <button class="btn-sec" id="soundToggleBtn" style="font-size:0.6rem;"
@@ -528,15 +537,19 @@
                 &nbsp;Tutorial</button>
             </div>
 
-            <div class="card" style="margin-top:16px;padding:12px 14px;">
-              <div class="card-hd" style="margin-bottom:8px;">Konto-Sync</div>
-              <div id="accountSyncStatus" style="font-size:.8rem;color:rgba(255,255,255,.72);margin-bottom:10px;">Noch
-                nicht verbunden.</div>
+            <!-- Konto-Sync -->
+            <div class="card" style="margin-top:16px;padding:14px;">
+              <div class="card-hd" style="margin-bottom:10px;">☁️ Konto-Sync</div>
+              <div id="accountSyncStatus" style="font-size:.75rem;color:rgba(255,255,255,.72);margin-bottom:12px;line-height:1.4;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                  <span id="syncStatusIcon" style="font-size:1.2rem;">⏳</span>
+                  <span id="syncStatusText">Verbindung wird hergestellt...</span>
+                </div>
+              </div>
               <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-                <button class="btn-sec" style="font-size:0.6rem;" onclick="showAccountSyncCode()">Sync-Code
-                  erzeugen</button>
-                <button class="btn-sec" style="font-size:0.6rem;" onclick="connectDeviceWithLinkCode()">Gerät
-                  verbinden</button>
+                <button class="btn-sec" style="font-size:0.65rem;" onclick="showAccountSyncCode()">🔗 Sync-Code erzeugen</button>
+                <button class="btn-sec" style="font-size:0.65rem;" onclick="connectDeviceWithLinkCode()">📲 Gerät verbinden</button>
+                <button class="btn-sec" style="font-size:0.65rem;" onclick="forceCloudSync()">🔄 Jetzt synchronisieren</button>
               </div>
             </div>
 

@@ -691,14 +691,22 @@ function refreshProfileSheet() {
   const xpNeeded = nextRank ? (nextRank.min - rank.min) : 1;
   const pct = nextRank ? Math.min(100, (xpInRank / xpNeeded) * 100) : 100;
 
+  // Gespeicherten Avatar laden
+  const savedAvatar = StorageManager.getRaw('profileAvatar') || '🎯';
+
   // Hero
   const el = id => document.getElementById(id);
-  if (el('psAvatarIcon')) el('psAvatarIcon').textContent = rank.icon;
+  if (el('psAvatarIcon')) el('psAvatarIcon').textContent = savedAvatar;
   if (el('psRankIcon')) el('psRankIcon').textContent = rank.icon;
   if (el('psRankName')) el('psRankName').textContent = rank.name;
   if (el('psLevel')) el('psLevel').textContent = idx + 1;
   if (el('psTotalXP')) el('psTotalXP').textContent = G.xp;
   if (el('psUsername')) el('psUsername').textContent = G.username || 'Schütze';
+
+  // Avatar-Picker vorausfüllen
+  const nameInput = el('profileNameInput');
+  if (nameInput) nameInput.value = G.username || '';
+  initAvatarPicker(savedAvatar);
 
   // XP bar
   if (el('psXpCur')) el('psXpCur').textContent = xpInRank;
@@ -762,6 +770,72 @@ function refreshProfileSheet() {
         `;
   }
 }
+
+/* ─── PROFIL BEARBEITEN (Name + Avatar) ─────────── */
+function initAvatarPicker(currentAvatar) {
+  const options = document.querySelectorAll('.avatar-option');
+  options.forEach(opt => {
+    const isActive = opt.dataset.avatar === currentAvatar;
+    opt.style.borderColor = isActive ? '#7ab030' : 'transparent';
+    opt.style.background = isActive ? 'rgba(122,176,48,0.15)' : 'transparent';
+    opt.style.transform = isActive ? 'scale(1.15)' : 'scale(1)';
+
+    opt.onclick = () => {
+      const newAvatar = opt.dataset.avatar;
+      StorageManager.setRaw('profileAvatar', newAvatar);
+
+      // UI aktualisieren
+      const psAvatarIcon = document.getElementById('psAvatarIcon');
+      if (psAvatarIcon) psAvatarIcon.textContent = newAvatar;
+
+      // Avatar-Picker aktualisieren
+      options.forEach(o => {
+        o.style.borderColor = o.dataset.avatar === newAvatar ? '#7ab030' : 'transparent';
+        o.style.background = o.dataset.avatar === newAvatar ? 'rgba(122,176,48,0.15)' : 'transparent';
+        o.style.transform = o.dataset.avatar === newAvatar ? 'scale(1.15)' : 'scale(1)';
+      });
+
+      // Dashboard-Initial aktualisieren
+      const pdProfileInitial = document.getElementById('pdProfileInitial');
+      if (pdProfileInitial) pdProfileInitial.textContent = newAvatar;
+
+      triggerHaptic();
+    };
+  });
+}
+
+window.changeProfileName = function() {
+  const nameInput = document.getElementById('profileNameInput');
+  if (!nameInput) return;
+
+  const newName = nameInput.value.trim().substring(0, 15);
+  if (!newName) {
+    alert('Bitte gib einen Namen ein.');
+    return;
+  }
+
+  const oldName = G.username;
+  G.username = newName;
+  StorageManager.setRaw('username', newName);
+
+  // UI überall aktualisieren
+  const psUsername = document.getElementById('psUsername');
+  if (psUsername) psUsername.textContent = newName;
+
+  const pdUserName = document.getElementById('pdUserName');
+  if (pdUserName) pdUserName.textContent = newName;
+
+  const pdProfileInitial = document.getElementById('pdProfileInitial');
+  if (pdProfileInitial) pdProfileInitial.textContent = newName.charAt(0).toUpperCase();
+
+  // Firebase sync
+  if (fbReady && fbDb) {
+    pushProfileToFirebase();
+  }
+
+  triggerHaptic();
+  alert(`Name von "${oldName}" zu "${newName}" geändert.`);
+};
 
 function spawnConfetti() {
   const colors = ['#ff9600', '#1cb0f6', '#90d838', '#ff4500', '#ffd700', '#ffffff'];
@@ -1652,15 +1726,157 @@ function refreshPremiumDashboard() {
   const elPdStatScore = document.getElementById('pdStatScore');
   if (elPdStatScore) elPdStatScore.innerText = totalXP + ' XP';
 
-  // 4. Update Badges
-  const streakHeaderVal = (typeof getHeaderStreakValue === 'function') ? getHeaderStreakValue() : 0;
-  const badgeStreak = document.querySelectorAll('.pd-badge-card')[3];
-  if (badgeStreak) {
-    const lvlEl = badgeStreak.querySelector('.pd-badge-lvl');
-    if (lvlEl) lvlEl.innerText = streakHeaderVal + ' Tage';
+  // ══ 4. DYNAMISCHE ERFOLGS-BADGES ══
+  const badgesGrid = document.getElementById('pdBadgesGrid');
+  if (badgesGrid && typeof EnhancedAchievements !== 'undefined') {
+    const overview = EnhancedAchievements.getAchievementOverview();
+    const allAchievements = EnhancedAchievements.ACHIEVEMENTS || {};
+    const achievementKeys = Object.keys(allAchievements);
+
+    // Wähle die 4 interessantesten Badges aus:
+    // 1. Höchstes freigeschaltetes Achievement
+    // 2. Nächstes kurz vor dem Abschluss stehendes
+    // 3. Streak-basiertes Achievement
+    // 4. Präzisions-basiertes Achievement
+
+    const unlockedAchievements = achievementKeys
+      .filter(key => {
+        const prog = JSON.parse(localStorage.getItem('sd_enhanced_achievements') || '{}');
+        return prog[allAchievements[key].id]?.unlocked;
+      })
+      .map(key => allAchievements[key]);
+
+    const lockedAchievements = achievementKeys
+      .filter(key => {
+        const prog = JSON.parse(localStorage.getItem('sd_enhanced_achievements') || '{}');
+        return !prog[allAchievements[key].id]?.unlocked;
+      })
+      .map(key => allAchievements[key]);
+
+    // Badge-Auswahl: max. 2 freigeschaltete + 2 gesperrte (Fortschritt anzeigen)
+    const displayBadges = [
+      ...unlockedAchievements.slice(0, 2),
+      ...lockedAchievements.slice(0, 2)
+    ];
+
+    // Falls weniger als 4 Achievements vorhanden, mit Platzhaltern auffüllen
+    while (displayBadges.length < 4) {
+      displayBadges.push({
+        icon: '🔒',
+        name: 'Noch nicht\nfreigeschaltet',
+        description: 'Spiele mehr Duelle',
+        xp: 0,
+        tier: 1,
+        category: 'locked'
+      });
+    }
+
+    const badgeColors = {
+      streak: { bg: 'rgba(122,176,48,0.12)', border: 'rgba(122,176,48,0.25)', top: 'rgba(122,176,48,0.4)', text: '#7ab030', glow: 'rgba(122,176,48,0.2)' },
+      precision: { bg: 'rgba(0,195,255,0.12)', border: 'rgba(0,195,255,0.25)', top: 'rgba(0,195,255,0.4)', text: '#00c3ff', glow: 'rgba(0,195,255,0.2)' },
+      comeback: { bg: 'rgba(255,107,53,0.12)', border: 'rgba(255,107,53,0.25)', top: 'rgba(255,107,53,0.4)', text: '#ff6b35', glow: 'rgba(255,107,53,0.2)' },
+      consistency: { bg: 'rgba(156,39,176,0.12)', border: 'rgba(156,39,176,0.25)', top: 'rgba(156,39,176,0.4)', text: '#9c27b0', glow: 'rgba(156,39,176,0.2)' },
+      specialization: { bg: 'rgba(255,215,0,0.12)', border: 'rgba(255,215,0,0.25)', top: 'rgba(255,215,0,0.4)', text: '#ffd700', glow: 'rgba(255,215,0,0.2)' },
+      speed: { bg: 'rgba(255,152,0,0.12)', border: 'rgba(255,152,0,0.25)', top: 'rgba(255,152,0,0.4)', text: '#ff9800', glow: 'rgba(255,152,0,0.2)' },
+      locked: { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.08)', top: 'rgba(255,255,255,0.15)', text: 'rgba(255,255,255,0.4)', glow: 'transparent' }
+    };
+
+    badgesGrid.innerHTML = displayBadges.map((badge, idx) => {
+      const isUnlocked = unlockedAchievements.includes(badge);
+      const colors = badgeColors[badge.category] || badgeColors.locked;
+      const nameLines = badge.name.length > 12
+        ? badge.name.substring(0, 12).split(' ').slice(0, -1).join('<br>') + '<br>' + badge.name.substring(12).split(' ').slice(1).join(' ')
+        : badge.name.replace(/ /g, '<br>');
+      const progressText = isUnlocked
+        ? 'Freigeschaltet'
+        : `+${badge.xp} XP`;
+
+      return `
+        <div style="background:linear-gradient(145deg, ${colors.bg} 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid ${colors.border};border-top:1px solid ${colors.top};border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px ${colors.glow};${!isUnlocked ? 'opacity:0.6;' : ''}">
+          <div style="font-size:1.7rem;margin-bottom:5px;${!isUnlocked ? 'filter:grayscale(1);' : ''}">${badge.icon}</div>
+          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">${nameLines}</div>
+          <div style="font-size:0.58rem;color:${colors.text};font-weight:500;">${progressText}</div>
+        </div>
+      `;
+    }).join('');
+  } else if (badgesGrid) {
+    // Fallback wenn EnhancedAchievements nicht verfügbar
+    badgesGrid.innerHTML = `
+      <div style="background:linear-gradient(145deg, rgba(122,176,48,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);border:1px solid rgba(122,176,48,0.25);border-radius:14px;padding:12px 6px;text-align:center;">
+        <div style="font-size:1.7rem;margin-bottom:5px;">🎯</div>
+        <div style="font-size:0.62rem;font-weight:600;color:#fff;">Spiele ein<br>Duell</div>
+        <div style="font-size:0.58rem;color:#7ab030;">Erste Erfolge</div>
+      </div>
+    `.repeat(4);
   }
 
-  // 5. Last 3 Duels dynamic rendering
+  // ══ 5. STREAK-BANNER MIT ECHTEN DATEN + COUNTDOWN ══
+  const streakBanner = document.getElementById('streakBanner');
+  if (streakBanner && typeof DailyChallenge !== 'undefined') {
+    const dailyState = DailyChallenge.getState ? DailyChallenge.getState() : null;
+    const streakCount = dailyState?.streak || 0;
+    const allCompleted = dailyState?.challenges?.every(c => c.completed) || false;
+    const claimed = dailyState?.toolboxDroppedForDate === dailyState?.dateId || false;
+
+    let streakColor1 = '#ff6b35';
+    let streakColor2 = '#ff9500';
+    let streakIcon = '🔥';
+    let streakLabel = 'Tages-Streak';
+
+    if (streakCount >= 14) {
+      streakColor1 = '#ffd700'; streakColor2 = '#ffaa00'; streakIcon = '👑'; streakLabel = 'Meister-Streak';
+    } else if (streakCount >= 7) {
+      streakColor1 = '#7ab030'; streakColor2 = '#a0d84a'; streakIcon = '⚡'; streakLabel = 'Wochen-Streak';
+    } else if (streakCount >= 3) {
+      streakColor1 = '#00c3ff'; streakColor2 = '#7ab030'; streakIcon = '🔥'; streakLabel = 'Aufbau-Streak';
+    }
+
+    // Countdown bis Reset
+    const now = new Date();
+    const nextMidnight = new Date(now);
+    nextMidnight.setHours(24, 0, 0, 0);
+    const msLeft = Math.max(0, nextMidnight.getTime() - now.getTime());
+    const minsLeft = Math.floor(msLeft / 60000);
+    const hLeft = Math.floor(minsLeft / 60);
+    const mLeft = minsLeft % 60;
+    const countdownStr = `${String(hLeft).padStart(2, '0')}:${String(mLeft).padStart(2, '0')}`;
+
+    const streakPct = Math.min(streakCount * 10, 100);
+
+    streakBanner.innerHTML = `
+      <div style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px 16px;box-shadow:0 6px 20px rgba(0,0,0,0.4);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:1.8rem;">${streakIcon}</div>
+            <div>
+              <div style="font-size:0.65rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;">${streakLabel.toUpperCase()}</div>
+              <div style="font-size:1.3rem;font-weight:700;color:#fff;">${streakCount} Tage</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.6rem;color:rgba(255,255,255,0.35);margin-bottom:2px;">Reset in</div>
+            <div style="font-size:0.9rem;font-weight:600;color:rgba(255,255,255,0.6);font-variant-numeric:tabular-nums;" id="streakCountdownTimer">${countdownStr}</div>
+          </div>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:${streakPct}%;background:linear-gradient(90deg,${streakColor1},${streakColor2});border-radius:4px;transition:width 0.5s ease;"></div>
+        </div>
+        ${allCompleted && claimed ? '<div style="font-size:0.6rem;color:#7ab030;margin-top:6px;text-align:center;">✅ Heute alle Missionen erfüllt!</div>' : ''}
+      </div>
+    `;
+  }
+
+  // StreakProgressBar aktualisieren
+  const streakProgressBar = document.getElementById('streakProgressBar');
+  if (streakProgressBar) {
+    const dailyState2 = typeof DailyChallenge !== 'undefined' && DailyChallenge.getState ? DailyChallenge.getState() : null;
+    const streakCount2 = dailyState2?.streak || 0;
+    const streakPct2 = Math.min(streakCount2 * 10, 100);
+    const inner = streakProgressBar.querySelector('div');
+    if (inner) inner.style.width = streakPct2 + '%';
+  }
+
+  // 6. Last 3 Duels dynamic rendering
   const last3Container = document.getElementById('pdLast3Duels');
   if (last3Container && historyV2.length > 0) {
     // historyV2 is already sorted or we sort it here to be safe
@@ -2263,10 +2479,13 @@ function getShortOwnerId(value) {
 
 function updateAccountSyncStatus() {
   const node = document.getElementById('accountSyncStatus');
+  const iconEl = document.getElementById('syncStatusIcon');
+  const textEl = document.getElementById('syncStatusText');
   if (!node) return;
 
   if (!fbReady) {
-    node.textContent = 'Firebase ist aktuell nicht aktiv.';
+    if (iconEl) iconEl.textContent = '⚠️';
+    if (textEl) textEl.textContent = 'Firebase ist aktuell nicht aktiv. Sync ist nicht möglich.';
     return;
   }
 
@@ -2281,13 +2500,57 @@ function updateAccountSyncStatus() {
     : '';
 
   if (!authUid) {
-    node.textContent = 'Firebase verbindet dieses Gerät gerade...';
+    if (iconEl) iconEl.textContent = '🔄';
+    if (textEl) textEl.textContent = 'Firebase Authentifizierung läuft...';
     return;
   }
 
   const modeText = isLinked ? 'mit anderem Gerät verknüpft' : 'lokales Hauptkonto';
-  node.textContent = `Konto ${getShortOwnerId(ownerId || authUid)} · ${modeText} · Queue ${queue.length}${retryText}`;
+  const syncStatus = queue.length > 0 ? `${queue.length} Änderungen in Warteschlange` : 'Alle Daten synchron';
+  const syncIcon = queue.length > 0 ? '📤' : '✅';
+
+  if (iconEl) iconEl.textContent = syncIcon;
+  if (textEl) {
+    textEl.innerHTML = `
+      <div style="font-weight:600;margin-bottom:2px;">Konto ${getShortOwnerId(ownerId || authUid)}</div>
+      <div style="opacity:0.7;">${modeText}</div>
+      <div style="opacity:0.6;font-size:0.7rem;margin-top:2px;">${syncStatus}${retryText}</div>
+    `;
+  }
 }
+
+// Cloud-Sync manuell anstoßen
+window.forceCloudSync = async function() {
+  if (!fbReady || !fbDb) {
+    alert('Firebase ist aktuell nicht aktiv.');
+    return;
+  }
+
+  const btn = event?.target;
+  if (btn) {
+    btn.textContent = '⏳ Sync läuft...';
+    btn.disabled = true;
+  }
+
+  try {
+    await pushProfileToFirebase();
+    await flushFirebaseSyncQueue();
+
+    updateAccountSyncStatus();
+
+    if (btn) {
+      btn.textContent = '✅ Synchronisiert!';
+      setTimeout(() => { btn.textContent = '🔄 Jetzt synchronisieren'; btn.disabled = false; }, 2000);
+    }
+  } catch (error) {
+    console.error('Force sync failed:', error);
+    if (btn) {
+      btn.textContent = '❌ Fehlgeschlagen';
+      setTimeout(() => { btn.textContent = '🔄 Jetzt synchronisieren'; btn.disabled = false; }, 2000);
+    }
+    alert('Synchronisierung fehlgeschlagen: ' + (error?.message || 'Unbekannter Fehler'));
+  }
+};
 
 function isDebugToolsEnabled() {
   try {
@@ -2725,62 +2988,125 @@ async function generateAccountLinkCode() {
 }
 
 async function connectDeviceWithLinkCode(rawCode) {
-  const code = normalizePairCode(rawCode || prompt('Sync-Code eingeben'));
-  if (!code) return false;
+  const code = normalizePairCode(rawCode || prompt('Sync-Code eingeben (6-8 Zeichen):'));
+  if (!code || code.length < 4) {
+    if (code) alert('Der Code muss mindestens 4 Zeichen haben.');
+    return false;
+  }
+
+  if (!fbReady) {
+    alert('Firebase ist aktuell nicht aktiv. Bitte warte einen Moment oder lade die Seite neu.');
+    return false;
+  }
 
   const user = fbUser || await ensureFirebaseAnonymousAuth();
   if (!user || !fbDb) {
-    alert('Firebase ist aktuell nicht bereit.');
+    alert('Firebase-Authentifizierung fehlgeschlagen. Bitte versuche es erneut.');
     return false;
   }
 
-  const linkSnap = await fbDb.ref(getAccountPairCodePath(code)).once('value');
-  const link = linkSnap.val();
-  if (!link || !link.accountId) {
-    alert('Sync-Code nicht gefunden.');
-    return false;
-  }
-  if (Number(link.expiresAt) < Date.now()) {
+  try {
+    const linkSnap = await fbDb.ref(getAccountPairCodePath(code)).once('value');
+    const link = linkSnap.val();
+    if (!link || !link.accountId) {
+      alert('❌ Sync-Code nicht gefunden.\n\nBitte überprüfe den Code und versuche es erneut.');
+      return false;
+    }
+    if (Number(link.expiresAt) < Date.now()) {
+      await fbDb.ref(getAccountPairCodePath(code)).remove().catch(() => { });
+      alert('❌ Sync-Code ist abgelaufen (15 Min).\n\nBitte erzeugen einen neuen Code auf dem Hauptgerät.');
+      return false;
+    }
+
+    await fbDb.ref(getAccountLinkMapPath(user.uid)).set({
+      accountId: link.accountId,
+      authUid: user.uid,
+      linkedAt: Date.now(),
+      source: 'pair_code',
+      pairCode: code,
+      createdByUid: link.authUid || ''
+    });
     await fbDb.ref(getAccountPairCodePath(code)).remove().catch(() => { });
-    alert('Sync-Code ist abgelaufen.');
+
+    fbAccountId = link.accountId;
+    fbCloudBootstrapUid = '';
+    await bootstrapCloudUser(user, { force: true });
+    updateAccountSyncStatus();
+    refreshDebugPanel();
+
+    // Erfolg-Meldung mit Details
+    alert(`✅ Gerät erfolgreich verbunden!\n\nKonto: ${link.username || getShortOwnerId(link.accountId)}\nSync läuft jetzt automatisch.`);
+    return true;
+  } catch (error) {
+    console.error('Device connection error:', error);
+    alert(`❌ Verbindung fehlgeschlagen.\n\nFehler: ${error?.message || 'Unbekannter Fehler'}\nBitte versuche es erneut.`);
     return false;
   }
-
-  await fbDb.ref(getAccountLinkMapPath(user.uid)).set({
-    accountId: link.accountId,
-    authUid: user.uid,
-    linkedAt: Date.now(),
-    source: 'pair_code',
-    pairCode: code,
-    createdByUid: link.authUid || ''
-  });
-  await fbDb.ref(getAccountPairCodePath(code)).remove().catch(() => { });
-
-  fbAccountId = link.accountId;
-  fbCloudBootstrapUid = '';
-  await bootstrapCloudUser(user, { force: true });
-  updateAccountSyncStatus();
-  refreshDebugPanel();
-  alert(`Gerät verbunden. Konto: ${link.username || link.accountId}`);
-  return true;
 }
 
 async function showAccountSyncCode() {
+  if (!fbReady) {
+    alert('Firebase ist noch nicht bereit. Bitte warte einen Moment.');
+    return;
+  }
+
   try {
     const data = await generateAccountLinkCode();
     if (!data) {
-      alert('Sync-Code konnte nicht erzeugt werden.');
+      alert('Sync-Code konnte nicht erzeugt werden.\n\nBitte versuche es erneut.');
       return;
     }
+
+    // In die Zwischenablage kopieren
+    let clipboardSuccess = false;
     try {
-      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(data.code);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(data.code);
+        clipboardSuccess = true;
+      }
     } catch (error) {
       console.warn('Clipboard write failed:', error);
     }
-    alert(`Sync-Code: ${data.code}\nGueltig bis: ${new Date(data.expiresAt).toLocaleTimeString('de-DE')}\n\nAuf dem zweiten Geraet in "Geraet verbinden" eingeben.`);
+
+    const expiresAt = new Date(data.expiresAt);
+    const expiresTime = expiresAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+
+    // Schönes Modal/Overlay statt alert
+    const overlay = document.createElement('div');
+    overlay.id = 'syncCodeOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:100000;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `
+      <div style="background:linear-gradient(145deg, rgba(30,35,40,0.95) 0%, rgba(15,18,20,0.98) 100%);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:24px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:2.5rem;margin-bottom:10px;">🔗</div>
+          <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:5px;">Sync-Code erzeugt</div>
+          <div style="font-size:0.75rem;color:rgba(255,255,255,0.5);">Gültig bis ${expiresTime} Uhr</div>
+        </div>
+
+        <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(122,176,48,0.3);border-radius:12px;padding:16px;text-align:center;margin-bottom:16px;">
+          <div style="font-size:1.8rem;font-weight:800;color:#7ab030;letter-spacing:0.15em;font-family:'DM Mono',monospace;" id="syncCodeDisplay">${data.code}</div>
+        </div>
+
+        <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);margin-bottom:16px;line-height:1.4;">
+          ${clipboardSuccess ? '✅ Code wurde in die Zwischenablage kopiert!' : '⚠️ Code manuell kopieren und auf dem anderen Gerät eingeben.'}
+        </div>
+
+        <div style="display:flex;gap:8px;">
+          <button onclick="document.getElementById('syncCodeOverlay')?.remove()" style="flex:1;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-weight:600;font-size:0.85rem;cursor:pointer;">
+            Schließen
+          </button>
+          <button onclick="navigator.clipboard?.writeText('${data.code}');this.textContent='✅ Kopiert!';setTimeout(()=>this.textContent='Kopieren',1500)" style="flex:1;padding:12px;background:linear-gradient(135deg,#00c3ff,#7ab030);border:none;border-radius:10px;color:#000;font-weight:700;font-size:0.85rem;cursor:pointer;">
+            📋 Kopieren
+          </button>
+        </div>
+      </div>
+    `;
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    document.body.appendChild(overlay);
+
   } catch (error) {
     console.warn('Sync code generation failed:', error);
-    alert('Sync-Code konnte nicht erzeugt werden.');
+    alert('Sync-Code konnte nicht erzeugt werden.\n\nFehler: ' + (error?.message || 'Unbekannt'));
   }
 }
 
@@ -6490,6 +6816,41 @@ window.addEventListener('resize', () => {
 if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js?v=2.6').catch(() => { });
+  });
+}
+
+// ── Streak Countdown Timer (aktualisiert jede Minute) ───────────────
+let _streakCountdownInterval = null;
+function startStreakCountdown() {
+  if (_streakCountdownInterval) clearInterval(_streakCountdownInterval);
+
+  function updateCountdown() {
+    const timerEl = document.getElementById('streakCountdownTimer');
+    if (!timerEl) return;
+
+    const now = new Date();
+    const nextMidnight = new Date(now);
+    nextMidnight.setHours(24, 0, 0, 0);
+    const msLeft = Math.max(0, nextMidnight.getTime() - now.getTime());
+    const minsLeft = Math.floor(msLeft / 60000);
+    const hLeft = Math.floor(minsLeft / 60);
+    const mLeft = minsLeft % 60;
+    timerEl.textContent = `${String(hLeft).padStart(2, '0')}:${String(mLeft).padStart(2, '0')}`;
+
+    // Wenn Mitternacht erreicht → Dashboard neu laden
+    if (msLeft <= 0) {
+      if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+    }
+  }
+
+  updateCountdown();
+  _streakCountdownInterval = setInterval(updateCountdown, 30000); // Alle 30s aktualisieren
+}
+
+// Countdown starten wenn Dashboard sichtbar ist
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(startStreakCountdown, 1000);
   });
 }
 

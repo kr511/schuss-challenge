@@ -879,6 +879,10 @@ const EnhancedAnalytics = (function() {
   function createAnalyticsUI() {
     const summary = getAnalyticsSummary();
     const metrics = summary.metrics;
+    const improvementRates = calculateImprovementRates();
+    const personalBests = getPersonalBests();
+    const consistencyStreaks = calculateConsistencyStreaks();
+    const milestoneProgress = getMilestoneProgress();
 
     if (!summary.totalGames) {
       return `
@@ -897,6 +901,25 @@ const EnhancedAnalytics = (function() {
       `;
     }
 
+    // Verbesserte Form-Anzeige
+    const formDetails = {
+      excellent: { emoji: '🚀', text: 'Exzellente Form', color: '#7ab030' },
+      good: { emoji: '📈', text: 'Gute Form', color: '#00c3ff' },
+      stable: { emoji: '📊', text: 'Stabil', color: '#ffc107' },
+      declining: { emoji: '📉', text: 'Rückläufig', color: '#ff9800' },
+      poor: { emoji: '💥', text: 'Schwache Form', color: '#f06050' },
+      insufficient_data: { emoji: '❓', text: 'Zu wenig Daten', color: 'rgba(255,255,255,0.4)' }
+    };
+    const currentForm = formDetails[metrics.recentForm] || formDetails.insufficient_data;
+
+    // Risiko-Profil Details
+    const riskDetails = {
+      conservative: { emoji: '🛡️', text: 'Konservativ – Gleichmäßige Leistung', color: '#4caf50' },
+      balanced: { emoji: '⚖️', text: 'Ausgeglichen – Balance zwischen Risiko und Konstanz', color: '#2196f3' },
+      aggressive: { emoji: '🎯', text: 'Aggressiv – Hohe Schwankungen', color: '#ff5722' }
+    };
+    const currentRisk = riskDetails[metrics.riskProfile] || riskDetails.balanced;
+
     return `
       <div class="enhanced-analytics">
         <div class="analytics-header">
@@ -906,90 +929,210 @@ const EnhancedAnalytics = (function() {
           </div>
         </div>
 
-        <div class="analytics-grid">
-          <!-- Performance-Metriken -->
-          <div class="metric-card primary">
-            <div class="metric-title">Durchschnittlicher Score</div>
-            <div class="metric-value">${metrics.averageScore.toFixed(1)}</div>
-            <div class="metric-trend ${metrics.scoreTrend > 0 ? 'positive' : 'negative'}">
-              ${metrics.scoreTrend > 0 ? '↗' : '↘'} ${Math.abs(metrics.scoreTrend).toFixed(1)}
+        <!-- ══ KERNDATEN ══ -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ KERNDATEN</div>
+          <div class="analytics-grid">
+            <div class="metric-card primary">
+              <div class="metric-title">Durchschnitt</div>
+              <div class="metric-value">${metrics.averageScore.toFixed(1)}</div>
+              <div class="metric-trend ${metrics.scoreTrend > 0 ? 'positive' : 'negative'}">
+                ${metrics.scoreTrend > 0 ? '↗ +' : '↘ '}${Math.abs(metrics.scoreTrend).toFixed(1)}
+              </div>
             </div>
-          </div>
 
-          <div class="metric-card">
-            <div class="metric-title">Konstanz</div>
-            <div class="metric-value">${metrics.consistencyScore}%</div>
-            <div class="metric-bar">
-              <div class="metric-fill" style="width: ${metrics.consistencyScore}%"></div>
+            <div class="metric-card">
+              <div class="metric-title">Konstanz</div>
+              <div class="metric-value">${metrics.consistencyScore}%</div>
+              <div class="metric-bar">
+                <div class="metric-fill" style="width: ${metrics.consistencyScore}%"></div>
+              </div>
             </div>
-          </div>
 
-          <div class="metric-card">
-            <div class="metric-title">Win-Rate</div>
-            <div class="metric-value">${(metrics.winRate * 100).toFixed(1)}%</div>
-            <div class="metric-trend ${metrics.winTrend > 0 ? 'positive' : 'negative'}">
-              ${metrics.winTrend > 0 ? '↗' : '↘'} ${Math.abs(metrics.winTrend)}
+            <div class="metric-card">
+              <div class="metric-title">Win-Rate</div>
+              <div class="metric-value">${(metrics.winRate * 100).toFixed(1)}%</div>
+              <div class="metric-trend ${metrics.winTrend > 0 ? 'positive' : 'negative'}">
+                ${metrics.winTrend > 0 ? '↗ +' : '↘ '}${Math.abs(metrics.winTrend)}
+              </div>
             </div>
-          </div>
-
-          <!-- Spezialisierte Metriken -->
-          <div class="metric-card">
-            <div class="metric-title">Druck-Performance</div>
-            <div class="metric-value">${metrics.pressurePerformance.score}%</div>
-            <div class="metric-sub">${metrics.pressurePerformance.games} Spiele</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-title">Aktuelle Form</div>
-            <div class="metric-value form-${metrics.recentForm}">${getFormEmoji(metrics.recentForm)}</div>
-            <div class="metric-sub">${getFormText(metrics.recentForm)}</div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-title">Risiko-Profil</div>
-            <div class="metric-value risk-${metrics.riskProfile}">${getRiskEmoji(metrics.riskProfile)}</div>
-            <div class="metric-sub">${metrics.riskProfile}</div>
           </div>
         </div>
 
-        <!-- Vorhersagen -->
-        ${summary.predictions.nextGameScore !== null && summary.predictions.nextGameScore !== undefined ? `
-          <div class="prediction-section">
-            <h4>🔮 Vorhersagen</h4>
-            <div class="prediction-grid">
-              <div class="prediction-card">
-                <div class="prediction-title">Nächster Score</div>
-                <div class="prediction-value">${summary.predictions.nextGameScore.toFixed(1)}</div>
-                <div class="prediction-confidence">${(summary.predictions.confidence * 100).toFixed(0)}% Sicherheit</div>
-              </div>
-              <div class="prediction-card">
-                <div class="prediction-title">Erwartete Win-Rate</div>
-                <div class="prediction-value">${(summary.predictions.expectedWinRate * 100).toFixed(1)}%</div>
-                <div class="prediction-factors">${summary.predictions.factors.length} Faktoren</div>
-              </div>
+        <!-- ══ FORM & RISIKO ══ -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ AKTUELLE FORM & RISIKO</div>
+          <div class="analytics-grid">
+            <div class="metric-card">
+              <div class="metric-title">Aktuelle Form</div>
+              <div class="metric-value" style="font-size:1.8rem;">${currentForm.emoji}</div>
+              <div class="metric-sub" style="color:${currentForm.color}">${currentForm.text}</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-title">Risiko-Profil</div>
+              <div class="metric-value" style="font-size:1.8rem;">${currentRisk.emoji}</div>
+              <div class="metric-sub" style="color:${currentRisk.color}">${currentRisk.text}</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-title">Druck-Performance</div>
+              <div class="metric-value">${metrics.pressurePerformance.score}%</div>
+              <div class="metric-sub">${metrics.pressurePerformance.games} Druck-Spiele</div>
             </div>
           </div>
+        </div>
+
+        <!-- ══ VERBESSERUNGS-RATEN ══ -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ VERBESSERUNGS-RATEN</div>
+          <div class="analytics-grid">
+            <div class="metric-card ${improvementRates.weekly > 0 ? 'positive' : improvementRates.weekly < 0 ? 'negative' : ''}">
+              <div class="metric-title">Letzte 7 Tage</div>
+              <div class="metric-value" style="color:${improvementRates.weekly > 0 ? '#7ab030' : improvementRates.weekly < 0 ? '#f06050' : '#fff'};">
+                ${improvementRates.weekly > 0 ? '↗ +' : ''}${improvementRates.weekly.toFixed(0)}%
+              </div>
+              <div class="metric-sub">Wöchentliche Tendenz</div>
+            </div>
+
+            <div class="metric-card ${improvementRates.monthly > 0 ? 'positive' : improvementRates.monthly < 0 ? 'negative' : ''}">
+              <div class="metric-title">Letzte 30 Tage</div>
+              <div class="metric-value" style="color:${improvementRates.monthly > 0 ? '#7ab030' : improvementRates.monthly < 0 ? '#f06050' : '#fff'};">
+                ${improvementRates.monthly > 0 ? '↗ +' : ''}${improvementRates.monthly.toFixed(0)}%
+              </div>
+              <div class="metric-sub">Monatliche Tendenz</div>
+            </div>
+
+            <div class="metric-card ${improvementRates.overall > 0 ? 'positive' : improvementRates.overall < 0 ? 'negative' : ''}">
+              <div class="metric-title">Gesamt</div>
+              <div class="metric-value" style="color:${improvementRates.overall > 0 ? '#7ab030' : improvementRates.overall < 0 ? '#f06050' : '#fff'};">
+                ${improvementRates.overall > 0 ? '↗ +' : ''}${improvementRates.overall.toFixed(0)}%
+              </div>
+              <div class="metric-sub">Gesamte Entwicklung</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ KONSISTENZ-STREAKS ══ -->
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ KONSISTENZ-STREAKS</div>
+          <div class="analytics-grid">
+            <div class="metric-card">
+              <div class="metric-title">Aktueller Streak</div>
+              <div class="metric-value" style="color:#ff9500;">🔥 ${consistencyStreaks.current}</div>
+              <div class="metric-sub">Spiele mit ≥5% Konstanz</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-title">Bester Streak</div>
+              <div class="metric-value" style="color:#ffd700;">👑 ${consistencyStreaks.best}</div>
+              <div class="metric-sub">Rekord-Konsistenz-Serie</div>
+            </div>
+
+            <div class="metric-card">
+              <div class="metric-title">Vorhersage-Kraft</div>
+              <div class="metric-value">${metrics.predictability}%</div>
+              <div class="metric-sub">Wie berechenbar du bist</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ PERSÖNLICHE BESTWERTE ══ -->
+        ${Object.keys(personalBests).length > 0 ? `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ PERSÖNLICHE BESTWERTE</div>
+          <div class="analytics-grid">
+            ${Object.entries(personalBests).slice(0, 3).map(([disc, best]) => `
+              <div class="metric-card">
+                <div class="metric-title">${disc.toUpperCase()}</div>
+                <div class="metric-value" style="color:#ffd700;">${best.score.toFixed(1)}</div>
+                <div class="metric-sub">PB · ${new Date(best.date).toLocaleDateString('de-DE', {day:'2-digit',month:'short'})}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
         ` : ''}
 
-        <!-- Trends -->
-        ${typeof summary.trends.score === 'number' ? `
-          <div class="trends-section">
-            <h4>📈 Trends</h4>
-            <div class="trend-items">
-              <div class="trend-item">
-                <span class="trend-label">Score-Trend</span>
-                <span class="trend-value ${summary.trends.score > 0 ? 'positive' : 'negative'}">
-                  ${summary.trends.score > 0 ? '↗' : '↘'} ${Math.abs(summary.trends.score).toFixed(2)}
-                </span>
-              </div>
-              <div class="trend-item">
-                <span class="trend-label">Win-Rate-Trend</span>
-                <span class="trend-value ${summary.trends.winRate > 0 ? 'positive' : 'negative'}">
-                  ${summary.trends.winRate > 0 ? '↗' : '↘'} ${Math.abs(summary.trends.winRate)}
-                </span>
-              </div>
+        <!-- ══ MEILENSTEINE ══ -->
+        ${milestoneProgress.games && milestoneProgress.games.next ? `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ MEILENSTEINE</div>
+          <div class="analytics-grid">
+            <div class="metric-card">
+              <div class="metric-title">Spiele</div>
+              <div class="metric-value">${milestoneProgress.games.current}</div>
+              <div class="metric-sub">Nächstes Ziel: ${milestoneProgress.games.next} (${milestoneProgress.games.progress}%)</div>
+              <div class="metric-bar"><div class="metric-fill" style="width:${milestoneProgress.games.progress}%"></div></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">Siege</div>
+              <div class="metric-value">${milestoneProgress.wins.current}</div>
+              <div class="metric-sub">Nächstes Ziel: ${milestoneProgress.wins.next} (${milestoneProgress.wins.progress}%)</div>
+              <div class="metric-bar"><div class="metric-fill" style="width:${milestoneProgress.wins.progress}%"></div></div>
             </div>
           </div>
+        </div>
+        ` : ''}
+
+        <!-- ══ VORHERSAGEN ══ -->
+        ${summary.predictions && summary.predictions.nextGameScore !== null && summary.predictions.nextGameScore !== undefined ? `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ VORHERSAGEN</div>
+          <div class="analytics-grid">
+            <div class="metric-card">
+              <div class="metric-title">Erwarteter Score</div>
+              <div class="metric-value" style="color:#00c3ff;">${summary.predictions.nextGameScore.toFixed(1)}</div>
+              <div class="metric-sub">${(summary.predictions.confidence * 100).toFixed(0)}% Sicherheit</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">Erwartete Win-Rate</div>
+              <div class="metric-value">${(summary.predictions.expectedWinRate * 100).toFixed(1)}%</div>
+              <div class="metric-sub">${(summary.predictions.factors || []).length} Einflussfaktoren</div>
+            </div>
+            ${(summary.predictions.factors || []).length > 0 ? `
+            <div class="metric-card">
+              <div class="metric-title">Einflussfaktoren</div>
+              <div style="margin-top:6px;">
+                ${(summary.predictions.factors || []).slice(0, 3).map(f => `
+                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.6);margin-bottom:4px;">
+                    ${f.impact > 0 ? '<span style="color:#7ab030;">↗</span>' : f.impact < 0 ? '<span style="color:#f06050;">↘</span>' : '→'} ${f.description}
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- ══ TRENDS ══ -->
+        ${typeof summary.trends.score === 'number' ? `
+        <div style="margin-bottom:16px;">
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ TRENDS (letzte 20 Spiele)</div>
+          <div class="analytics-grid">
+            <div class="metric-card">
+              <div class="metric-title">Score-Trend</div>
+              <div class="metric-value ${summary.trends.score > 0 ? 'positive' : 'negative'}">
+                ${summary.trends.score > 0 ? '↗ +' : ''}${summary.trends.score.toFixed(2)}
+              </div>
+              <div class="metric-sub">Pro Spiel</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">Win-Rate-Trend</div>
+              <div class="metric-value ${summary.trends.winRate > 0 ? 'positive' : 'negative'}">
+                ${summary.trends.winRate > 0 ? '↗ +' : ''}${summary.trends.winRate.toFixed(1)}
+              </div>
+              <div class="metric-sub">Letzte 20 Spiele</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-title">Druck-Trend</div>
+              <div class="metric-value ${summary.trends.pressure > 0 ? 'positive' : 'negative'}">
+                ${summary.trends.pressure > 0 ? '↗ +' : ''}${summary.trends.pressure.toFixed(1)}
+              </div>
+              <div class="metric-sub">Unter Druck</div>
+            </div>
+          </div>
+        </div>
         ` : ''}
       </div>
     `;
