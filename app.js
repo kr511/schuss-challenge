@@ -771,6 +771,187 @@ function refreshProfileSheet() {
   }
 }
 
+/* ─── GOOGLE SIGN-IN ─────────────────────────────── */
+window.signInWithGoogle = async function() {
+  if (!fbReady || !fbAuth) {
+    alert('Firebase Auth ist noch nicht bereit. Bitte warte einen Moment.');
+    return;
+  }
+
+  const btn = document.getElementById('googleLoginBtn');
+  if (btn) {
+    btn.textContent = '⏳ Anmeldung läuft...';
+    btn.disabled = true;
+  }
+
+  try {
+    // Prüfen ob bereits ein Google-Nutzer angemeldet ist
+    const currentUser = fbAuth.currentUser;
+    if (currentUser && currentUser.providerData.some(p => p.providerId === 'google.com')) {
+      alert('Du bist bereits mit Google angemeldet.');
+      updateGoogleLoginUI(currentUser);
+      return;
+    }
+
+    // GoogleAuthProvider erstellen
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    let result;
+    // Auf Mobile besser: signInWithPopup, auf Desktop auch
+    try {
+      result = await fbAuth.signInWithPopup(provider);
+    } catch (popupError) {
+      // Fallback: Redirect für Mobile/WebView
+      console.warn('Popup failed, trying redirect:', popupError);
+      await fbAuth.signInWithRedirect(provider);
+      return; // Redirect passiert, Seite wird neu geladen
+    }
+
+    const user = result.user;
+    const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
+
+    // Falls vorher anonym → Daten migrieren
+    const wasAnonymous = currentUser && currentUser.isAnonymous;
+    if (wasAnonymous) {
+      // Anonymen Account mit Google verknüpfen
+      try {
+        await currentUser.linkWithCredential(credential);
+        console.log('✅ Anonymen Account mit Google verknüpft');
+      } catch (linkError) {
+        // Wenn Verknüpfung fehlschlägt (z.B. Google existiert bereits)
+        if (linkError.code === 'auth/credential-already-in-use') {
+          // Bestehenden Google-Account nehmen und Daten übertragen
+          console.warn('Google Account existiert bereits, wechsle dazu');
+          await fbAuth.signInWithCredential(credential);
+        } else {
+          console.error('Account link error:', linkError);
+        }
+      }
+    }
+
+    // Username vom Google-Profil übernehmen falls noch nicht gesetzt
+    const displayName = user.displayName;
+    if (displayName && (!G.username || G.username === 'Schütze')) {
+      G.username = displayName.substring(0, 15);
+      StorageManager.setRaw('username', G.username);
+    }
+
+    // Google-Profil-Bild als Avatar speichern falls vorhanden
+    if (user.photoURL) {
+      StorageManager.setRaw('googlePhotoURL', user.photoURL);
+    }
+
+    updateGoogleLoginUI(user);
+    updateAccountSyncStatus();
+
+    // Daten zu Firebase syncen
+    pushProfileToFirebase();
+
+    // Erfolg-Feedback
+    if (btn) {
+      btn.textContent = '✅ Angemeldet!';
+      setTimeout(() => {
+        btn.style.display = 'none';
+        document.getElementById('googleLogoutBtn').style.display = 'block';
+      }, 1500);
+    }
+
+    alert(`✅ Willkommen, ${displayName || G.username}!\n\nDein Konto ist jetzt mit Google verknüpft.\nDeine bisherigen Daten wurden übernommen.`);
+
+  } catch (error) {
+    console.error('Google Sign-In Error:', error);
+    const errorMsg = error.code === 'auth/popup-closed-by-user'
+      ? 'Anmeldung abgebrochen.'
+      : error.code === 'auth/popup-blocked'
+        ? 'Pop-up wurde blockiert. Bitte erlaube Pop-ups für diese Seite.'
+        : `Anmeldung fehlgeschlagen: ${error.message}`;
+    alert(errorMsg);
+
+    if (btn) {
+      btn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+        Mit Google anmelden`;
+      btn.disabled = false;
+    }
+  }
+};
+
+window.signOutGoogle = async function() {
+  if (!confirm('Möchtest du dich wirklich von Google abmelden?\n\nDeine Daten bleiben erhalten, aber der Sync läuft nur noch über den Sync-Code.')) {
+    return;
+  }
+
+  try {
+    await fbAuth.signOut();
+    fbUser = null;
+
+    // UI zurücksetzen
+    document.getElementById('googleLoginBtn').style.display = 'flex';
+    document.getElementById('googleLogoutBtn').style.display = 'none';
+    document.getElementById('googleLoginInfo').style.display = 'none';
+
+    // Zurück zu anonym
+    const user = await ensureFirebaseAnonymousAuth();
+    fbUser = user;
+    updateAccountSyncStatus();
+
+    alert('✅ Von Google abgemeldet. Anonymer Modus aktiv.');
+  } catch (error) {
+    console.error('Sign-Out Error:', error);
+    alert('Abmeldung fehlgeschlagen: ' + error.message);
+  }
+};
+
+function updateGoogleLoginUI(user) {
+  const loginBtn = document.getElementById('googleLoginBtn');
+  const logoutBtn = document.getElementById('googleLogoutBtn');
+  const loginInfo = document.getElementById('googleLoginInfo');
+  const userName = document.getElementById('googleUserName');
+  const userEmail = document.getElementById('googleUserEmail');
+  const avatar = document.getElementById('googleAvatar');
+
+  if (!user || !user.providerData.some(p => p.providerId === 'google.com')) {
+    // Nicht mit Google angemeldet
+    if (loginBtn) loginBtn.style.display = 'flex';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (loginInfo) loginInfo.style.display = 'none';
+    return;
+  }
+
+  // Mit Google angemeldet
+  if (loginBtn) loginBtn.style.display = 'none';
+  if (logoutBtn) logoutBtn.style.display = 'block';
+  if (loginInfo) loginInfo.style.display = 'block';
+
+  if (userName) userName.textContent = user.displayName || 'Google Nutzer';
+  if (userEmail) userEmail.textContent = user.email || '';
+
+  if (avatar && user.photoURL) {
+    avatar.src = user.photoURL;
+    avatar.style.display = 'block';
+    StorageManager.setRaw('googlePhotoURL', user.photoURL);
+  }
+}
+
+// Auth-State Observer einrichten
+function setupGoogleAuthObserver() {
+  if (!fbAuth) return;
+
+  fbAuth.onAuthStateChanged(user => {
+    if (user) {
+      fbUser = user;
+      updateGoogleLoginUI(user);
+      updateAccountSyncStatus();
+      bootstrapCloudUser(user).catch(console.warn);
+    } else {
+      fbUser = null;
+      updateGoogleLoginUI(null);
+      updateAccountSyncStatus();
+    }
+  });
+}
+
 /* ─── PROFIL BEARBEITEN (Name + Avatar) ─────────── */
 function initAvatarPicker(currentAvatar) {
   const options = document.querySelectorAll('.avatar-option');
