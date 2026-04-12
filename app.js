@@ -911,7 +911,10 @@ function updateGoogleLoginUI(user) {
   const userEmail = document.getElementById('googleUserEmail');
   const avatar = document.getElementById('googleAvatar');
 
-  if (!user || !user.providerData.some(p => p.providerId === 'google.com')) {
+  // Wenn kein user oder kein Google Provider
+  const isGoogleUser = user && user.providerData && user.providerData.some(p => p.providerId === 'google.com');
+
+  if (!isGoogleUser) {
     // Nicht mit Google angemeldet
     if (loginBtn) loginBtn.style.display = 'flex';
     if (logoutBtn) logoutBtn.style.display = 'none';
@@ -4015,10 +4018,12 @@ function bindFirebaseAuth() {
     if (!fbUser) {
       fbAccountId = '';
       updateAccountSyncStatus();
+      updateGoogleLoginUI(null);
       ensureFirebaseAnonymousAuth();
       return;
     }
     updateAccountSyncStatus();
+    updateGoogleLoginUI(user);
     bootstrapCloudUser(fbUser);
   });
 
