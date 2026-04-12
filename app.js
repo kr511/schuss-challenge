@@ -867,12 +867,26 @@ function updateBotStatusCard() {
 
 // Bot-Status während des Duells regelmäßig aktualisieren
 function startBotStatusUpdates() {
+  // NEU: Bot Panel V2 verwenden
+  if (typeof BotPanelV2 !== 'undefined') {
+    BotPanelV2.init();
+    console.log('[app.js] Bot Panel V2 gestartet');
+    return;
+  }
+
+  // Fallback: Alte Funktion
   if (_botStatusUpdateInterval) clearInterval(_botStatusUpdateInterval);
   updateBotStatusCard(); // Sofort initial anzeigen
   _botStatusUpdateInterval = setInterval(updateBotStatusCard, 2000); // Alle 2s aktualisieren
 }
 
 function stopBotStatusUpdates() {
+  // NEU: Bot Panel V2 stoppen
+  if (typeof BotPanelV2 !== 'undefined') {
+    BotPanelV2.stop();
+  }
+
+  // Fallback: Alte Funktion
   if (_botStatusUpdateInterval) {
     clearInterval(_botStatusUpdateInterval);
     _botStatusUpdateInterval = null;
@@ -6617,13 +6631,23 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
   // Record stats + history + check SUN
   if (!G.dnf || gameResult !== 'win') {
     recordGameResult(gameResult, G.diff, G.weapon, pp, bp);
-    
+
     // NEU: Reward System tracken
     if (typeof RewardSystem !== 'undefined') {
       const currentStreak = G.streak || 0;
       RewardSystem.trackGame(gameResult, G.diff, currentStreak);
     }
-    
+
+    // NEU: Adaptive AI 2.0 - Spieler-Muster analysieren
+    if (typeof BotPanelV2 !== 'undefined' && BotPanelV2.adaptiveAI) {
+      BotPanelV2.adaptiveAI.trackGame({
+        playerScore: pp,
+        botScore: bp,
+        result: gameResult,
+        maxDeficit: Math.max(0, bp - pp)
+      });
+    }
+
     // Quests nur bei echtem Ergebnis (OCR oder manuelle Eingabe) berechnen
     // Schnellauswahl (reason enthält 'Schnellauswahl') wird ignoriert
     const isQuickResult = reason && reason.includes('Schnellauswahl');
