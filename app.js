@@ -1381,6 +1381,14 @@ function recordGameResult(result, diff, weapon, playerPts, botPts) {
       DailyChallenge.trackGame(gameData, stats);
     }
 
+    // StreakTracker: 1 Duell = +1 Streak (Mo-Fr ab 12:00)
+    if (typeof StreakTracker !== 'undefined') {
+      const streakResult = StreakTracker.recordGame();
+      if (streakResult.streakIncreased && streakResult.milestone) {
+        console.log('[Streak] Milestone erreicht:', streakResult.milestone);
+      }
+    }
+
     // NEU: Adaptive Bot - Spieler-Schwächen analysieren
     if (typeof AdaptiveBotSystem !== 'undefined' && G.playerShots.length > 0) {
       // Gruppierung für den Spieler berechnen
@@ -1599,6 +1607,18 @@ function refreshPremiumDashboard() {
   const elSideStreakBar = document.getElementById('pdSideStreakBar');
   if (elSideStreakBar) elSideStreakBar.style.width = Math.min(pdCurAll * 10, 100) + '%';
 
+  // StreakTracker Integration – Dashboard aktualisieren
+  if (typeof StreakTracker !== 'undefined') {
+    const stats = StreakTracker.getStreakStats();
+    const elSideStreak = document.getElementById('pdSideStreak');
+    if (elSideStreak && stats.current > 0) {
+      elSideStreak.innerText = '🔥 ' + stats.current;
+    }
+    if (elSideStreakBar && stats.current > 0) {
+      elSideStreakBar.style.width = Math.min(stats.current * 10, 100) + '%';
+    }
+  }
+
   let gamesTodayCount = historyV2.filter(g => g.timestamp && g.timestamp >= startOfDay.getTime()).length;
   const elSideGamesToday = document.getElementById('pdSideGamesToday');
   if (elSideGamesToday) elSideGamesToday.innerText = gamesTodayCount;
@@ -1606,10 +1626,22 @@ function refreshPremiumDashboard() {
   if (elSideGamesTodayBar) elSideGamesTodayBar.style.width = Math.min(gamesTodayCount * 10, 100) + '%';
 
   // 4.6. Calculate and display statistics (Siege, Siegquote, Gesamt XP)
-  const totalWins = historyV2.filter(g => g.result === 'win' || g.result === 'Sieg').length;
-  const totalGames = historyV2.length;
+  // NUR die letzten 3 Duelle zählen für diese Statistiken
+  const sortedForStats = [...historyV2].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const latest3ForStats = sortedForStats.slice(0, 3);
+
+  const totalWins = latest3ForStats.filter(g => g.result === 'win' || g.result === 'Sieg').length;
+  const totalGames = latest3ForStats.length;
   const winRate = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(0) : 0;
-  const totalXP = historyV2.reduce((sum, g) => sum + (g.playerScore || 0), 0);
+
+  // Gesamt XP: Nur aus den letzten 3 Duellen, basierend auf XP_PER_WIN
+  const totalXP = latest3ForStats.reduce((sum, g) => {
+    const isWin = g.result === 'win' || g.result === 'Sieg';
+    if (!isWin) return sum; // Niederlage = 0 XP
+    const diff = g.difficulty || 'easy';
+    const xpGained = XP_PER_WIN[diff] || 10;
+    return sum + xpGained;
+  }, 0);
 
   const elPdStatWins = document.getElementById('pdStatWins');
   if (elPdStatWins) elPdStatWins.innerText = totalWins;
@@ -1618,7 +1650,7 @@ function refreshPremiumDashboard() {
   if (elPdStatWinrate) elPdStatWinrate.innerText = totalGames > 0 ? winRate + '%' : '–';
 
   const elPdStatScore = document.getElementById('pdStatScore');
-  if (elPdStatScore) elPdStatScore.innerText = totalXP;
+  if (elPdStatScore) elPdStatScore.innerText = totalXP + ' XP';
 
   // 4. Update Badges
   const streakHeaderVal = (typeof getHeaderStreakValue === 'function') ? getHeaderStreakValue() : 0;
@@ -5974,6 +6006,14 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
         currentStreak: Math.max(Number(G.streak || 0), lgStreak, kkStreak, legacyStreak)
       };
       DailyChallenge.trackGame(gameData, statsData);
+    }
+
+    // StreakTracker: 1 Duell = +1 Streak (Mo-Fr ab 12:00)
+    if (typeof StreakTracker !== 'undefined') {
+      const streakResult = StreakTracker.recordGame();
+      if (streakResult.streakIncreased && streakResult.milestone) {
+        console.log('[Streak] Milestone erreicht:', streakResult.milestone);
+      }
     }
   }
 
