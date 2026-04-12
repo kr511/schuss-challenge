@@ -6624,16 +6624,6 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
       RewardSystem.trackGame(gameResult, G.diff, currentStreak);
     }
 
-    // NEU: Adaptive AI 2.0 - Spieler-Muster analysieren
-    if (typeof BotPanelV2 !== 'undefined' && BotPanelV2.adaptiveAI) {
-      BotPanelV2.adaptiveAI.trackGame({
-        playerScore: pp,
-        botScore: bp,
-        result: gameResult,
-        maxDeficit: Math.max(0, bp - pp)
-      });
-    }
-
     // Quests nur bei echtem Ergebnis (OCR oder manuelle Eingabe) berechnen
     // Schnellauswahl (reason enthält 'Schnellauswahl') wird ignoriert
     const isQuickResult = reason && reason.includes('Schnellauswahl');
