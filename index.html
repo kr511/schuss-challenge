@@ -879,6 +879,22 @@
           </div>
         </div>
       </div>
+
+      <!-- ══ BOT-ZUSTANDS-ANZEIGE ══ -->
+      <div id="botStatusCard" style="display:none;margin-top:12px;background:rgba(20,22,25,0.7);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:10px 14px;transition:all 0.5s ease;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="botStatusIcon" style="font-size:1.5rem;line-height:1;">😐</div>
+          <div style="flex:1;min-width:0;">
+            <div id="botStatusTitle" style="font-size:0.78rem;font-weight:600;color:#fff;line-height:1.2;">Bot ist konzentriert</div>
+            <div id="botStatusDesc" style="font-size:0.62rem;color:rgba(255,255,255,0.45);margin-top:2px;line-height:1.2;">Trifft mit normaler Präzision</div>
+          </div>
+          <div id="botPersonalityBadge" style="font-size:0.6rem;font-weight:700;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);color:#fff;white-space:nowrap;letter-spacing:0.3px;text-transform:uppercase;">Anfänger</div>
+        </div>
+        <div style="margin-top:6px;height:3px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+          <div id="botFocusBar" style="height:100%;width:50%;background:linear-gradient(90deg,#7ab030,#a0d84a);border-radius:3px;transition:width 0.8s ease;"></div>
+        </div>
+        <div style="font-size:0.55rem;color:rgba(255,255,255,0.3);margin-top:3px;text-align:right;">Focus: <span id="botFocusPct">50</span>%</div>
+      </div>
     </div>
 
     <div class="actions">

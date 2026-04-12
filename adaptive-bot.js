@@ -261,6 +261,59 @@ const AdaptiveBotSystem = (function () {
   let _animationFrameId = null;
 
   // ═══════════════════════════════════════════════
+  // BOT-PERSÖNLICHKEITEN / BOT PERSONALITIES
+  // Jede Schwierigkeitsstufe hat eine eigene Identität
+  // wie ein echter Schütze auf verschiedenen Niveaus.
+  // ═══════════════════════════════════════════════
+
+  const BOT_PERSONALITIES = {
+    easy: {
+      name: 'Anfänger',
+      icon: '🐣',
+      title: 'Bot ist ein Anfänger',
+      desc: 'Zitteriger Schütze – schwankende Leistung',
+      errorPattern: 'Hält das Gewehr unruhig, Abzug ruckartig',
+      levelText: 'Anfänger',
+      levelColor: '#4caf50',      // Grün
+      levelGlow: 'rgba(76,175,80,0.2)',
+      progressionNote: 'Lernt langsam dazu…'
+    },
+    real: {
+      name: 'Fortgeschrittener',
+      icon: '🔫',
+      title: 'Bot ist ein Fortgeschrittener',
+      desc: 'Solider Vereinsschütze mit Routine',
+      errorPattern: 'Gelegentliches Verreißen unter Druck',
+      levelText: 'Fortgeschrittener',
+      levelColor: '#2196f3',      // Blau
+      levelGlow: 'rgba(33,150,243,0.2)',
+      progressionNote: 'Wird mit jedem Schuss sicherer…'
+    },
+    hard: {
+      name: 'Experte',
+      icon: '🎯',
+      title: 'Bot ist ein Experte',
+      desc: 'Erfahrener Wettkampfschütze – kaum Fehler',
+      errorPattern: 'Minimaler Halteschlag bei Stress',
+      levelText: 'Experte',
+      levelColor: '#ff9800',      // Orange
+      levelGlow: 'rgba(255,152,0,0.2)',
+      progressionNote: 'Zeigt Profi-Niveau…'
+    },
+    elite: {
+      name: 'Profi',
+      icon: '🏆',
+      title: 'Bot ist ein Profi',
+      desc: 'Bundesliga-Niveau – extrem präzise',
+      errorPattern: 'Perfekte Technik – nur minimale Abweichungen',
+      levelText: 'Profi',
+      levelColor: '#f44336',      // Rot
+      levelGlow: 'rgba(244,67,54,0.2)',
+      progressionNote: 'Schießt auf Weltklasse-Niveau…'
+    }
+  };
+
+  // ═══════════════════════════════════════════════
   // INITIALISIERUNG / INITIALIZATION
   // ═══════════════════════════════════════════════
 
@@ -418,6 +471,67 @@ const AdaptiveBotSystem = (function () {
    */
   function getBotState() {
     return { ...botState };
+  }
+
+  /**
+   * Gibt das Persönlichkeitsprofil des aktuellen Schwierigkeitsgrads zurück.
+   * EN: Returns the personality profile for the current difficulty.
+   */
+  function getBotPersonality() {
+    const diff = botState.currentDifficulty || 'easy';
+    return { ...BOT_PERSONALITIES[diff] } || { ...BOT_PERSONALITIES.easy };
+  }
+
+  /**
+   * Gibt den kombinierten Status (Persönlichkeit + Mood) zurück.
+   * EN: Returns combined status (personality + mood).
+   */
+  function getBotFullStatus() {
+    const personality = getBotPersonality();
+    const state = getBotState();
+    const focus = Math.max(0, Math.min(100, 100 - state.stressLevel - state.fatigue * 0.5));
+    const isImproving = state.shotsFiredInSession > 0 && state.fatigue < 40;
+    const isDegrading = state.fatigue > 60;
+
+    let stateSuffix = '';
+    let stateIcon = '';
+    switch (state.mood) {
+      case 'in_the_zone':
+        stateSuffix = '– gerade in der Zone!';
+        stateIcon = '🔥';
+        break;
+      case 'nervous':
+        stateSuffix = '– gerade nervös';
+        stateIcon = '😰';
+        break;
+      case 'tired':
+        stateSuffix = '– wird müde';
+        stateIcon = '😴';
+        break;
+      default:
+        stateSuffix = '';
+        stateIcon = '';
+    }
+
+    let progressionText = '';
+    if (isImproving && state.mood !== 'tired') {
+      progressionText = personality.progressionNote;
+    } else if (isDegrading) {
+      progressionText = 'Bot ermüdet langsam…';
+    }
+
+    return {
+      personality,
+      mood: state.mood,
+      stressLevel: state.stressLevel,
+      fatigue: state.fatigue,
+      focus,
+      stateSuffix,
+      stateIcon,
+      progressionText,
+      isImproving,
+      isDegrading
+    };
   }
 
   // ═══════════════════════════════════════════════
@@ -1291,6 +1405,8 @@ const AdaptiveBotSystem = (function () {
     // ─── NEU v2.0: Mood & Stress / NEW v2.0 ───
     setStressMode,
     getBotState,
+    getBotPersonality,
+    getBotFullStatus,
 
     // ─── NEU v2.0: Virtual Crosshair / NEW v2.0 ───
     startVirtualCrosshairAnimation,
