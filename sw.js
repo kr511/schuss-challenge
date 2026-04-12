@@ -69,7 +69,29 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for local assets, network-first for everything else
+  // Network-first for HTML (index.html) - always check for updates!
+  if (event.request.mode === 'navigate' || url.endsWith('.html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Cache successful HTML responses
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => {
+          // Offline fallback: use cached HTML
+          return caches.match(event.request).then(cached => {
+            return cached || caches.match('./index.html');
+          });
+        })
+    );
+    return;
+  }
+
+  // Cache-first for all other assets (JS, CSS, images, fonts)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
