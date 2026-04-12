@@ -355,7 +355,8 @@ button:active::after, .btn:active::after {
 }
 
 /* ─── CARD & BADGE ANIMATIONS ───────────────────────────── */
-.card, .badge-item, .achievement {
+/* Nur wenn die Klasse explizit gesetzt wird */
+.card.animate-in, .badge-item.animate-in, .achievement.animate-in {
   opacity: 0;
   transform: scale(0.9) translateY(10px);
   animation: cardAppear var(--anim-speed-normal) var(--ease-elastic) forwards;
