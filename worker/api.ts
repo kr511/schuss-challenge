@@ -368,6 +368,12 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       return await handleGetFeedbacks(env);
     }
 
+    // Admin endpoint to update feedback status
+    if (path.startsWith("/api/admin/feedbacks/") && request.method === "PATCH") {
+      const feedbackId = path.split("/").pop();
+      return await handlePatchFeedback(request, env, feedbackId);
+    }
+
     const userId = getAuthenticatedUserId(request, env, url);
     if (!userId) {
       return authError(
