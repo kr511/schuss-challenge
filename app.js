@@ -7336,7 +7336,7 @@ window.addEventListener('resize', () => {
 // ── Service Worker (PWA / Offline) ──────────────────────────────────
 if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=2.6').catch(() => { });
+    navigator.serviceWorker.register('./sw.js?v=2.7').catch(() => { });
   });
 }
 

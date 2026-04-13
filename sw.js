@@ -69,6 +69,16 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Skip non-GET requests (POST, PUT, DELETE, etc.) - don't cache API calls
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  // Skip API requests to external domains (Worker API)
+  if (event.request.url.includes('workers.dev') || event.request.url.includes('/api/')) {
+    return;
+  }
+
   // Network-first for HTML (index.html) - always check for updates!
   if (event.request.mode === 'navigate' || url.endsWith('.html')) {
     event.respondWith(
