@@ -316,6 +316,23 @@ async function handleGetFeedbacks(env: Env): Promise<Response> {
   });
 }
 
+async function handlePatchFeedback(request: Request, env: Env, feedbackId: string): Promise<Response> {
+  const payload = await request.json();
+  
+  if (payload.status && ['pending', 'done', 'archived'].includes(payload.status)) {
+    await env.DB.prepare(
+      "UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?"
+    ).bind(payload.status, Date.now(), feedbackId).run();
+
+    return json({
+      ok: true,
+      message: "Feedback status updated",
+    });
+  }
+
+  return json({ error: true, message: "Invalid status" }, 400);
+}
+
 export async function handleApiRequest(request: Request, env: Env): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, {
