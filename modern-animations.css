@@ -1,0 +1,523 @@
+/* ═══════════════════════════════════════════════════════════
+   MODERN ANIMATIONS & TOUCH OPTIMIZATIONS
+   Schussduell - Premium UX Enhancements
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── CSS VARIABLES ──────────────────────────────────────── */
+:root {
+  --anim-speed-fast: 150ms;
+  --anim-speed-normal: 300ms;
+  --anim-speed-slow: 500ms;
+  --anim-speed-dramatic: 800ms;
+  
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-elastic: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  
+  --touch-min-size: 44px;
+  --touch-spacing: 8px;
+  --touch-feedback-scale: 0.96;
+  --touch-feedback-opacity: 0.85;
+  
+  --shadow-glow: 0 0 20px rgba(122, 176, 48, 0.3);
+  --shadow-elevated: 0 12px 40px rgba(0, 0, 0, 0.4);
+  --shadow-dramatic: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* ─── TOUCH OPTIMIZATIONS ────────────────────────────────── */
+* {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button, .btn, [role="button"], .clickable {
+  min-width: var(--touch-min-size);
+  min-height: var(--touch-min-size);
+  padding: 12px 16px;
+  margin: var(--touch-spacing);
+  border-radius: 12px;
+  transition: all var(--anim-speed-fast) var(--ease-smooth);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+button:active, .btn:active, [role="button"]:active {
+  transform: scale(var(--touch-feedback-scale));
+  opacity: var(--touch-feedback-opacity);
+}
+
+/* Ripple Effect */
+button::after, .btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+  pointer-events: none;
+}
+
+button:active::after, .btn:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+/* Swipeable Containers */
+.swipe-container {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.swipe-container > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* ─── FADE IN ANIMATIONS ─────────────────────────────────── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─── SCALE ANIMATIONS ───────────────────────────────────── */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes scaleInBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─── SLIDE ANIMATIONS ───────────────────────────────────── */
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromTop {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ─── SPECIAL EFFECTS ────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(122, 176, 48, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(122, 176, 48, 0.6);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+/* ─── XP LEVEL UP ANIMATION ─────────────────────────────── */
+@keyframes levelUpGlow {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.2);
+    filter: brightness(1.5);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+@keyframes xpNumberPop {
+  0% {
+    transform: scale(0.5) translateY(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.3) translateY(-20px);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(-40px);
+    opacity: 0;
+  }
+}
+
+/* ─── GAME OVER ANIMATION ───────────────────────────────── */
+@keyframes dramaticReveal {
+  0% {
+    transform: scale(0.1) rotateY(90deg);
+    opacity: 0;
+    filter: blur(10px);
+  }
+  50% {
+    transform: scale(1.1) rotateY(0deg);
+    opacity: 1;
+    filter: blur(0);
+  }
+  100% {
+    transform: scale(1) rotateY(0deg);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes numberCountUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── TAB TRANSITIONS ───────────────────────────────────── */
+/* NUR für Tabs die das Animation-System nutzen */
+.tab-content {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity var(--anim-speed-normal) var(--ease-smooth),
+              transform var(--anim-speed-normal) var(--ease-smooth);
+  pointer-events: auto;
+}
+
+/* Animierter Tab-Wechsel - nur wenn aktiv gesteuert */
+.tab-content.animated {
+  opacity: 0;
+  transform: translateX(20px);
+  pointer-events: none;
+}
+
+.tab-content.animated.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.tab-content.animated.leaving {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+/* ─── CARD & BADGE ANIMATIONS ───────────────────────────── */
+/* Nur wenn die Klasse explizit gesetzt wird */
+.card.animate-in, .badge-item.animate-in, .achievement.animate-in {
+  opacity: 0;
+  transform: scale(0.9) translateY(10px);
+  animation: cardAppear var(--anim-speed-normal) var(--ease-elastic) forwards;
+}
+
+@keyframes cardAppear {
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.card:hover, .badge-item:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* ─── LOOTBOX / TOOLBOX ANIMATION ───────────────────────── */
+@keyframes lootboxShake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+
+@keyframes lootboxOpen {
+  0% {
+    transform: scale(1) rotateY(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotateY(180deg);
+  }
+  100% {
+    transform: scale(1) rotateY(360deg);
+  }
+}
+
+@keyframes lootboxGlow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+  }
+}
+
+.lootbox {
+  animation: lootboxGlow 2s ease-in-out infinite;
+  cursor: pointer;
+  transition: transform var(--anim-speed-fast) var(--ease-elastic);
+}
+
+.lootbox:hover {
+  transform: scale(1.05);
+}
+
+.lootbox.shaking {
+  animation: lootboxShake 0.3s ease-in-out 3, lootboxGlow 2s ease-in-out infinite;
+}
+
+.lootbox.opening {
+  animation: lootboxOpen var(--anim-speed-dramatic) var(--ease-elastic);
+}
+
+/* ─── LOADING SKELETON ──────────────────────────────────── */
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, 
+    rgba(255,255,255,0.05) 25%, 
+    rgba(255,255,255,0.1) 50%, 
+    rgba(255,255,255,0.05) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ─── UTILITY CLASSES ───────────────────────────────────── */
+.animate-fade-in { animation: fadeIn var(--anim-speed-normal) var(--ease-smooth); }
+.animate-fade-in-up { animation: fadeInUp var(--anim-speed-normal) var(--ease-smooth); }
+.animate-fade-in-down { animation: fadeInDown var(--anim-speed-normal) var(--ease-smooth); }
+.animate-scale-in { animation: scaleIn var(--anim-speed-normal) var(--ease-elastic); }
+.animate-scale-in-bounce { animation: scaleInBounce var(--anim-speed-slow) var(--ease-bounce); }
+.animate-slide-from-bottom { animation: slideInFromBottom var(--anim-speed-normal) var(--ease-smooth); }
+.animate-slide-from-top { animation: slideInFromTop var(--anim-speed-normal) var(--ease-smooth); }
+.animate-slide-from-left { animation: slideInFromLeft var(--anim-speed-normal) var(--ease-smooth); }
+.animate-slide-from-right { animation: slideInFromRight var(--anim-speed-normal) var(--ease-smooth); }
+.animate-pulse { animation: pulse 2s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-shake { animation: shake 0.5s ease-in-out; }
+.animate-float { animation: float 3s ease-in-out infinite; }
+
+/* Stagger delays for lists */
+.stagger-1 { animation-delay: 0ms; }
+.stagger-2 { animation-delay: 50ms; }
+.stagger-3 { animation-delay: 100ms; }
+.stagger-4 { animation-delay: 150ms; }
+.stagger-5 { animation-delay: 200ms; }
+.stagger-6 { animation-delay: 250ms; }
+
+/* ─── RESPONSIVE TOUCH TARGETS ──────────────────────────── */
+@media (max-width: 768px) {
+  button, .btn, [role="button"] {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 14px 20px;
+    margin: 6px;
+    font-size: 16px; /* Prevents iOS zoom */
+  }
+  
+  input, select, textarea {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+  
+  .swipe-container {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+  
+  .swipe-container::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --touch-spacing: 4px;
+  }
+  
+  button, .btn, [role="button"] {
+    margin: 4px;
+    border-radius: 10px;
+  }
+}
+
+/* ─── REDUCED MOTION ────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ─── HIGH PERFORMANCE MODE ─────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .will-animate {
+    will-change: transform, opacity;
+  }
+}
+
+/* ─── DARK MODE ENHANCEMENTS ────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shadow-glow: 0 0 25px rgba(122, 176, 48, 0.4);
+    --shadow-elevated: 0 15px 50px rgba(0, 0, 0, 0.5);
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "schuss-challenge",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-09-27",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "."
+  },
+  "vars": {
+    "ALLOW_INSECURE_DEV_AUTH": "false"
+  },
+  "env": {
+    "production": {
+      "vars": {}
+    },
+    "local": {
+      "vars": {
+        "ALLOW_INSECURE_DEV_AUTH": "true"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "schuss_challenge",
+          "database_id": "local",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "schuss_challenge",
+      "database_id": "d103ab03-129b-48db-bdff-b52c73cc9fbb",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
