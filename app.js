@@ -1370,6 +1370,21 @@ function submitSiteFeedback(rating) {
   const score = parseInt(rating);
   const totalDuels = getTotalDuels();
 
+  // Sende Feedback an Worker API (für Admin-Dashboard)
+  const safeUsername = sanitizeUsername(G.username || 'Anonym');
+  const userEmail = typeof StorageManager !== 'undefined' ? (StorageManager.getRaw('userEmail') || `${safeUsername}@schuss-challenge.local`) : `${safeUsername}@schuss-challenge.local`;
+  
+  fetch('https://schuss-challenge.eliaskummel.workers.dev/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: userEmail,
+      feedbackType: 'general',
+      title: `⭐ ${score}/5 Sterne - ${G.weapon || 'LG'} ${G.discipline || ''}`,
+      message: `Score: ${score}/5\nWaffe: ${G.weapon || 'unknown'}\nDisziplin: ${G.discipline || 'unknown'}\nSchwierigkeit: ${G.diff || 'unknown'}\nSpieler: ${safeUsername}`
+    })
+  }).catch(err => console.warn('Feedback an Worker fehlgeschlagen:', err));
+
   if (Number.isInteger(score) && score >= 1 && score <= 5) {
     // ... (existing logic for saving)
     let entries = [];
