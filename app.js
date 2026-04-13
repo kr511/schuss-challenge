@@ -1340,32 +1340,10 @@ function fbUpdateSubmitBtn() {
 function fbSubmit() {
   if (fbRating === null) return;
   const comment = document.getElementById('fbComment').value || '';
-  const score = fbRating + 1; // 1-5 scale
-  const totalDuels = getTotalDuels();
-
-  // Sende vollständiges Feedback an Worker API (für Admin-Dashboard)
-  const safeUsername = sanitizeUsername(G.username || 'Anonym');
-  const userEmail = typeof StorageManager !== 'undefined' ? (StorageManager.getRaw('userEmail') || `${safeUsername}@schuss-challenge.local`) : `${safeUsername}@schuss-challenge.local`;
-  const emojiLabels = ['😤 Schlecht', '😐 Okay', '😄 Gut', '🤩 Super', '🔥 Episch'];
-  const tags = fbTags || [];
-
-  // Duell-Ergebnis zusammenbauen
-  const duelResult = fbDuelData || {};
-  const resultTitle = duelResult.title || `${G.weapon || 'LG'} ${duelResult.result || 'Unbekannt'}`;
-  const resultScore = duelResult.score || duelResult.myScore || 'N/A';
-
-  fetch('https://schuss-challenge.eliaskummel.workers.dev/api/feedback', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      email: userEmail,
-      feedbackType: score >= 4 ? 'general' : score === 3 ? 'general' : 'bug',
-      title: `${emojiLabels[fbRating] || 'Feedback'} - ${resultTitle}`,
-      message: `⭐ Bewertung: ${score}/5 (${emojiLabels[fbRating] || 'N/A'})\n🏆 Duell: ${resultTitle}\n📊 Score: ${resultScore}\n🏷️ Tags: ${tags.length > 0 ? tags.join(', ') : 'Keine'}\n💬 Kommentar: ${comment || 'Keiner'}\n👤 Spieler: ${safeUsername}\n🔫 Waffe: ${G.weapon || 'N/A'}\n🎯 Disziplin: ${G.discipline || 'N/A'}`
-    })
-  }).catch(err => console.warn('Feedback an Worker fehlgeschlagen:', err));
 
   // Save to localStorage (compat with existing feedback system)
+  const score = fbRating + 1; // 1-5 scale
+  const totalDuels = getTotalDuels();
   let entries = [];
   try { entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]'); } catch (e) { entries = []; }
   if (!Array.isArray(entries)) entries = [];
@@ -7336,7 +7314,7 @@ window.addEventListener('resize', () => {
 // ── Service Worker (PWA / Offline) ──────────────────────────────────
 if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=2.7').catch(() => { });
+    navigator.serviceWorker.register('./sw.js?v=2.6').catch(() => { });
   });
 }
 
