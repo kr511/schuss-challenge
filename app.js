@@ -1011,6 +1011,438 @@ window.signOutGoogle = async function() {
   }
 };
 
+/* ═══════════════════════════════════════════════
+   EMAIL/PASSWORT AUTHENTIFIZIERUNG
+   ═══════════════════════════════════════════════ */
+
+window.registerWithEmail = async function(email, password) {
+  if (!fbReady || !fbAuth) {
+    throw new Error('Firebase Auth ist noch nicht bereit.');
+  }
+
+  if (!email || !password) {
+    throw new Error('Bitte E-Mail und Passwort ausfüllen.');
+  }
+
+  if (password.length < 6) {
+    throw new Error('Passwort muss mindestens 6 Zeichen haben.');
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error('Bitte eine gültige E-Mail-Adresse eingeben.');
+  }
+
+  try {
+    const userCredential = await fbAuth.createUserWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+
+    // Display Name setzen (aus vorhandenem Username oder E-Mail)
+    const displayName = G.username || email.split('@')[0];
+    if (displayName) {
+      await user.updateProfile({ displayName: displayName.substring(0, 15) });
+    }
+
+    // Bestehende lokale Daten mit neuem Konto verknüpfen
+    await linkLocalDataToFirebase(user);
+
+    console.log('✅ Neues Konto erstellt:', user.email);
+    return user;
+  } catch (error) {
+    console.error('Registration Error:', error);
+    let message = 'Registrierung fehlgeschlagen.';
+    
+    switch (error.code) {
+      case 'auth/email-already-in-use':
+        message = 'Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich stattdessen an.';
+        break;
+      case 'auth/invalid-email':
+        message = 'Die E-Mail-Adresse ist ungültig.';
+        break;
+      case 'auth/weak-password':
+        message = 'Das Passwort ist zu schwach (mind. 6 Zeichen).';
+        break;
+      case 'auth/network-request-failed':
+        message = 'Netzwerkfehler. Bitte überprüfe deine Internetverbindung.';
+        break;
+      default:
+        message = error.message;
+    }
+    
+    throw new Error(message);
+  }
+};
+
+window.signInWithEmail = async function(email, password) {
+  if (!fbReady || !fbAuth) {
+    throw new Error('Firebase Auth ist noch nicht bereit.');
+  }
+
+  if (!email || !password) {
+    throw new Error('Bitte E-Mail und Passwort ausfüllen.');
+  }
+
+  try {
+    const userCredential = await fbAuth.signInWithEmailAndPassword(email, password);
+    const user = userCredential.user;
+
+    // Username vom Firebase-Profil übernehmen falls noch nicht gesetzt
+    if (user.displayName && (!G.username || G.username === 'Schütze')) {
+      G.username = user.displayName.substring(0, 15);
+      StorageManager.setRaw('username', G.username);
+    }
+
+    // Bestehende lokale Daten mit Konto verknüpfen
+    await linkLocalDataToFirebase(user);
+
+    console.log('✅ Angemeldet:', user.email);
+    return user;
+  } catch (error) {
+    console.error('Login Error:', error);
+    let message = 'Anmeldung fehlgeschlagen.';
+    
+    switch (error.code) {
+      case 'auth/user-not-found':
+        message = 'Kein Konto mit dieser E-Mail-Adresse gefunden. Bitte registriere dich zuerst.';
+        break;
+      case 'auth/wrong-password':
+        message = 'Falsches Passwort. Bitte überprüfe deine Eingabe.';
+        break;
+      case 'auth/invalid-email':
+        message = 'Die E-Mail-Adresse ist ungültig.';
+        break;
+      case 'auth/too-many-requests':
+        message = 'Zu viele fehlgeschlagene Anmeldeversuche. Bitte versuche es später erneut.';
+        break;
+      case 'auth/network-request-failed':
+        message = 'Netzwerkfehler. Bitte überprüfe deine Internetverbindung.';
+        break;
+      default:
+        message = error.message;
+    }
+    
+    throw new Error(message);
+  }
+};
+
+window.logoutEmail = async function() {
+  if (!fbAuth) {
+    throw new Error('Firebase Auth ist nicht verfügbar.');
+  }
+
+  if (!confirm('Möchtest du dich wirklich abmelden?\n\nDeine Daten bleiben erhalten und werden beim nächsten Anmelden synchronisiert.')) {
+    return;
+  }
+
+  try {
+    // Lokale Daten vor dem Logout speichern
+    const localData = {
+      username: G.username,
+      xp: G.xp,
+      streak: G.streak,
+      weapon: G.weapon,
+      discipline: G.discipline
+    };
+    StorageManager.setRaw('pre_logout_data', JSON.stringify(localData));
+
+    await fbAuth.signOut();
+    fbUser = null;
+    fbAccountId = '';
+
+    // UI zurücksetzen
+    updateAuthUI(null);
+
+    // Zurück zu anonymous auth
+    const user = await ensureFirebaseAnonymousAuth();
+    fbUser = user;
+    updateAccountSyncStatus();
+    updateXPCorner();
+    updateProfileMenu();
+
+    console.log('✅ Abgemeldet');
+    return true;
+  } catch (error) {
+    console.error('Logout Error:', error);
+    throw new Error('Abmeldung fehlgeschlagen: ' + error.message);
+  }
+};
+
+// Lokale Daten mit Firebase-Konto verknüpfen
+async function linkLocalDataToFirebase(user) {
+  if (!user || !fbDb) return;
+
+  try {
+    // Account-ID auflösen
+    await resolveFirebaseAccountId(user);
+
+    // Cloud-User bootstrappen
+    await bootstrapCloudUser(user, { force: false });
+
+    // Bestehende lokale Daten zu Firebase syncen
+    await pushProfileToFirebase();
+
+    // UI aktualisieren
+    fbUser = user;
+    updateAuthUI(user);
+    updateAccountSyncStatus();
+    updateSchuetzenpass();
+
+    // Profil-Bild speichern falls vorhanden
+    if (user.photoURL) {
+      StorageManager.setRaw('profilePhotoURL', user.photoURL);
+    }
+
+    console.log('✅ Lokale Daten mit Firebase-Konto verknüpft:', user.email || user.displayName);
+  } catch (error) {
+    console.warn('Data linking warning:', error?.code || error?.message || error);
+    // Nicht kritisch - Login funktioniert trotzdem
+  }
+}
+
+// Zentrale UI-Aktualisierung für Auth-State
+function updateAuthUI(user) {
+  // Google UI
+  updateGoogleLoginUI(user);
+  
+  // Email Auth UI
+  const emailAuthContainer = document.getElementById('emailAuthContainer');
+  const authFormContainer = document.getElementById('authFormContainer');
+  
+  if (emailAuthContainer && authFormContainer) {
+    if (user && !user.isAnonymous) {
+      // User ist angemeldet
+      emailAuthContainer.style.display = 'block';
+      authFormContainer.style.display = 'none';
+      
+      // User Info aktualisieren
+      const initial = (user.displayName || user.email || 'A').charAt(0).toUpperCase();
+      document.getElementById('authUserAvatar').textContent = initial;
+      document.getElementById('authUserName').textContent = user.displayName || 'Nutzer';
+      document.getElementById('authUserEmail').textContent = user.email || '';
+      
+      // Sync-Status aktualisieren
+      const syncStatusText = document.getElementById('syncStatusText');
+      if (syncStatusText) {
+        syncStatusText.innerHTML = `
+          <div style="font-weight:600;margin-bottom:2px;">Angemeldet als ${user.email || user.displayName}</div>
+          <div style="opacity:0.7;">☁️ Cloud-Sync aktiv</div>
+        `;
+      }
+      
+    } else {
+      // User ist nicht angemeldet (anonym)
+      emailAuthContainer.style.display = 'none';
+      authFormContainer.style.display = 'block';
+      
+      const syncStatusText = document.getElementById('syncStatusText');
+      if (syncStatusText) {
+        syncStatusText.innerHTML = 'Lokaler Modus · Melde dich an für Sync';
+      }
+    }
+  }
+
+  // Profil-Icon aktualisieren
+  const profileIcon = document.getElementById('profileIcon');
+  if (profileIcon) {
+    if (user && !user.isAnonymous) {
+      profileIcon.style.visibility = 'visible';
+      profileIcon.style.background = 'linear-gradient(135deg, #00c3ff 0%, #7ab030 100%)';
+      profileIcon.style.color = '#000';
+    } else {
+      profileIcon.style.visibility = 'hidden';
+      profileIcon.style.background = '';
+      profileIcon.style.color = '';
+    }
+  }
+
+  // Dashboard greeting aktualisieren
+  if (typeof updatePDGreeting === 'function') {
+    setTimeout(updatePDGreeting, 200);
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   AUTH UI HANDLER (Email/Passwort)
+   ═══════════════════════════════════════════════ */
+
+window.switchAuthTab = function(tab) {
+  const loginTab = document.getElementById('authTabLogin');
+  const registerTab = document.getElementById('authTabRegister');
+  const loginForm = document.getElementById('authLoginForm');
+  const registerForm = document.getElementById('authRegisterForm');
+  
+  if (!loginTab || !registerTab || !loginForm || !registerForm) return;
+  
+  hideAuthMessage();
+  
+  if (tab === 'login') {
+    loginTab.style.background = 'linear-gradient(135deg,#00c3ff 0%,#7ab030 100%)';
+    loginTab.style.color = '#000';
+    registerTab.style.background = 'transparent';
+    registerTab.style.color = 'rgba(255,255,255,0.5)';
+    loginForm.style.display = 'flex';
+    registerForm.style.display = 'none';
+  } else {
+    registerTab.style.background = 'linear-gradient(135deg,#00c3ff 0%,#7ab030 100%)';
+    registerTab.style.color = '#000';
+    loginTab.style.background = 'transparent';
+    loginTab.style.color = 'rgba(255,255,255,0.5)';
+    registerForm.style.display = 'flex';
+    loginForm.style.display = 'none';
+  }
+};
+
+window.showAuthMessage = function(text, type = 'error') {
+  const msg = document.getElementById('authMessage');
+  if (!msg) return;
+  
+  msg.textContent = text;
+  msg.style.display = 'block';
+  
+  if (type === 'error') {
+    msg.style.background = 'rgba(240,96,80,0.15)';
+    msg.style.border = '1px solid rgba(240,96,80,0.3)';
+    msg.style.color = '#f06050';
+  } else {
+    msg.style.background = 'rgba(122,176,48,0.15)';
+    msg.style.border = '1px solid rgba(122,176,48,0.3)';
+    msg.style.color = '#7ab030';
+  }
+};
+
+window.hideAuthMessage = function() {
+  const msg = document.getElementById('authMessage');
+  if (msg) msg.style.display = 'none';
+};
+
+window.setAuthLoading = function(loading, btnId = 'authLoginBtn') {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  
+  if (loading) {
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,0.2);border-top-color:#000;border-radius:50%;animation:spin 0.6s linear infinite;"></span> Wird verarbeitet...';
+  } else {
+    btn.disabled = false;
+    if (btnId === 'authLoginBtn') {
+      btn.textContent = '🚀 Anmelden';
+    } else {
+      btn.textContent = '✨ Konto erstellen';
+    }
+  }
+};
+
+window.handleAuthLogin = async function() {
+  const email = document.getElementById('authLoginEmail').value.trim();
+  const password = document.getElementById('authLoginPassword').value;
+  
+  hideAuthMessage();
+  
+  if (!email || !password) {
+    return showAuthMessage('❌ Bitte E-Mail und Passwort ausfüllen.');
+  }
+  
+  setAuthLoading(true, 'authLoginBtn');
+  
+  try {
+    const user = await signInWithEmail(email, password);
+    showAuthMessage('✅ Erfolgreich angemeldet!', 'success');
+    
+    // Formular zurücksetzen
+    document.getElementById('authLoginEmail').value = '';
+    document.getElementById('authLoginPassword').value = '';
+    
+    // Erfolg-Feedback
+    setTimeout(() => {
+      hideAuthMessage();
+    }, 2000);
+    
+  } catch (error) {
+    showAuthMessage(error.message);
+  } finally {
+    setAuthLoading(false, 'authLoginBtn');
+  }
+};
+
+window.handleAuthRegister = async function() {
+  const email = document.getElementById('authRegisterEmail').value.trim();
+  const password = document.getElementById('authRegisterPassword').value;
+  const passwordConfirm = document.getElementById('authRegisterPasswordConfirm').value;
+  
+  hideAuthMessage();
+  
+  if (!email || !password || !passwordConfirm) {
+    return showAuthMessage('❌ Bitte alle Felder ausfüllen.');
+  }
+  
+  if (password !== passwordConfirm) {
+    return showAuthMessage('❌ Passwörter stimmen nicht überein.');
+  }
+  
+  if (password.length < 6) {
+    return showAuthMessage('❌ Passwort muss mindestens 6 Zeichen haben.');
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return showAuthMessage('❌ Bitte eine gültige E-Mail-Adresse eingeben.');
+  }
+  
+  setAuthLoading(true, 'authRegisterBtn');
+  
+  try {
+    const user = await registerWithEmail(email, password);
+    showAuthMessage('✅ Konto erstellt! Deine Daten werden synchronisiert.', 'success');
+    
+    // Formular zurücksetzen
+    document.getElementById('authRegisterEmail').value = '';
+    document.getElementById('authRegisterPassword').value = '';
+    document.getElementById('authRegisterPasswordConfirm').value = '';
+    
+    // Erfolg-Feedback
+    setTimeout(() => {
+      hideAuthMessage();
+    }, 2000);
+    
+  } catch (error) {
+    showAuthMessage(error.message);
+  } finally {
+    setAuthLoading(false, 'authRegisterBtn');
+  }
+};
+
+// Enter-Taste Unterstützung für Login-Formular
+function initAuthFormListeners() {
+  const loginPassword = document.getElementById('authLoginPassword');
+  const registerPasswordConfirm = document.getElementById('authRegisterPasswordConfirm');
+  
+  if (loginPassword) {
+    loginPassword.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleAuthLogin();
+    });
+  }
+  
+  if (registerPasswordConfirm) {
+    registerPasswordConfirm.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleAuthRegister();
+    });
+  }
+}
+
+// Spinner Animation CSS
+function injectAuthSpinnerCSS() {
+  if (document.getElementById('auth-spinner-style')) return;
+  
+  const style = document.createElement('style');
+  style.id = 'auth-spinner-style';
+  style.textContent = `
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 function updateGoogleLoginUI(user) {
   const loginBtn = document.getElementById('googleLoginBtn');
   const logoutBtn = document.getElementById('googleLogoutBtn');
@@ -1340,10 +1772,32 @@ function fbUpdateSubmitBtn() {
 function fbSubmit() {
   if (fbRating === null) return;
   const comment = document.getElementById('fbComment').value || '';
-
-  // Save to localStorage (compat with existing feedback system)
   const score = fbRating + 1; // 1-5 scale
   const totalDuels = getTotalDuels();
+
+  // Sende vollständiges Feedback an Worker API (für Admin-Dashboard)
+  const safeUsername = sanitizeUsername(G.username || 'Anonym');
+  const userEmail = typeof StorageManager !== 'undefined' ? (StorageManager.getRaw('userEmail') || `${safeUsername}@schuss-challenge.local`) : `${safeUsername}@schuss-challenge.local`;
+  const emojiLabels = ['😤 Schlecht', '😐 Okay', '😄 Gut', '🤩 Super', '🔥 Episch'];
+  const tags = fbTags || [];
+
+  // Duell-Ergebnis zusammenbauen
+  const duelResult = fbDuelData || {};
+  const resultTitle = duelResult.title || `${G.weapon || 'LG'} ${duelResult.result || 'Unbekannt'}`;
+  const resultScore = duelResult.score || duelResult.myScore || 'N/A';
+
+  fetch('https://schuss-challenge.eliaskummel.workers.dev/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: userEmail,
+      feedbackType: score >= 4 ? 'general' : score === 3 ? 'general' : 'bug',
+      title: `${emojiLabels[fbRating] || 'Feedback'} - ${resultTitle}`,
+      message: `⭐ Bewertung: ${score}/5 (${emojiLabels[fbRating] || 'N/A'})\n🏆 Duell: ${resultTitle}\n📊 Score: ${resultScore}\n🏷️ Tags: ${tags.length > 0 ? tags.join(', ') : 'Keine'}\n💬 Kommentar: ${comment || 'Keiner'}\n👤 Spieler: ${safeUsername}\n🔫 Waffe: ${G.weapon || 'N/A'}\n🎯 Disziplin: ${G.discipline || 'N/A'}`
+    })
+  }).catch(err => console.warn('Feedback an Worker fehlgeschlagen:', err));
+
+  // Save to localStorage (compat with existing feedback system)
   let entries = [];
   try { entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]'); } catch (e) { entries = []; }
   if (!Array.isArray(entries)) entries = [];
@@ -7314,7 +7768,7 @@ window.addEventListener('resize', () => {
 // ── Service Worker (PWA / Offline) ──────────────────────────────────
 if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=2.6').catch(() => { });
+    navigator.serviceWorker.register('./sw.js?v=2.7').catch(() => { });
   });
 }
 
@@ -7350,6 +7804,12 @@ function startStreakCountdown() {
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(startStreakCountdown, 1000);
+    
+    // Auth Form Listener initialisieren
+    setTimeout(() => {
+      initAuthFormListeners();
+      injectAuthSpinnerCSS();
+    }, 500);
   });
 }
 

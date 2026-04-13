@@ -546,6 +546,57 @@
             <div class="card" style="margin-top:16px;padding:14px;">
               <div class="card-hd" style="margin-bottom:10px;">☁️ Konto & Login</div>
 
+              <!-- Angemeldeter User Info (nach Login sichtbar) -->
+              <div id="emailAuthContainer" style="display:none;margin-bottom:14px;">
+                <div style="padding:12px;background:rgba(122,176,48,0.1);border:1px solid rgba(122,176,48,0.2);border-radius:12px;">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                    <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;color:#000;" id="authUserAvatar">A</div>
+                    <div style="flex:1;">
+                      <div style="font-size:0.85rem;font-weight:600;color:#fff;" id="authUserName">–</div>
+                      <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);" id="authUserEmail">–</div>
+                    </div>
+                    <div style="font-size:1.2rem;" title="Angemeldet">✅</div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="btn-sec" style="font-size:0.65rem;flex:1;padding:8px;" onclick="logoutEmail()">🚪 Abmelden</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Login/Register Formular (vor Login sichtbar) -->
+              <div id="authFormContainer" style="margin-bottom:14px;">
+                <!-- Tab Switcher -->
+                <div style="display:flex;gap:4px;margin-bottom:12px;background:rgba(255,255,255,0.05);padding:4px;border-radius:10px;">
+                  <button id="authTabLogin" class="auth-tab-btn" style="flex:1;padding:8px;border:none;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:600;font-size:0.75rem;border-radius:8px;cursor:pointer;" onclick="switchAuthTab('login')">Anmelden</button>
+                  <button id="authTabRegister" class="auth-tab-btn" style="flex:1;padding:8px;border:none;background:transparent;color:rgba(255,255,255,0.5);font-weight:600;font-size:0.75rem;border-radius:8px;cursor:pointer;" onclick="switchAuthTab('register')">Registrieren</button>
+                </div>
+
+                <!-- Auth Message -->
+                <div id="authMessage" style="display:none;padding:8px 10px;border-radius:8px;font-size:0.7rem;margin-bottom:10px;"></div>
+
+                <!-- Login Form -->
+                <div id="authLoginForm" style="display:flex;flex-direction:column;gap:8px;">
+                  <input type="email" id="authLoginEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
+                  <input type="password" id="authLoginPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort" autocomplete="current-password">
+                  <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthLogin()" id="authLoginBtn">🚀 Anmelden</button>
+                </div>
+
+                <!-- Register Form -->
+                <div id="authRegisterForm" style="display:none;flex-direction:column;gap:8px;">
+                  <input type="email" id="authRegisterEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
+                  <input type="password" id="authRegisterPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="new-password">
+                  <input type="password" id="authRegisterPasswordConfirm" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort bestätigen" autocomplete="new-password">
+                  <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthRegister()" id="authRegisterBtn">✨ Konto erstellen</button>
+                </div>
+              </div>
+
+              <!-- Divider -->
+              <div style="display:flex;align-items:center;margin:12px 0;color:rgba(255,255,255,0.3);font-size:0.7rem;">
+                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
+                <div style="padding:0 10px;">oder</div>
+                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
+              </div>
+
               <!-- Google Login Bereich -->
               <div id="googleLoginSection" style="margin-bottom:14px;">
                 <div id="googleLoginInfo" style="display:none;margin-bottom:10px;padding:10px;background:rgba(122,176,48,0.1);border:1px solid rgba(122,176,48,0.2);border-radius:10px;">

@@ -12,7 +12,6 @@ const PRECACHE = [
   // Alle lokalen JS-Dateien
   './app.js',
   './adaptive-bot.js',
-  './physics-engine.js',
   './daily-challenge.js',
   './enhanced-achievements.js',
   './feature-fallback.js',
