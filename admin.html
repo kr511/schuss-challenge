@@ -7,6 +7,11 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .card { transition: opacity 0.3s ease; }
+    .card.completed { opacity: 0.6; }
+    .check-btn { transition: all 0.2s ease; cursor: pointer; }
+    .check-btn:hover { transform: scale(1.1); }
+    .check-btn.done { background: #10b981; color: white; }
   </style>
 </head>
 <body>
@@ -22,6 +27,7 @@
       const [loading, setLoading] = React.useState(true);
       const [error, setError] = React.useState(null);
       const [filter, setFilter] = React.useState('all');
+      const [updating, setUpdating] = React.useState(null);
 
       React.useEffect(() => {
         loadFeedbacks();
@@ -31,15 +37,34 @@
         try {
           setLoading(true);
           const response = await fetch(`${API_BASE_URL}/api/admin/feedbacks`);
-          if (!response.ok) {
-            throw new Error('Failed to load feedbacks');
-          }
+          if (!response.ok) throw new Error('Failed to load feedbacks');
           const data = await response.json();
           setFeedbacks(data.feedbacks || []);
         } catch (err) {
           setError(err.message);
         } finally {
           setLoading(false);
+        }
+      }
+
+      async function markAsDone(id) {
+        setUpdating(id);
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/admin/feedbacks/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'done' }),
+          });
+          if (!response.ok) throw new Error('Failed to update');
+          
+          // Update local state
+          setFeedbacks(prev => prev.map(f => 
+            f.id === id ? { ...f, status: 'done' } : f
+          ));
+        } catch (err) {
+          alert('Fehler: ' + err.message);
+        } finally {
+          setUpdating(null);
         }
       }
 
@@ -51,6 +76,12 @@
         bug: { label: '🐛 Bug', color: '#ef4444', bg: '#fee2e2' },
         feature_request: { label: '💡 Feature', color: '#3b82f6', bg: '#dbeafe' },
         general: { label: '💬 Feedback', color: '#10b981', bg: '#d1fae5' },
+      };
+
+      const stats = {
+        total: feedbacks.length,
+        pending: feedbacks.filter(f => f.status === 'pending').length,
+        done: feedbacks.filter(f => f.status === 'done').length,
       };
 
       if (loading) {
@@ -82,7 +113,8 @@
           // Header
           React.createElement('div', { style: { textAlign: 'center', marginBottom: '40px' } },
             React.createElement('h1', { style: { fontSize: '48px', margin: '0 0 8px 0', color: 'white', fontWeight: 700 } }, '📊 Admin Dashboard'),
-            React.createElement('p', { style: { fontSize: '20px', margin: 0, color: 'rgba(255,255,255,0.9)' } }, `${feedbacks.length} Feedback${feedbacks.length !== 1 ? 's' : ''} erhalten`)
+            React.createElement('p', { style: { fontSize: '20px', margin: 0, color: 'rgba(255,255,255,0.9)' } }, 
+              `${stats.total} Feedback${stats.total !== 1 ? 's' : ''} erhalten · ${stats.pending} offen · ${stats.done} erledigt`)
           ),
           // Filter
           React.createElement('div', { style: { display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '32px', flexWrap: 'wrap' } },
@@ -114,20 +146,53 @@
               filteredFeedbacks.map(feedback => {
                 const config = typeConfig[feedback.feedback_type];
                 const date = new Date(feedback.sent_at).toLocaleString('de-DE');
-                
+                const isDone = feedback.status === 'done';
+
                 return React.createElement('div', {
                   key: feedback.id,
-                  style: { background: 'white', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }
+                  className: `card ${isDone ? 'completed' : ''}`,
+                  style: { 
+                    background: 'white', 
+                    borderRadius: '12px', 
+                    padding: '24px', 
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    position: 'relative',
+                    opacity: isDone ? 0.6 : 1,
+                  }
                 },
-                  React.createElement('div', { style: { marginBottom: '16px' } },
-                    React.createElement('div', { style: { display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '8px' } },
-                      React.createElement('span', {
-                        style: { padding: '4px 12px', background: config.bg, color: config.color, borderRadius: '16px', fontSize: '14px', fontWeight: 600 }
-                      }, config.label),
-                      React.createElement('span', { style: { fontSize: '14px', color: '#6b7280' } }, date)
+                  // Header row
+                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' } },
+                    React.createElement('div', { style: { flex: 1 } },
+                      React.createElement('div', { style: { display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '8px' } },
+                        React.createElement('span', {
+                          style: { padding: '4px 12px', background: config.bg, color: config.color, borderRadius: '16px', fontSize: '14px', fontWeight: 600 }
+                        }, config.label),
+                        React.createElement('span', { style: { fontSize: '14px', color: '#6b7280' } }, date)
+                      ),
+                      React.createElement('h3', { style: { margin: '0 0 4px 0', color: '#1f2937', fontSize: '20px' } }, feedback.title)
                     ),
-                    React.createElement('h3', { style: { margin: '0 0 4px 0', color: '#1f2937', fontSize: '20px' } }, feedback.title)
+                    // Check button
+                    React.createElement('button', {
+                      className: `check-btn ${isDone ? 'done' : ''}`,
+                      onClick: () => markAsDone(feedback.id),
+                      disabled: updating === feedback.id,
+                      style: {
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '50%',
+                        border: isDone ? 'none' : '2px solid #10b981',
+                        background: isDone ? '#10b981' : 'white',
+                        color: isDone ? 'white' : '#10b981',
+                        fontSize: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: updating === feedback.id ? 'wait' : 'pointer',
+                        flexShrink: 0,
+                      }
+                    }, updating === feedback.id ? '⏳' : isDone ? '✓' : '✓')
                   ),
+                  // Content
                   React.createElement('div', { style: { marginBottom: '16px' } },
                     React.createElement('div', { style: { fontSize: '14px', color: '#6b7280', marginBottom: '8px' } },
                       React.createElement('strong', null, 'Von:'), ' ', feedback.user_email
@@ -136,17 +201,18 @@
                       style: { background: '#f9fafb', padding: '16px', borderRadius: '8px', whiteSpace: 'pre-wrap', lineHeight: '1.6', color: '#374151' }
                     }, feedback.message)
                   ),
+                  // Footer with status
                   React.createElement('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
                     React.createElement('span', {
                       style: {
                         padding: '4px 12px',
-                        background: feedback.status === 'pending' ? '#fef3c7' : feedback.status === 'sent' ? '#d1fae5' : '#fee2e2',
-                        color: feedback.status === 'pending' ? '#92400e' : feedback.status === 'sent' ? '#065f46' : '#991b1b',
+                        background: isDone ? '#d1fae5' : feedback.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                        color: isDone ? '#065f46' : feedback.status === 'pending' ? '#92400e' : '#991b1b',
                         borderRadius: '16px',
                         fontSize: '12px',
                         fontWeight: 600,
                       }
-                    }, feedback.status === 'pending' ? '⏳ Ausstehend' : feedback.status === 'sent' ? '✅ Gesendet' : '❌ Fehlgeschlagen')
+                    }, isDone ? '✅ Erledigt' : feedback.status === 'pending' ? '⏳ Ausstehend' : '❌ Fehlgeschlagen')
                   )
                 );
               })
