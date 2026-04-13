@@ -9,6 +9,8 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
   onSubmitSuccess,
   onClose,
 }) => {
+  const API_BASE_URL = 'https://schuss-challenge.eliaskummel.workers.dev';
+  
   const [formData, setFormData] = useState({
     email: '',
     feedbackType: 'general' as 'bug' | 'feature_request' | 'general',
@@ -36,7 +38,7 @@ export const FeedbackForm: React.FC<FeedbackFormProps> = ({
     setError(null);
 
     try {
-      const response = await fetch('/api/feedback', {
+      const response = await fetch(`${API_BASE_URL}/api/feedback`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
