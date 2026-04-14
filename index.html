@@ -168,8 +168,13 @@
           style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
           <span id="pdProfileInitial">A</span>
         </div>
+      </div> <!-- /streakBanner -->
+
+      <!-- ══ OFFENE CHALLENGES ══ -->
+      <div id="pdChallengesContainer" style="margin-bottom:16px;">
+        <!-- Wird von FriendChallenges.renderChallengeCards() befüllt -->
       </div>
-  
+
         <!-- ══ XP PROGRESS BAR ══ -->
         <div id="pdXPBarContainer" style="margin-bottom:20px;"></div>
 
@@ -305,11 +310,21 @@
         </div>
       </div>
 
-      <!-- ══ FLOATING DUELL STARTEN BUTTON ══ -->
-      <button id="btnOpenDuelSetup" onclick="openDuelSetup()"
-        style="position:fixed;bottom:25px;left:50%;transform:translateX(-50%);z-index:8999;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;border:none;border-radius:30px;padding:15px 36px;font-weight:800;font-size:1.05rem;box-shadow:0 8px 30px rgba(122,176,48,0.45),0 0 60px rgba(0,195,255,0.15);cursor:pointer;letter-spacing:0.6px;">
-        <span style="font-size:1.2rem;">🎯</span> DUELL STARTEN
-      </button>
+      <!-- ══ FLOATING ACTION BUTTONS ══ -->
+      <div style="position:fixed;bottom:25px;left:50%;transform:translateX(-50%);z-index:8999;display:flex;gap:12px;align-items:center;">
+        <!-- FREUNDE BUTTON -->
+        <button id="friendsDashboardBtn" onclick="openFriendsOverlay()"
+          style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);color:#fff;border:none;border-radius:30px;padding:15px 20px;font-weight:800;font-size:1rem;box-shadow:0 8px 30px rgba(245,87,108,0.45),0 0 60px rgba(240,147,251,0.15);cursor:pointer;letter-spacing:0.6px;position:relative;">
+          <span style="font-size:1.2rem;">👥</span> FREUNDE
+          <span id="friendsDashboardBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:#f06050;color:#fff;font-size:0.7rem;font-weight:700;width:20px;height:20px;border-radius:50%;align-items:center;justify-content:center;border:2px solid #121214;"></span>
+        </button>
+        
+        <!-- DUELL STARTEN BUTTON -->
+        <button id="btnOpenDuelSetup" onclick="openDuelSetup()"
+          style="background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;border:none;border-radius:30px;padding:15px 36px;font-weight:800;font-size:1.05rem;box-shadow:0 8px 30px rgba(122,176,48,0.45),0 0 60px rgba(0,195,255,0.15);cursor:pointer;letter-spacing:0.6px;">
+          <span style="font-size:1.2rem;">🎯</span> DUELL STARTEN
+        </button>
+      </div>
 
       <!-- ══ BOTTOM SHEET OVERLAY (Duel Setup) ══ -->
       <div id="duelSetupSheetOverlay" onclick="closeDuelSetup(event)"

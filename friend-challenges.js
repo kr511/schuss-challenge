@@ -6,6 +6,62 @@
    - Ergebnis speichern und vergleichen
    ═══════════════════════════════════════════════════════ */
 
+// Helper-Funktion für Benachrichtigungen
+function showNotification(message, type = 'info') {
+  // Versuche existierende Notification-Systeme zu verwenden
+  if (typeof sendNotification === 'function') {
+    sendNotification(message, { type });
+    return;
+  }
+
+  // Fallback: Einfache Toast-Benachrichtigung erstellen
+  const existingToast = document.querySelector('.toast-notification');
+  if (existingToast) {
+    existingToast.remove();
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    border-radius: 8px;
+    background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    animation: slideDown 0.3s ease-out;
+  `;
+
+  document.body.appendChild(toast);
+
+  // Animation für Slide-Down
+  if (!document.getElementById('toast-animation')) {
+    const style = document.createElement('style');
+    style.id = 'toast-animation';
+    style.textContent = `
+      @keyframes slideDown {
+        from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(-20px)';
+    toast.style.transition = 'all 0.3s ease-in';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
 const FriendChallenges = {
   // ─── State ───
   activeChallenges: {},   // { challengeId: { ... } }
@@ -447,6 +503,9 @@ const FriendChallenges = {
 
         // Notification anzeigen
         showNotification(`🎯 ${challenge.fromUsername} fordert dich heraus!`);
+        
+        // NEU: Challenge-Cards aktualisieren
+        this.renderChallengeCards();
       }
     });
 
@@ -478,6 +537,81 @@ const FriendChallenges = {
   getPendingChallengeCount() {
     return Object.values(this.activeChallenges)
       .filter(c => c.toUserId === this.currentUserId && c.status === 'pending').length;
+  },
+
+  // ═══════════════════════════════════════════
+  //  NEU: Challenge-Cards im Dashboard rendern
+  // ═══════════════════════════════════════════
+
+  /** Offene Challenges im Dashboard anzeigen */
+  renderChallengeCards() {
+    const container = document.getElementById('pdChallengesContainer');
+    if (!container) return;
+
+    // Nur Challenges die AN MICH gerichtet sind und pending
+    const incomingChallenges = Object.values(this.activeChallenges)
+      .filter(c => c.toUserId === this.currentUserId && c.status === 'pending');
+
+    if (incomingChallenges.length === 0) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
+
+    const cardsHTML = incomingChallenges.map(challenge => `
+      <div class="challenge-notification-card">
+        <div class="challenge-card-header">
+          <div class="challenge-card-avatar">${challenge.fromUsername.charAt(0).toUpperCase()}</div>
+          <div class="challenge-card-info">
+            <div class="challenge-card-title">🎯 Neue Challenge!</div>
+            <div class="challenge-card-sub">
+              <strong>${this.escapeHtml(challenge.fromUsername)}</strong> fordert dich heraus
+            </div>
+          </div>
+        </div>
+        <div class="challenge-card-details">
+          <div class="challenge-card-badge">${this.getDisciplineIcon(challenge.discipline)} ${this.getDisciplineName(challenge.discipline)}</div>
+          <div class="challenge-card-badge difficulty-${challenge.difficulty}">${this.getDifficultyName(challenge.difficulty)}</div>
+        </div>
+        <div class="challenge-card-actions">
+          <button class="challenge-accept-btn" onclick="FriendChallenges.acceptChallenge('${challenge.challengeId}')">
+            ✅ Annehmen
+          </button>
+          <button class="challenge-decline-btn" onclick="FriendChallenges.declineChallenge('${challenge.challengeId}')">
+            ❌ Ablehnen
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    container.innerHTML = cardsHTML;
+  },
+
+  /** Disziplin-Icon */
+  getDisciplineIcon(disc) {
+    const icons = { lg40: '🌬️', lg60: '⭐', kk50: '🎯', kk100: '🎯', kk3x20: '🏆' };
+    return icons[disc] || '🎯';
+  },
+
+  /** Disziplin-Name */
+  getDisciplineName(disc) {
+    const names = { lg40: 'LG 40', lg60: 'LG 60', kk50: 'KK 50m', kk100: 'KK 100m', kk3x20: 'KK 3×20' };
+    return names[disc] || disc;
+  },
+
+  /** Schwierigkeits-Name */
+  getDifficultyName(diff) {
+    const names = { easy: '😊 Einfach', real: '🎯 Mittel', hard: '💪 Elite', elite: '💫 Profi' };
+    return names[diff] || diff;
+  },
+
+  /** HTML escapen */
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 };
 

@@ -717,11 +717,12 @@ function switchProfileTab(tab) {
 
   if (tab === 'sun') renderSunGrid();
   if (tab === 'lb') {
-    // NEU: Modernes Leaderboard laden falls verfügbar
+    // NEU: IMMER modernes Leaderboard verwenden wenn verfügbar
     if (typeof LeaderboardModern !== 'undefined') {
       LeaderboardModern.load();
-    } else {
-      loadLeaderboard();
+    } else if (typeof loadLeaderboard === 'function') {
+      // Fallback: Alte Funktion mit force=true
+      loadLeaderboard(true);
     }
   }
   if (tab === 'history') renderHistory();
@@ -6129,6 +6130,14 @@ function syncBotScoreToPlayerProgress() {
 
 function startBattle() {
   const dc = DISC[G.discipline];
+  if (!dc) {
+    console.error('[startBattle] DISC[G.discipline] ist undefined! discipline:', G.discipline);
+    if (typeof showNotification === 'function') {
+      showNotification('❌ Disziplin nicht gefunden!', 'error');
+    }
+    return;
+  }
+
   G.maxShots = dc.shots;
   G.playerShotsLeft = dc.shots;
   G.botShotsLeft = dc.shots;
@@ -6140,13 +6149,13 @@ function startBattle() {
   G._lastPlayerShotAt = G._gameStartTime;
   HealthyEngagement.onBattleStart();
   G.dnf = false;
-  
+
   // NEU: Friend-Challenge Modus erkennen
   const isFriendChallenge = !!G.friendChallenge;
   if (isFriendChallenge) {
     console.debug('[Battle] Friend-Challenge Modus aktiv gegen:', G.friendChallenge.friendUsername);
   }
-  
+
   G.probeActive = true;  // Probezeit ist aktiv
   G.probeSecsLeft = (isFriendChallenge || G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
   G.transitionSecsLeft = 0;
@@ -6167,10 +6176,20 @@ function startBattle() {
 
   setSz(); drawTarget([]);
 
-  // BUG-FIX #3: Null-Check für shotLogWrap verhindert Absturz wenn DOM nicht bereit
-  if (!DOM.shotLogWrap) {
-    console.error('[startBattle] shotLogWrap nicht gefunden — DOM nicht bereit?');
-    return;
+  // KRITISCH: Null-Check für alle DOM-Elemente
+  const domChecks = [
+    'shotLogWrap', 'lastShotTxt', 'battleBadge', 'battleWeaponBadge', 
+    'entryTag', 'posBar', 'battleFireBtn', 'battleBurstBtn', 'skipProbeBtn'
+  ];
+  
+  for (const key of domChecks) {
+    if (!DOM[key]) {
+      console.error(`[startBattle] DOM.${key} nicht gefunden!`);
+      if (typeof showNotification === 'function') {
+        showNotification(`❌ UI-Element fehlt: ${key}`, 'error');
+      }
+      return;
+    }
   }
 
   // Reset shot log area
@@ -6211,7 +6230,14 @@ function startBattle() {
   DOM.battleBadge.className = 'diff-badge ' + diffCfg.cls;
   DOM.battleWeaponBadge.textContent = weapCfg.icon + ' ' + dc.name.toUpperCase();
   DOM.battleWeaponBadge.className = 'weapon-badge ' + weapCfg.badgeCls;
-  DOM.entryTag.textContent = `◆ ${G.dist} METER · ${dc.name} · ${G.maxShots} SCHUSS ◆`;
+  
+  // NEU: Friend-Challenge Hinweis anzeigen
+  if (G.friendChallenge) {
+    DOM.entryTag.textContent = `🎯 VS ${G.friendChallenge.friendUsername.toUpperCase()} · ${dc.name} · ${G.maxShots} SCHUSS`;
+    DOM.entryTag.classList.add('friend-challenge-tag');
+  } else {
+    DOM.entryTag.textContent = `◆ ${G.dist} METER · ${dc.name} · ${G.maxShots} SCHUSS ◆`;
+  }
 
   DOM.posBar.classList.toggle('visible', G.is3x20);
   if (G.is3x20) updatePosBar();
@@ -6261,6 +6287,12 @@ function updateBattleUI() {
   const lowThresh = Math.max(5, Math.round(G.maxShots * 0.15));
   const low = G.playerShotsLeft <= lowThresh;
   const fired = G.maxShots - G.playerShotsLeft;
+
+  // KRITISCH: Null-Check für essentielle DOM-Elemente
+  if (!DOM.shotsLeft || !DOM.botScoreChipInt || !DOM.lsbInt) {
+    console.error('[updateBattleUI] Essentielle DOM-Elemente fehlen!');
+    return;
+  }
 
   // Score — compute once, assign to both score chip and live bar
   DOM.shotsLeft.textContent = G.playerShotsLeft;

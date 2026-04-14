@@ -37,12 +37,35 @@ const LeaderboardModern = {
 
     container.innerHTML = '<div class="lb-modern-loading">⏳ Lade Weltrangliste...</div>';
 
-    try {
-      if (!fbReady || !fbDb) {
-        container.innerHTML = '<div class="lb-modern-error">🔌 Offline – Weltrangliste nicht verfügbar.</div>';
-        this.isLoading = false;
-        return;
+    // NEU: Warte auf Firebase mit Retry-Logic (max 10 Versuche = 5 Sekunden)
+    const waitForFirebase = async (maxRetries = 10) => {
+      for (let i = 0; i < maxRetries; i++) {
+        if (typeof fbReady !== 'undefined' && fbReady && typeof fbDb !== 'undefined' && fbDb) {
+          return true;
+        }
+        // Warte 500ms und versuche erneut
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
+      return false;
+    };
+
+    const fbIsReady = await waitForFirebase();
+
+    if (!fbIsReady) {
+      console.warn('[LeaderboardModern] Firebase nicht bereit nach 5 Sekunden');
+      container.innerHTML = `
+        <div class="lb-modern-error">
+          🔌 Firebase nicht bereit.<br>
+          <small>Bitte Seite neu laden (F5).</small>
+        </div>
+      `;
+      this.isLoading = false;
+      return;
+    }
+
+    // JETZT laden - Firebase ist bereit
+    try {
+      console.debug('[LeaderboardModern] Lade von Firebase...');
 
       // Lade Top 100 aus Firebase
       const snapshot = await fbDb.ref('leaderboard_v2')
@@ -55,6 +78,8 @@ const LeaderboardModern = {
         entries.push(child.val());
       });
       entries.reverse(); // Höchster Score zuerst
+
+      console.debug(`[LeaderboardModern] ${entries.length} Einträge geladen`);
 
       this.allEntries = entries;
       this.filteredEntries = entries;

@@ -171,3 +171,49 @@ const FriendsUI = (function() {
 
 // Auto-Init
 document.addEventListener('DOMContentLoaded', FriendsUI.init);
+
+// ═══════════════════════════════════════════
+// NEU: Dashboard Integration
+// ═══════════════════════════════════════════
+
+/** Freunde-Overlay vom Dashboard öffnen */
+window.openFriendsOverlay = function() {
+  const overlay = document.getElementById('profileOverlay');
+  if (!overlay) {
+    console.warn('[FriendsUI] Profil-Overlay nicht gefunden');
+    return;
+  }
+
+  // Wenn Overlay nicht aktiv ist, öffnen
+  if (!overlay.classList.contains('active')) {
+    if (typeof toggleProfileMenu === 'function') {
+      toggleProfileMenu();
+    } else {
+      overlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  // Direkt zu Freunde-Tab wechseln
+  setTimeout(() => {
+    if (typeof switchProfileTab === 'function') {
+      switchProfileTab('friends');
+    }
+  }, 150);
+
+  // Sound
+  if (typeof Sfx !== 'undefined') Sfx.play('click');
+};
+
+/** Badge auf Dashboard aktualisieren */
+window.updateFriendsDashboardBadge = function(count) {
+  const badge = document.getElementById('friendsDashboardBadge');
+  if (badge) {
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+};
