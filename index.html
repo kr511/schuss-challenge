@@ -136,7 +136,6 @@
     </div>
   </div>
 
-  </div>
   <div id="muzzleFlash"></div>
 
   <!-- ══════════════════════════ SETUP ══════════════════════════ -->
@@ -210,7 +209,7 @@
       <div id="pdMainStatsRow" style="display:flex;gap:12px;margin-bottom:20px;">
 
         <!-- LINKS: Letzte 3 Duelle -->
-        <div
+        <div class="stat-card will-animate"
           style="flex:1.6;background:linear-gradient(145deg, rgba(50,55,60,0.4) 0%, rgba(15,18,20,0.8) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.15);border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.05);">
           <div
             style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-bottom:8px;font-weight:600;letter-spacing:0.05em;">
@@ -260,7 +259,7 @@
 
         <!-- RECHTS: Tages-Statistik -->
         <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
-          <div
+          <div class="stat-card will-animate stagger-1"
             style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
             <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Siegesserie</div>
             <div id="pdSideStreak" style="font-size:1.2rem;font-weight:700;color:#fff;">🔥 0</div>
@@ -269,7 +268,7 @@
                 style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35,#ff9500);border-radius:3px;"></div>
             </div>
           </div>
-          <div
+          <div class="stat-card will-animate stagger-2"
             style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
             <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Spiele heute</div>
             <div id="pdSideGamesToday" style="font-size:1.2rem;font-weight:700;color:#fff;">0</div>
@@ -278,7 +277,7 @@
                 style="height:100%;width:0%;background:linear-gradient(90deg,#00c3ff,#7ab030);border-radius:3px;"></div>
             </div>
           </div>
-          <div
+          <div class="stat-card will-animate stagger-3"
             style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
             <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Rang</div>
             <div id="pdSideRank" style="font-size:1rem;font-weight:700;color:#fff;">🎯 Anfänger</div>
@@ -298,7 +297,7 @@
       <!-- ══ RECENT SESSIONS ══ -->
       <div id="pdRecentListHeader" style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:10px;">Letzte Duelle</div>
       <div id="pdRecentList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
-        <div
+        <div class="duel-entry will-animate stagger-4"
           style="background:linear-gradient(145deg, rgba(40,45,50,0.4) 0%, rgba(10,12,15,0.7) 100%);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;text-align:center;color:rgba(255,255,255,0.3);font-size:0.8rem;box-shadow:0 6px 20px rgba(0,0,0,0.4);">
           Noch keine Duelle gespielt. Starte dein erstes Duell!
         </div>
@@ -1505,6 +1504,16 @@
       const sheet = document.getElementById('duelSetupSheet');
       ov.style.display = 'block';
       
+      // Premium Blur Effect: Background verschwommen
+      const dash = document.getElementById('premiumDashboard');
+      const hdr = document.querySelector('.hdr');
+      const startBtn = document.getElementById('btnOpenDuelSetup');
+      const transition = 'filter 0.3s ease, opacity 0.3s ease';
+      
+      if (dash) { dash.style.transition = transition; dash.style.filter = 'blur(10px) brightness(0.6)'; }
+      if (hdr) { hdr.style.transition = transition; hdr.style.filter = 'blur(10px) brightness(0.6)'; }
+      if (startBtn) { startBtn.style.transition = transition; startBtn.style.opacity = '0'; }
+      
       // Show game mode selection first
       showGameModeSelection();
 
@@ -1560,6 +1569,15 @@
       const sheet = document.getElementById('duelSetupSheet');
       sheet.style.bottom = '-100%';
       ov.style.opacity = '0';
+      
+      // Premium Blur Effect zurücksetzen
+      const dash = document.getElementById('premiumDashboard');
+      const hdr = document.querySelector('.hdr');
+      const startBtn = document.getElementById('btnOpenDuelSetup');
+      if (dash) dash.style.filter = '';
+      if (hdr) hdr.style.filter = '';
+      if (startBtn) startBtn.style.opacity = '1';
+      
       setTimeout(() => { ov.style.display = 'none'; }, 400);
     }
   </script>
