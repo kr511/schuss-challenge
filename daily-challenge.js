@@ -94,15 +94,6 @@ const DailyChallenge = (function () {
     },
     // NEUE QUESTS:
     {
-      id: 'play_5_games',
-      type: 'play_count',
-      difficulty: 'easy',
-      desc: 'Spiele heute 5 Duelle (beliebige Disziplin).',
-      target: 5,
-      xpReward: 35,
-      check: (game, stats) => true // Progress wird in trackGame addiert
-    },
-    {
       id: 'hit_5_tens',
       type: 'tens_count',
       difficulty: 'medium',
@@ -152,15 +143,6 @@ const DailyChallenge = (function () {
       target: 1,
       xpReward: 55,
       check: (game, stats) => (game.consistency || 0) >= 90
-    },
-    {
-      id: 'win_3_hard',
-      type: 'win',
-      difficulty: 'hard',
-      desc: 'Gewinne 3 Duelle auf "Mittel" oder höher.',
-      target: 3,
-      xpReward: 50,
-      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite')
     }
   ];
 
@@ -218,6 +200,13 @@ const DailyChallenge = (function () {
         window.refreshPremiumDashboard();
       }
     }, 30000);
+  }
+
+  function stopUIRefresh() {
+    if (uiRefreshTimer) {
+      clearInterval(uiRefreshTimer);
+      uiRefreshTimer = null;
+    }
   }
 
   function normalizeChallenge(entry) {
@@ -820,6 +809,17 @@ const DailyChallenge = (function () {
     trackGame,
     openFinalChest,
     getState: () => state,
-    getChallengeRef
+    getChallengeRef,
+    stopUIRefresh,
+    cleanup: () => {
+      stopUIRefresh();
+    }
   };
 })();
+
+// Cleanup bei Seitenentladung / Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  if (typeof DailyChallenge.cleanup === 'function') {
+    DailyChallenge.cleanup();
+  }
+});
