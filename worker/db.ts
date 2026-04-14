@@ -341,22 +341,50 @@ export async function getPendingFeedback(env: Env, limit = 50): Promise<any[]> {
   return (result.results || []).map(mapFeedback);
 }
 
-export function dbHelpers(env: Env) {
-  return {
-    createUser: (email: string, displayName: string) => createUser(env, email, displayName),
-    getUserByEmail: (email: string) => getUserByEmail(env, email),
-    saveGameSession: (
-      userId: string,
-      session: Omit<GameSession, "id" | "userId"> & { id?: string },
-    ) => saveGameSession(env, userId, session),
-    getSessionsByUser: (userId: string, limit = 20) => getSessionsByUser(env, userId, limit),
-    unlockAchievement: (userId: string, type: string) => unlockAchievement(env, userId, type),
-    getAchievements: (userId: string) => getAchievements(env, userId),
-    updateStreak: (userId: string, playedDate: string) => updateStreak(env, userId, playedDate),
-    saveFeedback: (userEmail: string, feedbackType: any, title: string, message: string) => 
-      saveFeedback(env, userEmail, feedbackType, title, message),
-    updateFeedbackStatus: (feedbackId: string, status: any) => 
-      updateFeedbackStatus(env, feedbackId, status),
-    getPendingFeedback: (limit?: number) => getPendingFeedback(env, limit),
-  };
+export async function updateProfile(
+  env: Env,
+  userId: string,
+  displayName: string,
+  privacySettings: 'public' | 'private' = 'private',
+  bestStats: string,
+): Promise<void> {
+  await ensureUserExists(env.DB, userId);
+  await env.DB.prepare(
+    "INSERT OR REPLACE INTO profiles (user_id, public_id, display_name, privacy_settings, best_stats) VALUES (?, COALESCE((SELECT public_id FROM profiles WHERE user_id = ?), lower(hex(randomblob(8)))), ?, ?, ?)",
+  )
+    .bind(userId, userId, displayName, privacySettings, bestStats)
+    .run();
 }
+
+export async function getProfile(env: Env, publicId: string): Promise<any | null> {
+  const row = await env.DB.prepare(
+    "SELECT * FROM profiles WHERE public_id = ? AND privacy_settings = 'public'",
+  )
+    .bind(publicId)
+    .first();
+  return row;
+}
+
+export async function setActivity(
+  env: Env,
+  userId: string,
+  discipline: string,
+  difficulty: string,
+  status: 'active' | 'idle',
+): Promise<void> {
+  await env.DB.prepare(
+    "INSERT OR REPLACE INTO activity_log (user_id, discipline, difficulty, timestamp, status) VALUES (?, ?, ?, ?, ?)",
+  )
+    .bind(userId, discipline, difficulty, Date.now(), status)
+    .run();
+}
+
+export async function getLiveActivity(env: Env): Promise<any[]> {
+  const result = await env.DB.prepare(
+    "SELECT * FROM activity_log WHERE status = 'active' AND timestamp > ?",
+  )
+    .bind(Date.now() - 60000)
+    .all();
+  return result.results || [];
+}
+

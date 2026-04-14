@@ -8,6 +8,10 @@ import {
   updateStreak,
   saveFeedback,
   updateFeedbackStatus,
+  updateProfile,
+  getProfile,
+  setActivity,
+  getLiveActivity,
 } from "./db";
 import type { D1Database, Env, GameMode } from "./types";
 
@@ -316,22 +320,29 @@ async function handleGetFeedbacks(env: Env): Promise<Response> {
   });
 }
 
-async function handlePatchFeedback(request: Request, env: Env, feedbackId: string): Promise<Response> {
-  const payload = await request.json();
-  
-  if (payload.status && ['pending', 'done', 'archived'].includes(payload.status)) {
-    await env.DB.prepare(
-      "UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?"
-    ).bind(payload.status, Date.now(), feedbackId).run();
-
-    return json({
-      ok: true,
-      message: "Feedback status updated",
-    });
-  }
-
-  return json({ error: true, message: "Invalid status" }, 400);
+async function handleGetProfile(url: URL, env: Env): Promise<Response> {
+  const publicId = url.pathname.split("/").pop() || "";
+  const profile = await getProfile(env, publicId);
+  return profile ? json(profile) : json({ error: "Profile not found" }, 404);
 }
+
+async function handlePostProfile(request: Request, env: Env, userId: string): Promise<Response> {
+  const payload = await request.json();
+  await updateProfile(env, userId, payload.displayName, payload.privacySettings, payload.bestStats);
+  return json({ ok: true });
+}
+
+async function handleSetActivity(request: Request, env: Env, userId: string): Promise<Response> {
+  const payload = await request.json();
+  await setActivity(env, userId, payload.discipline, payload.difficulty, 'active');
+  return json({ ok: true });
+}
+
+async function handleGetLiveActivity(env: Env): Promise<Response> {
+  const activity = await getLiveActivity(env);
+  return json({ activity });
+}
+
 
 export async function handleApiRequest(request: Request, env: Env): Promise<Response> {
   if (request.method === "OPTIONS") {
@@ -374,6 +385,16 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       return await handlePatchFeedback(request, env, feedbackId);
     }
 
+    // Activity endpoint
+    if (path === "/api/activity/live" && request.method === "GET") {
+      return await handleGetLiveActivity(env);
+    }
+    
+    // Profile endpoint (public)
+    if (path.startsWith("/api/profile/") && request.method === "GET") {
+      return await handleGetProfile(url, env);
+    }
+
     const userId = getAuthenticatedUserId(request, env, url);
     if (!userId) {
       return authError(
@@ -381,6 +402,14 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
           ? "Missing x-dev-user-id for local development"
           : "User-scoped API routes are disabled until secure authentication is configured",
       );
+    }
+
+    // New profile and activity routes
+    if (path === "/api/profile" && request.method === "POST") {
+      return await handlePostProfile(request, env, userId);
+    }
+    if (path === "/api/activity/start" && request.method === "POST") {
+      return await handleSetActivity(request, env, userId);
     }
 
     if (path === "/api/sessions" && request.method === "POST") {
