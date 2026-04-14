@@ -4189,6 +4189,20 @@ function applyCloudSnapshot(snapshot) {
     }
 
     const normalizedValue = String(nextValue);
+    
+    // --- MERGE STRATEGY (NEW) ---
+    // Higher value wins for XP and streaks to prevent data loss on multi-device
+    const mergeKeys = ['xp', 'lg_streak', 'lg_best', 'kk_streak', 'kk_best'];
+    if (mergeKeys.includes(key)) {
+      const currentNum = parseInt(currentValue || '0', 10) || 0;
+      const nextNum = parseInt(nextValue || '0', 10) || 0;
+      if (nextNum > currentNum) {
+        localStorage.setItem(storageKey, String(nextNum));
+        changed = true;
+      }
+      return;
+    }
+
     if (currentValue !== normalizedValue) {
       localStorage.setItem(storageKey, normalizedValue);
       changed = true;
