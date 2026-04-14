@@ -174,13 +174,6 @@ async function handlePostSession(request: Request, env: Env, userId: string): Pr
   const playedAt = payload.playedAt ?? Date.now();
   const playedDate = payload.playedDate ?? toIsoDateUTC(playedAt);
 
-  // --- SCORE VALIDATION (NEW) ---
-  // Max possible score per shot is 10.9
-  const maxPossibleScore = Math.ceil(payload.shotsFired * 10.9);
-  if (payload.score > maxPossibleScore) {
-    throw new ApiHttpError(400, "VALIDATION_ERROR", `Score (${payload.score}) exceeds maximum possible for ${payload.shotsFired} shots (${maxPossibleScore})`);
-  }
-
   await saveGameSession(env, userId, {
     mode: payload.mode,
     score: payload.score,
