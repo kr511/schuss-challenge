@@ -42,11 +42,16 @@ const FriendsSystem = (function() {
   async function init() {
     console.log('👥 Freundes-System initialisiert');
 
-    // User-ID holen
-    state.currentUserId = getFirebaseOwnerId() || StorageManager.getRaw('userId');
-    
-    if (!state.currentUserId) {
-      console.warn('⚠️ Keine User-ID verfügbar, Freundes-System deaktiviert');
+    try {
+      // User-ID holen - sicher prüfen ob Funktion existiert
+      state.currentUserId = (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId');
+      
+      if (!state.currentUserId) {
+        console.warn('⚠️ Keine User-ID verfügbar, Freundes-System deaktiviert');
+        return;
+      }
+    } catch (e) {
+      console.warn('⚠️ Fehler beim Initialisieren:', e);
       return;
     }
 
@@ -759,16 +764,15 @@ if (typeof window !== 'undefined') {
     document.addEventListener('DOMContentLoaded', () => {
       FriendsSystem.init().then(() => {
         FriendsSystem.addFriendsButton();
+        // Global verfügbar machen
+        window.FriendsSystem = FriendsSystem;
       });
     });
   } else {
     FriendsSystem.init().then(() => {
       FriendsSystem.addFriendsButton();
+      // Global verfügbar machen
+      window.FriendsSystem = FriendsSystem;
     });
-  }
-
-  // Debug export
-  if (window.DEBUG) {
-    window.FriendsSystem = FriendsSystem;
   }
 }

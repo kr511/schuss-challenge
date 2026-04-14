@@ -2507,9 +2507,6 @@ function refreshPremiumDashboard() {
     `;
   }
 
-  const statScore = document.querySelector('.pd-stats-row .pd-stat-val[style*="color:var(--accent)"]');
-  if (statScore) statScore.innerText = xp + ' XP';
-
   // 3. Stats Today (EnhancedAnalytics)
   let hits = 0;
   let accSum = 0;
@@ -2608,16 +2605,19 @@ function refreshPremiumDashboard() {
 
   // Gesamt XP: Nur aus den letzten 3 Duellen
   const totalXP = latest3ForStats.reduce((sum, g) => {
-    // Verwende gespeichertes xpEarned falls vorhanden, sonst berechne es
+    // Verwende gespeichertes xpEarned falls vorhanden
     if (Number.isFinite(g.xpEarned)) {
       return sum + g.xpEarned;
     }
-    // Fallback für alte Einträge
+    // Fallback für alte Einträge: Nur bei Sieg XP geben
     const isWin = g.result === 'win' || g.result === 'Sieg';
     if (!isWin) return sum; // Niederlage = 0 XP
-    const diff = g.difficulty || 'easy';
-    const xpGained = XP_PER_WIN[diff] || 10;
-    return sum + xpGained;
+    
+    // Schwierigkeit auslesen (verschiedene Feldnamen beachten)
+    const diff = g.difficulty || g.diff;
+    // Nur XP geben wenn Schwierigkeit bekannt ist, sonst 0
+    if (!diff || !XP_PER_WIN[diff]) return sum;
+    return sum + XP_PER_WIN[diff];
   }, 0);
 
   const elPdStatWins = document.getElementById('pdStatWins');
