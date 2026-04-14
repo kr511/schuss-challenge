@@ -7768,7 +7768,36 @@ window.addEventListener('resize', () => {
 // ── Service Worker (PWA / Offline) ──────────────────────────────────
 if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=2.7').catch(() => { });
+    navigator.serviceWorker.register('./sw.js?v=3.1').then(registration => {
+      console.log('✅ Service Worker registriert');
+      
+      // Prüfe auf Updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // Neue Version verfügbar - benachrichtige Benutzer
+            console.log('🔄 Neue Version verfügbar! Seite neu laden für Updates.');
+            if (typeof showUpdateNotification === 'function') {
+              showUpdateNotification();
+            }
+          }
+        });
+      });
+    }).catch(() => { });
+  });
+  
+  // Höre auf Nachrichten vom Service Worker
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SW_UPDATED') {
+      console.log(`🔄 Service Worker Update erkannt: ${event.data.version}`);
+      // Automatisch neu laden nach kurzer Verzögerung
+      setTimeout(() => {
+        if (confirm('🔄 Neue Version verfügbar! Jetzt neu laden?')) {
+          window.location.reload();
+        }
+      }, 1000);
+    }
   });
 }
 

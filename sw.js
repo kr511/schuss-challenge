@@ -3,7 +3,7 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v3.0' // Hard Reset: Alle alten Caches werden gelöscht
+const CACHE_VERSION = 'v3.1' // Auto-Update: Neue Version bei jedem Deploy
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -57,6 +57,13 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 
   console.log(`🔄 Service Worker ${CACHE_VERSION} aktiviert`);
+  
+  // Benachrichtige alle Clients über neues Update
+  self.clients.matchAll().then(clients => {
+    clients.forEach(client => {
+      client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION });
+    });
+  });
 });
 
 self.addEventListener('fetch', event => {
