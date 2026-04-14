@@ -82,6 +82,11 @@ Sei sehr präzise und professionell. Maximal 5-6 Sätze.`
     _keyLoading = true;
     _keyLoadPromise = (async () => {
       try {
+        // Firebase-Konfiguration muss von app.js bereitgestellt werden
+        if (typeof window.FIREBASE_DB_URL === 'undefined' || typeof window.API_KEY_PATH === 'undefined') {
+          console.warn('[GeminiCoach] FIREBASE_DB_URL oder API_KEY_PATH nicht definiert');
+          return null;
+        }
         const resp = await fetch(FIREBASE_DB_URL + API_KEY_PATH);
         if (!resp.ok) {
           console.warn('[GeminiCoach] Konnte API-Key nicht aus Firebase laden:', resp.status);

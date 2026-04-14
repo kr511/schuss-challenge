@@ -1768,6 +1768,15 @@ window.ImageCompare = (function () {
     overlay.dataset.botScore = String(botScore || 0);
     overlay.dataset.isKK = isKK ? 'true' : 'false';
 
+    // Body scroll lock
+    document.body.style.overflow = 'hidden';
+    // iOS Safari fallback
+    if (window.innerWidth <= 768) {
+      const scrollY = window.scrollY || window.pageYOffset;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+    }
+
     if (!overlay.dataset.eventsAttached) {
       setupOverlayEvents(overlay);
       overlay.dataset.eventsAttached = 'true';
@@ -1912,6 +1921,15 @@ window.ImageCompare = (function () {
       resetUploadZone(overlay, isKK);
     }
     _isProcessing = false;
+    // Body scroll unlock
+    document.body.style.overflow = '';
+    // iOS Safari fallback: scroll position wiederherstellen
+    if (window.innerWidth <= 768 && document.body.style.position === 'fixed') {
+      const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
+      document.body.style.position = '';
+      document.body.style.top = '';
+      window.scrollTo(0, scrollY);
+    }
   }
 
   async function handleImageFile(file, overlay) {

@@ -332,7 +332,7 @@ const AdaptiveBotSystem = (function () {
       physicsEngine = ShootingPhysicsEngine.createEngine();
       physicsEngine.setPhysiologicalState(botState.stressLevel, botState.fatigue);
     } else {
-      console.warn('⚠️ ShootingPhysicsEngine nicht geladen – Bot arbeitet im Fallback-Modus');
+      console.debug('⚠️ ShootingPhysicsEngine nicht geladen – Bot arbeitet im Fallback-Modus');
     }
 
     // Automatischen Stimmungswechsel starten / Start automatic mood changes

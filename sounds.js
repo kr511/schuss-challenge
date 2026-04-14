@@ -6,7 +6,7 @@
 
 const Sounds = (() => {
   let _ctx = null;
-  let _enabled = localStorage.getItem('sd_sound') !== '0';
+  let _enabled = (typeof StorageManager !== 'undefined' ? StorageManager.getRaw('sound', '1') : localStorage.getItem('sd_sound')) !== '0';
 
   function ctx() {
     if (!_ctx) {

@@ -75,7 +75,7 @@
       // Bot anpassen
       this.adaptBot();
 
-      console.log('[AdaptiveAI] Spieler-Muster:', this.playerPatterns);
+      console.debug('[AdaptiveAI] Spieler-Muster:', this.playerPatterns);
     },
 
     /**

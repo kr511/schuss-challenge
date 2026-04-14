@@ -220,6 +220,23 @@ const G = {
   transitionLabel: '',   // Label für aktuelle Übergangsphase
 };
 
+// Shot Log Auto-Scroll mit Debounce (verhindert Race Conditions bei schnellen Schüssen)
+let _shotLogScrollPending = false;
+function autoScrollShotLog() {
+  if (_shotLogScrollPending) return;
+  _shotLogScrollPending = true;
+  requestAnimationFrame(() => {
+    if (DOM.shotLogWrap) {
+      // Smooth scroll für besseres UX
+      DOM.shotLogWrap.scrollTo({
+        top: DOM.shotLogWrap.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+    setTimeout(() => { _shotLogScrollPending = false; }, 100);
+  });
+}
+
 /* ─── DISZIPLIN CONFIG ───────────────────── */
 const DISC = {
   // Luftgewehr
@@ -649,11 +666,27 @@ function toggleProfileMenu() {
   if (isActive) {
     ov.classList.remove('active');
     if (icon) icon.classList.remove('active');
+    document.body.style.overflow = '';
+    // iOS Safari fallback: scroll position wiederherstellen
+    if (window.innerWidth <= 768 && document.body.style.position === 'fixed') {
+      const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
+      document.body.style.position = '';
+      document.body.style.top = '';
+      window.scrollTo(0, scrollY);
+    }
   } else {
     refreshDebugToolsVisibility();
     refreshProfileSheet();
     ov.classList.add('active');
     if (icon) icon.classList.add('active');
+    // Body scroll lock
+    document.body.style.overflow = 'hidden';
+    // iOS Safari fallback: position fixed + scroll position speichern
+    if (window.innerWidth <= 768) {
+      const scrollY = window.scrollY || window.pageYOffset;
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+    }
     // Chart + Sound-Button erst nach Paint initialisieren
     requestAnimationFrame(() => requestAnimationFrame(() => {
       renderPerformanceChart();
@@ -1685,7 +1718,7 @@ function fbSetDuel(data) {
   if (iconEl) iconEl.innerHTML = meta.icon;
   // Title
   const titleEl = document.getElementById('fbResultTitle');
-  const name = data.opponent || data.discipline;
+  const name = escHtml(data.opponent || data.discipline);
   if (titleEl) titleEl.innerHTML = `${name} — <span style="color:${meta.color}">${meta.text}</span>`;
   // Score
   const scoreEl = document.getElementById('fbResultScore');
@@ -1803,7 +1836,7 @@ function fbSubmit() {
   if (!Array.isArray(entries)) entries = [];
   entries.unshift({ score, totalDuels, weapon: G.weapon, discipline: fbDuelData?.discipline || G.discipline, ts: Date.now(), tags: fbTags, comment });
   while (entries.length > 100) entries.pop();
-  try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
+  try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { console.warn('[Feedback] localStorage Fehler:', e.message); }
 
   console.log('[Feedback]', { rating: fbRating + 1, tags: fbTags, comment, duel: fbDuelData });
 
@@ -1854,7 +1887,7 @@ function submitSiteFeedback(rating) {
       ts: Date.now()
     });
     while (entries.length > 100) entries.pop();
-    try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
+    try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { console.warn('[Feedback] localStorage Fehler:', e.message); }
 
     {
       const safeUsername = sanitizeUsername(G.username || 'Anonym');
@@ -1942,7 +1975,7 @@ function readJsonStorage(key, fallback) {
 }
 
 function writeJsonStorage(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { }
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('[Storage] localStorage Fehler:', e.message); }
 }
 
 function showEngagementToast(message, durationMs = 4200) {
@@ -2215,7 +2248,7 @@ const HealthyEngagement = (function () {
           body: 'Deine Rookie-Woche und Tagesmission warten auf dich.',
           tag: 'sd-gentle-reminder'
         });
-      } catch (e) { }
+      } catch (e) { console.warn('[Rookie] Reminder speichern fehlgeschlagen:', e.message); }
     }
     state.lastReminderDateId = today;
     saveState();
@@ -2455,7 +2488,7 @@ function addHistoryEntry(result, diff, weapon, playerPts, botPts) {
     StorageManager.set('history', hist);
     scheduleCloudSync('history_changed');
     return historyEntry;
-  } catch (e) { }
+  } catch (e) { console.warn('[History] History-Eintrag speichern fehlgeschlagen:', e.message); }
   return null;
 }
 
@@ -2518,7 +2551,7 @@ function refreshPremiumDashboard() {
   try {
     const analytics = JSON.parse(localStorage.getItem('sd_enhanced_analytics') || '{}');
     historyV2 = Array.isArray(analytics.games) ? analytics.games : [];
-  } catch (e) { }
+  } catch (e) { console.warn('[Analytics] Analytics-Daten laden fehlgeschlagen:', e.message); }
 
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
@@ -2857,7 +2890,7 @@ function refreshPremiumDashboard() {
     try {
       const stored = localStorage.getItem('sd_daily_challenge');
       if (stored) dailyState = JSON.parse(stored);
-    } catch (e) { }
+    } catch (e) { console.warn('[Daily] Daily-Challenge laden fehlgeschlagen:', e.message); }
 
     let questHtml = `
       <div style="font-size:1.05rem; font-weight:600; color:#fff; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
@@ -2971,8 +3004,8 @@ function renderHistory() {
     }
     el.innerHTML = hist.map(h => {
       const resLabel = h.result === 'win' ? 'S' : h.result === 'lose' ? 'N' : 'U';
-      const pPts = h.playerPts != null ? parseFloat(h.playerPts).toFixed(1) : '–';
-      const bPts = h.botPts != null ? parseFloat(h.botPts).toFixed(1) : '–';
+      const pPts = h.playerPts !== null ? parseFloat(h.playerPts).toFixed(1) : '–';
+      const bPts = h.botPts !== null ? parseFloat(h.botPts).toFixed(1) : '–';
       const weaponUpper = (h.weapon || (h.weaponName === 'Luftgewehr' ? 'lg' : h.weaponName === 'Kleinkaliber' ? 'kk' : h.weaponName) || 'LG').toUpperCase();
       let discUpper = (h.disciplineName || h.discipline || '').toString().toUpperCase();
       if (discUpper.startsWith(weaponUpper)) {
@@ -3026,10 +3059,10 @@ function renderPerformanceChart() {
 
   // Daten laden, filtern, auf 15 begrenzen, älteste links
   let hist = [];
-  try { hist = JSON.parse(localStorage.getItem('sd_history') || '[]'); } catch (e) { }
+  try { hist = JSON.parse(localStorage.getItem('sd_history') || '[]'); } catch (e) { console.warn('[History] History laden fehlgeschlagen:', e.message); }
 
   const filtered = hist
-    .filter(h => h.weapon === _perfWeapon && h.playerPts != null)
+    .filter(h => h.weapon === _perfWeapon && h.playerPts !== null)
     .slice(0, 15)
     .reverse();
 
@@ -3041,7 +3074,7 @@ function renderPerformanceChart() {
       // Zeige ob überhaupt History-Daten vorhanden sind
       const totalHist = hist.length;
       const otherWeapon = _perfWeapon === 'lg' ? 'KK' : 'LG';
-      const otherCount = hist.filter(h => h.weapon !== _perfWeapon && h.playerPts != null).length;
+      const otherCount = hist.filter(h => h.weapon !== _perfWeapon && h.playerPts !== null).length;
       emptyEl.innerHTML = totalHist === 0
         ? 'Noch keine Daten.<br><span style="font-size:.6rem;opacity:.5;">Spiel ein Duell und gib dein Ergebnis ein!</span>'
         : `Keine ${_perfWeapon.toUpperCase()}-Daten.<br><span style="font-size:.6rem;opacity:.5;">${otherCount} ${otherWeapon}-Einträge vorhanden → Toggle wechseln</span>`;
@@ -3077,12 +3110,24 @@ function renderPerformanceChart() {
   });
 
   // Gradient-Fill — feste Höhe 160 damit er auch vor erstem Paint funktioniert
-  const ctx2d = canvas.getContext('2d');
+  let ctx2d;
+  try {
+    ctx2d = canvas.getContext('2d');
+  } catch (e) {
+    console.warn('[Chart] Canvas getContext fehlgeschlagen:', e.message);
+    canvas.style.display = 'none';
+    if (emptyEl) {
+      emptyEl.style.display = 'flex';
+      emptyEl.innerHTML = 'Chart nicht verfügbar.<br><span style="font-size:.6rem;opacity:.5;">Chart.js konnte nicht geladen werden.</span>';
+    }
+    return;
+  }
   const boxH = canvas.parentElement?.offsetHeight || 160;
   const grad = ctx2d.createLinearGradient(0, 0, 0, boxH);
   grad.addColorStop(0, `rgba(${accentRgb},.22)`);
   grad.addColorStop(1, `rgba(${accentRgb},0)`);
 
+  try {
   _perfChart = new Chart(ctx2d, {
     type: 'line',
     data: {
@@ -3160,6 +3205,14 @@ function renderPerformanceChart() {
       }
     }
   });
+  } catch (e) {
+    console.warn('[Chart] Chart.js Erstellung fehlgeschlagen:', e.message);
+    canvas.style.display = 'none';
+    if (emptyEl) {
+      emptyEl.style.display = 'flex';
+      emptyEl.innerHTML = 'Chart nicht verfügbar.<br><span style="font-size:.6rem;opacity:.5;">Chart.js konnte nicht initialisiert werden.</span>';
+    }
+  }
 }
 
 function getBestStreak() {
@@ -3211,7 +3264,7 @@ function getSunEarned() {
 }
 
 function saveSunEarned(e) {
-  try { localStorage.setItem('sd_sun', JSON.stringify(e)); } catch (_) { }
+  try { localStorage.setItem('sd_sun', JSON.stringify(e)); } catch (e) { console.warn('[Sun] Sun-Daten speichern fehlgeschlagen:', e.message); }
 }
 
 function showSunPop(achievement) {
@@ -4325,7 +4378,25 @@ function queueLeaderboardEntry(reason = 'leaderboard_sync') {
   return true;
 }
 
+// Cloud-Sync Debounce (verhindert Firebase-Überflutung bei schnellen Aktionen)
+let _cloudSyncDebounceTimers = {};
+const CLOUD_SYNC_DEBOUNCE_MS = 2000;
+
 function scheduleCloudSync(reason = 'local_change', options = {}) {
+  // Debounce für häufige Calls
+  if (_cloudSyncDebounceTimers[reason]) {
+    clearTimeout(_cloudSyncDebounceTimers[reason]);
+  }
+  
+  return new Promise((resolve) => {
+    _cloudSyncDebounceTimers[reason] = setTimeout(() => {
+      delete _cloudSyncDebounceTimers[reason];
+      doScheduleCloudSync(reason, options).then(resolve);
+    }, options.immediate ? 0 : CLOUD_SYNC_DEBOUNCE_MS);
+  });
+}
+
+function doScheduleCloudSync(reason = 'local_change', options = {}) {
   markCloudStateDirty(reason);
 
   if (fbUser) {
@@ -4353,7 +4424,7 @@ function scheduleCloudSync(reason = 'local_change', options = {}) {
     });
   }
 
-  if (options.immediate) return flushFirebaseSyncQueue();
+  if (options.immediate) return Promise.resolve(true);
 
   scheduleFirebaseQueueFlush(options.delay ?? 800);
   return Promise.resolve(true);
@@ -5938,11 +6009,7 @@ function botAutoFire() {
       setTimeout(() => updatePosBar(), 200);
     } else { updatePosBar(); }
     // Wait for DOM to update before scrolling to ensure scrollHeight is current
-    requestAnimationFrame(() => {
-      if (DOM.shotLogWrap) {
-        DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
-      }
-    });
+    autoScrollShotLog();
   } else {
     const pill = document.createElement('span');
     pill.className = 'sl-pill ' + pillCls;
@@ -6580,11 +6647,7 @@ function doBattleFire() {
         updatePosBar();
       }
       // Wait for DOM to update before scrolling to ensure scrollHeight is current
-      requestAnimationFrame(() => {
-        if (DOM.shotLogWrap) {
-          DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
-        }
-      });
+      autoScrollShotLog();
     } else {
       // Flat log: show last 10
       if (DOM.shotLog) {
@@ -7128,7 +7191,7 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
 
   DOM.goP.textContent = pp >= 0 ? (kk3x20 ? Math.floor(pp) : fmtPts(pp)) : '–';
   DOM.goB.textContent = kk3x20 ? G.botTotalInt : fmtPts(bp);
-  DOM.goPInt.textContent = ppInt != null ? ppInt : (pp >= 0 ? Math.floor(pp) : '–');
+  DOM.goPInt.textContent = ppInt !== null ? ppInt : (pp >= 0 ? Math.floor(pp) : '–');
   DOM.goBInt.textContent = G.botTotalInt;
   DOM.goPUnit.textContent = pp >= 0 ? (kk3x20 ? '' : 'Zehntel') : '';
 
@@ -7157,7 +7220,7 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
     `${discCfg.name} · ${G.dist} m · ${diffCfg.lbl.replace(/[^\w\s✦]/gi, '').trim()} · ${G.maxShots} Schuss${xStr}${dnfStr}`;
 
   const useInt = kk3x20;
-  const ppCmp = useInt ? (ppInt != null ? ppInt : Math.floor(pp)) : pp;
+  const ppCmp = useInt ? (ppInt !== null ? ppInt : Math.floor(pp)) : pp;
   const bpCmp = useInt ? G.botTotalInt : bp;
   const diff = useInt ? (ppCmp - bpCmp) : Math.round((pp - bp) * 10) / 10;
   const absDiff = Math.abs(diff);
@@ -7297,7 +7360,7 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
     title: DOM.goTitle.textContent,
     resultClass: gameResult,
     playerPts: kk3x20
-      ? String(ppInt != null ? ppInt : Math.floor(pp))
+      ? String(ppInt !== null ? ppInt : Math.floor(pp))
       : fmtPts(pp),
     botPts: kk3x20
       ? String(G.botTotalInt)
@@ -7431,7 +7494,7 @@ async function doShare() {
         stats.count = (stats.count || 0) + 1;
         stats.last = Date.now();
         localStorage.setItem('sd_shares', JSON.stringify(stats));
-      } catch (_) { }
+      } catch (e) { console.warn('[Share] Share-Stats speichern fehlgeschlagen:', e.message); }
     } catch (err) {
       if (err.name !== 'AbortError') console.warn('Share failed:', err);
     }
@@ -7528,6 +7591,8 @@ function showScreen(id) {
   if (id !== 'screenOver') clearPendingFeedbackPrompt();
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // Scroll-Position zurücksetzen für konsistentes UX
+  window.scrollTo(0, 0);
   if (id === 'screenSetup') {
     RookiePlan.evaluateAndRender(true);
     if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();

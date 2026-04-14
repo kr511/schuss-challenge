@@ -99,6 +99,7 @@
       z-index: 1;
       overflow-y: auto;
       overflow-x: hidden;
+      scrollbar-gutter: stable;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-y;
       padding-bottom: env(safe-area-inset-bottom, 0);
@@ -1205,6 +1206,7 @@
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
+      scrollbar-gutter: stable;
       -webkit-overflow-scrolling: touch;
     }
 
@@ -2735,6 +2737,8 @@
       /* ~3 rows of pills */
       overflow-y: auto;
       overflow-x: hidden;
+      scrollbar-gutter: stable;
+      scroll-behavior: smooth;
     }
 
     .shot-log-wrap::-webkit-scrollbar {

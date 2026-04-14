@@ -306,8 +306,11 @@ const EnhancedAchievements = (function() {
     window.dispatchEvent(new CustomEvent('achievementUnlocked', {
       detail: achievement
     }));
-    
-    console.log(`🏆 Achievement freigeschaltet: ${achievement.name}`);
+
+    const safeName = (typeof window.escHtml !== 'undefined') 
+      ? window.escHtml(achievement.name) 
+      : achievement.name;
+    console.log(`🏆 Achievement freigeschaltet: ${safeName}`);
   }
   
   /**
