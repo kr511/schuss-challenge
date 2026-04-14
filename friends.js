@@ -19,10 +19,49 @@ const FriendsSystem = (function() {
     friends: [],
     pendingRequests: [],
     sentRequests: [],
+    onlineStatusByUserId: {},
     userCode: null,
     currentUserId: null,
     initialized: false,
+    bootstrapRetryTimer: null,
+    statusHeartbeatId: null,
+    statusRefPath: '',
   };
+
+  function resolveCurrentUserId() {
+    try {
+      return (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId') || '';
+    } catch (e) {
+      console.warn('Freundes-System: User-ID konnte nicht aufgeloest werden:', e);
+      return '';
+    }
+  }
+
+  function isFirebaseAvailable() {
+    return !!((typeof fbReady !== 'undefined' && fbReady) && (typeof fbDb !== 'undefined' && fbDb));
+  }
+
+  function scheduleBootstrapRetry() {
+    if (state.bootstrapRetryTimer) return;
+    state.bootstrapRetryTimer = setTimeout(() => {
+      state.bootstrapRetryTimer = null;
+      init(true);
+    }, 1500);
+  }
+
+  function normalizeSentRequest(request) {
+    if (!request || typeof request !== 'object') return null;
+
+    const userId = request.userId || request.toUserId || '';
+    if (!userId) return null;
+
+    return {
+      userId,
+      username: request.username || request.toUsername || 'Unbekannt',
+      code: request.code || request.toCode || '',
+      timestamp: Number(request.timestamp) || Date.now(),
+    };
+  }
 
   /**
    * Generiert einen 6-stelligen Freundes-Code
@@ -39,7 +78,7 @@ const FriendsSystem = (function() {
   /**
    * Initialisiert das Freundes-System
    */
-  async function init() {
+  async function initLegacy() {
     console.log('👥 Freundes-System initialisiert');
 
     try {
@@ -74,6 +113,36 @@ const FriendsSystem = (function() {
   /**
    * Lädt oder generiert User-Code
    */
+  async function init(force = false) {
+    const resolvedUserId = resolveCurrentUserId();
+    if (!resolvedUserId) {
+      scheduleBootstrapRetry();
+      return false;
+    }
+
+    const sameUser = state.initialized && state.currentUserId === resolvedUserId;
+    state.currentUserId = resolvedUserId;
+
+    if (sameUser && !force) {
+      return true;
+    }
+
+    await loadOrCreateUserCode();
+    renderFriendCode();
+    await loadFriends();
+    await loadPendingRequests();
+    updateOnlineStatus();
+    await loadOnlineStatuses();
+
+    if (!isFirebaseAvailable()) {
+      scheduleBootstrapRetry();
+    }
+
+    state.initialized = true;
+    console.log('FriendsSystem ready');
+    return true;
+  }
+
   async function loadOrCreateUserCode() {
     // Local gespeichert?
     const localCode = StorageManager.getRaw('friendCode');
@@ -83,7 +152,7 @@ const FriendsSystem = (function() {
     }
 
     // Firebase check
-    if (fbReady && fbDb) {
+    if (isFirebaseAvailable()) {
       try {
         const snapshot = await fbDb.ref(`${FIREBASE_PATHS.userCodes}/${state.currentUserId}`).once('value');
         const data = snapshot.val();
@@ -117,10 +186,12 @@ const FriendsSystem = (function() {
    * Lädt die Freundesliste
    */
   async function loadFriends() {
-    if (!fbReady || !fbDb) {
+    if (!isFirebaseAvailable()) {
       // Local fallback
       const localFriends = StorageManager.getRaw('friends');
       state.friends = localFriends ? JSON.parse(localFriends) : [];
+      state.onlineStatusByUserId = {};
+      renderFriendsList();
       return;
     }
 
@@ -147,8 +218,10 @@ const FriendsSystem = (function() {
    * Lädt ausstehende Friend-Requests
    */
   async function loadPendingRequests() {
-    if (!fbReady || !fbDb) {
+    if (!isFirebaseAvailable()) {
       state.pendingRequests = [];
+      state.sentRequests = [];
+      renderPendingRequests();
       return;
     }
 
@@ -165,7 +238,9 @@ const FriendsSystem = (function() {
       // Sent requests
       const sentSnapshot = await fbDb.ref(`${FIREBASE_PATHS.friendRequests}/${state.currentUserId}/sent`).once('value');
       const sentData = sentSnapshot.val();
-      state.sentRequests = sentData ? Object.values(sentData) : [];
+      state.sentRequests = sentData
+        ? Object.values(sentData).map(normalizeSentRequest).filter(Boolean)
+        : [];
     } catch (e) {
       console.warn('Firebase Requests-Laden fehlgeschlagen:', e);
       state.pendingRequests = [];
@@ -197,7 +272,7 @@ const FriendsSystem = (function() {
     }
 
     // User-Code in Firebase finden
-    if (!fbReady || !fbDb) {
+    if (!isFirebaseAvailable()) {
       showFriendToast('❌ Firebase nicht verfügbar', 'error');
       return false;
     }
@@ -251,6 +326,7 @@ const FriendsSystem = (function() {
       state.sentRequests.push({
         userId: targetUserId,
         username: targetUsername,
+        code: code.toUpperCase(),
         timestamp: Date.now(),
       });
 
@@ -273,7 +349,7 @@ const FriendsSystem = (function() {
    * Akzeptiert einen Friend-Request
    */
   async function acceptRequest(fromUserId) {
-    if (!fbReady || !fbDb) {
+    if (!isFirebaseAvailable()) {
       showFriendToast('❌ Firebase nicht verfügbar', 'error');
       return false;
     }
@@ -329,7 +405,7 @@ const FriendsSystem = (function() {
    * Lehnt einen Friend-Request ab
    */
   async function declineRequest(fromUserId) {
-    if (!fbReady || !fbDb) return false;
+    if (!isFirebaseAvailable()) return false;
 
     try {
       await fbDb.ref(`${FIREBASE_PATHS.friendRequests}/${state.currentUserId}/received/${fromUserId}`).remove();
@@ -348,7 +424,7 @@ const FriendsSystem = (function() {
    * Entfernt einen Freund
    */
   async function removeFriend(friendId) {
-    if (!fbReady || !fbDb) return false;
+    if (!isFirebaseAvailable()) return false;
 
     const friend = state.friends.find(f => f.userId === friendId);
 
@@ -374,32 +450,63 @@ const FriendsSystem = (function() {
    * Aktualisiert Online-Status
    */
   function updateOnlineStatus() {
-    if (!fbReady || !fbDb || !state.currentUserId) return;
+    if (!isFirebaseAvailable() || !state.currentUserId) return;
 
-    const statusRef = fbDb.ref(`${FIREBASE_PATHS.onlineStatus}/${state.currentUserId}`);
-    
-    // Online beim Laden
-    statusRef.set({
+    const refPath = `${FIREBASE_PATHS.onlineStatus}/${state.currentUserId}`;
+    if (state.statusRefPath === refPath && state.statusHeartbeatId) return;
+
+    if (state.statusHeartbeatId) {
+      clearInterval(state.statusHeartbeatId);
+      state.statusHeartbeatId = null;
+    }
+
+    state.statusRefPath = refPath;
+    const statusRef = fbDb.ref(refPath);
+    const writeOnlineStatus = () => statusRef.set({
       online: true,
       lastSeen: Date.now(),
       username: G.username,
     });
 
-    // Offline beim Entladen
+    writeOnlineStatus();
+
     statusRef.onDisconnect().set({
       online: false,
       lastSeen: Date.now(),
       username: G.username,
     });
 
-    // Alle 60 Sekunden aktualisieren
-    setInterval(() => {
-      statusRef.set({
-        online: true,
-        lastSeen: Date.now(),
-        username: G.username,
+    state.statusHeartbeatId = setInterval(writeOnlineStatus, 60000);
+  }
+
+  async function loadOnlineStatuses() {
+    if (!isFirebaseAvailable() || !Array.isArray(state.friends) || state.friends.length === 0) {
+      state.onlineStatusByUserId = {};
+      renderFriendsList();
+      return;
+    }
+
+    try {
+      const entries = await Promise.all(
+        state.friends.map((friend) => (
+          fbDb.ref(`${FIREBASE_PATHS.onlineStatus}/${friend.userId}`)
+            .once('value')
+            .then((snapshot) => [friend.userId, snapshot.val()])
+        ))
+      );
+
+      const nextStatuses = {};
+      entries.forEach(([userId, value]) => {
+        if (value && typeof value === 'object') {
+          nextStatuses[userId] = value;
+        }
       });
-    }, 60000);
+      state.onlineStatusByUserId = nextStatuses;
+    } catch (e) {
+      console.warn('Firebase Status-Laden fehlgeschlagen:', e);
+    }
+
+    renderFriendsList();
   }
 
   /**
@@ -408,6 +515,11 @@ const FriendsSystem = (function() {
   function renderFriendsList() {
     const container = document.getElementById('friendsListContainer');
     if (!container) return;
+
+    const title = document.getElementById('friendsListTitle');
+    if (title) {
+      title.textContent = `Deine Freunde (${state.friends.length})`;
+    }
 
     if (state.friends.length === 0) {
       container.innerHTML = `
@@ -445,11 +557,11 @@ const FriendsSystem = (function() {
    * Rendert ausstehende Requests
    */
   function renderPendingRequests() {
-    const container = document.getElementById('pendingRequestsContainer');
-    if (!container) return;
-
     // Received Requests
     const receivedContainer = document.getElementById('receivedRequestsContainer');
+    const sentContainer = document.getElementById('sentRequestsContainer');
+    if (!receivedContainer && !sentContainer) return;
+
     if (receivedContainer) {
       if (state.pendingRequests.length === 0) {
         receivedContainer.innerHTML = '<div class="requests-empty">Keine ausstehenden Anfragen</div>';
@@ -477,7 +589,6 @@ const FriendsSystem = (function() {
     }
 
     // Sent Requests
-    const sentContainer = document.getElementById('sentRequestsContainer');
     if (sentContainer) {
       if (state.sentRequests.length === 0) {
         sentContainer.innerHTML = '<div class="requests-empty">Keine gesendeten Anfragen</div>';
@@ -523,16 +634,26 @@ const FriendsSystem = (function() {
    * Zeigt Freundes-Overlay
    */
   function showFriendsOverlay() {
-    const overlay = document.getElementById('friendsOverlay');
+    let overlay = document.getElementById('friendsOverlay');
     if (!overlay) {
-      createFriendsOverlay();
-      return;
+      overlay = createFriendsOverlay();
     }
 
     overlay.classList.add('active');
     renderFriendCode();
     renderFriendsList();
     renderPendingRequests();
+
+    if (!state.initialized) {
+      init(true);
+      return;
+    }
+
+    if (isFirebaseAvailable()) {
+      loadFriends();
+      loadPendingRequests();
+      loadOnlineStatuses();
+    }
   }
 
   /**
@@ -601,6 +722,8 @@ const FriendsSystem = (function() {
     `;
 
     document.body.appendChild(overlay);
+    const listTitle = overlay.querySelector('.friends-list-section h4');
+    if (listTitle) listTitle.id = 'friendsListTitle';
 
     // Click außerhalb schließt
     overlay.addEventListener('click', (e) => {
@@ -608,6 +731,8 @@ const FriendsSystem = (function() {
         closeFriendsOverlay();
       }
     });
+
+    return overlay;
   }
 
   /**
@@ -695,7 +820,7 @@ const FriendsSystem = (function() {
   /**
    * Hilfsfunktion: Status-Text
    */
-  function getFriendStatus(friend) {
+  function getFriendStatusLegacy(friend) {
     // Hier könnte Online-Status aus Firebase gelesen werden
     return '⚫ Offline';
   }
@@ -703,6 +828,24 @@ const FriendsSystem = (function() {
   /**
    * Hilfsfunktion: Zeit formatieren
    */
+  function getFriendStatus(friend) {
+    const presence = state.onlineStatusByUserId[friend && friend.userId];
+    if (!presence || typeof presence !== 'object') return 'Offline';
+
+    const lastSeen = Number(presence.lastSeen) || 0;
+    const isFresh = lastSeen > 0 && (Date.now() - lastSeen) < 120000;
+
+    if (presence.online && isFresh) {
+      return 'Online jetzt';
+    }
+
+    if (lastSeen > 0) {
+      return `Zuletzt aktiv: ${formatTime(lastSeen)}`;
+    }
+
+    return 'Offline';
+  }
+
   function formatTime(timestamp) {
     if (!timestamp) return '';
     const diff = Date.now() - timestamp;
