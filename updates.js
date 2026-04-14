@@ -199,6 +199,16 @@ const UpdatesSystem = (function() {
 
     dropdown.style.display = 'block';
     renderUpdatesDropdown();
+
+    // Mobile Fix: Auf kleinen Screens fixed + zentriert statt absolute + rechts
+    if (window.innerWidth <= 480) {
+      dropdown.style.position = 'fixed';
+      dropdown.style.top = '60px';
+      dropdown.style.left = '10px';
+      dropdown.style.right = '10px';
+      dropdown.style.width = 'auto';
+      dropdown.style.maxWidth = 'none';
+    }
     
     // Animation
     requestAnimationFrame(() => {
@@ -224,6 +234,13 @@ const UpdatesSystem = (function() {
     
     setTimeout(() => {
       dropdown.style.display = 'none';
+      // Mobile Fix zurücksetzen
+      dropdown.style.position = '';
+      dropdown.style.top = '';
+      dropdown.style.left = '';
+      dropdown.style.right = '';
+      dropdown.style.width = '';
+      dropdown.style.maxWidth = '';
     }, 200);
   }
 
