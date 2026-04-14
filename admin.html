@@ -90,18 +90,20 @@
         setUpdating(id);
         try {
           const response = await fetch(`${API_BASE_URL}/api/admin/feedbacks/${id}`, {
-            method: 'DELETE',
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'done' }),
           });
           
-          // Lokal entfernen (unabhängig vom Server-Erfolg)
+          // Lokal ausblenden (nicht löschen, sondern als done markieren)
           setFeedbacks(prev => prev.filter(f => f.id !== id));
           
           if (!response.ok) {
-            console.warn('Server-Löschung fehlgeschlagen, aber lokal entfernt');
+            console.warn('Server-Update fehlgeschlagen, aber lokal ausgeblendet');
           }
         } catch (err) {
-          console.error('Fehler beim Löschen:', err);
-          // Trotzdem lokal entfernen
+          console.error('Fehler beim Abschließen:', err);
+          // Trotzdem lokal ausblenden
           setFeedbacks(prev => prev.filter(f => f.id !== id));
         } finally {
           setUpdating(null);
