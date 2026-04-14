@@ -66,17 +66,20 @@ const UpdatesSystem = (function() {
   async function loadUpdates() {
     // Zuerst LocalStorage prüfen (Admin kann dort gespeichert haben)
     const localUpdates = JSON.parse(localStorage.getItem('app_updates') || '[]');
-    
-    if (fbReady && fbDb) {
+
+    // Prüfe ob Firebase verfügbar ist
+    const firebaseAvailable = (typeof fbReady !== 'undefined' && fbReady) && (typeof fbDb !== 'undefined' && fbDb);
+
+    if (firebaseAvailable) {
       try {
         const snapshot = await fbDb.ref(FIREBASE_PATHS.updates).once('value');
-        
+
         if (snapshot.exists()) {
           state.updates = [];
           snapshot.forEach(child => {
             state.updates.push(child.val());
           });
-          
+
           // Nach Datum sortieren (neueste zuerst)
           state.updates.sort((a, b) => (b.date || 0) - (a.date || 0));
         } else if (localUpdates.length > 0) {
@@ -105,7 +108,7 @@ const UpdatesSystem = (function() {
    * Lädt den Lese-Status
    */
   async function loadReadStatus() {
-    const userId = getFirebaseOwnerId() || StorageManager.getRaw('userId');
+    const userId = (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId');
     if (!userId) return;
 
     const readKey = `updates_read_${userId}`;
@@ -119,7 +122,7 @@ const UpdatesSystem = (function() {
    * Markiert alle als gelesen
    */
   function markAllAsRead() {
-    const userId = getFirebaseOwnerId() || StorageManager.getRaw('userId');
+    const userId = (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId');
     if (!userId) return;
 
     const readKey = `updates_read_${userId}`;
@@ -367,10 +370,10 @@ const UpdatesSystem = (function() {
       date: Date.now(),
       priority: options.priority || 'medium',
       icon: options.icon || '📢',
-      createdBy: getFirebaseOwnerId() || 'admin',
+      createdBy: (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || 'admin',
     };
 
-    if (fbReady && fbDb) {
+    if (typeof fbReady !== 'undefined' && fbReady && typeof fbDb !== 'undefined' && fbDb) {
       try {
         await fbDb.ref(`${FIREBASE_PATHS.updates}/${updateData.id}`).set(updateData);
         console.log('✅ Update erstellt:', updateData.id);
@@ -404,13 +407,12 @@ if (typeof window !== 'undefined') {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       UpdatesSystem.init();
+      // Global verfügbar machen
+      window.UpdatesSystem = UpdatesSystem;
     });
   } else {
     UpdatesSystem.init();
-  }
-
-  // Debug export
-  if (window.DEBUG) {
+    // Global verfügbar machen
     window.UpdatesSystem = UpdatesSystem;
   }
 
