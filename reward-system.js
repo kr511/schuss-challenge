@@ -45,6 +45,7 @@
       currentStreak: 0,
       totalLootboxesOpened: 0,
       totalXPFromRewards: 0,
+      lastLootboxTimestamp: 0, // NEW: Anti-Cheat Protection
     },
 
     /**
@@ -65,7 +66,12 @@
         const saved = localStorage.getItem('sd_reward_state');
         if (saved) {
           const parsed = JSON.parse(saved);
-          this.state = { ...this.state, ...parsed };
+          this.state = { 
+            ...this.state, 
+            ...parsed,
+            // Ensure timestamp is a number
+            lastLootboxTimestamp: Number(parsed.lastLootboxTimestamp || 0)
+          };
         }
       } catch (e) {
         console.warn('[RewardSystem] Fehler beim Laden:', e);
@@ -107,8 +113,21 @@
 
       // Prüfen ob Lootbox fällig
       if (this.state.duelsSinceLastLootbox >= this.config.lootboxInterval) {
-        this.state.duelsSinceLastLootbox = 0;
-        this.dropLootbox();
+        // --- ANTI-CHEAT CHECK (NEW) ---
+        // Cooldown: 30 minutes (1800000 ms)
+        const now = Date.now();
+        const cooldownMs = 30 * 60 * 1000;
+        const timeSinceLast = now - this.state.lastLootboxTimestamp;
+
+        if (timeSinceLast >= cooldownMs) {
+          this.state.duelsSinceLastLootbox = 0;
+          this.state.lastLootboxTimestamp = now;
+          this.dropLootbox();
+        } else {
+          // Zu früh! Counter bleibt auf Limit stehen, aber keine Box wird gedroppt.
+          console.log(`[RewardSystem] ⏳ Lootbox-Cooldown aktiv. Noch ${Math.ceil((cooldownMs - timeSinceLast) / 60000)} Min.`);
+          this.state.duelsSinceLastLootbox = this.config.lootboxInterval;
+        }
       }
 
       // Streak-Bonus prüfen

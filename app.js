@@ -5596,8 +5596,15 @@ function buildStaticTarget() {
  * (Wird für die Vorschau und das Teilen genutzt)
  */
 function drawOnCanvas(targetCanvas, shots) {
-  const oc = targetCanvas.getContext('2d');
-  const W = targetCanvas.width, H = targetCanvas.height;
+  // KRITISCH: Stelle sicher, dass wir das echte Canvas-Element haben, nicht den Proxy
+  const realCanvas = targetCanvas === canvas ? getCanvas() : targetCanvas;
+  if (!realCanvas) {
+    console.error('[drawOnCanvas] Canvas nicht verfügbar!');
+    return;
+  }
+  
+  const oc = realCanvas.getContext('2d');
+  const W = realCanvas.width, H = realCanvas.height;
   const cx = W / 2, cy = H / 2, maxR = W / 2 - 3;
 
   // 1. Hintergrund / Scheibe zeichnen
@@ -5622,12 +5629,22 @@ function drawOnCanvas(targetCanvas, shots) {
 }
 
 function drawTarget(shots) {
-  if (!canvas || !ctx) return;
-  drawOnCanvas(canvas, shots);
+  const realCanvas = getCanvas();
+  const realCtx = getCtx();
+  if (!realCanvas || !realCtx) {
+    console.error('[drawTarget] Canvas oder Context nicht verfügbar!');
+    return;
+  }
+  drawOnCanvas(realCanvas, shots);
 }
 
 function drawHole(targetCtx, x, y, r, dark, glow, cracks) {
-  const c = targetCtx || ctx;
+  // KRITISCH: Echten Context verwenden, nicht den Proxy
+  const c = targetCtx || getCtx();
+  if (!c) {
+    console.error('[drawHole] Canvas Context nicht verfügbar!');
+    return;
+  }
   // Papier-Aufriss-Schatten (leichter Grauschimmer um das Loch)
   const shadow = c.createRadialGradient(x, y, r * 0.8, x, y, r * 3.5);
   shadow.addColorStop(0, 'rgba(0,0,0,0.18)');

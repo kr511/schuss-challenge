@@ -231,7 +231,10 @@ const ShootingPhysicsEngine = (function () {
      * @returns {{ x: number, y: number, breathPhase: string, activeBreathing: boolean }}
      */
     function getCurrentAimPoint(timeMs) {
-      const t = timeMs / 1000;
+      // --- STABILITY FIX (NEW) ---
+      // Cap time at 10 seconds to prevent massive drifts after tab standby
+      const MAX_STABLE_TIME = 10000;
+      const t = (timeMs % MAX_STABLE_TIME) / 1000;
 
       // ─── 1. ATMUNG / BREATHING ─────────────────────────
       // Atemzyklus: ~6.3s (2s ein, 4s aus, ~0.3–0.8 Pause)
