@@ -83,25 +83,7 @@ const DailyChallenge = (function () {
       xpReward: 45,
       check: (game, stats) => (game.consistency || 0) >= 80
     },
-    {
-      id: 'total_shots_40',
-      type: 'shots_count',
-      difficulty: 'medium',
-      desc: 'Schieße insgesamt 40 Mal in Duellen.',
-      target: 40,
-      xpReward: 50,
-      check: (game, stats) => game.shots && game.shots.length > 0
-    },
     // NEUE QUESTS:
-    {
-      id: 'play_5_games',
-      type: 'play_count',
-      difficulty: 'easy',
-      desc: 'Spiele heute 5 Duelle (beliebige Disziplin).',
-      target: 5,
-      xpReward: 35,
-      check: (game, stats) => true // Progress wird in trackGame addiert
-    },
     {
       id: 'hit_5_tens',
       type: 'tens_count',
@@ -209,15 +191,46 @@ const DailyChallenge = (function () {
 
   function startUIRefresh() {
     if (uiRefreshTimer) return;
+    
+    // Prüfe jede Minute auf neuen Tag (für echten 0:00 Reset)
+    let lastCheckedDate = getDateId();
+    
     uiRefreshTimer = setInterval(() => {
-      // keep countdown fresh and handle day rollover while app stays open
+      const currentDate = getDateId();
+      
+      // Wenn Datum gewechselt hat → automatischer Reset um 0:00
+      if (currentDate !== lastCheckedDate) {
+        console.log('🔄 Midnight Reset: Neue Daily Challenges geladen');
+        state.dateId = currentDate;
+        state.challenges = getDailyChallenges(currentDate);
+        state.toolboxDroppedForDate = '';
+        saveState();
+        lastCheckedDate = currentDate;
+        
+        // UI aktualisieren
+        renderUI();
+        if (typeof window.refreshPremiumDashboard === 'function') {
+          window.refreshPremiumDashboard();
+        }
+        
+        // Optional: Notification anzeigen
+        if (Notification.permission === 'granted') {
+          new Notification('🎯 Neue Daily Challenges!', {
+            body: 'Deine täglichen Herausforderungen wurden aktualisiert.',
+            icon: './icon-192.png'
+          });
+        }
+      }
+      
+      // Regelmäßige UI-Aktualisierung (Countdown, Progress)
       checkDailyReset();
       renderUI();
-      // Ensure the main dashboard also refreshes its daily stats
+      
+      // Dashboard auch aktualisieren
       if (typeof window.refreshPremiumDashboard === 'function') {
         window.refreshPremiumDashboard();
       }
-    }, 30000);
+    }, 60000); // Jede Minute prüfen
   }
 
   function normalizeChallenge(entry) {

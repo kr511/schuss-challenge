@@ -7768,7 +7768,7 @@ window.addEventListener('resize', () => {
 // ── Service Worker (PWA / Offline) ──────────────────────────────────
 if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=3.1').then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=3.2').then(registration => {
       console.log('✅ Service Worker registriert');
       
       // Prüfe auf Updates

@@ -3,7 +3,7 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v3.1' // Auto-Update: Neue Version bei jedem Deploy
+const CACHE_VERSION = 'v3.2' // Auto-Update: Daily Challenges fix + Midnight Reset
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 
 const PRECACHE = [
