@@ -97,16 +97,22 @@
       min-height: 100dvh;
       position: relative;
       z-index: 1;
-      overflow-y: auto;
       overflow-x: hidden;
-      scrollbar-gutter: stable;
       -webkit-overflow-scrolling: touch;
-      touch-action: pan-y;
       padding-bottom: env(safe-area-inset-bottom, 0);
     }
 
     .screen.active {
       display: flex;
+    }
+
+    /* Scroll-Verhalten: Auf Touch-Geräten overflow-y auto, auf Desktop normal scrollen */
+    @media (hover: none) and (pointer: coarse) {
+      .screen {
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+        touch-action: pan-y;
+      }
     }
 
     ::-webkit-scrollbar {
