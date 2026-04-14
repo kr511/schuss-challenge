@@ -74,6 +74,7 @@ Sei sehr präzise und professionell. Maximal 5-6 Sätze.`
 
   /**
    * Lädt den API-Key aus Firebase RTDB (REST API, kein SDK nötig)
+   * Fallback: Runtime-API-Key aus window oder meta-Tag
    */
   async function loadApiKey() {
     if (_apiKey) return _apiKey;
@@ -82,26 +83,35 @@ Sei sehr präzise und professionell. Maximal 5-6 Sätze.`
     _keyLoading = true;
     _keyLoadPromise = (async () => {
       try {
-        // Firebase-Konfiguration muss von app.js bereitgestellt werden
-        if (typeof window.FIREBASE_DB_URL === 'undefined' || typeof window.API_KEY_PATH === 'undefined') {
-          console.warn('[GeminiCoach] FIREBASE_DB_URL oder API_KEY_PATH nicht definiert');
-          return null;
-        }
-        const resp = await fetch(FIREBASE_DB_URL + API_KEY_PATH);
-        if (!resp.ok) {
-          console.warn('[GeminiCoach] Konnte API-Key nicht aus Firebase laden:', resp.status);
-          return null;
-        }
-        const key = await resp.json();
-        if (key && typeof key === 'string' && key.length > 10) {
-          _apiKey = key;
-          console.log('[GeminiCoach] API-Key erfolgreich aus Firebase geladen');
+        // 1. Versuche Runtime-API-Key (window/meta)
+        const runtimeKey = readRuntimeApiKey();
+        if (runtimeKey) {
+          _apiKey = runtimeKey;
+          console.log('[GeminiCoach] API-Key aus Laufzeit-Konfiguration geladen');
           return _apiKey;
         }
-        console.warn('[GeminiCoach] Kein gültiger API-Key in Firebase gefunden');
+
+        // 2. Fallback: Firebase RTDB
+        if (typeof window.FIREBASE_DB_URL !== 'undefined' && typeof window.API_KEY_PATH !== 'undefined') {
+          const resp = await fetch(FIREBASE_DB_URL + API_KEY_PATH);
+          if (resp.ok) {
+            const key = await resp.json();
+            if (key && typeof key === 'string' && key.length > 10) {
+              _apiKey = key;
+              console.log('[GeminiCoach] API-Key erfolgreich aus Firebase geladen');
+              return _apiKey;
+            }
+          } else {
+            console.warn('[GeminiCoach] Konnte API-Key nicht aus Firebase laden:', resp.status);
+          }
+        } else {
+          console.info('[GeminiCoach] FIREBASE_DB_URL oder API_KEY_PATH nicht definiert');
+        }
+
+        console.warn('[GeminiCoach] Kein gültiger API-Key gefunden');
         return null;
       } catch (err) {
-        console.warn('[GeminiCoach] Firebase-Abruf fehlgeschlagen:', err);
+        console.warn('[GeminiCoach] API-Key-Ladung fehlgeschlagen:', err);
         return null;
       } finally {
         _keyLoading = false;
@@ -312,13 +322,19 @@ Antworte AUSSCHLIESSLICH als valides JSON-Objekt in genau diesem Format:
       }
 
       const data = await response.json();
-      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      let rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!rawText) {
         return { score: null, tips: '⚠️ KI konnte das Bild nicht analysieren.', error: 'no_content' };
       }
 
       try {
+        // Robuste JSON-Extraktion (KI liefert oft Markdown-Codeblöcke)
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          rawText = jsonMatch[0];
+        }
+
         const parsed = JSON.parse(rawText);
         const rawScore = (typeof parsed.score === 'number' && !isNaN(parsed.score)) ? parsed.score : null;
         const score = validateScore(rawScore, discipline);
@@ -327,7 +343,8 @@ Antworte AUSSCHLIESSLICH als valides JSON-Objekt in genau diesem Format:
         return { score, tips, shots };
       } catch (parseErr) {
         console.warn('[GeminiCoach] JSON parse failed, raw:', rawText);
-        return { score: null, tips: rawText.trim(), shots: [] };
+        // Fallback: Wenn kein JSON gefunden wurde, nutzen wir den Rohtext als Tipps
+        return { score: null, tips: rawText.trim().substring(0, 500), shots: [] };
       }
 
     } catch (err) {

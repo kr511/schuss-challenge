@@ -46,22 +46,22 @@ const ShootingPhysicsEngine = (function () {
       targetSize: 0.5,
       ringStep: 2.5,
       meanRadii: {
-        easy: 0.75,
-        real: 0.56,
-        hard: 0.40,
-        elite: 0.24,
-        worldrecord: 0.16
+        easy: 4.5,
+        real: 2.2,
+        hard: 1.2,
+        elite: 0.7,
+        worldrecord: 0.35
       }
     },
     lg60: {
       targetSize: 0.5,
       ringStep: 2.5,
       meanRadii: {
-        easy: 0.53,
-        real: 0.40,
-        hard: 0.29,
-        elite: 0.22,
-        worldrecord: 0.15
+        easy: 4.5,
+        real: 2.2,
+        hard: 1.2,
+        elite: 0.7,
+        worldrecord: 0.35
       }
     },
     smallbore_50m: {

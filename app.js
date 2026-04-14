@@ -221,19 +221,24 @@ const G = {
 };
 
 // Shot Log Auto-Scroll mit Debounce (verhindert Race Conditions bei schnellen Schüssen)
+// BUG-FIX #4: Double rAF sorgt dafür dass DOM-Layout aktualisiert wird bevor scrollHeight gelesen wird
 let _shotLogScrollPending = false;
 function autoScrollShotLog() {
   if (_shotLogScrollPending) return;
   _shotLogScrollPending = true;
+  // Erster rAF: Browser beginnt Layout-Update
   requestAnimationFrame(() => {
-    if (DOM.shotLogWrap) {
-      // Smooth scroll für besseres UX
-      DOM.shotLogWrap.scrollTo({
-        top: DOM.shotLogWrap.scrollHeight,
-        behavior: 'smooth'
-      });
-    }
-    setTimeout(() => { _shotLogScrollPending = false; }, 100);
+    // Zweiter rAF: scrollHeight ist jetzt aktuell
+    requestAnimationFrame(() => {
+      if (DOM.shotLogWrap) {
+        DOM.shotLogWrap.scrollTo({
+          top: DOM.shotLogWrap.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
+      // Debounce verkürzt auf 50ms (ausreichend für Burst-Modus)
+      setTimeout(() => { _shotLogScrollPending = false; }, 50);
+    });
   });
 }
 
@@ -666,18 +671,16 @@ function toggleProfileMenu() {
   if (isActive) {
     ov.classList.remove('active');
     if (icon) icon.classList.remove('active');
-    // iOS Safari: Zuerst position entfernen, DANN overflow, DANN scrollen
+    // BUG-FIX #2: Overflow SOFORT wiederherstellen (vor rAF, verhindert iOS Scroll-Lock)
+    document.body.style.overflow = '';
     if (window.innerWidth <= 768 && document.body.style.position === 'fixed') {
       const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
       document.body.style.position = '';
       document.body.style.top = '';
       // requestAnimationFrame um sicherzustellen dass position entfernt wurde
       requestAnimationFrame(() => {
-        document.body.style.overflow = '';
         window.scrollTo(0, scrollY);
       });
-    } else {
-      document.body.style.overflow = '';
     }
   } else {
     refreshDebugToolsVisibility();
@@ -713,8 +716,20 @@ function switchProfileTab(tab) {
   panels.forEach(p => p.classList.toggle('active', p.id === 'psPanel-' + tab));
 
   if (tab === 'sun') renderSunGrid();
-  if (tab === 'lb') loadLeaderboard();
+  if (tab === 'lb') {
+    // NEU: Modernes Leaderboard laden falls verfügbar
+    if (typeof LeaderboardModern !== 'undefined') {
+      LeaderboardModern.load();
+    } else {
+      loadLeaderboard();
+    }
+  }
   if (tab === 'history') renderHistory();
+  if (tab === 'friends') {
+    if (typeof FriendsUI !== 'undefined') {
+      FriendsUI.renderProfileTab();
+    }
+  }
   if (tab === 'debug') refreshDebugPanel();
   if (tab === 'stats') {
     requestAnimationFrame(() => renderPerformanceChart());
@@ -4384,20 +4399,31 @@ function queueLeaderboardEntry(reason = 'leaderboard_sync') {
 }
 
 // Cloud-Sync Debounce (verhindert Firebase-Überflutung bei schnellen Aktionen)
+// BUG-FIX #6: Unterschiedliche Debounce-Zeiten für kritische vs. normale Events
 let _cloudSyncDebounceTimers = {};
 const CLOUD_SYNC_DEBOUNCE_MS = 2000;
+const CLOUD_SYNC_DEBOUNCE_CRITICAL = 500; // Für XP/Ergebnisse
 
 function scheduleCloudSync(reason = 'local_change', options = {}) {
   // Debounce für häufige Calls
   if (_cloudSyncDebounceTimers[reason]) {
     clearTimeout(_cloudSyncDebounceTimers[reason]);
   }
-  
+
+  // BUG-FIX #6: Kritische Events schneller syncen
+  const isCritical = options.critical || 
+    reason.includes('xp') || 
+    reason.includes('battle') || 
+    reason.includes('streak');
+  const delay = options.immediate ? 0 
+    : isCritical ? CLOUD_SYNC_DEBOUNCE_CRITICAL 
+    : CLOUD_SYNC_DEBOUNCE_MS;
+
   return new Promise((resolve) => {
     _cloudSyncDebounceTimers[reason] = setTimeout(() => {
       delete _cloudSyncDebounceTimers[reason];
       doScheduleCloudSync(reason, options).then(resolve);
-    }, options.immediate ? 0 : CLOUD_SYNC_DEBOUNCE_MS);
+    }, delay);
   });
 }
 
@@ -5247,8 +5273,38 @@ function initDOMCache() {
 }
 
 /* ─── CANVAS ─────────────────────────────── */
-const canvas = document.getElementById('targetCanvas');
-const ctx = canvas.getContext('2d', { alpha: false });
+// Lazy getter für canvas und ctx - vermeidet null-Referenz wenn DOM noch nicht ready
+let _canvas = null;
+let _ctx = null;
+function getCanvas() {
+  if (!_canvas) {
+    _canvas = document.getElementById('targetCanvas');
+    if (!_canvas) {
+      console.error('[app.js] #targetCanvas nicht im DOM gefunden!');
+      return null;
+    }
+  }
+  return _canvas;
+}
+function getCtx() {
+  if (!_ctx && getCanvas()) {
+    _ctx = _canvas.getContext('2d', { alpha: false });
+  }
+  return _ctx;
+}
+// Compatibility: Erstelle canvas/ctx als Proxies für bestehenden Code
+const canvas = new Proxy({}, {
+  get: (target, prop) => {
+    const c = getCanvas();
+    return c ? c[prop] : undefined;
+  }
+});
+const ctx = new Proxy({}, {
+  get: (target, prop) => {
+    const c = getCtx();
+    return c ? c[prop] : undefined;
+  }
+});
 
 // Offscreen canvas: static target (rings, numbers, crosshairs) — drawn once per resize
 const _offCanvas = document.createElement('canvas');
@@ -6084,8 +6140,15 @@ function startBattle() {
   G._lastPlayerShotAt = G._gameStartTime;
   HealthyEngagement.onBattleStart();
   G.dnf = false;
+  
+  // NEU: Friend-Challenge Modus erkennen
+  const isFriendChallenge = !!G.friendChallenge;
+  if (isFriendChallenge) {
+    console.debug('[Battle] Friend-Challenge Modus aktiv gegen:', G.friendChallenge.friendUsername);
+  }
+  
   G.probeActive = true;  // Probezeit ist aktiv
-  G.probeSecsLeft = (G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
+  G.probeSecsLeft = (isFriendChallenge || G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
   G.transitionSecsLeft = 0;
   G.transitionLabel = '';
 
@@ -6104,6 +6167,12 @@ function startBattle() {
 
   setSz(); drawTarget([]);
 
+  // BUG-FIX #3: Null-Check für shotLogWrap verhindert Absturz wenn DOM nicht bereit
+  if (!DOM.shotLogWrap) {
+    console.error('[startBattle] shotLogWrap nicht gefunden — DOM nicht bereit?');
+    return;
+  }
+
   // Reset shot log area
   DOM.shotLogWrap.innerHTML = '';
   if (G.is3x20) {
@@ -6115,7 +6184,14 @@ function startBattle() {
       DOM.shotLogWrap.appendChild(grp);
       DOM.slPills[i] = null;
     });
-    G.positions.forEach((_, i) => { DOM.slPills[i] = document.getElementById(`slPills${i}`); });
+    // BUG-FIX #7: Null-Check für slPills Elemente mit Fehler-Logging
+    G.positions.forEach((_, i) => {
+      const el = document.getElementById(`slPills${i}`);
+      if (!el) {
+        console.error(`[startBattle] slPills${i} nicht gefunden — DOM-Update fehlgeschlagen`);
+      }
+      DOM.slPills[i] = el;
+    });
   } else {
     const flat = document.createElement('div');
     flat.className = 'shot-log';
@@ -6167,13 +6243,18 @@ function startBattle() {
   startMatchTimer(timeMins * 60);
 
   // Bot-Auto-Shoot startet NACH Probezeit (15 Min später)
-  const probeDelayMs = ((G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60) + 5) * 1000; // Probezeit + 5 Sek Delay
-  G._botStartTimeout = setTimeout(() => {
-    if (!G.botStarted) {
-      G.botStarted = true;
-      startBotAutoShoot();
-    }
-  }, probeDelayMs);
+  // NEU: Bei Friend-Challenge im async Modus oder wenn Challenger zuerst schießt, Bot nicht starten
+  if (!isFriendChallenge || (isFriendChallenge && !G.friendChallenge.isChallenger)) {
+    const probeDelayMs = ((G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60) + 5) * 1000; // Probezeit + 5 Sek Delay
+    G._botStartTimeout = setTimeout(() => {
+      if (!G.botStarted) {
+        G.botStarted = true;
+        startBotAutoShoot();
+      }
+    }, probeDelayMs);
+  } else if (isFriendChallenge) {
+    console.debug('[Battle] Async-Modus: Bot wird nicht gestartet (Challenger schießt zuerst)');
+  }
 }
 
 function updateBattleUI() {
@@ -7348,6 +7429,24 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
   // Update UI in case user views result details
   updateSchuetzenpass();
 
+  // NEU: Friend-Challenge Ergebnis übermitteln
+  if (G.friendChallenge && typeof FriendChallenges !== 'undefined') {
+    try {
+      const finalScore = G.playerTotal;
+      const shots = G.playerShots.map(s => s.pts || s.points || 0);
+      
+      FriendChallenges.submitChallengeResult(
+        G.friendChallenge.challengeId,
+        finalScore,
+        shots
+      );
+      
+      console.debug('[Battle] Friend-Challenge Ergebnis übermittelt:', finalScore);
+    } catch (error) {
+      console.error('[Battle] Friend-Challenge Ergebnis-Fehler:', error);
+    }
+  }
+
   if (DOM.analysisResult) DOM.analysisResult.innerHTML = '';
   const totalDuels = getTotalDuels();
 
@@ -7467,8 +7566,10 @@ function openShareCard() {
 }
 
 function closeShareCard(e) {
-  if (e && e.target !== document.getElementById('shareOverlay')) return;
-  document.getElementById('shareOverlay').classList.remove('active');
+  const overlay = document.getElementById('shareOverlay');
+  // BUG-FIX #1: Overflow IMMER wiederherstellen, auch bei X-Button oder Kind-Element Klicks
+  if (e && e.target !== overlay && !overlay?.contains(e.target)) return;
+  overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
 
@@ -7584,6 +7685,8 @@ function restartGame() {
   G.is3x20 = false;
   G.posIdx = 0; G.posShots = 0; G.posResults = [];
   G.positions = []; G.posIcons = [];
+  // NEU: Friend-Challenge zurücksetzen
+  G.friendChallenge = null;
   if (DOM.profileOverlay) DOM.profileOverlay.classList.remove('active');
   if (DOM.profileIcon) DOM.profileIcon.classList.remove('active');
 
@@ -7822,6 +7925,15 @@ window.addEventListener('resize', () => {
     if (_lastSz !== prevSz) drawTarget(G.targetShots);
   });
 }, { passive: true });
+
+// BUG-FIX #5: orientationchange Handler für iOS Safari Rotation
+window.addEventListener('orientationchange', () => {
+  // Kurze Verzögerung für iOS Safari damit Viewport-Werte aktualisiert werden
+  setTimeout(() => {
+    setSz();
+    drawTarget(G.targetShots);
+  }, 200);
+});
 
 // Swipe-down to close profile sheet
 (function () {

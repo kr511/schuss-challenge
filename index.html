@@ -55,6 +55,14 @@
   <script src="performance-config.js"></script>
   <script src="battle-balance.js" defer></script>
   <script src="qa-test-suite.js" defer></script>
+  
+  <!-- FREUNDES-SYSTEM: Freundesliste & Challenges -->
+  <script src="friends-system.js?v=1.0" defer></script>
+  <script src="friend-challenges.js?v=1.0" defer></script>
+  <script src="friends-ui.js?v=1.0" defer></script>
+  
+  <!-- MODERNES LEADERBOARD: Weltrangliste -->
+  <script src="leaderboard-modern.js?v=1.0" defer></script>
 </head>
 
 <body>
@@ -257,6 +265,28 @@
         </div>
       </div>
 
+      <!-- ══ SOCIAL DISCOVERY HUB (NEW) ══ -->
+      <div id="pdSocialHub" style="margin-bottom:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <div>
+            <div style="font-size:1.1rem;font-weight:600;color:#fff;line-height:1.3;">Schützen-Netzwerk</div>
+            <div style="font-size:0.75rem;color:rgba(255,255,255,0.4);">Entdecke Freunde & Rivalen</div>
+          </div>
+          <button onclick="SocialSystem.open()" style="background:rgba(0,195,255,0.08);border:1px solid rgba(0,195,255,0.3);border-radius:12px;padding:6px 14px;color:#00c3ff;font-size:0.75rem;font-weight:600;cursor:pointer;">
+            ➕ FINDEN
+          </button>
+        </div>
+
+        <!-- Horizontal Scrollable Friends List (Teaser) -->
+        <div id="pdFriendsTeaser" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none;-ms-overflow-style:none;">
+          <!-- Wird dynamisch befüllt -->
+          <div style="min-width:65px;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0.3;">
+             <div style="width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,0.05);border:1.5px dashed rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">👤</div>
+             <div style="font-size:0.6rem;color:#fff;">Suchen...</div>
+          </div>
+        </div>
+      </div>
+
       <!-- ══ DAILY MISSIONS ══ -->
       <div id="pdQuestsContainer" style="margin-bottom:24px;"></div>
 
@@ -401,6 +431,7 @@
           <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
           <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
           <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
+          <div class="ps-tab" data-tab="friends" onclick="switchProfileTab('friends')">👥 Freunde <span id="friendCountBadge" style="display:none;background:#f06050;color:#fff;font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:4px;">0</span></div>
           <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
         </div>
 
@@ -673,6 +704,11 @@
               <div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu
                 sehen!</div>
             </div>
+          </div>
+
+          <!-- ── FRIENDS PANEL ── -->
+          <div class="ps-panel" id="psPanel-friends">
+            <!-- Wird dynamisch von FriendsUI.renderProfileTab() befüllt -->
           </div>
 
           <div class="ps-panel" id="psPanel-debug" style="display:none;">
