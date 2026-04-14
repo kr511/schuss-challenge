@@ -178,6 +178,39 @@ const DailyChallenge = (function () {
     return dt;
   }
 
+  /**
+   * Holt die User-ID für personalisierte Challenges
+   * Reihenfolge: getFirebaseOwnerId() > StorageManager > G.username > Stable Anonymous ID
+   */
+  function getUserId() {
+    try {
+      // Priorität 1: Firebase User ID
+      if (typeof getFirebaseOwnerId === 'function') {
+        const fbId = getFirebaseOwnerId();
+        if (fbId) return fbId;
+      }
+      // Priorität 2: LocalStorage User ID
+      if (typeof StorageManager !== 'undefined' && StorageManager.getRaw) {
+        const storedId = StorageManager.getRaw('userId');
+        if (storedId) return storedId;
+      }
+      // Priorität 3: Username
+      if (typeof G !== 'undefined' && G.username) {
+        return G.username;
+      }
+      // Priorität 4: Stable anonyme ID (einmalig generiert, bleibt gleich)
+      let anonId = localStorage.getItem('sd_anonymous_id');
+      if (!anonId) {
+        anonId = 'anon_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+        localStorage.setItem('sd_anonymous_id', anonId);
+      }
+      return anonId;
+    } catch (e) {
+      console.warn('⚠️ Fehler beim Holen der User-ID:', e);
+    }
+    return 'fallback';
+  }
+
   function formatResetCountdown() {
     const now = new Date();
     const next = new Date(now);
@@ -201,8 +234,9 @@ const DailyChallenge = (function () {
       // Wenn Datum gewechselt hat → automatischer Reset um 0:00
       if (currentDate !== lastCheckedDate) {
         console.log('🔄 Midnight Reset: Neue Daily Challenges geladen');
+        const userId = getUserId();
         state.dateId = currentDate;
-        state.challenges = getDailyChallenges(currentDate);
+        state.challenges = getDailyChallenges(currentDate, userId);
         state.toolboxDroppedForDate = '';
         saveState();
         lastCheckedDate = currentDate;
@@ -306,8 +340,10 @@ const DailyChallenge = (function () {
     return pool.splice(selectedCandidate, 1)[0];
   }
 
-  function getDailyChallenges(dateId) {
-    const rng = createDailyRng(dateId);
+  function getDailyChallenges(dateId, userId = '') {
+    // User-spezifischer Seed: Datum + User-ID = persönliche Challenges
+    const userSeed = dateId + '_' + (userId || 'global');
+    const rng = createDailyRng(userSeed);
     const pool = [...CHALLENGES];
     const selected = [];
     let hardCount = 0;
@@ -419,13 +455,15 @@ const DailyChallenge = (function () {
       && state.challenges.every(c => !!getChallengeRef(c.id));
 
     if (state.dateId === today && !hasValidTodayChallenges) {
-      state.challenges = getDailyChallenges(today);
+      const userId = getUserId();
+      state.challenges = getDailyChallenges(today, userId);
       saveState();
       return;
     }
 
     if (state.dateId !== today) {
       // Neuen Tag prüfen - Streak logik
+      const userId = getUserId();
       const prevIsYesterday = isYesterday(state.dateId, today);
       const allCompletedYesterday = state.challenges && state.challenges.length === 3 && state.challenges.every(c => c.completed);
       const toolboxClaimedYesterday = state.toolboxDroppedForDate === state.dateId;
@@ -445,7 +483,7 @@ const DailyChallenge = (function () {
       }
 
       state.dateId = today;
-      state.challenges = getDailyChallenges(today);
+      state.challenges = getDailyChallenges(today, userId);
       saveState();
     }
   }
