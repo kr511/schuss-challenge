@@ -50,6 +50,10 @@
   <script src="ProfileView.js?v=1.0" defer></script>
   <script src="training-modes.js?v=3.0" defer></script>
   <script src="mobile-features.js?v=3.0" defer></script>
+  <script src="mobile-responsive.js?v=1.0" defer></script>
+  <script src="friends.js?v=1.0" defer></script>
+  <script src="async-challenge.js?v=1.0" defer></script>
+  <script src="updates.js?v=1.0" defer></script>
   <link rel="stylesheet" href="styles.css?v=3.0">
   <link rel="stylesheet" href="modern-animations.css?v=1.0">
   <script src="modern-ux.js?v=1.0" defer></script>
@@ -159,10 +163,21 @@
               style="color:#7ab030;" id="pdUserName">Alex</span>!</h2>
           <div id="pdDate" style="font-size:0.78rem;color:rgba(255,255,255,0.4);">11. Apr. 2026</div>
         </div>
-        <div id="pdProfileBtn"
-          onclick="if(window.toggleProfileMenu) window.toggleProfileMenu(); else console.error('toggleProfileMenu missing');"
-          style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
-          <span id="pdProfileInitial">A</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="position:relative;">
+            <button id="updatesButton" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Updates & Ankündigungen" style="width:44px;height:44px;border-radius:50%;background:rgba(255,193,7,0.2);border:1px solid rgba(255,193,7,0.3);color:#fff;font-size:1.4rem;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">🔔</button>
+            <div id="updatesDropdown" style="display:none;position:absolute;top:55px;right:0;width:320px;max-height:400px;background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);border-radius:16px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow-y:auto;z-index:10000;opacity:0;transform:translateY(-10px);transition:all 0.2s;">
+              <div style="padding:16px;">
+                <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:12px;">🔔 UPDATES</div>
+                <div id="updatesDropdownContent"></div>
+              </div>
+            </div>
+          </div>
+          <div id="pdProfileBtn"
+            onclick="if(window.toggleProfileMenu) window.toggleProfileMenu(); else console.error('toggleProfileMenu missing');"
+            style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
+            <span id="pdProfileInitial">A</span>
+          </div>
         </div>
       </div>
   
@@ -293,12 +308,43 @@
           <div
             style="width:40px;height:5px;background:rgba(255,255,255,0.2);border-radius:5px;margin:0 auto 20px auto;">
           </div>
-          <h3 style="color:#fff;margin:0 0 20px 0;font-weight:700;font-size:1.3rem;">DUELL EINSTELLUNGEN</h3>
-          <div id="duelSetupContentMount"><!-- Legacy setup elements move here --></div>
-          <button class="btn-fire" onclick="startBattle();setTimeout(closeDuelSetup,500);"
-            style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(122,176,48,0.35);">
-            🎯 Duell starten
-          </button>
+          
+          <!-- ══ MODUS AUSWAHL (Bot vs Multiplayer) ══ -->
+          <div id="gameModeSelection">
+            <h3 style="color:#fff;margin:0 0 8px 0;font-weight:700;font-size:1.3rem;text-align:center;">SPIELMODUS</h3>
+            <p style="color:rgba(255,255,255,0.5);margin:0 0 24px 0;font-size:0.9rem;text-align:center;">Wähle deinen Gegner</p>
+            
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+              <!-- Bot Option -->
+              <button id="modeBotBtn" onclick="selectGameMode('bot')"
+                style="background:linear-gradient(145deg, rgba(0,195,255,0.15) 0%, rgba(122,176,48,0.15) 100%);border:2px solid rgba(0,195,255,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
+                <div style="font-size:3rem;">🤖</div>
+                <div style="color:#fff;font-weight:700;font-size:1.1rem;">GEGEN BOT</div>
+                <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">KI-Gegner mit verschiedenen Schwierigkeiten</div>
+              </button>
+              
+              <!-- Multiplayer Option -->
+              <button id="modeMultiBtn" onclick="selectGameMode('multiplayer')"
+                style="background:linear-gradient(145deg, rgba(255,59,48,0.15) 0%, rgba(255,149,0,0.15) 100%);border:2px solid rgba(255,59,48,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
+                <div style="font-size:3rem;">👥</div>
+                <div style="color:#fff;font-weight:700;font-size:1.1rem;">MULTIPLAYER</div>
+                <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">Async gegen Freunde</div>
+              </button>
+            </div>
+          </div>
+          
+          <!-- ══ DUELL EINSTELLUNGEN (initial versteckt) ══ -->
+          <div id="duelSettingsContent" style="display:none;">
+            <button onclick="showGameModeSelection()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 16px;color:rgba(255,255,255,0.6);cursor:pointer;margin-bottom:16px;font-size:0.9rem;">
+              ← Zurück zur Modus-Auswahl
+            </button>
+            <h3 id="duelSettingsTitle" style="color:#fff;margin:0 0 20px 0;font-weight:700;font-size:1.3rem;">DUELL EINSTELLUNGEN</h3>
+            <div id="duelSetupContentMount"><!-- Legacy setup elements move here --></div>
+            <button class="btn-fire" id="startBattleBtn" onclick="startBattle();setTimeout(closeDuelSetup,500);"
+              style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(122,176,48,0.35);">
+              🎯 Duell starten
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1401,11 +1447,60 @@
 
 
   <script>
+    // ══ GAME MODE SELECTION ══
+    let selectedGameMode = 'bot'; // 'bot' or 'multiplayer'
+    
+    function selectGameMode(mode) {
+      selectedGameMode = mode;
+      
+      if (mode === 'bot') {
+        document.getElementById('duelSettingsTitle').textContent = 'DUELL EINSTELLUNGEN';
+        document.getElementById('startBattleBtn').innerHTML = '🎯 Duell starten';
+        document.getElementById('startBattleBtn').onclick = function() { startBattle(); setTimeout(closeDuelSetup, 500); };
+      } else {
+        document.getElementById('duelSettingsTitle').textContent = 'ASYNC CHALLENGE';
+        document.getElementById('startBattleBtn').innerHTML = '⚔️ Challenge erstellen';
+        document.getElementById('startBattleBtn').onclick = function() { 
+          if (window.AsyncChallenge && typeof window.AsyncChallenge.createChallenge === 'function') {
+            window.AsyncChallenge.createChallenge();
+          }
+          setTimeout(closeDuelSetup, 500);
+        };
+      }
+      
+      showDuelSettings();
+      
+      if (typeof triggerHaptic === 'function') triggerHaptic();
+    }
+    
+    function showGameModeSelection() {
+      const modeSelection = document.getElementById('gameModeSelection');
+      const settingsContent = document.getElementById('duelSettingsContent');
+      
+      if (modeSelection && settingsContent) {
+        modeSelection.style.display = 'block';
+        settingsContent.style.display = 'none';
+      }
+    }
+    
+    function showDuelSettings() {
+      const modeSelection = document.getElementById('gameModeSelection');
+      const settingsContent = document.getElementById('duelSettingsContent');
+      
+      if (modeSelection && settingsContent) {
+        modeSelection.style.display = 'none';
+        settingsContent.style.display = 'block';
+      }
+    }
+    
     function openDuelSetup() {
       if (typeof triggerHaptic === 'function') triggerHaptic();
       const ov = document.getElementById('duelSetupSheetOverlay');
       const sheet = document.getElementById('duelSetupSheet');
       ov.style.display = 'block';
+      
+      // Show game mode selection first
+      showGameModeSelection();
 
       // Move ALL setup elements into the bottom sheet mount
       const mount = document.getElementById('duelSetupContentMount');
