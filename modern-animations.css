@@ -369,9 +369,12 @@ button:active::after, .btn:active::after {
   }
 }
 
-.card:hover, .badge-item:hover {
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: var(--shadow-elevated);
+/* Hover nur für Geräte mit Hover-Fähigkeit */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover, .badge-item:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: var(--shadow-elevated);
+  }
 }
 
 /* ─── LOOTBOX / TOOLBOX ANIMATION ───────────────────────── */
@@ -408,8 +411,11 @@ button:active::after, .btn:active::after {
   transition: transform var(--anim-speed-fast) var(--ease-elastic);
 }
 
-.lootbox:hover {
-  transform: scale(1.05);
+/* Hover nur für Geräte mit Hover-Fähigkeit */
+@media (hover: hover) and (pointer: fine) {
+  .lootbox:hover {
+    transform: scale(1.05);
+  }
 }
 
 .lootbox.shaking {

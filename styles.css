@@ -49,7 +49,7 @@
     html {
       height: 100%;
       min-height: 100dvh;
-      overflow: auto;
+      overflow: hidden; /* Doppelte Scrollbars verhindern */
     }
 
     body {
@@ -61,7 +61,11 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
+      /* Rubber-Band Scrolling unterbinden (iOS Safari) */
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: touch;
       color: #e8e8e0;
     }
 
@@ -957,11 +961,15 @@
       z-index: 900;
       background: rgba(0, 0, 0, .55);
       backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       display: none;
       align-items: flex-end;
       justify-content: center;
       opacity: 0;
       transition: opacity .2s ease;
+      /* GPU-Beschleunigung */
+      will-change: opacity;
+      transform: translateZ(0);
     }
 
     .profile-overlay.active {
@@ -5003,20 +5011,38 @@
   .hdr {
     padding: 8px 20px 0;
   }
-  
+
   .logo {
     font-size: clamp(1.2rem, 4vw, 2rem);
   }
-  
+
   #targetCanvas {
     width: 100%;
     height: auto;
     max-height: 200px;
   }
-  
+
   .content {
     gap: 6px;
     padding: 8px 18px;
+  }
+
+  /* Premium Dashboard: Scroll-Container im Landscape */
+  #premiumDashboard {
+    max-height: 85vh;
+    overflow-y: auto;
+    padding-bottom: 80px; /* Platz für Floating Button */
+  }
+
+  /* Scanner View: Landscape Optimierung */
+  #v2ScannerViewDashboard,
+  #v2ScannerViewOverlay {
+    height: 100dvh;
+  }
+
+  #v2ScannerViewDashboard video,
+  #v2ScannerViewOverlay video {
+    object-fit: contain; /* Verhindert Abschneiden im Landscape */
   }
 }
 
@@ -5031,7 +5057,18 @@
     min-height: 48px;
     min-width: 48px;
   }
-  
+
+  /* Badge-Grid responsive: 2 Spalten auf kleinen Bildschirmen */
+  .pd-badges-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  @media (max-width: 400px) {
+    .pd-badges-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
   /* Reduce padding on small screens */
   .hdr {
     padding: 10px 16px 0;
@@ -5733,6 +5770,9 @@ body.slow-network .profile-sheet {
   z-index: 21000;
   pointer-events: none;
   animation: confetti-fall 3s linear forwards;
+  /* GPU-Beschleunigung für flüssige Animation */
+  will-change: transform, opacity;
+  transform: translateZ(0);
 }
 
 @keyframes confetti-fall {
@@ -6543,4 +6583,85 @@ body.slow-network .profile-sheet {
 }
 .duel-setup-sheet .btn-fire:active {
   transform: scale(0.97);
+}
+
+/* ═══════════════════════════════════════════
+   HOVER-EFFEKTE NUR FÜR GERÄTE MIT HOVER-FÄHIGKEIT
+   Verhindert "sticky hover" auf Touch-Geräten
+═══════════════════════════════════════════ */
+@media (hover: hover) and (pointer: fine) {
+  /* Alle :hover Effekte werden hier aktiviert */
+  .training-mode-card:hover:not(.locked) {
+    transform: translateY(-2px);
+    border-color: rgba(120, 180, 50, 0.4);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  }
+  .start-training-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  .streak-corner:hover {
+    filter: brightness(1.1);
+  }
+  .profile-btn:hover {
+    transform: scale(1.05);
+  }
+  .ps-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .profile-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .ic-go-upload-btn:hover {
+    transform: translateY(-2px);
+  }
+  .btn-lb-link:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .btn-share:hover {
+    transform: scale(1.05);
+  }
+  .btn-share-go:hover {
+    transform: scale(1.05);
+  }
+  .btn-share-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .btn.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  .btn.secondary:hover {
+    transform: translateY(-1px);
+  }
+  .fb-emoji-btn:hover {
+    transform: scale(1.1);
+  }
+  .btn-fb-skip:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Auf Touch-Geräten :hover Effekte deaktivieren */
+@media (hover: none) and (pointer: coarse) {
+  .training-mode-card:hover:not(.locked),
+  .start-training-btn:hover:not(:disabled),
+  .streak-corner:hover,
+  .profile-btn:hover,
+  .ps-close:hover,
+  .profile-close:hover,
+  .ic-go-upload-btn:hover,
+  .btn-lb-link:hover,
+  .btn-share:hover,
+  .btn-share-go:hover,
+  .btn-share-close:hover,
+  .btn.primary:hover,
+  .btn.secondary:hover,
+  .fb-emoji-btn:hover,
+  .btn-fb-skip:hover {
+    transform: none !important;
+    filter: none !important;
+    box-shadow: none !important;
+    background: initial !important;
+  }
 }

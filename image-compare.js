@@ -1902,13 +1902,17 @@ window.ImageCompare = (function () {
     });
 
     let startY = 0;
+    let startX = 0;
     sheet.addEventListener('touchstart', (e) => {
       startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
     }, { passive: true });
 
     sheet.addEventListener('touchend', (e) => {
       const dy = e.changedTouches[0].clientY - startY;
-      if (dy > 80) closeOverlay();
+      const dx = Math.abs(e.changedTouches[0].clientX - startX);
+      // Nur schließen wenn vertikal UND nicht horizontal abgelenkt
+      if (dy > 80 && dy > dx * 2) closeOverlay();
     }, { passive: true });
   }
 
@@ -1921,14 +1925,18 @@ window.ImageCompare = (function () {
       resetUploadZone(overlay, isKK);
     }
     _isProcessing = false;
-    // Body scroll unlock
-    document.body.style.overflow = '';
-    // iOS Safari fallback: scroll position wiederherstellen
+    // iOS Safari: Zuerst position entfernen, DANN overflow, DANN scrollen
     if (window.innerWidth <= 768 && document.body.style.position === 'fixed') {
       const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
       document.body.style.position = '';
       document.body.style.top = '';
-      window.scrollTo(0, scrollY);
+      // requestAnimationFrame um sicherzustellen dass position entfernt wurde
+      requestAnimationFrame(() => {
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      });
+    } else {
+      document.body.style.overflow = '';
     }
   }
 

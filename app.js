@@ -666,13 +666,18 @@ function toggleProfileMenu() {
   if (isActive) {
     ov.classList.remove('active');
     if (icon) icon.classList.remove('active');
-    document.body.style.overflow = '';
-    // iOS Safari fallback: scroll position wiederherstellen
+    // iOS Safari: Zuerst position entfernen, DANN overflow, DANN scrollen
     if (window.innerWidth <= 768 && document.body.style.position === 'fixed') {
       const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
       document.body.style.position = '';
       document.body.style.top = '';
-      window.scrollTo(0, scrollY);
+      // requestAnimationFrame um sicherzustellen dass position entfernt wurde
+      requestAnimationFrame(() => {
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      });
+    } else {
+      document.body.style.overflow = '';
     }
   } else {
     refreshDebugToolsVisibility();
@@ -958,7 +963,7 @@ window.signInWithGoogle = async function() {
       // Anonymen Account mit Google verknüpfen
       try {
         await currentUser.linkWithCredential(credential);
-        console.log('✅ Anonymen Account mit Google verknüpft');
+        console.debug('✅ Anonymen Account mit Google verknüpft');
       } catch (linkError) {
         // Wenn Verknüpfung fehlschlägt (z.B. Google existiert bereits)
         if (linkError.code === 'auth/credential-already-in-use') {
@@ -1079,7 +1084,7 @@ window.registerWithEmail = async function(email, password) {
     // Bestehende lokale Daten mit neuem Konto verknüpfen
     await linkLocalDataToFirebase(user);
 
-    console.log('✅ Neues Konto erstellt:', user.email);
+    console.debug('✅ Neues Konto erstellt:', user.email);
     return user;
   } catch (error) {
     console.error('Registration Error:', error);
@@ -1128,7 +1133,7 @@ window.signInWithEmail = async function(email, password) {
     // Bestehende lokale Daten mit Konto verknüpfen
     await linkLocalDataToFirebase(user);
 
-    console.log('✅ Angemeldet:', user.email);
+    console.debug('✅ Angemeldet:', user.email);
     return user;
   } catch (error) {
     console.error('Login Error:', error);
@@ -1192,7 +1197,7 @@ window.logoutEmail = async function() {
     updateXPCorner();
     updateProfileMenu();
 
-    console.log('✅ Abgemeldet');
+    console.debug('✅ Abgemeldet');
     return true;
   } catch (error) {
     console.error('Logout Error:', error);
@@ -1225,7 +1230,7 @@ async function linkLocalDataToFirebase(user) {
       StorageManager.setRaw('profilePhotoURL', user.photoURL);
     }
 
-    console.log('✅ Lokale Daten mit Firebase-Konto verknüpft:', user.email || user.displayName);
+    console.debug('✅ Lokale Daten mit Firebase-Konto verknüpft:', user.email || user.displayName);
   } catch (error) {
     console.warn('Data linking warning:', error?.code || error?.message || error);
     // Nicht kritisch - Login funktioniert trotzdem
@@ -1838,7 +1843,7 @@ function fbSubmit() {
   while (entries.length > 100) entries.pop();
   try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { console.warn('[Feedback] localStorage Fehler:', e.message); }
 
-  console.log('[Feedback]', { rating: fbRating + 1, tags: fbTags, comment, duel: fbDuelData });
+  console.debug('[Feedback]', { rating: fbRating + 1, tags: fbTags, comment, duel: fbDuelData });
 
   // Thank you animation
   const card = document.getElementById('screenFeedback');
@@ -2390,7 +2395,7 @@ function recordGameResult(result, diff, weapon, playerPts, botPts) {
     if (typeof StreakTracker !== 'undefined') {
       const streakResult = StreakTracker.recordGame();
       if (streakResult.streakIncreased && streakResult.milestone) {
-        console.log('[Streak] Milestone erreicht:', streakResult.milestone);
+        console.debug('[Streak] Milestone erreicht:', streakResult.milestone);
       }
     }
 
@@ -2823,15 +2828,15 @@ function refreshPremiumDashboard() {
     latest3.forEach(game => {
       const isWin = game.result === 'win' || game.result === 'Sieg';
       const color = isWin ? '#7ab030' : '#f06050';
-      const label = isWin ? '✓ Sieg' : '✗ Niederlage';
-      const diff = game.difficulty || 'Mittel';
-      
+      const label = escHtml(isWin ? '✓ Sieg' : '✗ Niederlage');
+      const diff = escHtml(game.difficulty || 'Mittel');
+
       // Disziplin-Name korrekt auflösen: "LG 40", "LG 60", "KK 50m", "KK 100m", "KK 3×20"
       let displayDisc = '';
       if (game.discipline && DISC[game.discipline]) {
         displayDisc = DISC[game.discipline].name;
       } else if (game.disciplineName) {
-        displayDisc = game.disciplineName;
+        displayDisc = escHtml(game.disciplineName);
       } else {
         // Fallback: Versuche aus weapon + shotsCount zu rekonstruieren
         const weapon = (game.weapon || 'lg').toLowerCase();
@@ -2957,14 +2962,14 @@ function refreshPremiumDashboard() {
     let listHtml = '';
     const recentGames = historyV2.slice(Math.max(historyV2.length - 2, 0)).reverse();
     recentGames.forEach(game => {
-      const diff = game.difficulty || 'Mittel';
-      
+      const diff = escHtml(game.difficulty || 'Mittel');
+
       // Disziplin-Name korrekt auflösen (gleiche Logik wie oben)
       let displayDisc = '';
       if (game.discipline && DISC[game.discipline]) {
         displayDisc = DISC[game.discipline].name;
       } else if (game.disciplineName) {
-        displayDisc = game.disciplineName;
+        displayDisc = escHtml(game.disciplineName);
       } else {
         const weapon = (game.weapon || 'lg').toLowerCase();
         const shotsCount = game.shotsCount || 40;
@@ -3007,19 +3012,19 @@ function renderHistory() {
       const pPts = h.playerPts !== null ? parseFloat(h.playerPts).toFixed(1) : '–';
       const bPts = h.botPts !== null ? parseFloat(h.botPts).toFixed(1) : '–';
       const weaponUpper = (h.weapon || (h.weaponName === 'Luftgewehr' ? 'lg' : h.weaponName === 'Kleinkaliber' ? 'kk' : h.weaponName) || 'LG').toUpperCase();
-      let discUpper = (h.disciplineName || h.discipline || '').toString().toUpperCase();
+      let discUpper = escHtml((h.disciplineName || h.discipline || '').toString().toUpperCase());
       if (discUpper.startsWith(weaponUpper)) {
         discUpper = discUpper.substring(weaponUpper.length).trim();
       }
-      const finalTitle = `${weaponUpper} ${discUpper} · ${h.diffName || h.diff || 'Mittel'}`;
+      const finalTitle = `${weaponUpper} ${discUpper} · ${escHtml(h.diffName || h.diff || 'Mittel')}`;
 
       return `<div class="ps-history-item">
-            <div class="phi-result ${h.result}">${resLabel}</div>
+            <div class="phi-result ${escHtml(h.result)}">${resLabel}</div>
             <div class="phi-info">
               <div class="phi-title">${finalTitle}</div>
-              <div class="phi-sub">${h.date}</div>
+              <div class="phi-sub">${escHtml(h.date)}</div>
             </div>
-            <div class="phi-score ${h.result}">${pPts} <span style="opacity:.4;font-size:.7em">vs</span> ${bPts}</div>
+            <div class="phi-score ${escHtml(h.result)}">${pPts} <span style="opacity:.4;font-size:.7em">vs</span> ${bPts}</div>
           </div>`;
     }).join('');
   } catch (e) {
@@ -4069,7 +4074,7 @@ async function showAccountSyncCode() {
           <button onclick="document.getElementById('syncCodeOverlay')?.remove()" style="flex:1;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-weight:600;font-size:0.85rem;cursor:pointer;">
             Schließen
           </button>
-          <button onclick="navigator.clipboard?.writeText('${data.code}');this.textContent='✅ Kopiert!';setTimeout(()=>this.textContent='Kopieren',1500)" style="flex:1;padding:12px;background:linear-gradient(135deg,#00c3ff,#7ab030);border:none;border-radius:10px;color:#000;font-weight:700;font-size:0.85rem;cursor:pointer;">
+          <button onclick="navigator.clipboard?.writeText('${escHtml(data.code)}');this.textContent='✅ Kopiert!';setTimeout(()=>this.textContent='Kopieren',1500)" style="flex:1;padding:12px;background:linear-gradient(135deg,#00c3ff,#7ab030);border:none;border-radius:10px;color:#000;font-weight:700;font-size:0.85rem;cursor:pointer;">
             📋 Kopieren
           </button>
         </div>
@@ -4951,10 +4956,10 @@ function renderLeaderboard(entries, scope = getActiveLeaderboardScope()) {
     return `
           <div class="lb-row ${isMe ? 'me' : ''}">
             <div class="lb-rank-num">${i + 1}</div>
-            <div class="lb-avatar">${e.rankIcon || '👤'}</div>
+            <div class="lb-avatar">${escHtml(e.rankIcon || '👤')}</div>
             <div class="lb-info">
               <div class="lb-name">${escHtml(displayName)}${isMe ? ' (Du)' : ''}</div>
-              <div class="lb-sub">${weaponIcon} ${e.rank || 'Schütze'}</div>
+              <div class="lb-sub">${weaponIcon} ${escHtml(e.rank || 'Schütze')}</div>
             </div>
             <div class="lb-stats">
               <div class="lb-xp">${score} Score</div>
@@ -5079,10 +5084,10 @@ renderLeaderboard = function renderLeaderboardPatched(entries, scope = getActive
     return `
           <div class="lb-row ${isMe ? 'me' : ''}">
             <div class="lb-rank-num">${index + 1}</div>
-            <div class="lb-avatar">${entry.rankIcon || '👤'}</div>
+            <div class="lb-avatar">${escHtml(entry.rankIcon || '👤')}</div>
             <div class="lb-info">
               <div class="lb-name">${escHtml(displayName)}${isMe ? ' (Du)' : ''}</div>
-              <div class="lb-sub">${subline}</div>
+              <div class="lb-sub">${escHtml(subline)}</div>
             </div>
             <div class="lb-stats">
               <div class="lb-xp">${topLine}</div>
@@ -7335,7 +7340,7 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
     if (typeof StreakTracker !== 'undefined') {
       const streakResult = StreakTracker.recordGame();
       if (streakResult.streakIncreased && streakResult.milestone) {
-        console.log('[Streak] Milestone erreicht:', streakResult.milestone);
+        console.debug('[Streak] Milestone erreicht:', streakResult.milestone);
       }
     }
   }
@@ -7622,14 +7627,14 @@ checkSunAchievements(); // Check on load in case new achievements unlocked
 // NEU: Fallback-System zuerst initialisieren
 if (typeof FeatureFallback !== 'undefined') {
   FeatureFallback.init();
-  console.log('🛡️ Feature Fallback System geladen');
+  console.debug('🛡️ Feature Fallback System geladen');
 }
 
 // NEU: Neue Features initialisieren (mit Fallback-Schutz)
 if (typeof AdaptiveBotSystem !== 'undefined') {
   try {
     AdaptiveBotSystem.init();
-    console.log('🤖 Adaptive Bot System geladen');
+    console.debug('🤖 Adaptive Bot System geladen');
   } catch (error) {
     console.error('❌ Adaptive Bot System Fehler:', error);
     if (typeof FeatureFallback !== 'undefined') {
@@ -7641,7 +7646,7 @@ if (typeof AdaptiveBotSystem !== 'undefined') {
 if (typeof ContextualOCR !== 'undefined') {
   try {
     ContextualOCR.init();
-    console.log('🔍 Contextual OCR System geladen');
+    console.debug('🔍 Contextual OCR System geladen');
   } catch (error) {
     console.error('❌ Contextual OCR Fehler:', error);
     if (typeof FeatureFallback !== 'undefined') {
@@ -7653,7 +7658,7 @@ if (typeof ContextualOCR !== 'undefined') {
 if (typeof MultiScoreDetection !== 'undefined') {
   try {
     MultiScoreDetection.init();
-    console.log('📊 Multi-Score Detection System geladen');
+    console.debug('📊 Multi-Score Detection System geladen');
   } catch (error) {
     console.error('❌ Multi-Score Detection Fehler:', error);
     if (typeof FeatureFallback !== 'undefined') {
@@ -7682,7 +7687,7 @@ function checkFirstVisit() {
 
 window.addEventListener('difficultyAdapted', function (event) {
   const detail = event.detail || {};
-  console.log('🎯 Schwierigkeit angepasst:', detail.discipline || 'global', detail.oldDifficulty, '→', detail.newDifficulty);
+  console.debug('🎯 Schwierigkeit angepasst:', detail.discipline || 'global', detail.oldDifficulty, '→', detail.newDifficulty);
   if (detail.discipline && detail.discipline !== G.discipline) return;
   setDifficulty(detail.newDifficulty, { persist: false });
 });
@@ -7821,12 +7826,18 @@ window.addEventListener('resize', () => {
 // Swipe-down to close profile sheet
 (function () {
   let startY = 0;
+  let startX = 0;
   const sheet = document.getElementById('profileSheet');
   if (!sheet) return;
-  sheet.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    startX = e.touches[0].clientX;
+  }, { passive: true });
   sheet.addEventListener('touchend', e => {
     const dy = e.changedTouches[0].clientY - startY;
-    if (dy > 80) toggleProfileMenu();
+    const dx = Math.abs(e.changedTouches[0].clientX - startX);
+    // Nur schließen wenn vertikal UND nicht horizontal abgelenkt
+    if (dy > 80 && dy > dx * 2) toggleProfileMenu();
   }, { passive: true });
 })();
 
