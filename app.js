@@ -645,15 +645,33 @@ function toggleProfileMenu() {
   const ov = DOM.profileOverlay || document.getElementById('profileOverlay');
   const icon = DOM.profileIcon || document.getElementById('profileIcon');
   if (!ov) return;
+  
+  // Premium Blur Elements
+  const dash = document.getElementById('premiumDashboard');
+  const hdrLogo = document.querySelector('.hdr-top .logo');
+  const startBtn = document.getElementById('btnOpenDuelSetup');
+  const transition = 'filter 0.3s ease, opacity 0.3s ease';
+
   const isActive = ov.classList.contains('active');
   if (isActive) {
     ov.classList.remove('active');
     if (icon) icon.classList.remove('active');
+    
+    // Un-blur
+    if (dash) { dash.style.filter = ''; }
+    if (hdrLogo) { hdrLogo.style.filter = ''; }
+    if (startBtn) { startBtn.style.opacity = '1'; }
   } else {
     refreshDebugToolsVisibility();
     refreshProfileSheet();
     ov.classList.add('active');
     if (icon) icon.classList.add('active');
+    
+    // Blur
+    if (dash) { dash.style.transition = transition; dash.style.filter = 'blur(10px) brightness(0.6)'; }
+    if (hdrLogo) { hdrLogo.style.transition = transition; hdrLogo.style.filter = 'blur(10px) brightness(0.6)'; }
+    if (startBtn) { startBtn.style.transition = transition; startBtn.style.opacity = '0'; }
+
     // Chart + Sound-Button erst nach Paint initialisieren
     requestAnimationFrame(() => requestAnimationFrame(() => {
       renderPerformanceChart();
@@ -2695,7 +2713,7 @@ function refreshPremiumDashboard() {
         : `+${badge.xp} XP`;
 
       return `
-        <div style="background:linear-gradient(145deg, ${colors.bg} 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid ${colors.border};border-top:1px solid ${colors.top};border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px ${colors.glow};${!isUnlocked ? 'opacity:0.6;' : ''}">
+        <div class="badge-item animate-in stagger-${(idx % 4) + 1}" style="background:linear-gradient(145deg, ${colors.bg} 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid ${colors.border};border-top:1px solid ${colors.top};border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px ${colors.glow};${!isUnlocked ? 'opacity:0.6;' : ''}">
           <div style="font-size:1.7rem;margin-bottom:5px;${!isUnlocked ? 'filter:grayscale(1);' : ''}">${badge.icon}</div>
           <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">${nameLines}</div>
           <div style="font-size:0.58rem;color:${colors.text};font-weight:500;">${progressText}</div>
@@ -2836,7 +2854,7 @@ function refreshPremiumDashboard() {
       }
 
       l3Html += `
-        <div style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
+        <div class="duel-entry animate-in stagger-${(latest3.indexOf(game) % 4) + 1}" style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${displayDisc}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
             <div style="font-size:0.75rem;font-weight:600;color:${color};">${label}</div>
