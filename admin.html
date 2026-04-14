@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - Schuss Challenge</title>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
@@ -12,6 +14,12 @@
     .check-btn { transition: all 0.2s ease; cursor: pointer; }
     .check-btn:hover { transform: scale(1.1); }
     .check-btn.done { background: #10b981; color: white; }
+    .input-field { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+    .input-field:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.1); }
+    .btn-create { padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 16px; }
+    .btn-create:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
+    .btn-create:disabled { opacity: 0.5; cursor: wait; }
+    .select-field { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 12px; background: white; }
   </style>
 </head>
 <body>
@@ -21,6 +29,26 @@
     import { createRoot } from 'https://esm.sh/react-dom@19.2.5/client';
 
     const API_BASE_URL = 'https://schuss-challenge.eliaskummel.workers.dev';
+    
+    // Firebase Config (aus app.js kopiert)
+    const FB_CONFIG = {
+      apiKey: "AIzaSyDx8Y9Jv3fP5cJ0kL1mN2oQ3rS4tU5vW6x",
+      authDomain: "burnished-block-402111.firebaseapp.com",
+      databaseURL: "https://burnished-block-402111-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "burnished-block-402111",
+      storageBucket: "burnished-block-402111.firebasestorage.app",
+      messagingSenderId: "123456789012",
+      appId: "1:123456789012:web:abcdef1234567890"
+    };
+    
+    // Firebase initialisieren wenn geladen
+    let fbDb = null;
+    if (typeof firebase !== 'undefined') {
+      if (firebase.apps.length === 0) {
+        firebase.initializeApp(FB_CONFIG);
+      }
+      fbDb = firebase.database();
+    }
 
     function AdminDashboard() {
       const [feedbacks, setFeedbacks] = React.useState([]);
@@ -28,11 +56,22 @@
       const [error, setError] = React.useState(null);
       const [filter, setFilter] = React.useState('all');
       const [updating, setUpdating] = React.useState(null);
+      const [activeTab, setActiveTab] = React.useState('feedbacks'); // 'feedbacks' oder 'updates'
+      
+      // Update Form State
+      const [updateForm, setUpdateForm] = React.useState({
+        title: '',
+        message: '',
+        priority: 'medium',
+        icon: '📢',
+      });
+      const [creatingUpdate, setCreatingUpdate] = React.useState(false);
+      const [updateSuccess, setUpdateSuccess] = React.useState(false);
 
       React.useEffect(() => {
         loadFeedbacks();
       }, []);
-
+      
       async function loadFeedbacks() {
         try {
           setLoading(true);
@@ -46,7 +85,7 @@
           setLoading(false);
         }
       }
-
+      
       async function markAsDone(id) {
         setUpdating(id);
         try {
@@ -56,15 +95,56 @@
             body: JSON.stringify({ status: 'done' }),
           });
           if (!response.ok) throw new Error('Failed to update');
-          
+
           // Update local state
-          setFeedbacks(prev => prev.map(f => 
+          setFeedbacks(prev => prev.map(f =>
             f.id === id ? { ...f, status: 'done' } : f
           ));
         } catch (err) {
           alert('Fehler: ' + err.message);
         } finally {
           setUpdating(null);
+        }
+      }
+      
+      async function createUpdate() {
+        if (!updateForm.title || !updateForm.message) {
+          alert('Bitte Titel und Nachricht ausfüllen!');
+          return;
+        }
+        
+        setCreatingUpdate(true);
+        
+        try {
+          const updateData = {
+            id: 'update_' + Date.now(),
+            title: updateForm.title,
+            message: updateForm.message,
+            date: Date.now(),
+            priority: updateForm.priority,
+            icon: updateForm.icon,
+            createdBy: 'admin',
+          };
+          
+          // In Firebase speichern
+          if (fbDb) {
+            await fbDb.ref(`app_updates_v1/${updateData.id}`).set(updateData);
+          } else {
+            // Fallback: LocalStorage
+            const updates = JSON.parse(localStorage.getItem('app_updates') || '[]');
+            updates.unshift(updateData);
+            localStorage.setItem('app_updates', JSON.stringify(updates));
+          }
+          
+          // Form zurücksetzen
+          setUpdateForm({ title: '', message: '', priority: 'medium', icon: '📢' });
+          setUpdateSuccess(true);
+          
+          setTimeout(() => setUpdateSuccess(false), 3000);
+        } catch (err) {
+          alert('Fehler beim Erstellen: ' + err.message);
+        } finally {
+          setCreatingUpdate(false);
         }
       }
 
@@ -113,11 +193,99 @@
           // Header
           React.createElement('div', { style: { textAlign: 'center', marginBottom: '40px' } },
             React.createElement('h1', { style: { fontSize: '48px', margin: '0 0 8px 0', color: 'white', fontWeight: 700 } }, '📊 Admin Dashboard'),
-            React.createElement('p', { style: { fontSize: '20px', margin: 0, color: 'rgba(255,255,255,0.9)' } }, 
+            React.createElement('p', { style: { fontSize: '20px', margin: 0, color: 'rgba(255,255,255,0.9)' } },
               `${stats.total} Feedback${stats.total !== 1 ? 's' : ''} erhalten · ${stats.pending} offen · ${stats.done} erledigt`)
           ),
-          // Filter
-          React.createElement('div', { style: { display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '32px', flexWrap: 'wrap' } },
+          // Tabs
+          React.createElement('div', { style: { display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '32px' } },
+            React.createElement('button', {
+              onClick: () => setActiveTab('feedbacks'),
+              style: {
+                padding: '12px 32px',
+                background: activeTab === 'feedbacks' ? 'white' : 'rgba(255,255,255,0.2)',
+                color: activeTab === 'feedbacks' ? '#667eea' : 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: activeTab === 'feedbacks' ? 600 : 400,
+                fontSize: '16px',
+              }
+            }, '📝 Feedbacks'),
+            React.createElement('button', {
+              onClick: () => setActiveTab('updates'),
+              style: {
+                padding: '12px 32px',
+                background: activeTab === 'updates' ? 'white' : 'rgba(255,255,255,0.2)',
+                color: activeTab === 'updates' ? '#667eea' : 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: activeTab === 'updates' ? 600 : 400,
+                fontSize: '16px',
+              }
+            }, '🔔 Updates erstellen')
+          ),
+          // Updates Tab
+          activeTab === 'updates' && React.createElement('div', { style: { maxWidth: '600px', margin: '0 auto' } },
+            React.createElement('div', { style: { background: 'white', borderRadius: '12px', padding: '32px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' } },
+              React.createElement('h2', { style: { margin: '0 0 24px 0', color: '#1f2937', fontSize: '24px' } }, '🔔 Neues Update erstellen'),
+              updateSuccess && React.createElement('div', { style: { padding: '12px', background: '#d1fae5', color: '#065f46', borderRadius: '8px', marginBottom: '16px', fontWeight: 600 } }, '✅ Update erfolgreich erstellt!'),
+              
+              // Titel
+              React.createElement('label', { style: { display: 'block', marginBottom: '8px', fontWeight: 600, color: '#374151' } }, 'Titel *'),
+              React.createElement('input', {
+                className: 'input-field',
+                type: 'text',
+                value: updateForm.title,
+                onChange: (e) => setUpdateForm({ ...updateForm, title: e.target.value }),
+                placeholder: 'z.B. 🎉 Neue Features verfügbar!',
+              }),
+              
+              // Nachricht
+              React.createElement('label', { style: { display: 'block', marginBottom: '8px', fontWeight: 600, color: '#374151' } }, 'Nachricht *'),
+              React.createElement('textarea', {
+                className: 'input-field',
+                rows: 4,
+                value: updateForm.message,
+                onChange: (e) => setUpdateForm({ ...updateForm, message: e.target.value }),
+                placeholder: 'Beschreibe das Update...',
+                style: { resize: 'vertical' },
+              }),
+              
+              // Icon
+              React.createElement('label', { style: { display: 'block', marginBottom: '8px', fontWeight: 600, color: '#374151' } }, 'Icon'),
+              React.createElement('input', {
+                className: 'input-field',
+                type: 'text',
+                value: updateForm.icon,
+                onChange: (e) => setUpdateForm({ ...updateForm, icon: e.target.value }),
+                placeholder: '📢',
+                style: { width: '100px' },
+              }),
+              
+              // Priority
+              React.createElement('label', { style: { display: 'block', marginBottom: '8px', fontWeight: 600, color: '#374151' } }, 'Priorität'),
+              React.createElement('select', {
+                className: 'select-field',
+                value: updateForm.priority,
+                onChange: (e) => setUpdateForm({ ...updateForm, priority: e.target.value }),
+              },
+                React.createElement('option', { value: 'low' }, ' Niedrig (Blau)'),
+                React.createElement('option', { value: 'medium' }, '🟨 Mittel (Gelb)'),
+                React.createElement('option', { value: 'high' }, '🟥 Hoch (Rot)'),
+              ),
+              
+              // Submit Button
+              React.createElement('button', {
+                className: 'btn-create',
+                onClick: createUpdate,
+                disabled: creatingUpdate || !updateForm.title || !updateForm.message,
+                style: { width: '100%', marginTop: '16px' }
+              }, creatingUpdate ? '⏳ Erstelle...' : '✅ Update erstellen')
+            )
+          ),
+          // Filter (nur im Feedbacks Tab)
+          activeTab === 'feedbacks' && React.createElement('div', { style: { display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '32px', flexWrap: 'wrap' } },
             ['all', 'bug', 'feature_request', 'general'].map(type => 
               React.createElement('button', {
                 key: type,
@@ -135,8 +303,8 @@
               }, type === 'all' ? 'Alle' : typeConfig[type].label)
             )
           ),
-          // Feedback Cards
-          React.createElement('div', { style: { display: 'grid', gap: '20px' } },
+          // Feedback Cards (nur im Feedbacks Tab)
+          activeTab === 'feedbacks' && React.createElement('div', { style: { display: 'grid', gap: '20px' } },
             filteredFeedbacks.length === 0 ?
               React.createElement('div', { style: { background: 'white', padding: '60px 40px', borderRadius: '12px', textAlign: 'center' } },
                 React.createElement('div', { style: { fontSize: '64px', marginBottom: '16px' } }, '📭'),
@@ -217,8 +385,8 @@
                 );
               })
           ),
-          // Refresh Button
-          React.createElement('div', { style: { textAlign: 'center', marginTop: '32px' } },
+          // Refresh Button (nur im Feedbacks Tab)
+          activeTab === 'feedbacks' && React.createElement('div', { style: { textAlign: 'center', marginTop: '32px' } },
             React.createElement('button', {
               onClick: loadFeedbacks,
               style: { padding: '12px 32px', background: 'white', color: '#667eea', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }
