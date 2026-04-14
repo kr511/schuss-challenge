@@ -7958,4 +7958,269 @@ body.keyboard-visible .bottom-sheet {
   }
 }
 
+/* ═══════════════════════════════════════════
+   MOBILE RESPONSIVE MEDIA QUERIES
+   ═══════════════════════════════════════════ */
+
+/* ── Kleine Screens (iPhone SE, Galaxy S series) ── */
+@media (max-width: 374px) {
+  /* Dashboard 2-Spalten zu 1-Spalte auf sehr kleinen Screens */
+  #pdMainStatsRow {
+    flex-direction: column !important;
+  }
+
+  /* Greeting Row kompakter */
+  #premiumDashboard {
+    padding: 12px !important;
+  }
+
+  /* Profil-Tabs: kleinere Schrift */
+  .ps-tab {
+    font-size: .52rem;
+    padding: 8px 2px 9px;
+    letter-spacing: .08em;
+  }
+
+  /* Floating Button schmaler */
+  #btnOpenDuelSetup {
+    padding: 13px 24px !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* Bottom-Sheet weniger Padding */
+  #duelSetupSheet {
+    padding: 16px 16px 30px 16px !important;
+  }
+
+  /* Game Mode Grid 1 Spalte */
+  #gameModeSelection > div:nth-child(3) {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Difficulty Buttons: 2x2 Grid statt 4er Reihe */
+  .diff-row {
+    flex-wrap: wrap;
+  }
+  .diff-row .dif {
+    flex: 1 1 calc(50% - 4px);
+    min-width: calc(50% - 4px);
+  }
+
+  /* Score Eingabe kompakter */
+  .score-inp {
+    font-size: 1.1rem;
+    padding: 10px 6px;
+  }
+
+  /* Game Over: Score-Block kompakter */
+  .go-scores {
+    padding: 16px 12px !important;
+  }
+}
+
+/* ── Standard Mobile (bis 480px) ── */
+@media (max-width: 480px) {
+  /* Updates Dropdown: zentriert statt rechts-angehängt */
+  #updatesDropdown {
+    position: fixed !important;
+    top: 60px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+    transform: none !important;
+  }
+
+  /* Profil-Tabs: scrollbar wenn nötig */
+  .ps-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .ps-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Profil-Tabs mindestbreite für Touch */
+  .ps-tab {
+    min-width: 60px;
+    white-space: nowrap;
+  }
+
+  /* Dashboard Badges Grid: 3 statt 4 Spalten */
+  #pdBadgesGrid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  /* Floating DUELL STARTEN Button: bessere Positionierung */
+  #btnOpenDuelSetup {
+    bottom: max(25px, env(safe-area-inset-bottom, 0px)) !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    max-width: calc(100vw - 40px);
+  }
+
+  /* SUN Grid: 2 Spalten statt 3 auf kleinen Screens */
+  .sun-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Entry Screen: Inputs nebeneinander aber kleiner */
+  .ec-row {
+    gap: 6px;
+  }
+
+  /* Quick Pair Buttons: gleiche Breite */
+  .quick-pair {
+    gap: 6px;
+  }
+
+  /* Last shot box: kompakterer Text */
+  .ls-txt {
+    font-size: 0.8rem;
+  }
+}
+
+/* ── Mittlere Screens (Tablets/große Phones) ── */
+@media (min-width: 481px) and (max-width: 768px) {
+  /* Dashboard etwas breiter nutzen */
+  #premiumDashboard {
+    max-width: 560px !important;
+  }
+
+  /* Content breiter */
+  .content {
+    max-width: 500px;
+  }
+}
+
+/* ── Landscape Modus ── */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Header kompakter */
+  .hdr {
+    padding: 8px 20px 0;
+  }
+
+  /* Logo kleiner */
+  .logo {
+    font-size: 1.5rem !important;
+  }
+
+  /* Floating Button kleiner */
+  #btnOpenDuelSetup {
+    padding: 10px 24px !important;
+    font-size: 0.9rem !important;
+    bottom: 10px !important;
+  }
+
+  /* Bottom Sheet nicht zu hoch */
+  #duelSetupSheet {
+    max-height: 90vh !important;
+  }
+
+  /* Profil Sheet kompakter */
+  .profile-sheet {
+    max-height: 95vh;
+  }
+
+  /* Target Canvas kleiner */
+  .target-wrap {
+    max-width: 200px;
+    margin: 0 auto;
+  }
+
+  /* Battle Screen: weniger Padding */
+  #screenBattle .content {
+    padding: 6px 18px;
+    gap: 6px;
+  }
+
+  /* Game Over: kompakter */
+  .go-emoji {
+    font-size: 3rem;
+    margin-bottom: 4px;
+  }
+  .go-title {
+    font-size: clamp(2rem, 8vw, 3rem) !important;
+  }
+}
+
+/* ── Barrierefreiheit: Reduzierte Bewegung ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .profile-sheet {
+    animation: none !important;
+  }
+
+  #duelSetupSheet {
+    transition: none !important;
+  }
+
+  #duelSetupSheetOverlay {
+    transition: none !important;
+  }
+
+  .sl-pill {
+    animation: none !important;
+  }
+
+  .go-emoji {
+    animation: none !important;
+  }
+}
+
+/* ── Touch-Device Optimierungen ── */
+@media (hover: none) and (pointer: coarse) {
+  /* Größere Touch-Targets */
+  .ps-tab {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Buttons: mindestens 44px Höhe */
+  .btn-sec {
+    min-height: 44px;
+  }
+
+  .btn-calc {
+    min-height: 44px;
+  }
+
+  /* Difficulty Buttons besser tippbar */
+  .dif {
+    min-height: 70px;
+  }
+
+  /* Avatar Options größer */
+  .avatar-option {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Disc Tabs größer */
+  .disc-tab {
+    min-height: 52px;
+  }
+
+  /* Hover-Effekte deaktivieren (Touch hat kein Hover) */
+  .training-mode-card:hover:not(.locked) {
+    transform: none;
+  }
+
+  .profile-btn:hover {
+    background: rgba(100, 150, 200, .12);
+    border-color: rgba(100, 150, 200, .25);
+  }
+}
 

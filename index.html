@@ -175,7 +175,7 @@
         <div style="display:flex;align-items:center;gap:8px;">
           <div style="position:relative;">
             <button id="updatesButton" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Updates & Ankündigungen" style="width:44px;height:44px;border-radius:50%;background:rgba(255,193,7,0.2);border:1px solid rgba(255,193,7,0.3);color:#fff;font-size:1.4rem;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">🔔</button>
-            <div id="updatesDropdown" style="display:none;position:absolute;top:55px;right:0;width:320px;max-height:400px;background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);border-radius:16px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow-y:auto;z-index:10000;opacity:0;transform:translateY(-10px);transition:all 0.2s;">
+            <div id="updatesDropdown" style="display:none;position:absolute;top:55px;right:0;width:min(320px, calc(100vw - 40px));max-height:400px;background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);border-radius:16px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow-y:auto;z-index:10000;opacity:0;transform:translateY(-10px);transition:all 0.2s;">
               <div style="padding:16px;">
                 <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:12px;">🔔 UPDATES</div>
                 <div id="updatesDropdownContent"></div>
@@ -376,7 +376,7 @@
       </div>
 
     </div>
-    <div style="height:90px;"></div>
+    <div style="height:110px;"></div>
 
     <!-- Script for Dynamic Greeting --><!-- Script for Dynamic Greeting -->
     <script>
