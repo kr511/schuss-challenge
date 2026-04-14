@@ -6534,3 +6534,1428 @@ body.slow-network .profile-sheet {
 .duel-setup-sheet .btn-fire:active {
   transform: scale(0.97);
 }
+
+/* ═══════════════════════════════════════════
+   ENHANCED MOBILE RESPONSIVE (v1.0)
+   ═══════════════════════════════════════════ */
+
+/* Mobile body Klasse */
+body.is-mobile {
+  font-size: 16px; /* Verhindert iOS Zoom */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Touch Device Optimierungen */
+body.is-touch button,
+body.is-touch [onclick],
+body.is-touch .btn-fire,
+body.is-touch .btn-primary {
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(122, 176, 48, 0.2);
+}
+
+/* Pull-down Indicator */
+.pull-down-indicator {
+  display: none;
+}
+
+body.is-touch .pull-down-indicator {
+  display: block;
+  animation: pullIndicator 2s ease-in-out infinite;
+}
+
+@keyframes pullIndicator {
+  0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.3; }
+  50% { transform: translateX(-50%) translateY(-5px); opacity: 0.6; }
+}
+
+/* Keyboard sichtbar - Body Klasse */
+body.keyboard-visible {
+  overflow: hidden !important;
+}
+
+body.keyboard-visible .profile-sheet,
+body.keyboard-visible .bottom-sheet {
+  transition: max-height 0.3s ease;
+}
+
+/* Verbesserte Bottom-Sheet Handles */
+.profile-sheet-handle,
+.sheet-handle {
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.profile-sheet-handle:active,
+.sheet-handle:active {
+  cursor: grabbing;
+}
+
+/* Mobile-optimierte Buttons */
+@media (hover: none) and (pointer: coarse) {
+  /* Größere Buttons */
+  .btn-fire,
+  .btn-primary,
+  .btn-secondary {
+    min-height: 48px;
+    padding: 14px 20px;
+    font-size: 1rem;
+  }
+
+  /* Tabs größer */
+  .ps-tab {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 8px;
+  }
+
+  /* Input Felder */
+  input[type="text"],
+  input[type="number"],
+  input[type="password"],
+  input[type="email"],
+  textarea {
+    font-size: 16px !important; /* Verhindert iOS Zoom */
+    min-height: 44px;
+    padding: 12px;
+  }
+
+  /* Select Dropdowns */
+  select {
+    font-size: 16px !important;
+    min-height: 44px;
+    padding: 12px;
+  }
+
+  /* Close Button größer */
+  .ps-close,
+  .close-btn {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Avatar größer */
+  .ps-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 2rem;
+  }
+
+  /* Score-Chips größer */
+  .score-chip {
+    min-height: 36px;
+    padding: 8px 12px;
+  }
+
+  /* Bot Status Card */
+  .bot-status-card {
+    min-height: 80px;
+    padding: 12px;
+  }
+
+  /* Discipline Options */
+  .disc-option,
+  .diff-option {
+    min-height: 48px;
+    padding: 12px;
+  }
+}
+
+/* Sehr kleine Bildschirme (< 360px) */
+@media (max-width: 360px) {
+  .dashboard {
+    padding: 8px;
+  }
+
+  .header {
+    padding: 8px 12px;
+  }
+
+  .greeting {
+    font-size: 1.2rem;
+  }
+
+  .score-chips {
+    gap: 6px;
+  }
+
+  .ps-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .sun-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
+/* Landscape Mode auf Mobile */
+@media (orientation: landscape) and (max-height: 600px) {
+  .profile-sheet {
+    max-height: 90vh;
+  }
+
+  .ps-body {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .ps-hero {
+    flex-direction: row;
+    padding: 8px;
+  }
+
+  .ps-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .bottom-sheet {
+    max-height: 85vh;
+  }
+}
+
+/* Safe Area für iPhone Notch */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .header {
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .profile-sheet {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .bottom-sheet {
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Swipe-Hinweis (optional, kann entfernt werden) */
+.swipe-hint {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  opacity: 0;
+  pointer-events: none;
+  animation: swipeHint 3s ease-in-out 2s;
+}
+
+@keyframes swipeHint {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  20% { opacity: 0.8; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+/* Touch-Feedback für alle interaktiven Elemente */
+@media (hover: none) {
+  button:active,
+  [onclick]:active,
+  .btn-fire:active,
+  .ps-tab:active,
+  .sun-card:active,
+  .disc-option:active,
+  .diff-option:active {
+    opacity: 0.7;
+    transform: scale(0.98);
+    transition: opacity 0.1s, transform 0.1s;
+  }
+}
+
+/* Verhindert ungewolltes Zoom auf iOS */
+@supports (-webkit-touch-callout: none) {
+  input:focus,
+  select:focus,
+  textarea:focus {
+    font-size: 16px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   FRIENDS SYSTEM UI
+   ═══════════════════════════════════════════ */
+
+/* Header Friends Button */
+.header-friends-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 8px;
+}
+
+.header-friends-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.header-friends-btn:active {
+  transform: scale(0.95);
+}
+
+/* Friends Overlay */
+.friends-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 5000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.friends-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.friends-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 85vh;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 24px 24px 0 0;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.friends-overlay.active .friends-sheet {
+  transform: translateY(0);
+}
+
+.friends-header {
+  position: sticky;
+  top: 0;
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 1;
+}
+
+.friends-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.friends-close {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.friends-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+.friends-body {
+  padding: 20px;
+}
+
+/* Friend Code Section */
+.friend-code-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.friend-code-label {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.friend-code {
+  font-family: 'DM Mono', monospace;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #7ab030;
+  text-align: center;
+  padding: 16px;
+  background: rgba(122, 176, 48, 0.1);
+  border-radius: 12px;
+  border: 2px dashed rgba(122, 176, 48, 0.3);
+  margin-bottom: 12px;
+  letter-spacing: 0.2em;
+}
+
+.friend-code-copy {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.friend-code-copy:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.friend-code-copy:active {
+  transform: scale(0.98);
+}
+
+/* Friend Add Section */
+.friend-add-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.friend-code-input {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 14px;
+  color: #fff;
+  font-size: 1.2rem;
+  font-family: 'DM Mono', monospace;
+  text-align: center;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.friend-code-input:focus {
+  outline: none;
+  border-color: #7ab030;
+  box-shadow: 0 0 0 3px rgba(122, 176, 48, 0.2);
+}
+
+.friend-add-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #00c3ff 0%, #7ab030 100%);
+  border: none;
+  border-radius: 10px;
+  padding: 14px;
+  color: #000;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.friend-add-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(122, 176, 48, 0.4);
+}
+
+.friend-add-btn:active {
+  transform: translateY(0);
+}
+
+/* Friend Requests Section */
+.friend-requests-section {
+  margin-bottom: 24px;
+}
+
+.friend-requests-section h4 {
+  color: #fff;
+  font-size: 1rem;
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.requests-empty {
+  text-align: center;
+  padding: 20px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.9rem;
+}
+
+.request-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.request-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.request-card.sent {
+  opacity: 0.7;
+}
+
+.request-avatar {
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.request-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.request-name {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+.request-time,
+.request-status {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+}
+
+.request-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.request-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.request-btn.accept {
+  background: rgba(122, 176, 48, 0.2);
+  color: #7ab030;
+}
+
+.request-btn.accept:hover {
+  background: rgba(122, 176, 48, 0.3);
+}
+
+.request-btn.decline {
+  background: rgba(255, 59, 48, 0.2);
+  color: #ff3b30;
+}
+
+.request-btn.decline:hover {
+  background: rgba(255, 59, 48, 0.3);
+}
+
+/* Friends List Section */
+.friends-list-section {
+  margin-top: 24px;
+}
+
+.friends-list-section h4 {
+  color: #fff;
+  font-size: 1rem;
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.friends-empty {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.friends-empty-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.friends-empty-text {
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+.friends-empty-sub {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+}
+
+/* Friend Card */
+.friend-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 8px;
+  transition: all 0.2s;
+}
+
+.friend-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateX(4px);
+}
+
+.friend-avatar {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.friend-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-name {
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.friend-status {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.friend-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.friend-btn.challenge {
+  background: rgba(122, 176, 48, 0.2);
+  color: #7ab030;
+}
+
+.friend-btn.challenge:hover {
+  background: rgba(122, 176, 48, 0.3);
+  transform: scale(1.05);
+}
+
+.friend-btn.remove {
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
+  padding: 8px 10px;
+}
+
+.friend-btn.remove:hover {
+  background: rgba(255, 59, 48, 0.2);
+}
+
+/* Toast Notifications */
+.friend-toast {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  z-index: 10000;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-left: 4px solid #7ab030;
+}
+
+.friend-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.friend-toast-success {
+  border-left-color: #7ab030;
+}
+
+.friend-toast-error {
+  border-left-color: #ff3b30;
+}
+
+.friend-toast-info {
+  border-left-color: #00c3ff;
+}
+
+/* Mobile Optimierungen */
+@media (hover: none) and (pointer: coarse) {
+  .friend-btn,
+  .request-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .friend-add-btn {
+    min-height: 48px;
+  }
+
+  .friends-close {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .friends-sheet {
+    max-height: 95vh;
+  }
+
+  .friend-code {
+    font-size: 1.5rem;
+  }
+
+  .friend-card,
+  .request-card {
+    padding: 10px;
+  }
+
+  .friend-avatar,
+  .request-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 1.3rem;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   ASYNC CHALLENGE SYSTEM UI
+   ═══════════════════════════════════════════ */
+
+/* Header Challenge Button */
+.header-challenge-btn {
+  background: rgba(255, 59, 48, 0.2);
+  border: 1px solid rgba(255, 59, 48, 0.3);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 8px;
+}
+
+.header-challenge-btn:hover {
+  background: rgba(255, 59, 48, 0.3);
+  transform: scale(1.05);
+}
+
+.header-challenge-btn:active {
+  transform: scale(0.95);
+}
+
+/* Challenge Banner */
+.challenge-banner {
+  background: linear-gradient(135deg, rgba(255, 59, 48, 0.2) 0%, rgba(255, 149, 0, 0.2) 100%);
+  border: 2px solid rgba(255, 59, 48, 0.4);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.challenge-banner.active {
+  opacity: 1;
+  max-height: 100px;
+  padding: 16px 20px;
+}
+
+.challenge-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.challenge-opponent {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.challenge-diff {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Challenge Overlay */
+.challenges-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 5500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.challenges-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.challenges-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 85vh;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 24px 24px 0 0;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.challenges-overlay.active .challenges-sheet {
+  transform: translateY(0);
+}
+
+.challenges-header {
+  position: sticky;
+  top: 0;
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 1;
+}
+
+.challenges-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.challenges-close {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.challenges-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+.challenges-body {
+  padding: 20px;
+}
+
+/* Challenge Create Section */
+.challenge-create-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: rgba(255, 59, 48, 0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 59, 48, 0.2);
+}
+
+.challenge-create-section h4 {
+  color: #fff;
+  font-size: 1rem;
+  margin: 0 0 8px 0;
+  font-weight: 600;
+}
+
+.challenge-hint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  margin: 0 0 16px 0;
+}
+
+.challenge-create-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #ff3b30 0%, #ff9500 100%);
+  border: none;
+  border-radius: 10px;
+  padding: 14px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.challenge-create-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 59, 48, 0.4);
+}
+
+.challenge-create-btn:active {
+  transform: translateY(0);
+}
+
+/* Challenge Sections */
+.challenge-available-section,
+.challenge-my-section {
+  margin-bottom: 24px;
+}
+
+.challenge-available-section h4,
+.challenge-my-section h4 {
+  color: #fff;
+  font-size: 1rem;
+  margin: 0 0 12px 0;
+  font-weight: 600;
+}
+
+.challenges-empty {
+  text-align: center;
+  padding: 30px 20px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.9rem;
+}
+
+/* Challenge Card */
+.challenge-card {
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 10px;
+  transition: all 0.2s;
+}
+
+.challenge-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateX(4px);
+}
+
+.challenge-card.accepted {
+  border-left: 4px solid #7ab030;
+}
+
+.challenge-card.completed {
+  border-left: 4px solid #00c3ff;
+  opacity: 0.7;
+}
+
+.challenge-card.expired {
+  border-left: 4px solid rgba(255, 255, 255, 0.3);
+  opacity: 0.5;
+}
+
+.challenge-from,
+.challenge-opponent {
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+
+.challenge-details {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.challenge-time {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.75rem;
+  margin-bottom: 8px;
+}
+
+.challenge-status {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.challenge-status.pending {
+  color: #ffc107;
+}
+
+.challenge-status.accepted {
+  color: #7ab030;
+}
+
+.challenge-status.completed {
+  color: #00c3ff;
+}
+
+.challenge-status.expired {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.challenge-accept-btn {
+  width: 100%;
+  background: rgba(122, 176, 48, 0.2);
+  border: 1px solid rgba(122, 176, 48, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  color: #7ab030;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.challenge-accept-btn:hover {
+  background: rgba(122, 176, 48, 0.3);
+  border-color: rgba(122, 176, 48, 0.5);
+}
+
+.challenge-accept-btn:active {
+  transform: scale(0.98);
+}
+
+/* Async Result Overlay */
+.async-result-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.async-result-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.async-result-card {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 24px;
+  padding: 40px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  transform: scale(0.9);
+  transition: transform 0.3s;
+}
+
+.async-result-overlay.active .async-result-card {
+  transform: scale(1);
+}
+
+.result-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+}
+
+.result-title {
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.result-subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1rem;
+  margin-bottom: 30px;
+}
+
+.result-scores {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.result-score-item {
+  flex: 1;
+}
+
+.result-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.result-value {
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+}
+
+.result-value.winner {
+  color: #7ab030;
+  text-shadow: 0 0 20px rgba(122, 176, 48, 0.5);
+}
+
+.result-divider {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.result-close-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #00c3ff 0%, #7ab030 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  color: #000;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.result-close-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(122, 176, 48, 0.4);
+}
+
+.result-close-btn:active {
+  transform: translateY(0);
+}
+
+/* Challenge Toast */
+.challenge-toast {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  z-index: 10001;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border-left: 4px solid #ff9500;
+}
+
+.challenge-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.challenge-toast-success {
+  border-left-color: #7ab030;
+}
+
+.challenge-toast-error {
+  border-left-color: #ff3b30;
+}
+
+.challenge-toast-info {
+  border-left-color: #00c3ff;
+}
+
+/* Mobile Optimierungen */
+@media (hover: none) and (pointer: coarse) {
+  .challenge-accept-btn,
+  .challenge-create-btn,
+  .result-close-btn {
+    min-height: 48px;
+  }
+
+  .challenges-close {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .challenges-sheet {
+    max-height: 95vh;
+  }
+
+  .async-result-card {
+    padding: 30px 20px;
+  }
+
+  .result-value {
+    font-size: 1.5rem;
+  }
+
+  .result-title {
+    font-size: 1.5rem;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   UPDATES & ANKÜNDIGUNGEN UI
+   ═══════════════════════════════════════════ */
+
+/* Updates Badge */
+@keyframes badgePulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* Updates Overlay */
+.updates-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 6000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.updates-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.updates-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 85vh;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 24px 24px 0 0;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.updates-overlay.active .updates-sheet {
+  transform: translateY(0);
+}
+
+.updates-header {
+  position: sticky;
+  top: 0;
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 1;
+}
+
+.updates-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.updates-close {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.updates-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: rotate(90deg);
+}
+
+.updates-body {
+  padding: 20px;
+}
+
+.updates-empty {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.updates-empty-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.updates-empty-text {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1rem;
+}
+
+/* Update Card */
+.update-card {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 12px;
+  transition: all 0.2s;
+}
+
+.update-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateX(4px);
+}
+
+.update-card.priority-high {
+  border-left: 4px solid #ff3b30;
+  background: rgba(255, 59, 48, 0.05);
+}
+
+.update-card.priority-medium {
+  border-left: 4px solid #ffc107;
+  background: rgba(255, 193, 7, 0.05);
+}
+
+.update-card.priority-low {
+  border-left: 4px solid #00c3ff;
+  background: rgba(0, 195, 255, 0.05);
+}
+
+.update-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.update-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.update-title {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  flex: 1;
+}
+
+.update-message {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.update-time {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.8rem;
+}
+
+/* Mobile Optimierungen */
+@media (hover: none) and (pointer: coarse) {
+  .updates-close {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .updates-sheet {
+    max-height: 95vh;
+  }
+
+  .update-card {
+    padding: 14px;
+  }
+
+  .update-icon {
+    font-size: 1.5rem;
+  }
+
+  .update-title {
+    font-size: 1rem;
+  }
+
+  .update-message {
+    font-size: 0.85rem;
+  }
+}
+
+

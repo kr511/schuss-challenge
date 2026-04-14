@@ -64,6 +64,9 @@ const UpdatesSystem = (function() {
    * Lädt Updates aus Firebase oder Demo
    */
   async function loadUpdates() {
+    // Zuerst LocalStorage prüfen (Admin kann dort gespeichert haben)
+    const localUpdates = JSON.parse(localStorage.getItem('app_updates') || '[]');
+    
     if (fbReady && fbDb) {
       try {
         const snapshot = await fbDb.ref(FIREBASE_PATHS.updates).once('value');
@@ -76,11 +79,20 @@ const UpdatesSystem = (function() {
           
           // Nach Datum sortieren (neueste zuerst)
           state.updates.sort((a, b) => (b.date || 0) - (a.date || 0));
+        } else if (localUpdates.length > 0) {
+          // Keine Firebase-Daten, aber LocalStorage vorhanden
+          state.updates = localUpdates;
+          console.log('✅ Updates aus LocalStorage geladen (Admin-Fallback)');
         }
       } catch (e) {
-        console.warn('Firebase Updates-Laden fehlgeschlagen, verwende Demo:', e);
-        state.updates = demoUpdates;
+        console.warn('Firebase Updates-Laden fehlgeschlagen, verwende LocalStorage:', e);
+        // Fallback: LocalStorage + Demo
+        state.updates = localUpdates.length > 0 ? localUpdates : demoUpdates;
       }
+    } else if (localUpdates.length > 0) {
+      // Kein Firebase, aber LocalStorage vorhanden
+      state.updates = localUpdates;
+      console.log('✅ Updates aus LocalStorage geladen');
     } else {
       state.updates = demoUpdates;
     }

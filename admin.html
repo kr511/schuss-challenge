@@ -129,14 +129,27 @@
             createdBy: 'admin',
           };
           
-          // In Firebase speichern
+          // Versuche Firebase, fallback zu LocalStorage
+          let saved = false;
+          
           if (fbDb) {
-            await fbDb.ref(`app_updates_v1/${updateData.id}`).set(updateData);
-          } else {
-            // Fallback: LocalStorage
+            try {
+              await fbDb.ref(`app_updates_v1/${updateData.id}`).set(updateData);
+              saved = true;
+              console.log('✅ Update in Firebase gespeichert');
+            } catch (firebaseError) {
+              console.warn('⚠️ Firebase fehler, verwende LocalStorage:', firebaseError.message);
+              // Fallback: LocalStorage
+              saved = false;
+            }
+          }
+          
+          if (!saved) {
+            // LocalStorage als Fallback
             const updates = JSON.parse(localStorage.getItem('app_updates') || '[]');
             updates.unshift(updateData);
             localStorage.setItem('app_updates', JSON.stringify(updates));
+            console.log('✅ Update in LocalStorage gespeichert (Fallback)');
           }
           
           // Form zurücksetzen
