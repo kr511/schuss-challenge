@@ -20,6 +20,8 @@
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <!-- Google Sign-In Provider -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" data-provider="google"></script>
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
   <!-- Chart.js -->
@@ -55,14 +57,6 @@
   <script src="performance-config.js"></script>
   <script src="battle-balance.js" defer></script>
   <script src="qa-test-suite.js" defer></script>
-  
-  <!-- FREUNDES-SYSTEM: Freundesliste & Challenges -->
-  <script src="friends-system.js?v=1.0" defer></script>
-  <script src="friend-challenges.js?v=1.0" defer></script>
-  <script src="friends-ui.js?v=1.0" defer></script>
-  
-  <!-- MODERNES LEADERBOARD: Weltrangliste -->
-  <script src="leaderboard-modern.js?v=1.0" defer></script>
 </head>
 
 <body>
@@ -128,6 +122,7 @@
     </div>
   </div>
 
+  </div>
   <div id="muzzleFlash"></div>
 
   <!-- ══════════════════════════ SETUP ══════════════════════════ -->
@@ -168,13 +163,8 @@
           style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
           <span id="pdProfileInitial">A</span>
         </div>
-      </div> <!-- /streakBanner -->
-
-      <!-- ══ OFFENE CHALLENGES ══ -->
-      <div id="pdChallengesContainer" style="margin-bottom:16px;">
-        <!-- Wird von FriendChallenges.renderChallengeCards() befüllt -->
       </div>
-
+  
         <!-- ══ XP PROGRESS BAR ══ -->
         <div id="pdXPBarContainer" style="margin-bottom:20px;"></div>
 
@@ -270,34 +260,12 @@
         </div>
       </div>
 
-      <!-- ══ SOCIAL DISCOVERY HUB (NEW) ══ -->
-      <div id="pdSocialHub" style="margin-bottom:24px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-          <div>
-            <div style="font-size:1.1rem;font-weight:600;color:#fff;line-height:1.3;">Schützen-Netzwerk</div>
-            <div style="font-size:0.75rem;color:rgba(255,255,255,0.4);">Entdecke Freunde & Rivalen</div>
-          </div>
-          <button onclick="SocialSystem.open()" style="background:rgba(0,195,255,0.08);border:1px solid rgba(0,195,255,0.3);border-radius:12px;padding:6px 14px;color:#00c3ff;font-size:0.75rem;font-weight:600;cursor:pointer;">
-            ➕ FINDEN
-          </button>
-        </div>
-
-        <!-- Horizontal Scrollable Friends List (Teaser) -->
-        <div id="pdFriendsTeaser" style="display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none;-ms-overflow-style:none;">
-          <!-- Wird dynamisch befüllt -->
-          <div style="min-width:65px;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0.3;">
-             <div style="width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,0.05);border:1.5px dashed rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">👤</div>
-             <div style="font-size:0.6rem;color:#fff;">Suchen...</div>
-          </div>
-        </div>
-      </div>
-
       <!-- ══ DAILY MISSIONS ══ -->
       <div id="pdQuestsContainer" style="margin-bottom:24px;"></div>
 
       <!-- ══ ACHIEVEMENT BADGES (dynamisch) ══ -->
       <div style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:12px;">Erfolge</div>
-      <div id="pdBadgesGrid" class="pd-badges-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+      <div id="pdBadgesGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
         <!-- Wird von refreshPremiumDashboard() dynamisch befüllt -->
       </div>
 
@@ -310,21 +278,11 @@
         </div>
       </div>
 
-      <!-- ══ FLOATING ACTION BUTTONS ══ -->
-      <div style="position:fixed;bottom:25px;left:50%;transform:translateX(-50%);z-index:8999;display:flex;gap:12px;align-items:center;">
-        <!-- FREUNDE BUTTON -->
-        <button id="friendsDashboardBtn" onclick="openFriendsOverlay()"
-          style="background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);color:#fff;border:none;border-radius:30px;padding:15px 20px;font-weight:800;font-size:1rem;box-shadow:0 8px 30px rgba(245,87,108,0.45),0 0 60px rgba(240,147,251,0.15);cursor:pointer;letter-spacing:0.6px;position:relative;">
-          <span style="font-size:1.2rem;">👥</span> FREUNDE
-          <span id="friendsDashboardBadge" style="display:none;position:absolute;top:-5px;right:-5px;background:#f06050;color:#fff;font-size:0.7rem;font-weight:700;width:20px;height:20px;border-radius:50%;align-items:center;justify-content:center;border:2px solid #121214;"></span>
-        </button>
-        
-        <!-- DUELL STARTEN BUTTON -->
-        <button id="btnOpenDuelSetup" onclick="openDuelSetup()"
-          style="background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;border:none;border-radius:30px;padding:15px 36px;font-weight:800;font-size:1.05rem;box-shadow:0 8px 30px rgba(122,176,48,0.45),0 0 60px rgba(0,195,255,0.15);cursor:pointer;letter-spacing:0.6px;">
-          <span style="font-size:1.2rem;">🎯</span> DUELL STARTEN
-        </button>
-      </div>
+      <!-- ══ FLOATING DUELL STARTEN BUTTON ══ -->
+      <button id="btnOpenDuelSetup" onclick="openDuelSetup()"
+        style="position:fixed;bottom:25px;left:50%;transform:translateX(-50%);z-index:8999;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;border:none;border-radius:30px;padding:15px 36px;font-weight:800;font-size:1.05rem;box-shadow:0 8px 30px rgba(122,176,48,0.45),0 0 60px rgba(0,195,255,0.15);cursor:pointer;letter-spacing:0.6px;">
+        <span style="font-size:1.2rem;">🎯</span> DUELL STARTEN
+      </button>
 
       <!-- ══ BOTTOM SHEET OVERLAY (Duel Setup) ══ -->
       <div id="duelSetupSheetOverlay" onclick="closeDuelSetup(event)"
@@ -343,12 +301,12 @@
         </div>
       </div>
 
-      <!-- ══ V2 Scanner View (Dashboard) ══ -->
-      <div id="v2ScannerViewDashboard"
-        style="display:none;position:fixed;top:0;left:0;width:100%;height:100dvh;z-index:99999;background:#000;">
-        <video id="v2ScannerVideoDashboard" playsinline autoplay muted
+      <!-- ══ V2 Scanner View ══ -->
+      <div id="v2ScannerView"
+        style="display:none;position:fixed;top:0;left:0;width:100%;height:100vh;z-index:99999;background:#000;">
+        <video id="v2ScannerVideo" playsinline autoplay muted
           style="width:100%;height:100%;object-fit:cover;display:block;"></video>
-        <canvas id="v2ScannerCanvasDashboard"
+        <canvas id="v2ScannerCanvas"
           style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
         <div style="position:absolute;bottom:40px;left:0;width:100%;text-align:center;">
           <div
@@ -356,14 +314,14 @@
             Halte den Score in das Bild...
           </div>
         </div>
-        <button id="btnStopLiveScanDashboard"
+        <button id="btnStopLiveScan"
           style="position:absolute;top:50px;right:20px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;line-height:40px;text-align:center;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
       </div>
 
     </div>
     <div style="height:90px;"></div>
 
-    <!-- Script for Dynamic Greeting -->
+    <!-- Script for Dynamic Greeting --><!-- Script for Dynamic Greeting -->
     <script>
       function updatePDGreeting() {
         if (typeof StorageManager !== 'undefined') {
@@ -446,7 +404,6 @@
           <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
           <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
           <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
-          <div class="ps-tab" data-tab="friends" onclick="switchProfileTab('friends')">👥 Freunde <span id="friendCountBadge" style="display:none;background:#f06050;color:#fff;font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:4px;">0</span></div>
           <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
         </div>
 
@@ -719,11 +676,6 @@
               <div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu
                 sehen!</div>
             </div>
-          </div>
-
-          <!-- ── FRIENDS PANEL ── -->
-          <div class="ps-panel" id="psPanel-friends">
-            <!-- Wird dynamisch von FriendsUI.renderProfileTab() befüllt -->
           </div>
 
           <div class="ps-panel" id="psPanel-debug" style="display:none;">
@@ -1310,12 +1262,12 @@
         </div>
 
         <!-- Live Scanner View (Hidden by default) -->
-        <div id="v2ScannerViewOverlay"
+        <div id="v2ScannerView"
           style="display:none;position:relative;width:100%;border-radius:14px;overflow:hidden;background:#000;margin-bottom:15px;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
           <!-- Video Stream -->
-          <video id="v2ScannerVideoOverlay" playsinline autoplay muted style="width:100%;height:auto;display:block;"></video>
+          <video id="v2ScannerVideo" playsinline autoplay muted style="width:100%;height:auto;display:block;"></video>
           <!-- Canvas Overlay for YOLO Bounding Boxes -->
-          <canvas id="v2ScannerCanvasOverlay"
+          <canvas id="v2ScannerCanvas"
             style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
 
           <div style="position:absolute;bottom:10px;left:0;width:100%;text-align:center;">
@@ -1324,7 +1276,7 @@
               Halte den Score in das Bild...
             </div>
           </div>
-          <button id="btnStopLiveScanOverlay"
+          <button id="btnStopLiveScan"
             style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:1rem;line-height:32px;text-align:center;cursor:pointer;">✕</button>
         </div>
 

@@ -36,11 +36,7 @@ const StorageManager = (function () {
       localStorage.setItem(PREFIX + key, JSON.stringify(value));
       return true;
     } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22) {
-        console.error(`[StorageManager] Speicher voll! Konnte "${PREFIX + key}" nicht speichern.`);
-      } else {
-        console.warn(`[StorageManager] Fehler beim Schreiben von "${PREFIX + key}":`, e);
-      }
+      console.warn(`[StorageManager] Fehler beim Schreiben von "${PREFIX + key}":`, e);
       return false;
     }
   }
@@ -65,9 +61,6 @@ const StorageManager = (function () {
       localStorage.setItem(PREFIX + key, value);
       return true;
     } catch (e) {
-      if (e.name === 'QuotaExceededError' || e.code === 22) {
-        console.error(`[StorageManager] Speicher voll! Konnte Rohwert "${PREFIX + key}" nicht speichern.`);
-      }
       return false;
     }
   }

@@ -1768,15 +1768,6 @@ window.ImageCompare = (function () {
     overlay.dataset.botScore = String(botScore || 0);
     overlay.dataset.isKK = isKK ? 'true' : 'false';
 
-    // Body scroll lock
-    document.body.style.overflow = 'hidden';
-    // iOS Safari fallback
-    if (window.innerWidth <= 768) {
-      const scrollY = window.scrollY || window.pageYOffset;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-    }
-
     if (!overlay.dataset.eventsAttached) {
       setupOverlayEvents(overlay);
       overlay.dataset.eventsAttached = 'true';
@@ -1902,17 +1893,13 @@ window.ImageCompare = (function () {
     });
 
     let startY = 0;
-    let startX = 0;
     sheet.addEventListener('touchstart', (e) => {
       startY = e.touches[0].clientY;
-      startX = e.touches[0].clientX;
     }, { passive: true });
 
     sheet.addEventListener('touchend', (e) => {
       const dy = e.changedTouches[0].clientY - startY;
-      const dx = Math.abs(e.changedTouches[0].clientX - startX);
-      // Nur schließen wenn vertikal UND nicht horizontal abgelenkt
-      if (dy > 80 && dy > dx * 2) closeOverlay();
+      if (dy > 80) closeOverlay();
     }, { passive: true });
   }
 
@@ -1925,19 +1912,6 @@ window.ImageCompare = (function () {
       resetUploadZone(overlay, isKK);
     }
     _isProcessing = false;
-    // iOS Safari: Zuerst position entfernen, DANN overflow, DANN scrollen
-    if (window.innerWidth <= 768 && document.body.style.position === 'fixed') {
-      const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
-      document.body.style.position = '';
-      document.body.style.top = '';
-      // requestAnimationFrame um sicherzustellen dass position entfernt wurde
-      requestAnimationFrame(() => {
-        document.body.style.overflow = '';
-        window.scrollTo(0, scrollY);
-      });
-    } else {
-      document.body.style.overflow = '';
-    }
   }
 
   async function handleImageFile(file, overlay) {

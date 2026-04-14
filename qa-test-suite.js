@@ -47,7 +47,7 @@ const QATestSuite = (function() {
                 break;
               }
             }
-          } catch (e) { console.warn('[QA-Test] CSS Parsing Fehler:', e.message); }
+          } catch (e) { }
           return hasMediaQueries;
         }
       }

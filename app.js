@@ -220,28 +220,6 @@ const G = {
   transitionLabel: '',   // Label für aktuelle Übergangsphase
 };
 
-// Shot Log Auto-Scroll mit Debounce (verhindert Race Conditions bei schnellen Schüssen)
-// BUG-FIX #4: Double rAF sorgt dafür dass DOM-Layout aktualisiert wird bevor scrollHeight gelesen wird
-let _shotLogScrollPending = false;
-function autoScrollShotLog() {
-  if (_shotLogScrollPending) return;
-  _shotLogScrollPending = true;
-  // Erster rAF: Browser beginnt Layout-Update
-  requestAnimationFrame(() => {
-    // Zweiter rAF: scrollHeight ist jetzt aktuell
-    requestAnimationFrame(() => {
-      if (DOM.shotLogWrap) {
-        DOM.shotLogWrap.scrollTo({
-          top: DOM.shotLogWrap.scrollHeight,
-          behavior: 'smooth'
-        });
-      }
-      // Debounce verkürzt auf 50ms (ausreichend für Burst-Modus)
-      setTimeout(() => { _shotLogScrollPending = false; }, 50);
-    });
-  });
-}
-
 /* ─── DISZIPLIN CONFIG ───────────────────── */
 const DISC = {
   // Luftgewehr
@@ -671,30 +649,11 @@ function toggleProfileMenu() {
   if (isActive) {
     ov.classList.remove('active');
     if (icon) icon.classList.remove('active');
-    // BUG-FIX #2: Overflow SOFORT wiederherstellen (vor rAF, verhindert iOS Scroll-Lock)
-    document.body.style.overflow = '';
-    if (window.innerWidth <= 768 && document.body.style.position === 'fixed') {
-      const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
-      document.body.style.position = '';
-      document.body.style.top = '';
-      // requestAnimationFrame um sicherzustellen dass position entfernt wurde
-      requestAnimationFrame(() => {
-        window.scrollTo(0, scrollY);
-      });
-    }
   } else {
     refreshDebugToolsVisibility();
     refreshProfileSheet();
     ov.classList.add('active');
     if (icon) icon.classList.add('active');
-    // Body scroll lock
-    document.body.style.overflow = 'hidden';
-    // iOS Safari fallback: position fixed + scroll position speichern
-    if (window.innerWidth <= 768) {
-      const scrollY = window.scrollY || window.pageYOffset;
-      document.body.style.position = 'fixed';
-      document.body.style.top = `-${scrollY}px`;
-    }
     // Chart + Sound-Button erst nach Paint initialisieren
     requestAnimationFrame(() => requestAnimationFrame(() => {
       renderPerformanceChart();
@@ -716,21 +675,8 @@ function switchProfileTab(tab) {
   panels.forEach(p => p.classList.toggle('active', p.id === 'psPanel-' + tab));
 
   if (tab === 'sun') renderSunGrid();
-  if (tab === 'lb') {
-    // NEU: IMMER modernes Leaderboard verwenden wenn verfügbar
-    if (typeof LeaderboardModern !== 'undefined') {
-      LeaderboardModern.load();
-    } else if (typeof loadLeaderboard === 'function') {
-      // Fallback: Alte Funktion mit force=true
-      loadLeaderboard(true);
-    }
-  }
+  if (tab === 'lb') loadLeaderboard();
   if (tab === 'history') renderHistory();
-  if (tab === 'friends') {
-    if (typeof FriendsUI !== 'undefined') {
-      FriendsUI.renderProfileTab();
-    }
-  }
   if (tab === 'debug') refreshDebugPanel();
   if (tab === 'stats') {
     requestAnimationFrame(() => renderPerformanceChart());
@@ -979,7 +925,7 @@ window.signInWithGoogle = async function() {
       // Anonymen Account mit Google verknüpfen
       try {
         await currentUser.linkWithCredential(credential);
-        console.debug('✅ Anonymen Account mit Google verknüpft');
+        console.log('✅ Anonymen Account mit Google verknüpft');
       } catch (linkError) {
         // Wenn Verknüpfung fehlschlägt (z.B. Google existiert bereits)
         if (linkError.code === 'auth/credential-already-in-use') {
@@ -1100,7 +1046,7 @@ window.registerWithEmail = async function(email, password) {
     // Bestehende lokale Daten mit neuem Konto verknüpfen
     await linkLocalDataToFirebase(user);
 
-    console.debug('✅ Neues Konto erstellt:', user.email);
+    console.log('✅ Neues Konto erstellt:', user.email);
     return user;
   } catch (error) {
     console.error('Registration Error:', error);
@@ -1149,7 +1095,7 @@ window.signInWithEmail = async function(email, password) {
     // Bestehende lokale Daten mit Konto verknüpfen
     await linkLocalDataToFirebase(user);
 
-    console.debug('✅ Angemeldet:', user.email);
+    console.log('✅ Angemeldet:', user.email);
     return user;
   } catch (error) {
     console.error('Login Error:', error);
@@ -1213,7 +1159,7 @@ window.logoutEmail = async function() {
     updateXPCorner();
     updateProfileMenu();
 
-    console.debug('✅ Abgemeldet');
+    console.log('✅ Abgemeldet');
     return true;
   } catch (error) {
     console.error('Logout Error:', error);
@@ -1246,7 +1192,7 @@ async function linkLocalDataToFirebase(user) {
       StorageManager.setRaw('profilePhotoURL', user.photoURL);
     }
 
-    console.debug('✅ Lokale Daten mit Firebase-Konto verknüpft:', user.email || user.displayName);
+    console.log('✅ Lokale Daten mit Firebase-Konto verknüpft:', user.email || user.displayName);
   } catch (error) {
     console.warn('Data linking warning:', error?.code || error?.message || error);
     // Nicht kritisch - Login funktioniert trotzdem
@@ -1739,7 +1685,7 @@ function fbSetDuel(data) {
   if (iconEl) iconEl.innerHTML = meta.icon;
   // Title
   const titleEl = document.getElementById('fbResultTitle');
-  const name = escHtml(data.opponent || data.discipline);
+  const name = data.opponent || data.discipline;
   if (titleEl) titleEl.innerHTML = `${name} — <span style="color:${meta.color}">${meta.text}</span>`;
   // Score
   const scoreEl = document.getElementById('fbResultScore');
@@ -1857,9 +1803,9 @@ function fbSubmit() {
   if (!Array.isArray(entries)) entries = [];
   entries.unshift({ score, totalDuels, weapon: G.weapon, discipline: fbDuelData?.discipline || G.discipline, ts: Date.now(), tags: fbTags, comment });
   while (entries.length > 100) entries.pop();
-  try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { console.warn('[Feedback] localStorage Fehler:', e.message); }
+  try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
 
-  console.debug('[Feedback]', { rating: fbRating + 1, tags: fbTags, comment, duel: fbDuelData });
+  console.log('[Feedback]', { rating: fbRating + 1, tags: fbTags, comment, duel: fbDuelData });
 
   // Thank you animation
   const card = document.getElementById('screenFeedback');
@@ -1908,7 +1854,7 @@ function submitSiteFeedback(rating) {
       ts: Date.now()
     });
     while (entries.length > 100) entries.pop();
-    try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { console.warn('[Feedback] localStorage Fehler:', e.message); }
+    try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
 
     {
       const safeUsername = sanitizeUsername(G.username || 'Anonym');
@@ -1996,7 +1942,7 @@ function readJsonStorage(key, fallback) {
 }
 
 function writeJsonStorage(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { console.warn('[Storage] localStorage Fehler:', e.message); }
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { }
 }
 
 function showEngagementToast(message, durationMs = 4200) {
@@ -2269,7 +2215,7 @@ const HealthyEngagement = (function () {
           body: 'Deine Rookie-Woche und Tagesmission warten auf dich.',
           tag: 'sd-gentle-reminder'
         });
-      } catch (e) { console.warn('[Rookie] Reminder speichern fehlgeschlagen:', e.message); }
+      } catch (e) { }
     }
     state.lastReminderDateId = today;
     saveState();
@@ -2411,7 +2357,7 @@ function recordGameResult(result, diff, weapon, playerPts, botPts) {
     if (typeof StreakTracker !== 'undefined') {
       const streakResult = StreakTracker.recordGame();
       if (streakResult.streakIncreased && streakResult.milestone) {
-        console.debug('[Streak] Milestone erreicht:', streakResult.milestone);
+        console.log('[Streak] Milestone erreicht:', streakResult.milestone);
       }
     }
 
@@ -2509,7 +2455,7 @@ function addHistoryEntry(result, diff, weapon, playerPts, botPts) {
     StorageManager.set('history', hist);
     scheduleCloudSync('history_changed');
     return historyEntry;
-  } catch (e) { console.warn('[History] History-Eintrag speichern fehlgeschlagen:', e.message); }
+  } catch (e) { }
   return null;
 }
 
@@ -2572,7 +2518,7 @@ function refreshPremiumDashboard() {
   try {
     const analytics = JSON.parse(localStorage.getItem('sd_enhanced_analytics') || '{}');
     historyV2 = Array.isArray(analytics.games) ? analytics.games : [];
-  } catch (e) { console.warn('[Analytics] Analytics-Daten laden fehlgeschlagen:', e.message); }
+  } catch (e) { }
 
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
@@ -2844,15 +2790,15 @@ function refreshPremiumDashboard() {
     latest3.forEach(game => {
       const isWin = game.result === 'win' || game.result === 'Sieg';
       const color = isWin ? '#7ab030' : '#f06050';
-      const label = escHtml(isWin ? '✓ Sieg' : '✗ Niederlage');
-      const diff = escHtml(game.difficulty || 'Mittel');
-
+      const label = isWin ? '✓ Sieg' : '✗ Niederlage';
+      const diff = game.difficulty || 'Mittel';
+      
       // Disziplin-Name korrekt auflösen: "LG 40", "LG 60", "KK 50m", "KK 100m", "KK 3×20"
       let displayDisc = '';
       if (game.discipline && DISC[game.discipline]) {
         displayDisc = DISC[game.discipline].name;
       } else if (game.disciplineName) {
-        displayDisc = escHtml(game.disciplineName);
+        displayDisc = game.disciplineName;
       } else {
         // Fallback: Versuche aus weapon + shotsCount zu rekonstruieren
         const weapon = (game.weapon || 'lg').toLowerCase();
@@ -2911,7 +2857,7 @@ function refreshPremiumDashboard() {
     try {
       const stored = localStorage.getItem('sd_daily_challenge');
       if (stored) dailyState = JSON.parse(stored);
-    } catch (e) { console.warn('[Daily] Daily-Challenge laden fehlgeschlagen:', e.message); }
+    } catch (e) { }
 
     let questHtml = `
       <div style="font-size:1.05rem; font-weight:600; color:#fff; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
@@ -2978,14 +2924,14 @@ function refreshPremiumDashboard() {
     let listHtml = '';
     const recentGames = historyV2.slice(Math.max(historyV2.length - 2, 0)).reverse();
     recentGames.forEach(game => {
-      const diff = escHtml(game.difficulty || 'Mittel');
-
+      const diff = game.difficulty || 'Mittel';
+      
       // Disziplin-Name korrekt auflösen (gleiche Logik wie oben)
       let displayDisc = '';
       if (game.discipline && DISC[game.discipline]) {
         displayDisc = DISC[game.discipline].name;
       } else if (game.disciplineName) {
-        displayDisc = escHtml(game.disciplineName);
+        displayDisc = game.disciplineName;
       } else {
         const weapon = (game.weapon || 'lg').toLowerCase();
         const shotsCount = game.shotsCount || 40;
@@ -3025,22 +2971,22 @@ function renderHistory() {
     }
     el.innerHTML = hist.map(h => {
       const resLabel = h.result === 'win' ? 'S' : h.result === 'lose' ? 'N' : 'U';
-      const pPts = h.playerPts !== null ? parseFloat(h.playerPts).toFixed(1) : '–';
-      const bPts = h.botPts !== null ? parseFloat(h.botPts).toFixed(1) : '–';
+      const pPts = h.playerPts != null ? parseFloat(h.playerPts).toFixed(1) : '–';
+      const bPts = h.botPts != null ? parseFloat(h.botPts).toFixed(1) : '–';
       const weaponUpper = (h.weapon || (h.weaponName === 'Luftgewehr' ? 'lg' : h.weaponName === 'Kleinkaliber' ? 'kk' : h.weaponName) || 'LG').toUpperCase();
-      let discUpper = escHtml((h.disciplineName || h.discipline || '').toString().toUpperCase());
+      let discUpper = (h.disciplineName || h.discipline || '').toString().toUpperCase();
       if (discUpper.startsWith(weaponUpper)) {
         discUpper = discUpper.substring(weaponUpper.length).trim();
       }
-      const finalTitle = `${weaponUpper} ${discUpper} · ${escHtml(h.diffName || h.diff || 'Mittel')}`;
+      const finalTitle = `${weaponUpper} ${discUpper} · ${h.diffName || h.diff || 'Mittel'}`;
 
       return `<div class="ps-history-item">
-            <div class="phi-result ${escHtml(h.result)}">${resLabel}</div>
+            <div class="phi-result ${h.result}">${resLabel}</div>
             <div class="phi-info">
               <div class="phi-title">${finalTitle}</div>
-              <div class="phi-sub">${escHtml(h.date)}</div>
+              <div class="phi-sub">${h.date}</div>
             </div>
-            <div class="phi-score ${escHtml(h.result)}">${pPts} <span style="opacity:.4;font-size:.7em">vs</span> ${bPts}</div>
+            <div class="phi-score ${h.result}">${pPts} <span style="opacity:.4;font-size:.7em">vs</span> ${bPts}</div>
           </div>`;
     }).join('');
   } catch (e) {
@@ -3080,10 +3026,10 @@ function renderPerformanceChart() {
 
   // Daten laden, filtern, auf 15 begrenzen, älteste links
   let hist = [];
-  try { hist = JSON.parse(localStorage.getItem('sd_history') || '[]'); } catch (e) { console.warn('[History] History laden fehlgeschlagen:', e.message); }
+  try { hist = JSON.parse(localStorage.getItem('sd_history') || '[]'); } catch (e) { }
 
   const filtered = hist
-    .filter(h => h.weapon === _perfWeapon && h.playerPts !== null)
+    .filter(h => h.weapon === _perfWeapon && h.playerPts != null)
     .slice(0, 15)
     .reverse();
 
@@ -3095,7 +3041,7 @@ function renderPerformanceChart() {
       // Zeige ob überhaupt History-Daten vorhanden sind
       const totalHist = hist.length;
       const otherWeapon = _perfWeapon === 'lg' ? 'KK' : 'LG';
-      const otherCount = hist.filter(h => h.weapon !== _perfWeapon && h.playerPts !== null).length;
+      const otherCount = hist.filter(h => h.weapon !== _perfWeapon && h.playerPts != null).length;
       emptyEl.innerHTML = totalHist === 0
         ? 'Noch keine Daten.<br><span style="font-size:.6rem;opacity:.5;">Spiel ein Duell und gib dein Ergebnis ein!</span>'
         : `Keine ${_perfWeapon.toUpperCase()}-Daten.<br><span style="font-size:.6rem;opacity:.5;">${otherCount} ${otherWeapon}-Einträge vorhanden → Toggle wechseln</span>`;
@@ -3131,24 +3077,12 @@ function renderPerformanceChart() {
   });
 
   // Gradient-Fill — feste Höhe 160 damit er auch vor erstem Paint funktioniert
-  let ctx2d;
-  try {
-    ctx2d = canvas.getContext('2d');
-  } catch (e) {
-    console.warn('[Chart] Canvas getContext fehlgeschlagen:', e.message);
-    canvas.style.display = 'none';
-    if (emptyEl) {
-      emptyEl.style.display = 'flex';
-      emptyEl.innerHTML = 'Chart nicht verfügbar.<br><span style="font-size:.6rem;opacity:.5;">Chart.js konnte nicht geladen werden.</span>';
-    }
-    return;
-  }
+  const ctx2d = canvas.getContext('2d');
   const boxH = canvas.parentElement?.offsetHeight || 160;
   const grad = ctx2d.createLinearGradient(0, 0, 0, boxH);
   grad.addColorStop(0, `rgba(${accentRgb},.22)`);
   grad.addColorStop(1, `rgba(${accentRgb},0)`);
 
-  try {
   _perfChart = new Chart(ctx2d, {
     type: 'line',
     data: {
@@ -3226,14 +3160,6 @@ function renderPerformanceChart() {
       }
     }
   });
-  } catch (e) {
-    console.warn('[Chart] Chart.js Erstellung fehlgeschlagen:', e.message);
-    canvas.style.display = 'none';
-    if (emptyEl) {
-      emptyEl.style.display = 'flex';
-      emptyEl.innerHTML = 'Chart nicht verfügbar.<br><span style="font-size:.6rem;opacity:.5;">Chart.js konnte nicht initialisiert werden.</span>';
-    }
-  }
 }
 
 function getBestStreak() {
@@ -3285,7 +3211,7 @@ function getSunEarned() {
 }
 
 function saveSunEarned(e) {
-  try { localStorage.setItem('sd_sun', JSON.stringify(e)); } catch (e) { console.warn('[Sun] Sun-Daten speichern fehlgeschlagen:', e.message); }
+  try { localStorage.setItem('sd_sun', JSON.stringify(e)); } catch (_) { }
 }
 
 function showSunPop(achievement) {
@@ -4090,7 +4016,7 @@ async function showAccountSyncCode() {
           <button onclick="document.getElementById('syncCodeOverlay')?.remove()" style="flex:1;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-weight:600;font-size:0.85rem;cursor:pointer;">
             Schließen
           </button>
-          <button onclick="navigator.clipboard?.writeText('${escHtml(data.code)}');this.textContent='✅ Kopiert!';setTimeout(()=>this.textContent='Kopieren',1500)" style="flex:1;padding:12px;background:linear-gradient(135deg,#00c3ff,#7ab030);border:none;border-radius:10px;color:#000;font-weight:700;font-size:0.85rem;cursor:pointer;">
+          <button onclick="navigator.clipboard?.writeText('${data.code}');this.textContent='✅ Kopiert!';setTimeout(()=>this.textContent='Kopieren',1500)" style="flex:1;padding:12px;background:linear-gradient(135deg,#00c3ff,#7ab030);border:none;border-radius:10px;color:#000;font-weight:700;font-size:0.85rem;cursor:pointer;">
             📋 Kopieren
           </button>
         </div>
@@ -4189,20 +4115,6 @@ function applyCloudSnapshot(snapshot) {
     }
 
     const normalizedValue = String(nextValue);
-    
-    // --- MERGE STRATEGY (NEW) ---
-    // Higher value wins for XP and streaks to prevent data loss on multi-device
-    const mergeKeys = ['xp', 'lg_streak', 'lg_best', 'kk_streak', 'kk_best'];
-    if (mergeKeys.includes(key)) {
-      const currentNum = parseInt(currentValue || '0', 10) || 0;
-      const nextNum = parseInt(nextValue || '0', 10) || 0;
-      if (nextNum > currentNum) {
-        localStorage.setItem(storageKey, String(nextNum));
-        changed = true;
-      }
-      return;
-    }
-
     if (currentValue !== normalizedValue) {
       localStorage.setItem(storageKey, normalizedValue);
       changed = true;
@@ -4413,36 +4325,7 @@ function queueLeaderboardEntry(reason = 'leaderboard_sync') {
   return true;
 }
 
-// Cloud-Sync Debounce (verhindert Firebase-Überflutung bei schnellen Aktionen)
-// BUG-FIX #6: Unterschiedliche Debounce-Zeiten für kritische vs. normale Events
-let _cloudSyncDebounceTimers = {};
-const CLOUD_SYNC_DEBOUNCE_MS = 2000;
-const CLOUD_SYNC_DEBOUNCE_CRITICAL = 500; // Für XP/Ergebnisse
-
 function scheduleCloudSync(reason = 'local_change', options = {}) {
-  // Debounce für häufige Calls
-  if (_cloudSyncDebounceTimers[reason]) {
-    clearTimeout(_cloudSyncDebounceTimers[reason]);
-  }
-
-  // BUG-FIX #6: Kritische Events schneller syncen
-  const isCritical = options.critical || 
-    reason.includes('xp') || 
-    reason.includes('battle') || 
-    reason.includes('streak');
-  const delay = options.immediate ? 0 
-    : isCritical ? CLOUD_SYNC_DEBOUNCE_CRITICAL 
-    : CLOUD_SYNC_DEBOUNCE_MS;
-
-  return new Promise((resolve) => {
-    _cloudSyncDebounceTimers[reason] = setTimeout(() => {
-      delete _cloudSyncDebounceTimers[reason];
-      doScheduleCloudSync(reason, options).then(resolve);
-    }, delay);
-  });
-}
-
-function doScheduleCloudSync(reason = 'local_change', options = {}) {
   markCloudStateDirty(reason);
 
   if (fbUser) {
@@ -4470,7 +4353,7 @@ function doScheduleCloudSync(reason = 'local_change', options = {}) {
     });
   }
 
-  if (options.immediate) return Promise.resolve(true);
+  if (options.immediate) return flushFirebaseSyncQueue();
 
   scheduleFirebaseQueueFlush(options.delay ?? 800);
   return Promise.resolve(true);
@@ -4997,10 +4880,10 @@ function renderLeaderboard(entries, scope = getActiveLeaderboardScope()) {
     return `
           <div class="lb-row ${isMe ? 'me' : ''}">
             <div class="lb-rank-num">${i + 1}</div>
-            <div class="lb-avatar">${escHtml(e.rankIcon || '👤')}</div>
+            <div class="lb-avatar">${e.rankIcon || '👤'}</div>
             <div class="lb-info">
               <div class="lb-name">${escHtml(displayName)}${isMe ? ' (Du)' : ''}</div>
-              <div class="lb-sub">${weaponIcon} ${escHtml(e.rank || 'Schütze')}</div>
+              <div class="lb-sub">${weaponIcon} ${e.rank || 'Schütze'}</div>
             </div>
             <div class="lb-stats">
               <div class="lb-xp">${score} Score</div>
@@ -5125,10 +5008,10 @@ renderLeaderboard = function renderLeaderboardPatched(entries, scope = getActive
     return `
           <div class="lb-row ${isMe ? 'me' : ''}">
             <div class="lb-rank-num">${index + 1}</div>
-            <div class="lb-avatar">${escHtml(entry.rankIcon || '👤')}</div>
+            <div class="lb-avatar">${entry.rankIcon || '👤'}</div>
             <div class="lb-info">
               <div class="lb-name">${escHtml(displayName)}${isMe ? ' (Du)' : ''}</div>
-              <div class="lb-sub">${escHtml(subline)}</div>
+              <div class="lb-sub">${subline}</div>
             </div>
             <div class="lb-stats">
               <div class="lb-xp">${topLine}</div>
@@ -5288,38 +5171,8 @@ function initDOMCache() {
 }
 
 /* ─── CANVAS ─────────────────────────────── */
-// Lazy getter für canvas und ctx - vermeidet null-Referenz wenn DOM noch nicht ready
-let _canvas = null;
-let _ctx = null;
-function getCanvas() {
-  if (!_canvas) {
-    _canvas = document.getElementById('targetCanvas');
-    if (!_canvas) {
-      console.error('[app.js] #targetCanvas nicht im DOM gefunden!');
-      return null;
-    }
-  }
-  return _canvas;
-}
-function getCtx() {
-  if (!_ctx && getCanvas()) {
-    _ctx = _canvas.getContext('2d', { alpha: false });
-  }
-  return _ctx;
-}
-// Compatibility: Erstelle canvas/ctx als Proxies für bestehenden Code
-const canvas = new Proxy({}, {
-  get: (target, prop) => {
-    const c = getCanvas();
-    return c ? c[prop] : undefined;
-  }
-});
-const ctx = new Proxy({}, {
-  get: (target, prop) => {
-    const c = getCtx();
-    return c ? c[prop] : undefined;
-  }
-});
+const canvas = document.getElementById('targetCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
 
 // Offscreen canvas: static target (rings, numbers, crosshairs) — drawn once per resize
 const _offCanvas = document.createElement('canvas');
@@ -5596,15 +5449,8 @@ function buildStaticTarget() {
  * (Wird für die Vorschau und das Teilen genutzt)
  */
 function drawOnCanvas(targetCanvas, shots) {
-  // KRITISCH: Stelle sicher, dass wir das echte Canvas-Element haben, nicht den Proxy
-  const realCanvas = targetCanvas === canvas ? getCanvas() : targetCanvas;
-  if (!realCanvas) {
-    console.error('[drawOnCanvas] Canvas nicht verfügbar!');
-    return;
-  }
-  
-  const oc = realCanvas.getContext('2d');
-  const W = realCanvas.width, H = realCanvas.height;
+  const oc = targetCanvas.getContext('2d');
+  const W = targetCanvas.width, H = targetCanvas.height;
   const cx = W / 2, cy = H / 2, maxR = W / 2 - 3;
 
   // 1. Hintergrund / Scheibe zeichnen
@@ -5629,22 +5475,12 @@ function drawOnCanvas(targetCanvas, shots) {
 }
 
 function drawTarget(shots) {
-  const realCanvas = getCanvas();
-  const realCtx = getCtx();
-  if (!realCanvas || !realCtx) {
-    console.error('[drawTarget] Canvas oder Context nicht verfügbar!');
-    return;
-  }
-  drawOnCanvas(realCanvas, shots);
+  if (!canvas || !ctx) return;
+  drawOnCanvas(canvas, shots);
 }
 
 function drawHole(targetCtx, x, y, r, dark, glow, cracks) {
-  // KRITISCH: Echten Context verwenden, nicht den Proxy
-  const c = targetCtx || getCtx();
-  if (!c) {
-    console.error('[drawHole] Canvas Context nicht verfügbar!');
-    return;
-  }
+  const c = targetCtx || ctx;
   // Papier-Aufriss-Schatten (leichter Grauschimmer um das Loch)
   const shadow = c.createRadialGradient(x, y, r * 0.8, x, y, r * 3.5);
   shadow.addColorStop(0, 'rgba(0,0,0,0.18)');
@@ -6102,7 +5938,11 @@ function botAutoFire() {
       setTimeout(() => updatePosBar(), 200);
     } else { updatePosBar(); }
     // Wait for DOM to update before scrolling to ensure scrollHeight is current
-    autoScrollShotLog();
+    requestAnimationFrame(() => {
+      if (DOM.shotLogWrap) {
+        DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+      }
+    });
   } else {
     const pill = document.createElement('span');
     pill.className = 'sl-pill ' + pillCls;
@@ -6161,14 +6001,6 @@ function syncBotScoreToPlayerProgress() {
 
 function startBattle() {
   const dc = DISC[G.discipline];
-  if (!dc) {
-    console.error('[startBattle] DISC[G.discipline] ist undefined! discipline:', G.discipline);
-    if (typeof showNotification === 'function') {
-      showNotification('❌ Disziplin nicht gefunden!', 'error');
-    }
-    return;
-  }
-
   G.maxShots = dc.shots;
   G.playerShotsLeft = dc.shots;
   G.botShotsLeft = dc.shots;
@@ -6180,15 +6012,8 @@ function startBattle() {
   G._lastPlayerShotAt = G._gameStartTime;
   HealthyEngagement.onBattleStart();
   G.dnf = false;
-
-  // NEU: Friend-Challenge Modus erkennen
-  const isFriendChallenge = !!G.friendChallenge;
-  if (isFriendChallenge) {
-    console.debug('[Battle] Friend-Challenge Modus aktiv gegen:', G.friendChallenge.friendUsername);
-  }
-
   G.probeActive = true;  // Probezeit ist aktiv
-  G.probeSecsLeft = (isFriendChallenge || G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
+  G.probeSecsLeft = (G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
   G.transitionSecsLeft = 0;
   G.transitionLabel = '';
 
@@ -6207,22 +6032,6 @@ function startBattle() {
 
   setSz(); drawTarget([]);
 
-  // KRITISCH: Null-Check für alle DOM-Elemente
-  const domChecks = [
-    'shotLogWrap', 'lastShotTxt', 'battleBadge', 'battleWeaponBadge', 
-    'entryTag', 'posBar', 'battleFireBtn', 'battleBurstBtn', 'skipProbeBtn'
-  ];
-  
-  for (const key of domChecks) {
-    if (!DOM[key]) {
-      console.error(`[startBattle] DOM.${key} nicht gefunden!`);
-      if (typeof showNotification === 'function') {
-        showNotification(`❌ UI-Element fehlt: ${key}`, 'error');
-      }
-      return;
-    }
-  }
-
   // Reset shot log area
   DOM.shotLogWrap.innerHTML = '';
   if (G.is3x20) {
@@ -6234,14 +6043,7 @@ function startBattle() {
       DOM.shotLogWrap.appendChild(grp);
       DOM.slPills[i] = null;
     });
-    // BUG-FIX #7: Null-Check für slPills Elemente mit Fehler-Logging
-    G.positions.forEach((_, i) => {
-      const el = document.getElementById(`slPills${i}`);
-      if (!el) {
-        console.error(`[startBattle] slPills${i} nicht gefunden — DOM-Update fehlgeschlagen`);
-      }
-      DOM.slPills[i] = el;
-    });
+    G.positions.forEach((_, i) => { DOM.slPills[i] = document.getElementById(`slPills${i}`); });
   } else {
     const flat = document.createElement('div');
     flat.className = 'shot-log';
@@ -6261,14 +6063,7 @@ function startBattle() {
   DOM.battleBadge.className = 'diff-badge ' + diffCfg.cls;
   DOM.battleWeaponBadge.textContent = weapCfg.icon + ' ' + dc.name.toUpperCase();
   DOM.battleWeaponBadge.className = 'weapon-badge ' + weapCfg.badgeCls;
-  
-  // NEU: Friend-Challenge Hinweis anzeigen
-  if (G.friendChallenge) {
-    DOM.entryTag.textContent = `🎯 VS ${G.friendChallenge.friendUsername.toUpperCase()} · ${dc.name} · ${G.maxShots} SCHUSS`;
-    DOM.entryTag.classList.add('friend-challenge-tag');
-  } else {
-    DOM.entryTag.textContent = `◆ ${G.dist} METER · ${dc.name} · ${G.maxShots} SCHUSS ◆`;
-  }
+  DOM.entryTag.textContent = `◆ ${G.dist} METER · ${dc.name} · ${G.maxShots} SCHUSS ◆`;
 
   DOM.posBar.classList.toggle('visible', G.is3x20);
   if (G.is3x20) updatePosBar();
@@ -6300,30 +6095,19 @@ function startBattle() {
   startMatchTimer(timeMins * 60);
 
   // Bot-Auto-Shoot startet NACH Probezeit (15 Min später)
-  // NEU: Bei Friend-Challenge im async Modus oder wenn Challenger zuerst schießt, Bot nicht starten
-  if (!isFriendChallenge || (isFriendChallenge && !G.friendChallenge.isChallenger)) {
-    const probeDelayMs = ((G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60) + 5) * 1000; // Probezeit + 5 Sek Delay
-    G._botStartTimeout = setTimeout(() => {
-      if (!G.botStarted) {
-        G.botStarted = true;
-        startBotAutoShoot();
-      }
-    }, probeDelayMs);
-  } else if (isFriendChallenge) {
-    console.debug('[Battle] Async-Modus: Bot wird nicht gestartet (Challenger schießt zuerst)');
-  }
+  const probeDelayMs = ((G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60) + 5) * 1000; // Probezeit + 5 Sek Delay
+  G._botStartTimeout = setTimeout(() => {
+    if (!G.botStarted) {
+      G.botStarted = true;
+      startBotAutoShoot();
+    }
+  }, probeDelayMs);
 }
 
 function updateBattleUI() {
   const lowThresh = Math.max(5, Math.round(G.maxShots * 0.15));
   const low = G.playerShotsLeft <= lowThresh;
   const fired = G.maxShots - G.playerShotsLeft;
-
-  // KRITISCH: Null-Check für essentielle DOM-Elemente
-  if (!DOM.shotsLeft || !DOM.botScoreChipInt || !DOM.lsbInt) {
-    console.error('[updateBattleUI] Essentielle DOM-Elemente fehlen!');
-    return;
-  }
 
   // Score — compute once, assign to both score chip and live bar
   DOM.shotsLeft.textContent = G.playerShotsLeft;
@@ -6796,7 +6580,11 @@ function doBattleFire() {
         updatePosBar();
       }
       // Wait for DOM to update before scrolling to ensure scrollHeight is current
-      autoScrollShotLog();
+      requestAnimationFrame(() => {
+        if (DOM.shotLogWrap) {
+          DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+        }
+      });
     } else {
       // Flat log: show last 10
       if (DOM.shotLog) {
@@ -7340,7 +7128,7 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
 
   DOM.goP.textContent = pp >= 0 ? (kk3x20 ? Math.floor(pp) : fmtPts(pp)) : '–';
   DOM.goB.textContent = kk3x20 ? G.botTotalInt : fmtPts(bp);
-  DOM.goPInt.textContent = ppInt !== null ? ppInt : (pp >= 0 ? Math.floor(pp) : '–');
+  DOM.goPInt.textContent = ppInt != null ? ppInt : (pp >= 0 ? Math.floor(pp) : '–');
   DOM.goBInt.textContent = G.botTotalInt;
   DOM.goPUnit.textContent = pp >= 0 ? (kk3x20 ? '' : 'Zehntel') : '';
 
@@ -7369,7 +7157,7 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
     `${discCfg.name} · ${G.dist} m · ${diffCfg.lbl.replace(/[^\w\s✦]/gi, '').trim()} · ${G.maxShots} Schuss${xStr}${dnfStr}`;
 
   const useInt = kk3x20;
-  const ppCmp = useInt ? (ppInt !== null ? ppInt : Math.floor(pp)) : pp;
+  const ppCmp = useInt ? (ppInt != null ? ppInt : Math.floor(pp)) : pp;
   const bpCmp = useInt ? G.botTotalInt : bp;
   const diff = useInt ? (ppCmp - bpCmp) : Math.round((pp - bp) * 10) / 10;
   const absDiff = Math.abs(diff);
@@ -7484,31 +7272,13 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
     if (typeof StreakTracker !== 'undefined') {
       const streakResult = StreakTracker.recordGame();
       if (streakResult.streakIncreased && streakResult.milestone) {
-        console.debug('[Streak] Milestone erreicht:', streakResult.milestone);
+        console.log('[Streak] Milestone erreicht:', streakResult.milestone);
       }
     }
   }
 
   // Update UI in case user views result details
   updateSchuetzenpass();
-
-  // NEU: Friend-Challenge Ergebnis übermitteln
-  if (G.friendChallenge && typeof FriendChallenges !== 'undefined') {
-    try {
-      const finalScore = G.playerTotal;
-      const shots = G.playerShots.map(s => s.pts || s.points || 0);
-      
-      FriendChallenges.submitChallengeResult(
-        G.friendChallenge.challengeId,
-        finalScore,
-        shots
-      );
-      
-      console.debug('[Battle] Friend-Challenge Ergebnis übermittelt:', finalScore);
-    } catch (error) {
-      console.error('[Battle] Friend-Challenge Ergebnis-Fehler:', error);
-    }
-  }
 
   if (DOM.analysisResult) DOM.analysisResult.innerHTML = '';
   const totalDuels = getTotalDuels();
@@ -7527,7 +7297,7 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
     title: DOM.goTitle.textContent,
     resultClass: gameResult,
     playerPts: kk3x20
-      ? String(ppInt !== null ? ppInt : Math.floor(pp))
+      ? String(ppInt != null ? ppInt : Math.floor(pp))
       : fmtPts(pp),
     botPts: kk3x20
       ? String(G.botTotalInt)
@@ -7629,10 +7399,8 @@ function openShareCard() {
 }
 
 function closeShareCard(e) {
-  const overlay = document.getElementById('shareOverlay');
-  // BUG-FIX #1: Overflow IMMER wiederherstellen, auch bei X-Button oder Kind-Element Klicks
-  if (e && e.target !== overlay && !overlay?.contains(e.target)) return;
-  overlay.classList.remove('active');
+  if (e && e.target !== document.getElementById('shareOverlay')) return;
+  document.getElementById('shareOverlay').classList.remove('active');
   document.body.style.overflow = '';
 }
 
@@ -7663,7 +7431,7 @@ async function doShare() {
         stats.count = (stats.count || 0) + 1;
         stats.last = Date.now();
         localStorage.setItem('sd_shares', JSON.stringify(stats));
-      } catch (e) { console.warn('[Share] Share-Stats speichern fehlgeschlagen:', e.message); }
+      } catch (_) { }
     } catch (err) {
       if (err.name !== 'AbortError') console.warn('Share failed:', err);
     }
@@ -7748,8 +7516,6 @@ function restartGame() {
   G.is3x20 = false;
   G.posIdx = 0; G.posShots = 0; G.posResults = [];
   G.positions = []; G.posIcons = [];
-  // NEU: Friend-Challenge zurücksetzen
-  G.friendChallenge = null;
   if (DOM.profileOverlay) DOM.profileOverlay.classList.remove('active');
   if (DOM.profileIcon) DOM.profileIcon.classList.remove('active');
 
@@ -7762,8 +7528,6 @@ function showScreen(id) {
   if (id !== 'screenOver') clearPendingFeedbackPrompt();
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  // Scroll-Position zurücksetzen für konsistentes UX
-  window.scrollTo(0, 0);
   if (id === 'screenSetup') {
     RookiePlan.evaluateAndRender(true);
     if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
@@ -7793,14 +7557,14 @@ checkSunAchievements(); // Check on load in case new achievements unlocked
 // NEU: Fallback-System zuerst initialisieren
 if (typeof FeatureFallback !== 'undefined') {
   FeatureFallback.init();
-  console.debug('🛡️ Feature Fallback System geladen');
+  console.log('🛡️ Feature Fallback System geladen');
 }
 
 // NEU: Neue Features initialisieren (mit Fallback-Schutz)
 if (typeof AdaptiveBotSystem !== 'undefined') {
   try {
     AdaptiveBotSystem.init();
-    console.debug('🤖 Adaptive Bot System geladen');
+    console.log('🤖 Adaptive Bot System geladen');
   } catch (error) {
     console.error('❌ Adaptive Bot System Fehler:', error);
     if (typeof FeatureFallback !== 'undefined') {
@@ -7812,7 +7576,7 @@ if (typeof AdaptiveBotSystem !== 'undefined') {
 if (typeof ContextualOCR !== 'undefined') {
   try {
     ContextualOCR.init();
-    console.debug('🔍 Contextual OCR System geladen');
+    console.log('🔍 Contextual OCR System geladen');
   } catch (error) {
     console.error('❌ Contextual OCR Fehler:', error);
     if (typeof FeatureFallback !== 'undefined') {
@@ -7824,7 +7588,7 @@ if (typeof ContextualOCR !== 'undefined') {
 if (typeof MultiScoreDetection !== 'undefined') {
   try {
     MultiScoreDetection.init();
-    console.debug('📊 Multi-Score Detection System geladen');
+    console.log('📊 Multi-Score Detection System geladen');
   } catch (error) {
     console.error('❌ Multi-Score Detection Fehler:', error);
     if (typeof FeatureFallback !== 'undefined') {
@@ -7853,7 +7617,7 @@ function checkFirstVisit() {
 
 window.addEventListener('difficultyAdapted', function (event) {
   const detail = event.detail || {};
-  console.debug('🎯 Schwierigkeit angepasst:', detail.discipline || 'global', detail.oldDifficulty, '→', detail.newDifficulty);
+  console.log('🎯 Schwierigkeit angepasst:', detail.discipline || 'global', detail.oldDifficulty, '→', detail.newDifficulty);
   if (detail.discipline && detail.discipline !== G.discipline) return;
   setDifficulty(detail.newDifficulty, { persist: false });
 });
@@ -7989,30 +7753,15 @@ window.addEventListener('resize', () => {
   });
 }, { passive: true });
 
-// BUG-FIX #5: orientationchange Handler für iOS Safari Rotation
-window.addEventListener('orientationchange', () => {
-  // Kurze Verzögerung für iOS Safari damit Viewport-Werte aktualisiert werden
-  setTimeout(() => {
-    setSz();
-    drawTarget(G.targetShots);
-  }, 200);
-});
-
 // Swipe-down to close profile sheet
 (function () {
   let startY = 0;
-  let startX = 0;
   const sheet = document.getElementById('profileSheet');
   if (!sheet) return;
-  sheet.addEventListener('touchstart', e => {
-    startY = e.touches[0].clientY;
-    startX = e.touches[0].clientX;
-  }, { passive: true });
+  sheet.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
   sheet.addEventListener('touchend', e => {
     const dy = e.changedTouches[0].clientY - startY;
-    const dx = Math.abs(e.changedTouches[0].clientX - startX);
-    // Nur schließen wenn vertikal UND nicht horizontal abgelenkt
-    if (dy > 80 && dy > dx * 2) toggleProfileMenu();
+    if (dy > 80) toggleProfileMenu();
   }, { passive: true });
 })();
 

@@ -46,22 +46,22 @@ const ShootingPhysicsEngine = (function () {
       targetSize: 0.5,
       ringStep: 2.5,
       meanRadii: {
-        easy: 4.5,
-        real: 2.2,
-        hard: 1.2,
-        elite: 0.7,
-        worldrecord: 0.35
+        easy: 0.75,
+        real: 0.56,
+        hard: 0.40,
+        elite: 0.24,
+        worldrecord: 0.16
       }
     },
     lg60: {
       targetSize: 0.5,
       ringStep: 2.5,
       meanRadii: {
-        easy: 4.5,
-        real: 2.2,
-        hard: 1.2,
-        elite: 0.7,
-        worldrecord: 0.35
+        easy: 0.53,
+        real: 0.40,
+        hard: 0.29,
+        elite: 0.22,
+        worldrecord: 0.15
       }
     },
     smallbore_50m: {
@@ -231,10 +231,7 @@ const ShootingPhysicsEngine = (function () {
      * @returns {{ x: number, y: number, breathPhase: string, activeBreathing: boolean }}
      */
     function getCurrentAimPoint(timeMs) {
-      // --- STABILITY FIX (NEW) ---
-      // Cap time at 10 seconds to prevent massive drifts after tab standby
-      const MAX_STABLE_TIME = 10000;
-      const t = (timeMs % MAX_STABLE_TIME) / 1000;
+      const t = timeMs / 1000;
 
       // ─── 1. ATMUNG / BREATHING ─────────────────────────
       // Atemzyklus: ~6.3s (2s ein, 4s aus, ~0.3–0.8 Pause)

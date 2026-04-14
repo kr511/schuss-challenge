@@ -8,8 +8,6 @@ const V2VisionEngine = (function() {
   let _model = null;
   let _isModelLoading = false;
   let _videoStream = null;
-  let _isStarting = false;
-  let _isStopping = false;
 
   // Hier entpackst du deine ZIP-Datei hinein (model.json und .bin Dateien)
   const MODEL_PATH = './models/v2_tfjs_model/model.json';
@@ -50,17 +48,8 @@ const V2VisionEngine = (function() {
   }
 
   async function startLiveScanner(videoElementId) {
-    if (_isStarting) return false;
-    _isStarting = true;
-
-    // Vorherigen Stream sicher beenden
-    stopLiveScanner();
-
     const video = document.getElementById(videoElementId);
-    if (!video) {
-      _isStarting = false;
-      return false;
-    }
+    if (!video) return false;
 
     try {
       // 1. Versuch: Rückkamera mit hoher Auflösung
@@ -75,7 +64,6 @@ const V2VisionEngine = (function() {
       } catch (err2) {
         console.error('Kamera-Zugriff komplett verweigert oder keine Kamera vorhanden:', err2);
         alert("Kamera-Fehler! Bitte erlaube den Kamera-Zugriff in deinem Browser.");
-        _isStarting = false;
         return false;
       }
     }
@@ -83,49 +71,33 @@ const V2VisionEngine = (function() {
     try {
       video.srcObject = _videoStream;
       // WICHTIG: iOS Safari benötigt dieses Event, um den Screen aufzubauen
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("Video load timeout")), 5000);
+      await new Promise((resolve) => {
         video.onloadedmetadata = () => {
-          clearTimeout(timeout);
           resolve();
         };
       });
       await video.play();
-      _isStarting = false;
       return true;
     } catch (err) {
       console.error('Fehler beim Video-Playback:', err);
-      stopLiveScanner();
-      _isStarting = false;
       return false;
     }
   }
 
   function stopLiveScanner() {
     if (_videoStream) {
-      _videoStream.getTracks().forEach(track => {
-        track.stop();
-        console.log('[V2Vision] Kamera-Track gestoppt:', track.label);
-      });
+      _videoStream.getTracks().forEach(track => track.stop());
       _videoStream = null;
     }
-    const videoList = ['v2ScannerVideo', 'v2ScannerVideoDashboard', 'v2ScannerVideoOverlay'];
-    videoList.forEach(id => {
-      const v = document.getElementById(id);
-      if (v) {
-        v.pause();
-        v.srcObject = null;
-      }
-    });
   }
 
   /**
    * Scannt das exakte Bild und findet die Bounding Boxes für Disziplin und Score
    */
   async function scanCurrentFrame(videoElementId) {
-    if (!_model || _isStopping) return null;
+    if (!_model) return null;
     const video = document.getElementById(videoElementId);
-    if (!video || video.paused || video.ended) return null;
+    if (!video) return null;
 
     // 1. Vorbereitung (Tensor erstellen)
     const imgTensor = tf.tidy(() => {

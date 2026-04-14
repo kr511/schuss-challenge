@@ -310,28 +310,18 @@
     const tabs = Array.from(document.querySelectorAll('[data-tab], .tab-btn'));
     let currentTabIndex = 0;
 
-    // AbortController für Cleanup
-    const controller = new AbortController();
-    const { signal } = controller;
-
-    const handleTouchStart = (e) => {
-      // Swipe-Geste deaktivieren wenn in scrollbarem Container
-      const scrollableContainer = e.target.closest('.ps-body, .shot-log-wrap, .swipe-container, [style*="overflow"], [class*="overflow"]');
-      if (scrollableContainer) {
-        isDragging = false;
-        return;
-      }
+    document.addEventListener('touchstart', (e) => {
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       isDragging = true;
-    };
+    }, { passive: true });
 
-    const handleTouchMove = (e) => {
+    document.addEventListener('touchmove', (e) => {
       if (!isDragging) return;
       currentX = e.touches[0].clientX;
-    };
+    }, { passive: true });
 
-    const handleTouchEnd = (e) => {
+    document.addEventListener('touchend', (e) => {
       if (!isDragging) return;
       isDragging = false;
 
@@ -353,16 +343,7 @@
           tabs[currentTabIndex].click();
         }
       }
-    };
-
-    document.addEventListener('touchstart', handleTouchStart, { passive: true, signal });
-    document.addEventListener('touchmove', handleTouchMove, { passive: true, signal });
-    document.addEventListener('touchend', handleTouchEnd, { passive: true, signal });
-
-    // Cleanup bei Page-Unload
-    window.addEventListener('beforeunload', () => {
-      controller.abort();
-    }, { once: true });
+    }, { passive: true });
   }
 
   // ═══════════════════════════════════════════════════════

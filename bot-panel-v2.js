@@ -75,7 +75,7 @@
       // Bot anpassen
       this.adaptBot();
 
-      console.debug('[AdaptiveAI] Spieler-Muster:', this.playerPatterns);
+      console.log('[AdaptiveAI] Spieler-Muster:', this.playerPatterns);
     },
 
     /**
@@ -315,13 +315,6 @@
     },
 
     /**
-     * Bereinigt alle Ressourcen
-     */
-    cleanup() {
-      this.stopUpdates();
-    },
-
-    /**
      * Aktualisiert das Panel mit aktuellen Daten
      */
     updatePanel() {
@@ -452,8 +445,7 @@
       }
 
       // Panel-Styling basierend auf Mood
-      const aiStatusForStyle = AdaptiveAI.getStatus();
-      const isExtreme = mood === 'in_the_zone' || (aiStatusForStyle?.adjustments?.comebackActive);
+      const isExtreme = mood === 'in_the_zone' || (aiStatus?.adjustments?.comebackActive);
       panel.style.borderColor = isExtreme ? personality.levelColor : 'rgba(255,255,255,0.06)';
       panel.style.boxShadow = isExtreme ? `0 0 20px ${personality.levelGlow}, inset 0 0 10px ${personality.levelGlow}` : '0 6px 20px rgba(0,0,0,0.3)';
     }
@@ -466,7 +458,6 @@
   window.BotPanelV2 = {
     init: () => BotPanel.init(),
     stop: () => BotPanel.stopUpdates(),
-    cleanup: () => BotPanel.cleanup(),
     adaptiveAI: AdaptiveAI
   };
 
@@ -696,12 +687,5 @@
   } else {
     autoInit();
   }
-
-  // Cleanup bei Seitenentladung / Cleanup on page unload
-  window.addEventListener('beforeunload', () => {
-    if (typeof BotPanelV2.cleanup === 'function') {
-      BotPanelV2.cleanup();
-    }
-  });
 
 })();

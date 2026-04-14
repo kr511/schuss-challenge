@@ -30,7 +30,7 @@ const AdaptiveBotSystem = (function () {
 
   let _initialized = false;
   const DIFFICULTIES = ['easy', 'real', 'hard', 'elite'];
-  const DISCIPLINE_KEYS = ['lg40', 'lg60', 'kk50', 'kk100', 'kk3x20', 'air_rifle_10m', 'smallbore_50m', 'air_pistol_10m', 'dry_fire'];
+  const DISCIPLINE_KEYS = ['lg40', 'lg60', 'kk50', 'kk100', 'kk3x20'];
   const DATA_SCHEMA_VERSION = 2;
   const HISTORY_LIMIT = 50;
 
@@ -332,7 +332,7 @@ const AdaptiveBotSystem = (function () {
       physicsEngine = ShootingPhysicsEngine.createEngine();
       physicsEngine.setPhysiologicalState(botState.stressLevel, botState.fatigue);
     } else {
-      console.debug('⚠️ ShootingPhysicsEngine nicht geladen – Bot arbeitet im Fallback-Modus');
+      console.warn('⚠️ ShootingPhysicsEngine nicht geladen – Bot arbeitet im Fallback-Modus');
     }
 
     // Automatischen Stimmungswechsel starten / Start automatic mood changes
@@ -415,22 +415,11 @@ const AdaptiveBotSystem = (function () {
   // EN: The bot automatically changes "mood" – just like a real shooter.
 
   /**
-   * Stoppt den automatischen Stimmungswechsel
-   * EN: Stops automatic mood cycling
-   */
-  function stopMoodCycle() {
-    if (botState.moodTimer) {
-      clearInterval(botState.moodTimer);
-      botState.moodTimer = null;
-    }
-  }
-
-  /**
    * Startet den automatischen Stimmungswechsel
    * EN: Starts automatic mood cycling
    */
   function startMoodCycle() {
-    stopMoodCycle(); // Vorherigen Interval sicher stoppen / Stop previous interval safely
+    if (botState.moodTimer) clearInterval(botState.moodTimer);
     botState.moodTimer = setInterval(() => {
       // Je mehr Schüsse, desto mehr Müdigkeit
       // EN: More shots → more fatigue
@@ -1421,20 +1410,7 @@ const AdaptiveBotSystem = (function () {
 
     // ─── NEU v2.0: Virtual Crosshair / NEW v2.0 ───
     startVirtualCrosshairAnimation,
-    stopVirtualCrosshairAnimation,
-
-    // ─── NEU v2.1: Cleanup / NEW v2.1 ───
-    stopMoodCycle,
-    cleanup: () => {
-      stopMoodCycle();
-    }
+    stopVirtualCrosshairAnimation
   };
 
 })();
-
-// Cleanup bei Seitenentladung / Cleanup on page unload
-window.addEventListener('beforeunload', () => {
-  if (typeof AdaptiveBotSystem.cleanup === 'function') {
-    AdaptiveBotSystem.cleanup();
-  }
-});

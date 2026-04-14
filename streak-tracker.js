@@ -785,11 +785,4 @@ if (typeof document !== 'undefined') {
       StreakTracker.init();
     }
   }
-
-  // Cleanup bei Seitenentladung / Cleanup on page unload
-  window.addEventListener('beforeunload', () => {
-    if (typeof StreakTracker.shutdown === 'function') {
-      StreakTracker.shutdown();
-    }
-  });
 }

@@ -219,7 +219,7 @@ const EnhancedAnalytics = (function() {
    * Fügt Spiel-Daten hinzu und aktualisiert Analysen
    */
   function addGameData(gameData) {
-    if (!gameData || gameData.playerScore === null) return;
+    if (!gameData || gameData.playerScore == null) return;
 
     const enhancedData = {
       ...gameData,
