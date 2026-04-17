@@ -656,7 +656,14 @@ function toggleProfileMenu() {
   if (isActive) {
     ov.classList.remove('active');
     if (icon) icon.classList.remove('active');
-    
+    document.body.style.overflow = '';
+    if (window.innerWidth <= 768 && document.body.style.position === 'fixed') {
+      const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
+      document.body.style.position = '';
+      document.body.style.top = '';
+      requestAnimationFrame(() => { window.scrollTo(0, scrollY); });
+    }
+
     // Un-blur
     if (dash) { dash.style.filter = ''; }
     if (hdrLogo) { hdrLogo.style.filter = ''; }
@@ -3352,6 +3359,7 @@ let debugFeedbackState = null;
 let debugFeedbackFetchInFlight = false;
 const LEADERBOARD_CACHE_KEY = 'sd_lb_cache_v1';
 const CLOUD_SYNC_SCHEMA_VERSION = 1;
+const CLOUD_SYNC_DEBOUNCE_CRITICAL = 500;
 const CLOUD_SYNC_META_KEY = 'cloud_sync_meta_v1';
 const CLOUD_SYNC_QUEUE_KEY = 'cloud_sync_queue_v1';
 const CLOUD_SYNC_KEYS = [
@@ -4352,6 +4360,12 @@ function queueLeaderboardEntry(reason = 'leaderboard_sync') {
 function scheduleCloudSync(reason = 'local_change', options = {}) {
   markCloudStateDirty(reason);
 
+  const isCritical = options.critical ||
+    reason.includes('xp') ||
+    reason.includes('battle') ||
+    reason.includes('streak');
+  const _syncDelay = isCritical ? CLOUD_SYNC_DEBOUNCE_CRITICAL : (options.delay ?? 800);
+
   if (fbUser) {
     queueCloudSnapshot(reason);
     queueCloudProfile(reason);
@@ -4372,14 +4386,14 @@ function scheduleCloudSync(reason = 'local_change', options = {}) {
           if (G.username) queueDisciplineLeaderboardEntries(reason);
           if (G.username) queueSeasonLeaderboardEntries(reason);
           if (options.immediate) flushFirebaseSyncQueue();
-          else scheduleFirebaseQueueFlush(options.delay ?? 800);
+          else scheduleFirebaseQueueFlush(_syncDelay);
         });
     });
   }
 
   if (options.immediate) return flushFirebaseSyncQueue();
 
-  scheduleFirebaseQueueFlush(options.delay ?? 800);
+  scheduleFirebaseQueueFlush(_syncDelay);
   return Promise.resolve(true);
 }
 
@@ -5961,11 +5975,13 @@ function botAutoFire() {
       }
       setTimeout(() => updatePosBar(), 200);
     } else { updatePosBar(); }
-    // Wait for DOM to update before scrolling to ensure scrollHeight is current
+    // Double rAF ensures scrollHeight is current after layout update
     requestAnimationFrame(() => {
-      if (DOM.shotLogWrap) {
-        DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
-      }
+      requestAnimationFrame(() => {
+        if (DOM.shotLogWrap) {
+          DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+        }
+      });
     });
   } else {
     const pill = document.createElement('span');
@@ -6057,6 +6073,10 @@ function startBattle() {
   setSz(); drawTarget([]);
 
   // Reset shot log area
+  if (!DOM.shotLogWrap) {
+    console.error('[startBattle] shotLogWrap nicht gefunden — DOM nicht bereit?');
+    return;
+  }
   DOM.shotLogWrap.innerHTML = '';
   if (G.is3x20) {
     G.positions.forEach((pos, i) => {
@@ -6067,7 +6087,11 @@ function startBattle() {
       DOM.shotLogWrap.appendChild(grp);
       DOM.slPills[i] = null;
     });
-    G.positions.forEach((_, i) => { DOM.slPills[i] = document.getElementById(`slPills${i}`); });
+    G.positions.forEach((_, i) => {
+      const el = document.getElementById(`slPills${i}`);
+      if (!el) console.error(`[startBattle] slPills${i} nicht gefunden — DOM-Update fehlgeschlagen`);
+      DOM.slPills[i] = el;
+    });
   } else {
     const flat = document.createElement('div');
     flat.className = 'shot-log';
@@ -6603,11 +6627,13 @@ function doBattleFire() {
       } else {
         updatePosBar();
       }
-      // Wait for DOM to update before scrolling to ensure scrollHeight is current
+      // Double rAF ensures scrollHeight is current after layout update
       requestAnimationFrame(() => {
-        if (DOM.shotLogWrap) {
-          DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
-        }
+        requestAnimationFrame(() => {
+          if (DOM.shotLogWrap) {
+            DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+          }
+        });
       });
     } else {
       // Flat log: show last 10
@@ -7423,8 +7449,9 @@ function openShareCard() {
 }
 
 function closeShareCard(e) {
-  if (e && e.target !== document.getElementById('shareOverlay')) return;
-  document.getElementById('shareOverlay').classList.remove('active');
+  const overlay = document.getElementById('shareOverlay');
+  if (e && e.target !== overlay && !overlay?.contains(e.target)) return;
+  overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
 
@@ -7776,6 +7803,13 @@ window.addEventListener('resize', () => {
     if (_lastSz !== prevSz) drawTarget(G.targetShots);
   });
 }, { passive: true });
+
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    setSz();
+    drawTarget(G.targetShots);
+  }, 200);
+});
 
 // Swipe-down to close profile sheet
 (function () {
