@@ -15,7 +15,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ── Build in-memory D1 ───────────────────────────────────────
 const sqlite = new DatabaseSync(':memory:');
-for (const file of ['migrations/0001_initial.sql', 'migrations/0002_social.sql', 'migrations/0003_feedback_updates.sql']) {
+for (const file of [
+  'migrations/0001_initial.sql',
+  'migrations/0002_social.sql',
+  'migrations/0003_feedback_updates.sql',
+  'migrations/0004_integrity_indexes.sql',
+]) {
   const sql = readFileSync(resolve(__dirname, file), 'utf8');
   sqlite.exec(sql);
 }
@@ -238,6 +243,152 @@ await expect(
   const allowMethods = r.headers.get('access-control-allow-methods') ?? '';
   const ok = r.status === 204 && /PATCH/i.test(allowMethods);
   log(ok, 'CORS  OPTIONS preflight → 204 + PATCH in allow-methods', `(methods="${allowMethods}")`);
+}
+
+// ── B13: Profile input validation ──
+await expect(
+  'B13   POST /api/profile without displayName → 400',
+  req('/api/profile', {
+    method: 'POST',
+    headers: { 'x-dev-user-id': 'local-user', 'content-type': 'application/json' },
+    body: JSON.stringify({ privacySettings: 'public' }),
+  }),
+  { status: 400 }
+);
+
+await expect(
+  'B13   POST /api/profile with displayName >50 chars → 400',
+  req('/api/profile', {
+    method: 'POST',
+    headers: { 'x-dev-user-id': 'local-user', 'content-type': 'application/json' },
+    body: JSON.stringify({ displayName: 'x'.repeat(51) }),
+  }),
+  { status: 400 }
+);
+
+await expect(
+  'B13   POST /api/profile with bad privacySettings → 400',
+  req('/api/profile', {
+    method: 'POST',
+    headers: { 'x-dev-user-id': 'local-user', 'content-type': 'application/json' },
+    body: JSON.stringify({ displayName: 'Alice', privacySettings: 'everyone' }),
+  }),
+  { status: 400 }
+);
+
+await expect(
+  'B13   POST /api/profile valid payload → 200',
+  req('/api/profile', {
+    method: 'POST',
+    headers: { 'x-dev-user-id': 'local-user', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      displayName: 'Alice',
+      privacySettings: 'public',
+      bestStats: { best: 87, trainings: 12 },
+    }),
+  }),
+  { status: 200 }
+);
+
+// Verify best_stats got JSON-serialized (not "[object Object]")
+{
+  const row = sqlite.prepare('SELECT best_stats FROM profiles WHERE user_id = ?').get('local-user');
+  let parsedOk = false;
+  try {
+    const obj = JSON.parse(row?.best_stats ?? '');
+    parsedOk = obj.best === 87 && obj.trainings === 12;
+  } catch {}
+  log(parsedOk, 'B13   bestStats stored as JSON (not "[object Object]")', `(raw=${row?.best_stats})`);
+}
+
+// ── B14: Activity input validation ──
+await expect(
+  'B14   POST /api/activity/start without discipline → 400',
+  req('/api/activity/start', {
+    method: 'POST',
+    headers: { 'x-dev-user-id': 'local-user', 'content-type': 'application/json' },
+    body: JSON.stringify({ difficulty: 'hard' }),
+  }),
+  { status: 400 }
+);
+
+await expect(
+  'B14   POST /api/activity/start with empty difficulty → 400',
+  req('/api/activity/start', {
+    method: 'POST',
+    headers: { 'x-dev-user-id': 'local-user', 'content-type': 'application/json' },
+    body: JSON.stringify({ discipline: 'LG', difficulty: '' }),
+  }),
+  { status: 400 }
+);
+
+await expect(
+  'B14   POST /api/activity/start valid payload → 200',
+  req('/api/activity/start', {
+    method: 'POST',
+    headers: { 'x-dev-user-id': 'local-user', 'content-type': 'application/json' },
+    body: JSON.stringify({ discipline: 'LG', difficulty: 'hard' }),
+  }),
+  { status: 200 }
+);
+
+// ── B15: 1 MiB body size limit ──
+await expect(
+  'B15   POST with Content-Length >1 MiB → 413',
+  req('/api/feedback', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': String(1_048_577),
+    },
+    body: JSON.stringify({
+      email: 'u@example.com',
+      feedbackType: 'bug',
+      title: 'x',
+      message: 'y',
+    }),
+  }),
+  { status: 413 }
+);
+
+await expect(
+  'B15   POST with malformed Content-Length → 400',
+  req('/api/feedback', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'content-length': 'NaN',
+    },
+    body: JSON.stringify({}),
+  }),
+  { status: 400 }
+);
+
+// ── B16: Achievement unique constraint ──
+{
+  // First unlock succeeds
+  const r1 = await handleApiRequest(
+    req('/api/achievements', {
+      method: 'POST',
+      headers: { 'x-dev-user-id': 'user-ach', 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'first_blood' }),
+    }),
+    env
+  );
+  // Second unlock for same type is idempotent (API returns 201, DB unique index prevents dup row)
+  const r2 = await handleApiRequest(
+    req('/api/achievements', {
+      method: 'POST',
+      headers: { 'x-dev-user-id': 'user-ach', 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'first_blood' }),
+    }),
+    env
+  );
+  const rows = sqlite
+    .prepare('SELECT COUNT(*) AS n FROM achievements WHERE user_id = ? AND type = ?')
+    .get('user-ach', 'first_blood');
+  const ok = r1.status === 201 && r2.status === 201 && Number(rows.n) === 1;
+  log(ok, 'B16   Duplicate achievement unlock → single DB row', `(r1=${r1.status} r2=${r2.status} count=${rows.n})`);
 }
 
 // ── Summary ──

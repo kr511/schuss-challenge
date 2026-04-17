@@ -5,6 +5,10 @@
   "scripts": {
     "dev": "wrangler dev",
     "verify:balance": "node verify-balance.js",
+    "test:api": "node --import tsx test_api_direct.mjs",
+    "test:xss": "node --import tsx test_xss_direct.mjs",
+    "test": "npm run test:api && npm run test:xss",
+    "typecheck": "tsc --noEmit",
     "d1:migrate:local": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql --local",
     "d1:migrate:remote": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql"
   },
