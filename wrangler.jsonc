@@ -12,12 +12,16 @@
   "vars": {
     "ALLOW_INSECURE_DEV_AUTH": "false",
     // Comma-separated user IDs permitted to access /api/admin/* routes.
-    // Leave empty in production until admin IDs are known.
+    // MUST be populated before deploying to production — an empty list means
+    // every admin request returns 403 FORBIDDEN (by design, see worker/api.ts
+    // isAdminUser). Rotate via `wrangler secret put ADMIN_USER_IDS` or edit
+    // this file and redeploy. Example: "uuid-a,uuid-b,uuid-c"
     "ADMIN_USER_IDS": ""
   },
   "env": {
     "production": {
       "vars": {
+        // Production admin allow-list. Populate before first admin action.
         "ADMIN_USER_IDS": ""
       }
     },

@@ -14,7 +14,7 @@ import {
   setActivity,
   getLiveActivity,
 } from "./db";
-import type { D1Database, Env, Feedback, FeedbackStatus, GameMode } from "./types";
+import type { D1Database, Env, EnvWithDB, Feedback, FeedbackStatus, GameMode } from "./types";
 
 type ApiErrorShape = {
   error: true;
@@ -58,6 +58,19 @@ const feedbackPatchSchema = z.object({
 // UUID v4 shape used by crypto.randomUUID()
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const profileInputSchema = z.object({
+  displayName: z.string().trim().min(1).max(50),
+  privacySettings: z.enum(["public", "private"]).default("private"),
+  bestStats: z.record(z.unknown()).optional(),
+});
+
+const activityInputSchema = z.object({
+  discipline: z.string().trim().min(1).max(50),
+  difficulty: z.string().trim().min(1).max(50),
+});
+
+// Hard cap to prevent memory-DoS via oversized JSON payloads.
+const MAX_BODY_BYTES = 1_048_576; // 1 MiB
 
 const leaderboardQuerySchema = z.object({
   mode: modeSchema.default("standard"),
@@ -215,6 +228,17 @@ function getPeriodStartMillis(period: z.infer<typeof periodSchema>): number | nu
 }
 
 async function parseJson<T>(request: Request, schema: z.ZodSchema<T>): Promise<T> {
+  const lenHeader = request.headers.get("content-length");
+  if (lenHeader !== null) {
+    const len = Number(lenHeader);
+    if (!Number.isFinite(len) || len < 0) {
+      throw new ApiHttpError(400, "INVALID_CONTENT_LENGTH", "Invalid Content-Length header");
+    }
+    if (len > MAX_BODY_BYTES) {
+      throw new ApiHttpError(413, "PAYLOAD_TOO_LARGE", "Request body exceeds 1 MiB limit");
+    }
+  }
+
   let raw: unknown;
   try {
     raw = await request.json();
@@ -238,7 +262,7 @@ function parseQuery<T>(url: URL, schema: z.ZodSchema<T>): T {
   return parsed.data;
 }
 
-async function handlePostSession(request: Request, env: Env, userId: string): Promise<Response> {
+async function handlePostSession(request: Request, env: EnvWithDB, userId: string): Promise<Response> {
   const payload = await parseJson(request, sessionInputSchema);
   const playedAt = payload.playedAt ?? Date.now();
   const playedDate = payload.playedDate ?? toIsoDateUTC(playedAt);
@@ -270,13 +294,13 @@ async function handlePostSession(request: Request, env: Env, userId: string): Pr
   );
 }
 
-async function handleGetSessions(url: URL, env: Env, userId: string): Promise<Response> {
+async function handleGetSessions(url: URL, env: EnvWithDB, userId: string): Promise<Response> {
   const query = parseQuery(url, sessionsQuerySchema);
   const sessions = await getSessionsByUser(env, userId, query.limit);
   return json({ sessions });
 }
 
-async function handleGetStats(env: Env, userId: string): Promise<Response> {
+async function handleGetStats(env: EnvWithDB, userId: string): Promise<Response> {
   const agg = await env.DB.prepare(
     "SELECT COUNT(*) AS total_games, COALESCE(MAX(score), 0) AS best_score FROM game_sessions WHERE user_id = ?",
   )
@@ -293,22 +317,25 @@ async function handleGetStats(env: Env, userId: string): Promise<Response> {
   });
 }
 
-async function handlePostAchievement(request: Request, env: Env, userId: string): Promise<Response> {
+async function handlePostAchievement(request: Request, env: EnvWithDB, userId: string): Promise<Response> {
   const payload = await parseJson(request, achievementInputSchema);
   await unlockAchievement(env, userId, payload.type);
   return json({ ok: true, type: payload.type }, 201);
 }
 
-async function handleGetAchievements(env: Env, userId: string): Promise<Response> {
+async function handleGetAchievements(env: EnvWithDB, userId: string): Promise<Response> {
   const achievements = await getAchievements(env, userId);
   return json({ achievements });
 }
 
-async function handleGetLeaderboard(url: URL, env: Env): Promise<Response> {
+async function handleGetLeaderboard(url: URL, env: EnvWithDB): Promise<Response> {
   const { mode, period } = parseQuery(url, leaderboardQuerySchema);
-  const start = getPeriodStartMillis(period);
+  // period is optional in the inferred type because Zod defaults widen; narrow explicitly.
+  const resolvedPeriod = period ?? "weekly";
+  const resolvedMode = mode ?? "standard";
+  const start = getPeriodStartMillis(resolvedPeriod);
   const whereClauses = ["gs.mode = ?"];
-  const bindings: unknown[] = [mode];
+  const bindings: unknown[] = [resolvedMode];
 
   if (start !== null) {
     whereClauses.push("gs.played_at >= ?");
@@ -347,13 +374,13 @@ async function handleGetLeaderboard(url: URL, env: Env): Promise<Response> {
   }));
 
   return json({
-    mode,
-    period,
+    mode: resolvedMode,
+    period: resolvedPeriod,
     leaderboard,
   });
 }
 
-async function handlePostFeedback(request: Request, env: Env): Promise<Response> {
+async function handlePostFeedback(request: Request, env: EnvWithDB): Promise<Response> {
   const payload = await parseJson(request, feedbackInputSchema);
 
   // Save feedback to database
@@ -374,7 +401,7 @@ async function handlePostFeedback(request: Request, env: Env): Promise<Response>
   }, 201);
 }
 
-async function handleGetFeedbacks(env: Env): Promise<Response> {
+async function handleGetFeedbacks(env: EnvWithDB): Promise<Response> {
   const feedbacks: Feedback[] = await getAllFeedback(env);
   return json({
     ok: true,
@@ -382,7 +409,7 @@ async function handleGetFeedbacks(env: Env): Promise<Response> {
   });
 }
 
-async function handlePatchFeedback(request: Request, env: Env, feedbackId: string): Promise<Response> {
+async function handlePatchFeedback(request: Request, env: EnvWithDB, feedbackId: string): Promise<Response> {
   if (!UUID_REGEX.test(feedbackId)) {
     throw new ApiHttpError(400, "INVALID_ID", "Feedback id must be a UUID");
   }
@@ -408,25 +435,26 @@ async function handlePatchFeedback(request: Request, env: Env, feedbackId: strin
   });
 }
 
-async function handleGetProfile(url: URL, env: Env): Promise<Response> {
+async function handleGetProfile(url: URL, env: EnvWithDB): Promise<Response> {
   const publicId = url.pathname.split("/").pop() || "";
   const profile = await getProfile(env, publicId);
   return profile ? json(profile) : json({ error: "Profile not found" }, 404);
 }
 
-async function handlePostProfile(request: Request, env: Env, userId: string): Promise<Response> {
-  const payload = await request.json();
-  await updateProfile(env, userId, payload.displayName, payload.privacySettings, payload.bestStats);
+async function handlePostProfile(request: Request, env: EnvWithDB, userId: string): Promise<Response> {
+  const payload = await parseJson(request, profileInputSchema);
+  const bestStats = payload.bestStats ? JSON.stringify(payload.bestStats) : null;
+  await updateProfile(env, userId, payload.displayName, payload.privacySettings, bestStats);
   return json({ ok: true });
 }
 
-async function handleSetActivity(request: Request, env: Env, userId: string): Promise<Response> {
-  const payload = await request.json();
+async function handleSetActivity(request: Request, env: EnvWithDB, userId: string): Promise<Response> {
+  const payload = await parseJson(request, activityInputSchema);
   await setActivity(env, userId, payload.discipline, payload.difficulty, 'active');
   return json({ ok: true });
 }
 
-async function handleGetLiveActivity(env: Env): Promise<Response> {
+async function handleGetLiveActivity(env: EnvWithDB): Promise<Response> {
   const activity = await getLiveActivity(env);
   return json({ activity });
 }

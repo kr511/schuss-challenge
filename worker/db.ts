@@ -1,7 +1,7 @@
 import type {
   Achievement,
   D1Database,
-  Env,
+  EnvWithDB,
   Feedback,
   FeedbackStatus,
   FeedbackType,
@@ -119,7 +119,7 @@ async function ensureUserExists(db: D1Database, userId: string): Promise<void> {
     .run();
 }
 
-export async function createUser(env: Env, email: string, displayName: string): Promise<User> {
+export async function createUser(env: EnvWithDB, email: string, displayName: string): Promise<User> {
   const id = crypto.randomUUID();
   const createdAt = Date.now();
 
@@ -137,7 +137,7 @@ export async function createUser(env: Env, email: string, displayName: string): 
   };
 }
 
-export async function getUserByEmail(env: Env, email: string): Promise<User | null> {
+export async function getUserByEmail(env: EnvWithDB, email: string): Promise<User | null> {
   const row = await env.DB.prepare(
     "SELECT id, email, display_name, created_at FROM users WHERE email = ? LIMIT 1",
   )
@@ -148,7 +148,7 @@ export async function getUserByEmail(env: Env, email: string): Promise<User | nu
 }
 
 export async function saveGameSession(
-  env: Env,
+  env: EnvWithDB,
   userId: string,
   session: Omit<GameSession, "id" | "userId"> & { id?: string },
 ): Promise<void> {
@@ -174,7 +174,7 @@ export async function saveGameSession(
 }
 
 export async function getSessionsByUser(
-  env: Env,
+  env: EnvWithDB,
   userId: string,
   limit = 20,
 ): Promise<GameSession[]> {
@@ -195,7 +195,7 @@ export async function getSessionsByUser(
   return result.results.map(mapSession);
 }
 
-export async function unlockAchievement(env: Env, userId: string, type: string): Promise<void> {
+export async function unlockAchievement(env: EnvWithDB, userId: string, type: string): Promise<void> {
   await ensureUserExists(env.DB, userId);
 
   const existing = await env.DB.prepare(
@@ -215,7 +215,7 @@ export async function unlockAchievement(env: Env, userId: string, type: string):
     .run();
 }
 
-export async function getAchievements(env: Env, userId: string): Promise<Achievement[]> {
+export async function getAchievements(env: EnvWithDB, userId: string): Promise<Achievement[]> {
   const result = await env.DB.prepare(
     [
       "SELECT id, user_id, type, unlocked_at",
@@ -231,7 +231,7 @@ export async function getAchievements(env: Env, userId: string): Promise<Achieve
 }
 
 export async function updateStreak(
-  env: Env,
+  env: EnvWithDB,
   userId: string,
   playedDate: string,
 ): Promise<{ current: number; longest: number }> {
@@ -290,7 +290,7 @@ export async function updateStreak(
   return { current, longest };
 }
 
-export async function getStreakState(env: Env, userId: string): Promise<StreakState> {
+export async function getStreakState(env: EnvWithDB, userId: string): Promise<StreakState> {
   const row = await env.DB.prepare(
     "SELECT current_streak, longest_streak, last_played_date FROM streaks WHERE user_id = ?",
   )
@@ -309,7 +309,7 @@ export async function getStreakState(env: Env, userId: string): Promise<StreakSt
 }
 
 export async function saveFeedback(
-  env: Env,
+  env: EnvWithDB,
   userEmail: string,
   feedbackType: FeedbackType,
   title: string,
@@ -332,7 +332,7 @@ export async function saveFeedback(
 }
 
 export async function updateFeedbackStatus(
-  env: Env,
+  env: EnvWithDB,
   feedbackId: string,
   status: FeedbackStatus,
 ): Promise<void> {
@@ -343,7 +343,7 @@ export async function updateFeedbackStatus(
     .run();
 }
 
-export async function getAllFeedback(env: Env): Promise<Feedback[]> {
+export async function getAllFeedback(env: EnvWithDB): Promise<Feedback[]> {
   const result = await env.DB.prepare(
     [
       "SELECT id, user_email, feedback_type, title, message, sent_at, status, updated_at",
@@ -356,7 +356,7 @@ export async function getAllFeedback(env: Env): Promise<Feedback[]> {
 }
 
 
-export async function getPendingFeedback(env: Env, limit = 50): Promise<any[]> {
+export async function getPendingFeedback(env: EnvWithDB, limit = 50): Promise<any[]> {
   const result = await env.DB.prepare(
     "SELECT * FROM feedback WHERE status = 'pending' ORDER BY sent_at DESC LIMIT ?",
   )
@@ -367,11 +367,11 @@ export async function getPendingFeedback(env: Env, limit = 50): Promise<any[]> {
 }
 
 export async function updateProfile(
-  env: Env,
+  env: EnvWithDB,
   userId: string,
   displayName: string,
   privacySettings: 'public' | 'private' = 'private',
-  bestStats: string,
+  bestStats: string | null = null,
 ): Promise<void> {
   await ensureUserExists(env.DB, userId);
   await env.DB.prepare(
@@ -381,7 +381,7 @@ export async function updateProfile(
     .run();
 }
 
-export async function getProfile(env: Env, publicId: string): Promise<any | null> {
+export async function getProfile(env: EnvWithDB, publicId: string): Promise<any | null> {
   const row = await env.DB.prepare(
     "SELECT * FROM profiles WHERE public_id = ? AND privacy_settings = 'public'",
   )
@@ -391,7 +391,7 @@ export async function getProfile(env: Env, publicId: string): Promise<any | null
 }
 
 export async function setActivity(
-  env: Env,
+  env: EnvWithDB,
   userId: string,
   discipline: string,
   difficulty: string,
@@ -404,7 +404,7 @@ export async function setActivity(
     .run();
 }
 
-export async function getLiveActivity(env: Env): Promise<any[]> {
+export async function getLiveActivity(env: EnvWithDB): Promise<any[]> {
   const result = await env.DB.prepare(
     "SELECT * FROM activity_log WHERE status = 'active' AND timestamp > ?",
   )
@@ -413,7 +413,7 @@ export async function getLiveActivity(env: Env): Promise<any[]> {
   return result.results || [];
 }
 
-export function dbHelpers(env: Env) {
+export function dbHelpers(env: EnvWithDB) {
   return {
     createUser: (email: string, displayName: string) => createUser(env, email, displayName),
     getUserByEmail: (email: string) => getUserByEmail(env, email),

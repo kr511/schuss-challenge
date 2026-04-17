@@ -66,3 +66,10 @@ export interface Env {
     fetch(request: Request): Promise<Response>;
   };
 }
+
+/**
+ * Env narrowed after the hasDatabase() guard in handleApiRequest.
+ * Use this for handler / db helpers that run only once the D1 binding is
+ * confirmed — it removes redundant env.DB! assertions in call sites.
+ */
+export type EnvWithDB = Env & { DB: D1Database };
