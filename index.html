@@ -310,52 +310,8 @@
       </button>
 
       <!-- ══ BOTTOM SHEET OVERLAY (Duel Setup) ══ -->
-      <div id="duelSetupSheetOverlay" onclick="closeDuelSetup(event)"
-        style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;opacity:0;transition:opacity 0.3s ease;">
-        <div id="duelSetupSheet"
-          style="position:absolute;bottom:-100%;left:0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(18,18,20,0.97);border-top:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;padding:20px 25px 35px 25px;transition:bottom 0.4s cubic-bezier(0.175,0.885,0.32,1);box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
-          <div
-            style="width:40px;height:5px;background:rgba(255,255,255,0.2);border-radius:5px;margin:0 auto 20px auto;">
-          </div>
-          
-          <!-- ══ MODUS AUSWAHL (Bot vs Multiplayer) ══ -->
-          <div id="gameModeSelection">
-            <h3 style="color:#fff;margin:0 0 8px 0;font-weight:700;font-size:1.3rem;text-align:center;">SPIELMODUS</h3>
-            <p style="color:rgba(255,255,255,0.5);margin:0 0 24px 0;font-size:0.9rem;text-align:center;">Wähle deinen Gegner</p>
-            
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
-              <!-- Bot Option -->
-              <button id="modeBotBtn" onclick="selectGameMode('bot')"
-                style="background:linear-gradient(145deg, rgba(0,195,255,0.15) 0%, rgba(122,176,48,0.15) 100%);border:2px solid rgba(0,195,255,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
-                <div style="font-size:3rem;">🤖</div>
-                <div style="color:#fff;font-weight:700;font-size:1.1rem;">GEGEN BOT</div>
-                <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">KI-Gegner mit verschiedenen Schwierigkeiten</div>
-              </button>
-              
-              <!-- Multiplayer Option -->
-              <button id="modeMultiBtn" onclick="selectGameMode('multiplayer')"
-                style="background:linear-gradient(145deg, rgba(255,59,48,0.15) 0%, rgba(255,149,0,0.15) 100%);border:2px solid rgba(255,59,48,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
-                <div style="font-size:3rem;">👥</div>
-                <div style="color:#fff;font-weight:700;font-size:1.1rem;">MULTIPLAYER</div>
-                <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">Async gegen Freunde</div>
-              </button>
-            </div>
-          </div>
-          
-          <!-- ══ DUELL EINSTELLUNGEN (initial versteckt) ══ -->
-          <div id="duelSettingsContent" style="display:none;">
-            <button onclick="showGameModeSelection()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 16px;color:rgba(255,255,255,0.6);cursor:pointer;margin-bottom:16px;font-size:0.9rem;">
-              ← Zurück zur Modus-Auswahl
-            </button>
-            <h3 id="duelSettingsTitle" style="color:#fff;margin:0 0 20px 0;font-weight:700;font-size:1.3rem;">DUELL EINSTELLUNGEN</h3>
-            <div id="duelSetupContentMount"><!-- Legacy setup elements move here --></div>
-            <button class="btn-fire" id="startBattleBtn" onclick="startBattle();setTimeout(closeDuelSetup,500);"
-              style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(122,176,48,0.35);">
-              🎯 Duell starten
-            </button>
-          </div>
-        </div>
-      </div>
+      <!-- Moved outside #premiumDashboard so openDuelSetup()'s filter:blur
+           doesn't cascade into the modal content itself. -->
 
       <!-- ══ V2 Scanner View ══ -->
       <div id="v2ScannerView"
@@ -375,6 +331,57 @@
       </div>
 
     </div>
+
+    <!-- ══ BOTTOM SHEET OVERLAY (Duel Setup) ══
+         Lives outside #premiumDashboard — the openDuelSetup() blur on the
+         dashboard must not cascade through CSS `filter` onto this modal. -->
+    <div id="duelSetupSheetOverlay" onclick="closeDuelSetup(event)"
+      style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;opacity:0;transition:opacity 0.3s ease;">
+      <div id="duelSetupSheet"
+        style="position:absolute;bottom:-100%;left:0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(18,18,20,0.97);border-top:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;padding:20px 25px 35px 25px;transition:bottom 0.4s cubic-bezier(0.175,0.885,0.32,1);box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
+        <div
+          style="width:40px;height:5px;background:rgba(255,255,255,0.2);border-radius:5px;margin:0 auto 20px auto;">
+        </div>
+
+        <!-- ══ MODUS AUSWAHL (Bot vs Multiplayer) ══ -->
+        <div id="gameModeSelection">
+          <h3 style="color:#fff;margin:0 0 8px 0;font-weight:700;font-size:1.3rem;text-align:center;">SPIELMODUS</h3>
+          <p style="color:rgba(255,255,255,0.5);margin:0 0 24px 0;font-size:0.9rem;text-align:center;">Wähle deinen Gegner</p>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+            <!-- Bot Option -->
+            <button id="modeBotBtn" onclick="selectGameMode('bot')"
+              style="background:linear-gradient(145deg, rgba(0,195,255,0.15) 0%, rgba(122,176,48,0.15) 100%);border:2px solid rgba(0,195,255,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
+              <div style="font-size:3rem;">🤖</div>
+              <div style="color:#fff;font-weight:700;font-size:1.1rem;">GEGEN BOT</div>
+              <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">KI-Gegner mit verschiedenen Schwierigkeiten</div>
+            </button>
+
+            <!-- Multiplayer Option -->
+            <button id="modeMultiBtn" onclick="selectGameMode('multiplayer')"
+              style="background:linear-gradient(145deg, rgba(255,59,48,0.15) 0%, rgba(255,149,0,0.15) 100%);border:2px solid rgba(255,59,48,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
+              <div style="font-size:3rem;">👥</div>
+              <div style="color:#fff;font-weight:700;font-size:1.1rem;">MULTIPLAYER</div>
+              <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">Async gegen Freunde</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- ══ DUELL EINSTELLUNGEN (initial versteckt) ══ -->
+        <div id="duelSettingsContent" style="display:none;">
+          <button onclick="showGameModeSelection()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 16px;color:rgba(255,255,255,0.6);cursor:pointer;margin-bottom:16px;font-size:0.9rem;">
+            ← Zurück zur Modus-Auswahl
+          </button>
+          <h3 id="duelSettingsTitle" style="color:#fff;margin:0 0 20px 0;font-weight:700;font-size:1.3rem;">DUELL EINSTELLUNGEN</h3>
+          <div id="duelSetupContentMount"><!-- Legacy setup elements move here --></div>
+          <button class="btn-fire" id="startBattleBtn" onclick="startBattle();setTimeout(closeDuelSetup,500);"
+            style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(122,176,48,0.35);">
+            🎯 Duell starten
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div style="height:110px;"></div>
 
     <!-- Script for Dynamic Greeting --><!-- Script for Dynamic Greeting -->
