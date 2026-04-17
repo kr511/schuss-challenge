@@ -1,0 +1,27 @@
+{
+  "name": "schuss-challenge",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "verify:balance": "node verify-balance.js",
+    "d1:migrate:local": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql --local",
+    "d1:migrate:remote": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql"
+  },
+  "dependencies": {
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "jsdom": "^29.0.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8",
+    "wrangler": "^3.114.17"
+  }
+}

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Schuss Challenge</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .card { transition: opacity 0.3s ease; }
+    .card.completed { opacity: 0.6; }
+    .check-btn { transition: all 0.2s ease; cursor: pointer; }
+    .check-btn:hover { transform: scale(1.1); }
+    .check-btn.done { background: #10b981; color: white; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React from 'https://esm.sh/react@19.2.5';
+    import { createRoot } from 'https://esm.sh/react-dom@19.2.5/client';
+
+    const API_BASE_URL = 'https://schuss-challenge.eliaskummel.workers.dev';
+
+    function AdminDashboard() {
+      const [feedbacks, setFeedbacks] = React.useState([]);
+      const [loading, setLoading] = React.useState(true);
+      const [error, setError] = React.useState(null);
+      const [filter, setFilter] = React.useState('all');
+      const [updating, setUpdating] = React.useState(null);
+
+      React.useEffect(() => {
+        loadFeedbacks();
+      }, []);
+
+      async function loadFeedbacks() {
+        try {
+          setLoading(true);
+          const response = await fetch(`${API_BASE_URL}/api/admin/feedbacks`);
+          if (!response.ok) throw new Error('Failed to load feedbacks');
+          const data = await response.json();
+          setFeedbacks(data.feedbacks || []);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      async function markAsDone(id) {
+        setUpdating(id);
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/admin/feedbacks/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'done' }),
+          });
+          if (!response.ok) throw new Error('Failed to update');
+          
+          // Update local state
+          setFeedbacks(prev => prev.map(f => 
+            f.id === id ? { ...f, status: 'done' } : f
+          ));
+        } catch (err) {
+          alert('Fehler: ' + err.message);
+        } finally {
+          setUpdating(null);
+        }
+      }
+
+      const filteredFeedbacks = filter === 'all' 
+        ? feedbacks 
+        : feedbacks.filter(f => f.feedback_type === filter);
+
+      const typeConfig = {
+        bug: { label: '🐛 Bug', color: '#ef4444', bg: '#fee2e2' },
+        feature_request: { label: '💡 Feature', color: '#3b82f6', bg: '#dbeafe' },
+        general: { label: '💬 Feedback', color: '#10b981', bg: '#d1fae5' },
+      };
+
+      const stats = {
+        total: feedbacks.length,
+        pending: feedbacks.filter(f => f.status === 'pending').length,
+        done: feedbacks.filter(f => f.status === 'done').length,
+      };
+
+      if (loading) {
+        return React.createElement('div', { style: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' } },
+          React.createElement('div', { style: { background: 'white', padding: '40px', borderRadius: '12px', textAlign: 'center' } },
+            React.createElement('div', { style: { fontSize: '48px', marginBottom: '16px' } }, '⏳'),
+            React.createElement('h2', { style: { margin: '0 0 8px 0', color: '#1f2937' } }, 'Laden...'),
+            React.createElement('p', { style: { margin: 0, color: '#6b7280' } }, 'Feedbacks werden geladen')
+          )
+        );
+      }
+
+      if (error) {
+        return React.createElement('div', { style: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' } },
+          React.createElement('div', { style: { background: 'white', padding: '40px', borderRadius: '12px', textAlign: 'center' } },
+            React.createElement('div', { style: { fontSize: '48px', marginBottom: '16px' } }, '❌'),
+            React.createElement('h2', { style: { margin: '0 0 8px 0', color: '#ef4444' } }, 'Fehler'),
+            React.createElement('p', { style: { margin: '0 0 16px 0', color: '#6b7280' } }, error),
+            React.createElement('button', { 
+              onClick: loadFeedbacks,
+              style: { padding: '12px 24px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 500 }
+            }, 'Erneut versuchen')
+          )
+        );
+      }
+
+      return React.createElement('div', { style: { minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '40px 20px' } },
+        React.createElement('div', { style: { maxWidth: '1200px', margin: '0 auto' } },
+          // Header
+          React.createElement('div', { style: { textAlign: 'center', marginBottom: '40px' } },
+            React.createElement('h1', { style: { fontSize: '48px', margin: '0 0 8px 0', color: 'white', fontWeight: 700 } }, '📊 Admin Dashboard'),
+            React.createElement('p', { style: { fontSize: '20px', margin: 0, color: 'rgba(255,255,255,0.9)' } }, 
+              `${stats.total} Feedback${stats.total !== 1 ? 's' : ''} erhalten · ${stats.pending} offen · ${stats.done} erledigt`)
+          ),
+          // Filter
+          React.createElement('div', { style: { display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '32px', flexWrap: 'wrap' } },
+            ['all', 'bug', 'feature_request', 'general'].map(type => 
+              React.createElement('button', {
+                key: type,
+                onClick: () => setFilter(type),
+                style: {
+                  padding: '12px 24px',
+                  background: filter === type ? 'white' : 'rgba(255,255,255,0.2)',
+                  color: filter === type ? '#667eea' : 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: filter === type ? 600 : 400,
+                  fontSize: '16px',
+                }
+              }, type === 'all' ? 'Alle' : typeConfig[type].label)
+            )
+          ),
+          // Feedback Cards
+          React.createElement('div', { style: { display: 'grid', gap: '20px' } },
+            filteredFeedbacks.length === 0 ?
+              React.createElement('div', { style: { background: 'white', padding: '60px 40px', borderRadius: '12px', textAlign: 'center' } },
+                React.createElement('div', { style: { fontSize: '64px', marginBottom: '16px' } }, '📭'),
+                React.createElement('h2', { style: { margin: '0 0 8px 0', color: '#1f2937' } }, 'Keine Feedbacks'),
+                React.createElement('p', { style: { margin: 0, color: '#6b7280' } }, 'Noch keine Feedbacks eingereicht')
+              ) :
+              filteredFeedbacks.map(feedback => {
+                const config = typeConfig[feedback.feedback_type];
+                const date = new Date(feedback.sent_at).toLocaleString('de-DE');
+                const isDone = feedback.status === 'done';
+
+                return React.createElement('div', {
+                  key: feedback.id,
+                  className: `card ${isDone ? 'completed' : ''}`,
+                  style: { 
+                    background: 'white', 
+                    borderRadius: '12px', 
+                    padding: '24px', 
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                    position: 'relative',
+                    opacity: isDone ? 0.6 : 1,
+                  }
+                },
+                  // Header row
+                  React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' } },
+                    React.createElement('div', { style: { flex: 1 } },
+                      React.createElement('div', { style: { display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '8px' } },
+                        React.createElement('span', {
+                          style: { padding: '4px 12px', background: config.bg, color: config.color, borderRadius: '16px', fontSize: '14px', fontWeight: 600 }
+                        }, config.label),
+                        React.createElement('span', { style: { fontSize: '14px', color: '#6b7280' } }, date)
+                      ),
+                      React.createElement('h3', { style: { margin: '0 0 4px 0', color: '#1f2937', fontSize: '20px' } }, feedback.title)
+                    ),
+                    // Check button
+                    React.createElement('button', {
+                      className: `check-btn ${isDone ? 'done' : ''}`,
+                      onClick: () => markAsDone(feedback.id),
+                      disabled: updating === feedback.id,
+                      style: {
+                        width: '44px',
+                        height: '44px',
+                        borderRadius: '50%',
+                        border: isDone ? 'none' : '2px solid #10b981',
+                        background: isDone ? '#10b981' : 'white',
+                        color: isDone ? 'white' : '#10b981',
+                        fontSize: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: updating === feedback.id ? 'wait' : 'pointer',
+                        flexShrink: 0,
+                      }
+                    }, updating === feedback.id ? '⏳' : isDone ? '✓' : '✓')
+                  ),
+                  // Content
+                  React.createElement('div', { style: { marginBottom: '16px' } },
+                    React.createElement('div', { style: { fontSize: '14px', color: '#6b7280', marginBottom: '8px' } },
+                      React.createElement('strong', null, 'Von:'), ' ', feedback.user_email
+                    ),
+                    React.createElement('div', {
+                      style: { background: '#f9fafb', padding: '16px', borderRadius: '8px', whiteSpace: 'pre-wrap', lineHeight: '1.6', color: '#374151' }
+                    }, feedback.message)
+                  ),
+                  // Footer with status
+                  React.createElement('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } },
+                    React.createElement('span', {
+                      style: {
+                        padding: '4px 12px',
+                        background: isDone ? '#d1fae5' : feedback.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                        color: isDone ? '#065f46' : feedback.status === 'pending' ? '#92400e' : '#991b1b',
+                        borderRadius: '16px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                      }
+                    }, isDone ? '✅ Erledigt' : feedback.status === 'pending' ? '⏳ Ausstehend' : '❌ Fehlgeschlagen')
+                  )
+                );
+              })
+          ),
+          // Refresh Button
+          React.createElement('div', { style: { textAlign: 'center', marginTop: '32px' } },
+            React.createElement('button', {
+              onClick: loadFeedbacks,
+              style: { padding: '12px 32px', background: 'white', color: '#667eea', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '16px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }
+            }, '🔄 Aktualisieren')
+          )
+        )
+      );
+    }
+
+    createRoot(document.getElementById('root')).render(React.createElement(AdminDashboard));
+  </script>
+</body>
+</html>

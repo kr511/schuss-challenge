@@ -1,0 +1,21 @@
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
+node_modules/
+dist-react/
+
+# test / dev-server artifacts
+wrangler_dev.log
+wrangler_test.log
+*.log
+
+# local tooling configs (keep out of public repo)
+.claude/settings.local.json
+
+# OS
+Thumbs.db
+.DS_Store
+

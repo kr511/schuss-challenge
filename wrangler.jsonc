@@ -1,0 +1,50 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "schuss-challenge",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-09-27",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "."
+  },
+  "vars": {
+    "ALLOW_INSECURE_DEV_AUTH": "false",
+    // Comma-separated user IDs permitted to access /api/admin/* routes.
+    // Leave empty in production until admin IDs are known.
+    "ADMIN_USER_IDS": ""
+  },
+  "env": {
+    "production": {
+      "vars": {
+        "ADMIN_USER_IDS": ""
+      }
+    },
+    "local": {
+      "vars": {
+        "ALLOW_INSECURE_DEV_AUTH": "true",
+        "ADMIN_USER_IDS": "local-admin"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "schuss_challenge",
+          "database_id": "local",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "schuss_challenge",
+      "database_id": "d103ab03-129b-48db-bdff-b52c73cc9fbb",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

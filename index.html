@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#7ab030">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Schussduell">
+  <title>🎯 Schussduell</title>
+  <link rel="manifest" href="manifest.json" crossorigin="use-credentials">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <!-- Firebase v9 Compat SDK (async – initFirebaseWithRetry wartet auf Laden) -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <!-- Google Sign-In Provider -->
+  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" data-provider="google"></script>
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <!-- Chart.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- Experience-Erweiterungen -->
+  <script src="haptics.js?v=3.0"></script>
+  <script src="sounds.js?v=3.0"></script>
+  <script src="tutorial.js?v=3.0"></script>
+  <script src="image-compare-brain.js?v=3.0"></script>
+  <script src="gemini-ai.js?v=3.0" defer></script>
+  <script src="image-compare.js?v=3.0" defer></script>
+
+  <!-- NEUE FEATURES: Physics Engine, Adaptive Bot-KI und erweiterte OCR -->
+  <script src="feature-fallback.js?v=3.0" defer></script>
+  <!-- physics-engine.js — aktuell nicht aktiv genutzt -->
+  <!-- <script src="physics-engine.js"></script> -->
+  <script src="adaptive-bot.js?v=3.0" defer></script>
+  <script src="contextual-ocr.js?v=3.0" defer></script>
+  <script src="multi-score-detection.js?v=3.0" defer></script>
+
+  <!-- ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile -->
+  <script src="daily-challenge.js?v=3.0" defer></script>
+  <script src="streak-tracker.js?v=3.0" defer></script>
+  <script src="enhanced-achievements.js?v=3.0" defer></script>
+  <script src="enhanced-analytics.js?v=3.0" defer></script>
+  <script src="training-modes.js?v=3.0" defer></script>
+  <script src="mobile-features.js?v=3.0" defer></script>
+  <link rel="stylesheet" href="styles.css?v=3.0">
+  <link rel="stylesheet" href="modern-animations.css?v=1.0">
+  <script src="modern-ux.js?v=1.0" defer></script>
+  <script src="reward-system.js?v=1.0" defer></script>
+  <script src="storage-manager.js?v=3.0"></script>
+  <script src="performance-config.js"></script>
+  <script src="battle-balance.js" defer></script>
+  <script src="qa-test-suite.js" defer></script>
+</head>
+
+<body>
+  <!-- WELCOME OVERLAY -->
+  <div id="welcomeOverlay">
+    <div class="welcome-card">
+      <div class="welcome-icon">🎯</div>
+      <div class="welcome-title">WILLKOMMEN</div>
+      <div class="welcome-sub">Wähle deinen Schützennamen.<br><span style="font-size:.8em;opacity:.6;">Wird dauerhaft
+          gespeichert · Einmalige Anmeldung</span></div>
+      <input type="text" id="welcomeNameInp" class="welcome-inp" placeholder="Dein Name..." autocomplete="off"
+        maxlength="15">
+      <button class="welcome-btn" onclick="saveWelcomeName()">🚀 JETZT STARTEN</button>
+      <div
+        style="margin-top:12px;font-size:.6rem;letter-spacing:.12em;color:rgba(255,255,255,.2);text-transform:uppercase;">
+        Dein Name erscheint in der Weltrangliste</div>
+    </div>
+  </div>
+
+  <!-- ROOKIE ONBOARDING OVERLAY -->
+  <div id="rookieIntroOverlay">
+    <div class="rookie-intro-card">
+      <div class="rookie-intro-icon">🧭</div>
+      <div class="rookie-intro-title">ROOKIE-WOCHE</div>
+      <div class="rookie-intro-sub">
+        7 klare Schritte für einen starken Einstieg.<br>
+        Kurze Sessions, saubere Progression, besseres Lernen.
+      </div>
+      <div class="rookie-intro-list">
+        <div class="rookie-intro-item">1. Erstes Duell + erster Sieg</div>
+        <div class="rookie-intro-item">2. LG und KK testen</div>
+        <div class="rookie-intro-item">3. Daily-Mission + Streak aufbauen</div>
+      </div>
+      <div class="rookie-intro-actions">
+        <button class="rookie-intro-btn primary" onclick="startRookieOnboarding()">LOS GEHT'S</button>
+        <button class="rookie-intro-btn" onclick="dismissRookieOnboarding()">SPÄTER</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEALTHY BREAK OVERLAY -->
+  <div id="healthyBreakOverlay">
+    <div class="healthy-break-card">
+      <div class="healthy-break-title">🫶 Kurze Pause empfohlen</div>
+      <div class="healthy-break-sub" id="healthyBreakText">
+        Du warst heute schon lange im Fokus. 2 Minuten Pause helfen Konzentration und Technik.
+      </div>
+      <div class="healthy-break-actions">
+        <button class="healthy-break-btn primary" onclick="healthyTakeBreak()">2 MIN PAUSE</button>
+        <button class="healthy-break-btn" onclick="healthyContinuePlay()">NOCH 10 MIN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEVEL UP OVERLAY -->
+  <div id="levelUpOverlay" class="level-up-overlay">
+    <div class="level-up-card">
+      <div class="lu-title">LEVEL UP!</div>
+      <div class="lu-badge" id="luBadge">🎯</div>
+      <div class="lu-rank" id="luRankName">Schütze</div>
+      <div class="lu-sub">Neuer Rang freigeschaltet!</div>
+      <button class="lu-btn" onclick="closeLevelUp()">WEITER</button>
+    </div>
+  </div>
+
+  </div>
+  <div id="muzzleFlash"></div>
+
+  <!-- ══════════════════════════ SETUP ══════════════════════════ -->
+  <div id="screenSetup" class="screen active">
+    <div class="hdr">
+      <!-- Top row: profil left · logo center · spacer right -->
+      <div class="hdr-top">
+        <!-- <div id="hdrStreakMount"></div> -->
+        <div class="logo">SCHUSS<em>DUELL</em></div>
+        <div class="schuetzenpass-icon" id="profileIcon" style="visibility:hidden;" onclick="toggleProfileMenu()">👤
+        </div>
+      </div>
+      <div class="logo-tag" id="logoTag" style="display:none;">Du vs. Bot · 40 Schuss · Wer trifft besser?</div>
+    </div> <!-- close hdr -->
+
+    <!-- ════ PREMIUM DASHBOARD (PIXEL-PERFECT REBUILD) ════ -->
+
+    <!-- PREMIUM GLOW BACKGROUNDS -->
+    <div
+      style="position:fixed;top:-10%;left:-20%;width:70vw;height:70vw;background:radial-gradient(circle, rgba(0,195,255,0.15) 0%, transparent 70%);border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;">
+    </div>
+    <div
+      style="position:fixed;bottom:10%;right:-20%;width:80vw;height:80vw;background:radial-gradient(circle, rgba(122,176,48,0.1) 0%, transparent 70%);border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;">
+    </div>
+
+    <div id="premiumDashboard"
+      style="width:100%;max-width:500px;margin:0 auto;padding:18px;position:relative;z-index:10;font-family:'Outfit',sans-serif;">
+
+      <!-- ══ GREETING ROW ══ -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;">
+        <div>
+          <h2 id="pdGreeting" style="font-size:1.35rem;margin:0 0 3px 0;font-weight:700;color:#fff;">Guten Tag, <span
+              style="color:#7ab030;" id="pdUserName">Alex</span>!</h2>
+          <div id="pdDate" style="font-size:0.78rem;color:rgba(255,255,255,0.4);">11. Apr. 2026</div>
+        </div>
+        <div id="pdProfileBtn"
+          onclick="if(window.toggleProfileMenu) window.toggleProfileMenu(); else console.error('toggleProfileMenu missing');"
+          style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
+          <span id="pdProfileInitial">A</span>
+        </div>
+      </div>
+  
+        <!-- ══ XP PROGRESS BAR ══ -->
+        <div id="pdXPBarContainer" style="margin-bottom:20px;"></div>
+
+      <!-- ══ STREAK BANNER ══ -->
+      <div id="streakBanner" style="margin-bottom:16px;"></div>
+      <div id="streakProgressBar" style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;margin-bottom:16px;overflow:hidden;">
+        <div style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35,#ff9500);border-radius:4px;transition:width 0.5s ease;font-size:0.5rem;color:#fff;text-align:center;line-height:4px;"></div>
+      </div>
+
+      <!-- ══ ÜBERSICHT TITEL ══ -->
+      <div id="pdOverviewHeader" style="margin-bottom:14px;">
+        <div style="font-size:1.1rem;font-weight:600;color:#fff;line-height:1.3;">Deine Übersicht</div>
+        <div style="font-size:0.75rem;color:rgba(255,255,255,0.4);">Letzte Duelle & Statistiken</div>
+      </div>
+
+      <!-- ══ HAUPTKARTE (2-SPALTEN) ══ -->
+      <div id="pdMainStatsRow" style="display:flex;gap:12px;margin-bottom:20px;">
+
+        <!-- LINKS: Letzte 3 Duelle -->
+        <div
+          style="flex:1.6;background:linear-gradient(145deg, rgba(50,55,60,0.4) 0%, rgba(15,18,20,0.8) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.15);border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.05);">
+          <div
+            style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-bottom:8px;font-weight:600;letter-spacing:0.05em;">
+            LETZTE 3 DUELLE</div>
+
+          <div id="pdLast3Duels" style="display:flex;flex-direction:column;gap:8px;">
+            <div
+              style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #7ab030;">
+              <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">LG 40</span> <span
+                  style="font-size:0.65rem;color:rgba(255,255,255,0.35);">Mittel</span></div>
+              <div style="font-size:0.75rem;font-weight:600;color:#7ab030;">✓ Sieg</div>
+            </div>
+            <div
+              style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #f06050;">
+              <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">KK 60</span> <span
+                  style="font-size:0.65rem;color:rgba(255,255,255,0.35);">Elite</span></div>
+              <div style="font-size:0.75rem;font-weight:600;color:#f06050;">✗ Niederlage</div>
+            </div>
+            <div
+              style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #7ab030;">
+              <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">LG 40</span> <span
+                  style="font-size:0.65rem;color:rgba(255,255,255,0.35);">Einfach</span></div>
+              <div style="font-size:0.75rem;font-weight:600;color:#7ab030;">✓ Sieg</div>
+            </div>
+          </div>
+
+          <!-- UNTERE STATS REIHE -->
+          <div
+            style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;margin-top:12px;">
+            <div style="text-align:center;flex:1;">
+              <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:3px;">Siege</div>
+              <div id="pdStatWins" style="font-size:0.85rem;font-weight:600;color:#7ab030;">0</div>
+            </div>
+            <div
+              style="text-align:center;flex:1;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
+              <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:3px;">Siegquote</div>
+              <div id="pdStatWinrate" style="font-size:0.85rem;font-weight:600;color:#fff;">–</div>
+            </div>
+            <div style="text-align:center;flex:1;">
+              <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:3px;">Gesamt XP</div>
+              <div id="pdStatScore"
+                style="font-size:0.85rem;font-weight:600;color:#7ab030;text-shadow:0 0 6px rgba(122,176,48,0.3);">0
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RECHTS: Tages-Statistik -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
+          <div
+            style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
+            <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Siegesserie</div>
+            <div id="pdSideStreak" style="font-size:1.2rem;font-weight:700;color:#fff;">🔥 0</div>
+            <div style="height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin-top:6px;overflow:hidden;">
+              <div id="pdSideStreakBar"
+                style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35,#ff9500);border-radius:3px;"></div>
+            </div>
+          </div>
+          <div
+            style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
+            <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Spiele heute</div>
+            <div id="pdSideGamesToday" style="font-size:1.2rem;font-weight:700;color:#fff;">0</div>
+            <div style="height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin-top:6px;overflow:hidden;">
+              <div id="pdSideGamesTodayBar"
+                style="height:100%;width:0%;background:linear-gradient(90deg,#00c3ff,#7ab030);border-radius:3px;"></div>
+            </div>
+          </div>
+          <div
+            style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
+            <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Rang</div>
+            <div id="pdSideRank" style="font-size:1rem;font-weight:700;color:#fff;">🎯 Anfänger</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ DAILY MISSIONS ══ -->
+      <div id="pdQuestsContainer" style="margin-bottom:24px;"></div>
+
+      <!-- ══ ACHIEVEMENT BADGES (dynamisch) ══ -->
+      <div style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:12px;">Erfolge</div>
+      <div id="pdBadgesGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+        <!-- Wird von refreshPremiumDashboard() dynamisch befüllt -->
+      </div>
+
+      <!-- ══ RECENT SESSIONS ══ -->
+      <div id="pdRecentListHeader" style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:10px;">Letzte Duelle</div>
+      <div id="pdRecentList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+        <div
+          style="background:linear-gradient(145deg, rgba(40,45,50,0.4) 0%, rgba(10,12,15,0.7) 100%);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;text-align:center;color:rgba(255,255,255,0.3);font-size:0.8rem;box-shadow:0 6px 20px rgba(0,0,0,0.4);">
+          Noch keine Duelle gespielt. Starte dein erstes Duell!
+        </div>
+      </div>
+
+      <!-- ══ FLOATING DUELL STARTEN BUTTON ══ -->
+      <button id="btnOpenDuelSetup" onclick="openDuelSetup()"
+        style="position:fixed;bottom:25px;left:50%;transform:translateX(-50%);z-index:8999;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;border:none;border-radius:30px;padding:15px 36px;font-weight:800;font-size:1.05rem;box-shadow:0 8px 30px rgba(122,176,48,0.45),0 0 60px rgba(0,195,255,0.15);cursor:pointer;letter-spacing:0.6px;">
+        <span style="font-size:1.2rem;">🎯</span> DUELL STARTEN
+      </button>
+
+      <!-- ══ BOTTOM SHEET OVERLAY (Duel Setup) ══ -->
+      <div id="duelSetupSheetOverlay" onclick="closeDuelSetup(event)"
+        style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;opacity:0;transition:opacity 0.3s ease;">
+        <div id="duelSetupSheet"
+          style="position:absolute;bottom:-100%;left:0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(18,18,20,0.97);border-top:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;padding:20px 25px 35px 25px;transition:bottom 0.4s cubic-bezier(0.175,0.885,0.32,1);box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
+          <div
+            style="width:40px;height:5px;background:rgba(255,255,255,0.2);border-radius:5px;margin:0 auto 20px auto;">
+          </div>
+          <h3 style="color:#fff;margin:0 0 20px 0;font-weight:700;font-size:1.3rem;">DUELL EINSTELLUNGEN</h3>
+          <div id="duelSetupContentMount"><!-- Legacy setup elements move here --></div>
+          <button class="btn-fire" onclick="startBattle();setTimeout(closeDuelSetup,500);"
+            style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(122,176,48,0.35);">
+            🎯 Duell starten.
+          </button>
+        </div>
+      </div>
+
+      <!-- ══ V2 Scanner View ══ -->
+      <div id="v2ScannerView"
+        style="display:none;position:fixed;top:0;left:0;width:100%;height:100vh;z-index:99999;background:#000;">
+        <video id="v2ScannerVideo" playsinline autoplay muted
+          style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+        <canvas id="v2ScannerCanvas"
+          style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+        <div style="position:absolute;bottom:40px;left:0;width:100%;text-align:center;">
+          <div
+            style="background:rgba(0,0,0,0.6);display:inline-block;padding:10px 20px;border-radius:30px;font-size:0.9rem;color:#7ab030;font-weight:600;backdrop-filter:blur(8px);border:1px solid rgba(122,176,48,0.3);">
+            Halte den Score in das Bild...
+          </div>
+        </div>
+        <button id="btnStopLiveScan"
+          style="position:absolute;top:50px;right:20px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;line-height:40px;text-align:center;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
+      </div>
+
+    </div>
+    <div style="height:90px;"></div>
+
+    <!-- Script for Dynamic Greeting --><!-- Script for Dynamic Greeting -->
+    <script>
+      function updatePDGreeting() {
+        if (typeof StorageManager !== 'undefined') {
+          const username = StorageManager.getRaw('username') || "";
+          if (username) {
+            const pdUserName = document.getElementById('pdUserName');
+            if (pdUserName) pdUserName.innerText = username;
+            const pdProfileInitial = document.getElementById('pdProfileInitial');
+            if (pdProfileInitial) pdProfileInitial.innerText = username.charAt(0).toUpperCase();
+          }
+        }
+
+        const hour = new Date().getHours();
+        let greeting = "Guten Abend";
+        if (hour >= 5 && hour < 12) greeting = "Guten Morgen";
+        else if (hour >= 12 && hour < 18) greeting = "Guten Tag";
+
+        const pdGreeting = document.getElementById('pdGreeting');
+        if (pdGreeting) {
+          const pdUserName = document.getElementById('pdUserName');
+          const name = pdUserName ? pdUserName.innerText : "";
+          // XSS-safe: rebuild children via DOM API so a tainted
+          // localStorage/cloud-sync display name cannot inject markup.
+          pdGreeting.textContent = greeting + ', ';
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'pd-name';
+          nameSpan.id = 'pdUserName';
+          nameSpan.style.color = '#7ab030';
+          nameSpan.textContent = name || 'Schütze';
+          pdGreeting.appendChild(nameSpan);
+          pdGreeting.appendChild(document.createTextNode('!'));
+        }
+
+        const pdDate = document.getElementById('pdDate');
+        if (pdDate) {
+          const options = { year: 'numeric', month: 'short', day: 'numeric' };
+          pdDate.innerText = new Date().toLocaleDateString('de-DE', options);
+        }
+      }
+      document.addEventListener('DOMContentLoaded', () => setTimeout(updatePDGreeting, 100));
+    </script>
+
+
+
+    <!-- Profil Menu (legacy, hidden) -->
+    <div class="profile-menu" id="profileMenu"></div>
+
+    <!-- ═══ PROFIL OVERLAY (Bottom-Sheet) ═══ -->
+    <div class="profile-overlay" id="profileOverlay" onclick="handleOverlayClick(event)">
+      <div class="profile-sheet" id="profileSheet">
+        <div class="profile-sheet-handle"></div>
+
+        <!-- Sheet Header -->
+        <div class="ps-header">
+          <div class="ps-title">🎯 Schützenpass</div>
+          <button class="ps-close" onclick="toggleProfileMenu()">✕</button>
+        </div>
+
+        <!-- Hero -->
+        <div class="ps-hero">
+          <div class="ps-avatar" id="psAvatar">
+            <div class="ps-avatar-ring"></div>
+            <span id="psAvatarIcon">🎯</span>
+          </div>
+          <div class="ps-info">
+            <div class="ps-name" id="psUsername">Schütze</div>
+            <div class="ps-rank-badge">
+              <span class="ps-rank-icon" id="psRankIcon">🎯</span>
+              <span class="ps-rank-name" id="psRankName">Anfänger</span>
+            </div>
+            <div class="ps-level">Level <span id="psLevel">1</span> · <span id="psTotalXP">0</span> XP gesamt</div>
+          </div>
+        </div>
+
+        <!-- XP Bar -->
+        <div class="ps-xp-wrap">
+          <div class="ps-xp-row">
+            <span class="ps-xp-label">XP zum nächsten Rang</span>
+            <span class="ps-xp-val"><span id="psXpCur">0</span> / <span id="psXpNext">100</span></span>
+          </div>
+          <div class="ps-xp-bar">
+            <div class="ps-xp-fill" id="psXpFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="ps-tabs">
+          <div class="ps-tab active" data-tab="stats" onclick="switchProfileTab('stats')">📊 Stats</div>
+          <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
+          <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
+          <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
+          <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
+        </div>
+
+        <!-- Body -->
+        <div class="ps-body">
+
+          <!-- ── STATS PANEL ── -->
+          <div class="ps-panel active" id="psPanel-stats">
+            <div class="ps-stats-grid">
+              <div class="ps-stat-card highlight">
+                <div class="ps-sc-label">Siege</div>
+                <div class="ps-sc-val green" id="psStat-wins">0</div>
+                <div class="ps-sc-sub">Duelle gewonnen</div>
+              </div>
+              <div class="ps-stat-card highlight">
+                <div class="ps-sc-label">Niederlagen</div>
+                <div class="ps-sc-val" style="color:#f08070;" id="psStat-losses">0</div>
+                <div class="ps-sc-sub">Duelle verloren</div>
+              </div>
+              <div class="ps-stat-card">
+                <div class="ps-sc-label">Spiele</div>
+                <div class="ps-sc-val" id="psStat-games">0</div>
+                <div class="ps-sc-sub">Gesamt gespielt</div>
+              </div>
+              <div class="ps-stat-card">
+                <div class="ps-sc-label">Winrate</div>
+                <div class="ps-sc-val gold" id="psStat-winrate">–</div>
+                <div class="ps-sc-sub">Siegquote</div>
+              </div>
+              <div class="ps-stat-card full">
+                <div style="display:flex; justify-content:space-between; margin-bottom: 5px;">
+                  <div class="ps-sc-label" style="margin-bottom:0;">Best Streak</div>
+                  <div class="ps-sc-label" style="margin-bottom:0; color:#ff9500;">Aktuell</div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                  <div class="ps-sc-val purple" id="psStat-streak" style="margin-bottom:0;">–</div>
+                  <div class="ps-sc-val" id="psStat-curStreak"
+                    style="margin-bottom:0; color:#ff9500; font-size:1.5rem;">–</div>
+                </div>
+                <div class="ps-sc-sub" style="margin-top:8px;">Siegesserie Übersicht</div>
+              </div>
+            </div>
+
+            <!-- Waffe Breakdown -->
+            <div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Waffen-Statistik</div>
+            <div class="ps-weapon-row">
+              <div class="ps-weapon-icon">🌬️</div>
+              <div class="ps-weapon-info">
+                <div class="ps-weapon-name">Luftgewehr</div>
+                <div class="ps-weapon-detail" id="psLGDetail">0 Siege · 0 Spiele</div>
+              </div>
+              <div>
+                <div class="ps-weapon-streak" id="psLGXP" style="min-width: 50px; text-align: center;">0 ✨</div>
+                <div class="ps-weapon-streak-lbl">XP</div>
+              </div>
+            </div>
+            <div class="ps-weapon-row">
+              <div class="ps-weapon-icon">🎯</div>
+              <div class="ps-weapon-info">
+                <div class="ps-weapon-name">Kleinkaliber</div>
+                <div class="ps-weapon-detail" id="psKKDetail">0 Siege · 0 Spiele</div>
+              </div>
+              <div>
+                <div class="ps-weapon-streak" id="psKKXP" style="min-width: 50px; text-align: center;">0 ✨</div>
+                <div class="ps-weapon-streak-lbl">XP</div>
+              </div>
+            </div>
+
+            <!-- Leistungskurve -->
+            <div class="perf-chart-wrap">
+              <div class="perf-chart-header">
+                <span class="perf-chart-title">◇ LEISTUNGSKURVE</span>
+                <div class="perf-toggle-group">
+                  <button class="perf-toggle active" id="perfToggleLG" onclick="setPerfWeapon('lg')">🌬️ LG</button>
+                  <button class="perf-toggle" id="perfToggleKK" onclick="setPerfWeapon('kk')">🎯 KK</button>
+                </div>
+              </div>
+              <div class="perf-chart-box" style="height:160px;position:relative;width:100%;">
+                <canvas id="perfChart" style="display:block;"></canvas>
+                <div class="perf-chart-empty" id="perfChartEmpty" style="display:flex;">Noch keine Daten.<br>Spiel ein
+                  Duell!</div>
+              </div>
+            </div>
+
+            <div id="rookiePlanMount" style="margin-top: 20px;"></div>
+            <div id="enhancedAnalyticsMount" style="margin-top: 20px;"></div>
+            <!-- HEATMAP SECTION -->
+            <div id="heatmapMount" style="margin-top: 20px; display: none;">
+              <div class="metric-card">
+                <div class="metric-title">🔥 Real-Life Heatmap</div>
+                <div class="metric-sub">Basierend auf deinen Foto-Uploads</div>
+                <div
+                  style="position: relative; width: 100%; aspect-ratio: 1; margin-top: 15px; background: #000; border-radius: 8px; overflow: hidden;">
+                  <canvas id="heatmapCanvas" style="width: 100%; height: 100%;"></canvas>
+                </div>
+                <div class="metric-sub" style="margin-top: 10px; font-size: 0.7rem;">Diese Analyse zeigt systematische
+                  Abweichungen deiner echten Schüsse.</div>
+              </div>
+            </div>
+
+            <!-- Profil bearbeiten -->
+            <div class="card" style="margin-top:16px;padding:14px;">
+              <div class="card-hd" style="margin-bottom:10px;">✏️ Profil bearbeiten</div>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <!-- Name ändern -->
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <span style="font-size:0.8rem;color:rgba(255,255,255,0.6);min-width:60px;">Name:</span>
+                  <input type="text" id="profileNameInput" class="score-inp" style="flex:1;padding:8px 12px;font-size:0.8rem;border-radius:8px;" placeholder="Dein Name..." maxlength="15">
+                  <button class="btn-sec" style="font-size:0.7rem;padding:6px 12px;white-space:nowrap;" onclick="changeProfileName()">Speichern</button>
+                </div>
+                <!-- Avatar Emoji -->
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <span style="font-size:0.8rem;color:rgba(255,255,255,0.6);min-width:60px;">Avatar:</span>
+                  <div id="avatarPicker" style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <span class="avatar-option" data-avatar="🎯" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎯</span>
+                    <span class="avatar-option" data-avatar="🔫" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🔫</span>
+                    <span class="avatar-option" data-avatar="⭐" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">⭐</span>
+                    <span class="avatar-option" data-avatar="🏆" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🏆</span>
+                    <span class="avatar-option" data-avatar="💫" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">💫</span>
+                    <span class="avatar-option" data-avatar="🔥" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🔥</span>
+                    <span class="avatar-option" data-avatar="🎮" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎮</span>
+                    <span class="avatar-option" data-avatar="🦅" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🦅</span>
+                    <span class="avatar-option" data-avatar="🐺" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🐺</span>
+                    <span class="avatar-option" data-avatar="🎖️" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎖️</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Einstellungen -->
+            <div style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+              <button class="btn-sec" id="soundToggleBtn" style="font-size:0.6rem;"
+                onclick="toggleSoundSetting(this)">🔊 &nbsp;Sound: AN</button>
+              <button class="btn-sec" style="font-size:0.6rem;"
+                onclick="if(typeof Tutorial!=='undefined'){Tutorial.reset();Tutorial.start();}">🎓
+                &nbsp;Tutorial</button>
+            </div>
+
+            <!-- Konto-Sync -->
+            <div class="card" style="margin-top:16px;padding:14px;">
+              <div class="card-hd" style="margin-bottom:10px;">☁️ Konto & Login</div>
+
+              <!-- Angemeldeter User Info (nach Login sichtbar) -->
+              <div id="emailAuthContainer" style="display:none;margin-bottom:14px;">
+                <div style="padding:12px;background:rgba(122,176,48,0.1);border:1px solid rgba(122,176,48,0.2);border-radius:12px;">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                    <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;color:#000;" id="authUserAvatar">A</div>
+                    <div style="flex:1;">
+                      <div style="font-size:0.85rem;font-weight:600;color:#fff;" id="authUserName">–</div>
+                      <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);" id="authUserEmail">–</div>
+                    </div>
+                    <div style="font-size:1.2rem;" title="Angemeldet">✅</div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="btn-sec" style="font-size:0.65rem;flex:1;padding:8px;" onclick="logoutEmail()">🚪 Abmelden</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Login/Register Formular (vor Login sichtbar) -->
+              <div id="authFormContainer" style="margin-bottom:14px;">
+                <!-- Tab Switcher -->
+                <div style="display:flex;gap:4px;margin-bottom:12px;background:rgba(255,255,255,0.05);padding:4px;border-radius:10px;">
+                  <button id="authTabLogin" class="auth-tab-btn" style="flex:1;padding:8px;border:none;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:600;font-size:0.75rem;border-radius:8px;cursor:pointer;" onclick="switchAuthTab('login')">Anmelden</button>
+                  <button id="authTabRegister" class="auth-tab-btn" style="flex:1;padding:8px;border:none;background:transparent;color:rgba(255,255,255,0.5);font-weight:600;font-size:0.75rem;border-radius:8px;cursor:pointer;" onclick="switchAuthTab('register')">Registrieren</button>
+                </div>
+
+                <!-- Auth Message -->
+                <div id="authMessage" style="display:none;padding:8px 10px;border-radius:8px;font-size:0.7rem;margin-bottom:10px;"></div>
+
+                <!-- Login Form -->
+                <div id="authLoginForm" style="display:flex;flex-direction:column;gap:8px;">
+                  <input type="email" id="authLoginEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
+                  <input type="password" id="authLoginPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort" autocomplete="current-password">
+                  <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthLogin()" id="authLoginBtn">🚀 Anmelden</button>
+                </div>
+
+                <!-- Register Form -->
+                <div id="authRegisterForm" style="display:none;flex-direction:column;gap:8px;">
+                  <input type="email" id="authRegisterEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
+                  <input type="password" id="authRegisterPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="new-password">
+                  <input type="password" id="authRegisterPasswordConfirm" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort bestätigen" autocomplete="new-password">
+                  <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthRegister()" id="authRegisterBtn">✨ Konto erstellen</button>
+                </div>
+              </div>
+
+              <!-- Divider -->
+              <div style="display:flex;align-items:center;margin:12px 0;color:rgba(255,255,255,0.3);font-size:0.7rem;">
+                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
+                <div style="padding:0 10px;">oder</div>
+                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
+              </div>
+
+              <!-- Google Login Bereich -->
+              <div id="googleLoginSection" style="margin-bottom:14px;">
+                <div id="googleLoginInfo" style="display:none;margin-bottom:10px;padding:10px;background:rgba(122,176,48,0.1);border:1px solid rgba(122,176,48,0.2);border-radius:10px;">
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <img id="googleAvatar" src="" alt="" style="width:36px;height:36px;border-radius:50%;display:none;">
+                    <div style="flex:1;">
+                      <div style="font-size:0.8rem;font-weight:600;color:#fff;" id="googleUserName">–</div>
+                      <div style="font-size:0.65rem;color:rgba(255,255,255,0.5);" id="googleUserEmail">–</div>
+                    </div>
+                  </div>
+                </div>
+                <button id="googleLoginBtn" class="btn-sec" style="font-size:0.7rem;width:100%;padding:10px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="signInWithGoogle()">
+                  <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+                  Mit Google anmelden
+                </button>
+                <button id="googleLogoutBtn" class="btn-sec" style="font-size:0.7rem;width:100%;padding:10px;display:none;" onclick="signOutGoogle()">
+                  🚪 Abmelden
+                </button>
+              </div>
+
+              <!-- Sync-Code Bereich -->
+              <div id="accountSyncStatus" style="font-size:.75rem;color:rgba(255,255,255,.72);margin-bottom:12px;line-height:1.4;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                  <span id="syncStatusIcon" style="font-size:1.2rem;">⏳</span>
+                  <span id="syncStatusText">Verbindung wird hergestellt...</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                <button class="btn-sec" style="font-size:0.65rem;" onclick="showAccountSyncCode()">🔗 Sync-Code erzeugen</button>
+                <button class="btn-sec" style="font-size:0.65rem;" onclick="connectDeviceWithLinkCode()">📲 Gerät verbinden</button>
+                <button class="btn-sec" style="font-size:0.65rem;" onclick="forceCloudSync()">🔄 Jetzt synchronisieren</button>
+              </div>
+            </div>
+
+            <!-- Reset Button -->
+            <div style="margin-top:12px; text-align:center; padding-bottom:10px;">
+              <button class="btn-sec"
+                style="font-size:0.55rem; color:rgba(240,110,110,0.5); border-color:rgba(240,110,110,0.15);"
+                onclick="hardResetProgress()">✕ &nbsp;Alle Daten (Fortschritt & Erfolge) löschen</button>
+            </div>
+          </div>
+
+          <!-- ── SUN PANEL ── -->
+          <div class="ps-panel" id="psPanel-sun">
+            <!-- Gesamt-Badge -->
+            <div class="sun-total-badge">
+              <div class="sun-total-left">
+                <div class="sun-total-label">⭐ SUN-Sterne verdient</div>
+                <div class="sun-total-val" id="sunTotalVal">0 / 12</div>
+              </div>
+              <div class="sun-stars" id="sunStarsRow">
+                <span class="sun-star">⭐</span><span class="sun-star">⭐</span><span class="sun-star">⭐</span>
+                <span class="sun-star">⭐</span><span class="sun-star">⭐</span>
+              </div>
+            </div>
+
+            <div class="sun-section-title">◇ Erste Schritte</div>
+            <div class="sun-grid" id="sunGrid-basic"></div>
+
+            <div class="sun-section-title">◇ Kampf-Erfolge</div>
+            <div class="sun-grid" id="sunGrid-battle"></div>
+
+            <div class="sun-section-title">◇ Meister-Erfolge</div>
+            <div class="sun-grid" id="sunGrid-master"></div>
+          </div>
+
+          <!-- ── LEADERBOARD PANEL ── -->
+          <div class="ps-panel" id="psPanel-lb">
+            <div class="lb-panel" data-lb-list>
+              <div class="lb-loading">⏳</div>
+            </div>
+          </div>
+
+          <!-- ── HISTORY PANEL ── -->
+          <div class="ps-panel" id="psPanel-history">
+            <div id="psHistoryList">
+              <div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu
+                sehen!</div>
+            </div>
+          </div>
+
+          <div class="ps-panel" id="psPanel-debug" style="display:none;">
+            <div id="psDebugMount">
+              <div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>
+            </div>
+          </div>
+
+        </div><!-- /ps-body -->
+      </div><!-- /profile-sheet -->
+    </div><!-- /profile-overlay -->
+
+    <div style="display:none;"><!-- LEGACY SETUP (hidden, moved to bottom-sheet by JS) -->
+      <!-- Weapon Tabs -->
+      <div class="hdr-spacer" aria-hidden="true" style="display:flex; justify-content:center; margin-bottom: 5px;">
+        <button id="muteBtn" onclick="toggleMute()"
+          style="background:none; border:none; color:rgba(255,255,255,0.4); font-size:1.2rem; cursor:pointer; padding:4px;">🔊</button>
+      </div>
+      <div class="weapon-tabs" id="weaponTabs">
+        <div class="weapon-tab active" id="wTabLG" onclick="switchWeapon('lg')">
+          <div class="wt-name">🌬️ Luftgewehr</div>
+        </div>
+        <div class="weapon-tab" id="wTabKK" onclick="switchWeapon('kk')">
+          <div class="wt-name">🎯 Kleinkaliber</div>
+        </div>
+      </div>
+
+      <!-- Discipline sub-tabs (dynamic per weapon) -->
+      <div class="disc-tabs" id="discTabs" style="padding:10px 20px 0;"></div>
+
+      <div class="hdr-tag" id="setupTag">◆ LUFTGEWEHR · LG 40 · 10 METER ◆</div>
+
+      <!-- Schützenpass -->
+      <div class="schuetzenpass" id="schuetzenpass" onclick="Sfx.play('click')">
+        <div class="sp-hd">
+          <div>
+            <div class="sp-rank-lbl">◈ Schützenpass</div>
+            <div class="sp-rank-name" id="spRankName">Anfänger</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="sp-xp-info"><span id="spXpCur">0</span> / <span id="spXpNext">100</span> XP</div>
+            <button class="btn-lb-link" onclick="showScreen('screenLeaderboard');loadLeaderboard()">🏆
+              Weltrangliste</button>
+          </div>
+        </div>
+        <div class="sp-progress-wrap">
+          <div class="sp-progress-fill" id="spFillBar" style="width:0%"></div>
+        </div>
+        <div class="sp-rank-row">
+          <span class="sp-rank-cur" id="spRankCur">Anfänger</span>
+          <span class="sp-rank-next" id="spRankNext">→ Schütze</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="content" style="display:none;">
+      <!-- Distanz (wird bei 3x20 ausgeblendet da fix) -->
+      <div class="card" id="distCard" style="display:none;">
+        <div class="card-hd">◇ Distanz zur Scheibe</div>
+        <div class="dist-row" id="distGroup">
+          <button class="db active" data-dist="10" onclick="selDist(this)">
+            <span class="db-n">10</span><span class="db-u">Meter</span>
+          </button>
+          <button class="db" data-dist="50" onclick="selDist(this)">
+            <span class="db-n">50</span><span class="db-u">Meter</span>
+          </button>
+          <button class="db" data-dist="100" onclick="selDist(this)">
+            <span class="db-n">100</span><span class="db-u">Meter</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="info-row" id="distInfo" style="display:none;">
+        <span class="info-ico">🎯</span>
+        <span class="info-txt"><b>10 Meter</b> – Luftgewehr-Standarddistanz. Höchste Präzision gefordert.</span>
+      </div>
+
+      <!-- Schwierigkeit -->
+      <div class="card">
+        <div class="card-hd">◇ Bot-Schwierigkeit</div>
+        <div class="diff-row" id="diffGroup">
+          <button class="dif easy active" data-diff="easy" onclick="selDiff(this)">
+            <span class="dif-ico">😊</span>
+            <span class="dif-name">Einfach</span>
+            <span class="dif-desc">Kreisklasse</span>
+          </button>
+          <button class="dif real" data-diff="real" onclick="selDiff(this)">
+            <span class="dif-ico">🎯</span>
+            <span class="dif-name">Mittel</span>
+            <span class="dif-desc">Bezirksliga</span>
+          </button>
+          <button class="dif hard" data-diff="hard" onclick="selDiff(this)">
+            <span class="dif-ico">💪</span>
+            <span class="dif-name">Elite</span>
+            <span class="dif-desc">WM-Niveau</span>
+          </button>
+          <button class="dif elite" data-diff="elite" onclick="selDiff(this)">
+            <span class="dif-ico">💫</span>
+            <span class="dif-name">Profi</span>
+            <span class="dif-desc">Weltrekord</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="info-row" id="diffInfo">
+        <span class="info-ico">😊</span>
+        <span class="info-txt" id="diffInfoTxt"><b>Kreisklasse</b> – Gemütlicher Einstieg. Aber unterschätz den Bot
+          nicht!</span>
+      </div>
+
+      <!-- Schussanzahl (ausgeblendet wenn Disziplin fixe Schusszahl vorgibt) -->
+      <div class="card" id="shotCountCard" style="display:none;">
+        <div class="card-hd" id="shotCountHd">◈ Anzahl Schüsse</div>
+        <div class="sc-row" id="shotCountGroup">
+          <button class="scb" data-shots="30" onclick="selShots(this)">
+            <span class="scb-n">30</span><span class="scb-u">Schuss</span>
+          </button>
+          <button class="scb active" data-shots="40" onclick="selShots(this)">
+            <span class="scb-n">40</span><span class="scb-u">Schuss</span>
+          </button>
+          <button class="scb" data-shots="60" onclick="selShots(this)">
+            <span class="scb-n">60</span><span class="scb-u">Schuss</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 5er-Salve Option -->
+      <button class="btn-burst" id="burstBtn" onclick="toggleBurst()">
+        <span id="burstBtnTxt">🔫 5er-Salve: AUS</span>
+        <span class="burst-badge" id="burstBadge">OPTIONAL</span>
+      </button>
+
+    </div>
+
+    <div class="actions" style="display:none;">
+      <button class="btn-fire" onclick="startBattle()">🎯 &nbsp;DUELL STARTEN</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ BATTLE ══════════════════════════ -->
+  <div id="screenBattle" class="screen">
+    <div class="hdr">
+      <div style="width:100%;display:flex;align-items:center;justify-content:space-between;">
+        <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">SCHUSS<em>DUELL</em></div>
+        <!-- Match Timer -->
+        <div class="match-timer-box" id="matchTimerBox">
+          <span class="mt-ico">⏱️</span>
+          <div class="mt-inf">
+            <div class="mt-val" id="matchTimerVal">–:––</div>
+            <div class="mt-lbl">Restzeit</div>
+          </div>
+        </div>
+      </div>
+      <div class="hdr-chips">
+        <div class="chip gold">
+          <div class="chip-label">Übrig</div>
+          <div class="chip-val" id="shotsLeft">40</div>
+          <div class="chip-sub">Schuss</div>
+        </div>
+        <div class="chip red" style="flex-direction:row;gap:2px;padding:6px 8px;min-width:unset;">
+          <div id="botScoreChipContainer" style="display:flex;flex-direction:column;align-items:center;min-width:52px;">
+            <div class="chip-label">Zehntel</div>
+            <div class="chip-val" id="botScoreChip" style="font-size:1.25rem;color:#f08070;">0.0</div>
+          </div>
+          <div id="botScoreDivider"
+            style="width:1px;background:rgba(255,255,255,.1);margin:4px 4px;align-self:stretch;"></div>
+          <div style="display:flex;flex-direction:column;align-items:center;min-width:48px;">
+            <div class="chip-label">Ganze</div>
+            <div class="chip-val" id="botScoreChipInt" style="font-size:1.25rem;color:rgba(240,130,110,.5);">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="hdr-tag" id="battleTag">◆ SCHUSS 1 / 40 ◆</div>
+      <div class="diff-badge easy" id="battleBadge">😊 KREISKLASSE</div>
+      <div class="weapon-badge lg" id="battleWeaponBadge" style="margin-bottom:8px;">🌬️ LUFTGEWEHR</div>
+    </div>
+
+    <!-- Position Bar (3×20 only) -->
+    <div class="pos-bar" id="posBar">
+      <div class="pos-item" id="posItem0">
+        <div class="pi-done-check">✓</div>
+        <div class="pi-ico">🦵</div>
+        <div class="pi-name">Kniend</div>
+        <div class="pi-shots" id="posShots0">0/20</div>
+      </div>
+      <div class="pos-item" id="posItem1">
+        <div class="pi-done-check">✓</div>
+        <div class="pi-ico">🛏️</div>
+        <div class="pi-name">Liegend</div>
+        <div class="pi-shots" id="posShots1">0/20</div>
+      </div>
+      <div class="pos-item" id="posItem2">
+        <div class="pi-done-check">✓</div>
+        <div class="pi-ico">🧍</div>
+        <div class="pi-name">Stehend</div>
+        <div class="pi-shots" id="posShots2">0/20</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="target-wrap">
+        <canvas id="targetCanvas"></canvas>
+        <div class="target-shadow"></div>
+      </div>
+
+      <!-- Live dual-score bar -->
+      <div class="live-score-bar">
+        <div class="lsb-block" id="lsbDecBlock">
+          <div class="lsb-lbl">Bot Zehntel</div>
+          <div class="lsb-val dec" id="lsbDec">0.0</div>
+        </div>
+        <div class="lsb-divider" id="lsbDecDivider"></div>
+        <div class="lsb-block">
+          <div class="lsb-lbl">Bot Ganze</div>
+          <div class="lsb-val int" id="lsbInt">0</div>
+        </div>
+        <div class="lsb-divider"></div>
+        <div class="lsb-block">
+          <div class="lsb-lbl">Hochrechnung</div>
+          <div class="lsb-val proj" id="lsbProj">–</div>
+        </div>
+      </div>
+
+      <!-- Shot log: scrollable grouped container -->
+      <div class="shot-log-wrap" id="shotLogWrap">
+        <!-- In 3x20 mode: populated with .sl-group divs per position -->
+        <!-- In normal mode: flat .shot-log inside -->
+        <div class="shot-log" id="shotLog"></div>
+      </div>
+
+      <!-- Last shot info -->
+      <div class="last-shot-box">
+        <div class="ls-txt" id="lastShotTxt"><b>Bereit!</b> Drück FEUER – du schießt in der echten Welt, der Bot
+          virtuell.</div>
+      </div>
+
+      <!-- Shot progress -->
+      <div class="shot-progress">
+        <div class="sp-row">
+          <div class="sp-lbl" id="spLbl">Fortschritt</div>
+          <div class="sp-count" id="spCount">0 / 40 Schuss</div>
+        </div>
+        <div class="sp-bar">
+          <div class="sp-fill" id="spFill" style="width:0%"></div>
+        </div>
+        <!-- 3x20: per-position mini bar -->
+        <div id="spPosRow" style="display:none;margin-top:4px;">
+          <div class="sp-row" style="margin-bottom:3px;">
+            <div class="sp-lbl" id="spPosLbl" style="color:rgba(140,220,60,.5);">Position</div>
+            <div class="sp-count" id="spPosCount" style="font-size:.78rem;color:#a0e060;">0 / 20</div>
+          </div>
+          <div class="sp-bar" style="height:4px;">
+            <div class="sp-fill" id="spPosFill" style="width:0%;background:linear-gradient(90deg,#3a8010,#80c830);">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ BOT-ZUSTANDS-ANZEIGE ══ -->
+      <div id="botStatusCard" style="display:none;margin-top:12px;background:rgba(20,22,25,0.7);border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:10px 14px;transition:all 0.5s ease;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="botStatusIcon" style="font-size:1.5rem;line-height:1;">😐</div>
+          <div style="flex:1;min-width:0;">
+            <div id="botStatusTitle" style="font-size:0.78rem;font-weight:600;color:#fff;line-height:1.2;">Bot ist konzentriert</div>
+            <div id="botStatusDesc" style="font-size:0.62rem;color:rgba(255,255,255,0.45);margin-top:2px;line-height:1.2;">Trifft mit normaler Präzision</div>
+          </div>
+          <div id="botPersonalityBadge" style="font-size:0.6rem;font-weight:700;padding:3px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);color:#fff;white-space:nowrap;letter-spacing:0.3px;text-transform:uppercase;">Anfänger</div>
+        </div>
+        <div style="margin-top:6px;height:3px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">
+          <div id="botFocusBar" style="height:100%;width:50%;background:linear-gradient(90deg,#7ab030,#a0d84a);border-radius:3px;transition:width 0.8s ease;"></div>
+        </div>
+        <div style="font-size:0.55rem;color:rgba(255,255,255,0.3);margin-top:3px;text-align:right;">Focus: <span id="botFocusPct">50</span>%</div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn-fire" id="battleFireBtn" onclick="doBattleFire()">🔫 &nbsp;FEUER!</button>
+      <button class="btn-burst" id="battleBurstBtn" onclick="doBattleFire()" style="display:none;">⚡ &nbsp;5 SCHUSS AUF
+        EINMAL</button>
+      <button class="btn-sec" id="skipProbeBtn" onclick="skipProbe()"
+        style="display:none;background:rgba(255,150,50,.1);border-color:rgba(255,150,50,.3);color:rgba(255,180,80,.7);">⏭️
+        &nbsp;Probezeit überspringen</button>
+      <button class="btn-sec" onclick="endBattleEarly()">✕ &nbsp;Alle Schüsse abgegeben – Ergebnis eingeben</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ ENTRY ══════════════════════════ -->
+  <div id="screenEntry" class="screen">
+    <div class="hdr">
+      <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">ERGEBNIS <em>EINGEBEN</em></div>
+      <div class="logo-tag">Dein Ergebnis vs. Bot-Ergebnis</div>
+      <div class="hdr-tag" id="entryTag">◆ 10 METER · 40 SCHUSS ◆</div>
+    </div>
+
+    <div class="content">
+      <!-- Bot Ergebnis -->
+      <div class="bot-result fade-up">
+        <div class="br-lbl">🤖 Bot – Gesamtpunkte</div>
+        <div class="dual-wrap">
+          <div class="dual-col" id="botFinalPtsCol">
+            <div class="br-pts" id="botFinalPts">0.0</div>
+            <span class="ds-dec-lbl" style="color:rgba(240,130,110,.5);">Zehntel</span>
+          </div>
+          <div id="botFinalDivider" style="color:rgba(255,255,255,.15);font-size:1.4rem;font-weight:300;">|</div>
+          <div class="dual-col">
+            <div class="br-pts" id="botFinalInt" style="font-size:2rem;color:rgba(240,130,110,.55);">0</div>
+            <span class="ds-dec-lbl" style="color:rgba(240,130,110,.35);">Ganze</span>
+          </div>
+        </div>
+        <div class="br-sub" id="botFinalDetail">aus 40 Schuss · Ø –</div>
+      </div>
+
+      <!-- Eingabe -->
+      <div class="entry-card2 fade-up">
+        <div class="ec-lbl">◇ Dein Ergebnis eingeben (Zehntel & Ganze)</div>
+        <div class="ec-row">
+          <input type="number" class="score-inp" id="playerInp" placeholder="z.B. 405.2" min="0" max="660" step="0.1"
+            inputmode="decimal" enterkeyhint="next" autocomplete="off" oninput="onPlayerInput()">
+          <input type="number" class="score-inp" id="playerInpInt" placeholder="Ganze (z.B. 392)" min="0" max="600"
+            step="1" inputmode="numeric" enterkeyhint="done" autocomplete="off" oninput="onPlayerInpInt()">
+        </div>
+        <div class="inp-hint" id="inpHint"></div>
+        <button class="btn-calc" onclick="calcResult()" style="width: 100%; margin-top: 6px;">⚡ VERGLEICH</button>
+      </div>
+
+      <div class="divider">
+        <div class="divider-line"></div>
+        <div class="divider-txt">oder direkt wählen</div>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- Image Compare UI Slot (Foto-Button: immer sichtbar, ruft ImageCompare.open auf) -->
+      <div id="icGameOverSlot" style="width:100%;display:flex;justify-content:center;margin-bottom:12px;">
+        <button class="ic-go-upload-btn"
+          onclick="if(typeof ImageCompare!=='undefined'){ImageCompare.open()}else{alert('Foto-Vergleich wird geladen. Bitte Seite neu laden.')}">
+          <span class="ic-go-upload-ico">📷</span>
+          <span>Wettkampf-Foto vergleichen</span>
+        </button>
+      </div>
+
+      <!-- Quick buttons -->
+      <div class="quick-pair">
+        <button class="btn-win" onclick="quickResult('win')">
+          <span class="qb-ico">🏆</span>
+          <span class="qb-main">GEWONNEN</span>
+          <span class="qb-sub">Mein Score &gt; Bot</span>
+        </button>
+        <button class="btn-lose" onclick="quickResult('lose')">
+          <span class="qb-ico">😔</span>
+          <span class="qb-main">VERLOREN</span>
+          <span class="qb-sub">Bot Score &gt; Meiner</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ GAME OVER ══════════════════════════ -->
+  <div id="screenOver" class="screen">
+    <div class="go-emoji" id="goEmoji"></div>
+    <div class="go-title" id="goTitle"></div>
+    <div class="go-sub" id="goSub"></div>
+    <div class="go-scores pop-in">
+      <div class="gs-block">
+        <div class="gs-who">👧 Du</div>
+        <div class="gs-num you" id="goP">–</div>
+        <div class="gs-unit" id="goPUnit" style="color:rgba(180,230,100,.85);">Zehntel</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.2rem;color:rgba(180,230,100,.9);" id="goPInt">–</div>
+        <div class="gs-unit" style="color:rgba(180,230,100,.75);">Ganze</div>
+      </div>
+      <div class="grain"></div>
+      <div class="grid-bg"></div>
+      <div class="gs-sep">:</div>
+      <div class="gs-block">
+        <div class="gs-who">🤖 Bot</div>
+        <div class="gs-num bot" id="goB">–</div>
+        <div class="gs-unit" style="color:rgba(240,130,110,.85);">Zehntel</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.2rem;color:rgba(240,130,110,.9);" id="goBInt">–</div>
+        <div class="gs-unit" style="color:rgba(240,130,110,.75);">Ganze</div>
+      </div>
+    </div>
+    <div class="go-reason" id="goReason"></div>
+    <div class="go-margin" id="goMargin" style="display:none;"></div>
+
+    <!-- RESULT TARGET PREVIEW -->
+    <div class="go-target-preview fade-up" style="margin-top: 15px; position: relative;">
+      <div
+        style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #1a2015; padding: 2px 10px; border-radius: 10px; border: 1px solid rgba(122,176,48,0.3); font-size: 0.65rem; color: #7ab030; z-index: 2; font-weight: 700; letter-spacing: 0.1em;">
+        TREFFERBILD</div>
+      <div
+        style="background: #000; padding: 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <canvas id="goTargetCanvas"
+          style="width: 100%; height: auto; max-width: 200px; display: block; margin: 0 auto;"></canvas>
+      </div>
+    </div>
+
+    <div id="analysisResult"></div>
+    <div class="go-actions" style="display: flex; gap: 10px; margin-top: 15px; width: 100%; max-width: 320px;">
+      <button class="btn primary" onclick="restartGame()" style="flex: 1.2;">
+        <span class="btn-icon">🏠</span> <span>Hauptmenü</span>
+      </button>
+      <button class="btn secondary" onclick="shareTarget()" style="flex: 1;">
+        <span class="btn-icon">📤</span> <span>Teilen</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ LEADERBOARD ══════════════════════════ -->
+  <!-- FEEDBACK SCREEN (v2 – Duel Result + Emoji + Tags + Comment) -->
+  <div id="screenFeedback" class="screen">
+    <div class="hdr" style="padding:28px 20px 8px;">
+      <div style="text-align:center;">
+        <div class="logo" style="font-size:1.4rem;letter-spacing:.15em;">SCHUSS<em>DUELL</em></div>
+      </div>
+    </div>
+
+    <!-- Duel Result Card -->
+    <div style="margin:14px 16px 0;background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);border-radius:14px;padding:16px 18px;">
+      <div style="font-size:.6rem;font-weight:700;letter-spacing:.15em;color:rgba(122,176,48,.6);text-transform:uppercase;margin-bottom:10px;">DUELL ERGEBNIS</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <div id="fbResultIcon" style="width:46px;height:46px;border-radius:12px;background:rgba(15,35,10,.8);border:1.5px solid rgba(57,255,20,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;"></div>
+        <div style="flex:1;">
+          <div id="fbResultTitle" style="color:#fff;font-size:.95rem;font-weight:800;letter-spacing:.02em;"></div>
+          <div id="fbResultScore" style="color:rgba(122,176,48,.5);font-size:.75rem;margin-top:3px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emoji Rating -->
+    <div style="padding:22px 20px 0;">
+      <div style="font-size:.6rem;font-weight:700;letter-spacing:.15em;color:rgba(122,176,48,.6);text-transform:uppercase;margin-bottom:14px;">DEINE BEWERTUNG</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;" id="fbEmojiRow">
+        <div class="fb-emoji-item" data-idx="0" onclick="fbSetRating(0)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">😤</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Schlecht</span>
+        </div>
+        <div class="fb-emoji-item" data-idx="1" onclick="fbSetRating(1)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">😐</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Okay</span>
+        </div>
+        <div class="fb-emoji-item" data-idx="2" onclick="fbSetRating(2)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">😄</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Gut</span>
+        </div>
+        <div class="fb-emoji-item" data-idx="3" onclick="fbSetRating(3)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">🤩</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Super</span>
+        </div>
+        <div class="fb-emoji-item" data-idx="4" onclick="fbSetRating(4)">
+          <div class="fb-emoji-btn" style="width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;">🔥</div>
+          <span style="color:rgba(90,140,60,.5);font-size:.6rem;font-weight:600;">Episch</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Tags -->
+    <div style="padding:20px 20px 0;">
+      <div style="font-size:.6rem;font-weight:700;letter-spacing:.15em;color:rgba(122,176,48,.6);text-transform:uppercase;margin-bottom:12px;">WAS HAT DIR GEFALLEN?</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;" id="fbTags">
+        <span class="fb-tag" data-tag="Challenges" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">Challenges</span>
+        <span class="fb-tag" data-tag="Animationen" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">Animationen</span>
+        <span class="fb-tag" data-tag="Balancing" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">Balancing</span>
+        <span class="fb-tag" data-tag="Statistiken" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">Statistiken</span>
+        <span class="fb-tag" data-tag="UI-Design" onclick="fbToggleTag(this)" style="background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;">UI-Design</span>
+      </div>
+    </div>
+
+    <!-- Comment -->
+    <div style="padding:20px 20px 0;">
+      <div style="font-size:.6rem;font-weight:700;letter-spacing:.15em;color:rgba(122,176,48,.6);text-transform:uppercase;margin-bottom:12px;">DEIN KOMMENTAR</div>
+      <div style="background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;padding:14px 16px;">
+        <textarea id="fbComment" placeholder="Was können wir besser machen? Bugs, Ideen, Lob..." style="background:transparent;border:none;outline:none;color:rgba(255,255,255,.75);font-size:.8rem;line-height:1.7;min-height:90px;resize:none;width:100%;font-family:var(--font-main);" maxlength="300" rows="3" oninput="fbUpdateCounter()"></textarea>
+        <div style="margin-top:8px;display:flex;justify-content:flex-end;">
+          <span id="fbCounter" style="color:rgba(60,100,40,.4);font-size:.65rem;font-weight:600;">0 / 300</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <div style="padding:24px 20px 0;">
+      <button id="fbSubmitBtn" onclick="fbSubmit()" style="width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);border:none;border-radius:14px;padding:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;opacity:.35;pointer-events:none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="#0c1008" stroke-width="2.5" stroke-linecap="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="#0c1008" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span style="color:#0c1008;font-size:1.1rem;font-weight:900;letter-spacing:.2em;text-transform:uppercase;">FEEDBACK ABSENDEN</span>
+      </button>
+      <div style="text-align:center;margin-top:14px;">
+        <span style="color:rgba(60,100,40,.4);font-size:.75rem;font-weight:600;cursor:pointer;letter-spacing:.05em;" onclick="skipSiteFeedback()">Überspringen</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEADERBOARD -->
+  <div id="screenLeaderboard" class="screen">
+    <div class="hdr" style="position:relative;">
+      <button onclick="showScreen('screenSetup')"
+        style="position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(255,255,255,.45);font-size:1.4rem;cursor:pointer;z-index:2;padding:4px 8px;"
+        aria-label="Schließen">✕</button>
+      <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">🏆 WELT<em>RANGLISTE</em></div>
+      <div class="logo-tag">XP · Streak · Score – Wer ist der beste Schütze?</div>
+      <div class="hdr-tag">◆ TOP SCHÜTZEN ◆</div>
+    </div>
+
+    <div class="content" style="padding-top:14px;">
+
+      <!-- Mein Profil-Snapshot -->
+      <div class="lb-my-best">
+        <div>
+          <div class="lb-my-lbl">Mein Streak</div>
+          <div class="lb-my-val" id="lbMyBest" style="color:#c880ff;">–</div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="text-align:center;">
+          <div class="lb-my-lbl">Score</div>
+          <div class="lb-my-val" id="lbMyScore" style="color:#ffc840;">–</div>
+        </div>
+        <div style="flex:1;"></div>
+        <div style="text-align:right;">
+          <div class="lb-my-lbl">Meine XP</div>
+          <div class="lb-my-val" id="lbMyXP" style="color:#70aaf0;">–</div>
+        </div>
+      </div>
+
+      <!-- Status-Badge (eingeloggt als...) -->
+      <div id="lbStatusBadge" style="
+        font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;
+        color:rgba(140,200,60,.5);font-weight:600;text-align:center;
+        padding:6px 0 2px;">
+      </div>
+
+      <div class="card" style="padding:10px 14px;margin-bottom:10px;">
+        <div class="card-hd" style="margin-bottom:8px;">Scope</div>
+        <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+          <div style="font-size:.85rem;color:rgba(255,255,255,.72);">Aktiv: <span id="lbScopeLabel">Global</span></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select id="lbPeriodSelect" onchange="setLeaderboardPeriod(this.value)"
+              style="min-width:150px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;">
+            </select>
+            <select id="lbScopeSelect" onchange="setLeaderboardScope(this.value)"
+              style="min-width:180px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;">
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Leaderboard list -->
+      <div class="card" style="padding:12px 14px;">
+        <div class="card-hd" id="lbCardTitle">◆ Rangliste · Score = XP + Streak×5</div>
+        <div id="lbScopeHint" style="font-size:.8rem;color:rgba(255,255,255,.62);margin:6px 0 10px;">Global nutzt Score
+          = XP + Streak x 5.</div>
+        <div class="lb-list" data-lb-list>
+          <div class="lb-loading">⏳</div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════ SCRIPT ══════════════════════════ -->
+  <script src="app.js?v=3.0" defer></script>
+
+
+  <!-- 📷 FOTO-ANALYSE OVERLAY (Initially Hidden) -->
+  <div class="ic-overlay" id="icOverlay" style="opacity: 0; pointer-events: none;">
+    <div class="ic-sheet">
+      <div class="ic-handle"></div>
+      <div class="ic-header">
+        <div class="ic-title">📷 FOTO-ANALYSE</div>
+        <div class="ic-close" id="icClose">✕</div>
+      </div>
+      <div class="ic-body">
+        <!-- Mode Selection Buttons -->
+        <div id="v2ModeSelection" style="display:flex;gap:10px;margin-bottom:15px;">
+          <button id="btnStartLiveScan"
+            style="flex:1;background:#7ab030;color:#000;border:none;padding:12px;border-radius:12px;font-weight:bold;cursor:pointer;font-size:1rem;box-shadow:0 0 15px rgba(122,176,48,0.4);">
+            🔍 Live Scanner
+          </button>
+          <div style="position:relative;flex:1;">
+            <input type="file" class="ic-upload-input" id="icFileInput" accept="image/*"
+              style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+            <button
+              style="width:100%;height:100%;background:rgba(255,255,255,0.08);color:#fff;border:1px solid rgba(255,255,255,0.2);padding:12px;border-radius:12px;font-weight:bold;pointer-events:none;">
+              📂 Galerie
+            </button>
+          </div>
+        </div>
+
+        <!-- Live Scanner View (Hidden by default) -->
+        <div id="v2ScannerView"
+          style="display:none;position:relative;width:100%;border-radius:14px;overflow:hidden;background:#000;margin-bottom:15px;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+          <!-- Video Stream -->
+          <video id="v2ScannerVideo" playsinline autoplay muted style="width:100%;height:auto;display:block;"></video>
+          <!-- Canvas Overlay for YOLO Bounding Boxes -->
+          <canvas id="v2ScannerCanvas"
+            style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+
+          <div style="position:absolute;bottom:10px;left:0;width:100%;text-align:center;">
+            <div
+              style="background:rgba(0,0,0,0.6);display:inline-block;padding:6px 12px;border-radius:20px;font-size:0.75rem;color:#7ab030;backdrop-filter:blur(4px);">
+              Halte den Score in das Bild...
+            </div>
+          </div>
+          <button id="btnStopLiveScan"
+            style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:1rem;line-height:32px;text-align:center;cursor:pointer;">✕</button>
+        </div>
+
+        <!-- Classic Upload Zone (visible when file dropped/selected) -->
+        <div class="ic-upload-zone" id="icUploadZone" style="display:none;">
+          <span class="ic-upload-icon">📸</span>
+          <div class="ic-upload-text">Bild wird analysiert...</div>
+        </div>
+
+        <!-- Progress -->
+        <div class="ic-progress" id="icProgress">
+          <div class="ic-progress-label">🤖 KI-Analyse</div>
+          <div class="ic-progress-bar">
+            <div class="ic-progress-fill" id="icProgressFill"></div>
+          </div>
+          <div class="ic-progress-status" id="icProgressStatus">Wird vorbereitet…</div>
+        </div>
+
+        <!-- Result -->
+        <div class="ic-result-card" id="icResultCard">
+          <div class="ic-result-header">◆ Erkanntes Ergebnis</div>
+          <div class="ic-detected-score">
+            <span class="ic-detected-icon">🎯</span>
+            <div class="ic-detected-info">
+              <div class="ic-detected-value" id="icDetectedValue">–</div>
+              <div class="ic-detected-label" id="icDetectedLabel">Wird analysiert…</div>
+            </div>
+          </div>
+
+          <!-- Toggle for manual correction -->
+          <button id="icBtnWrong"
+            style="width:100%; margin-top: 12px; background: rgba(240,80,60,0.15); color: #f0503c; border: 1px solid rgba(240,80,60,0.3); padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">
+            ❌ Falsch erkannt? Hier korrigieren
+          </button>
+
+          <div class="ic-edit-score" id="icEditScoreBlock" style="display:none; margin-top: 12px;">
+            <div class="ic-edit-hint" style="color:#f0503c; margin-bottom: 8px;">✏️ Bitte richtiges Ergebnis eintragen:
+            </div>
+            <input type="number" class="ic-score-input" id="icScoreInput" placeholder="z.B. 104.2" step="0.1" min="0"
+              max="660" inputmode="decimal">
+          </div>
+
+          <!-- Raw OCR text toggle -->
+          <div class="ic-raw-toggle" id="icRawToggle">▶ OCR-Rohtext anzeigen</div>
+          <div class="ic-raw-text" id="icRawText"></div>
+        </div>
+
+        <!-- Compare Button -->
+        <button class="ic-compare-btn" id="icCompareBtn" disabled>
+          ✅ ERGEBNIS ÜBERNEHMEN
+        </button>
+
+        <!-- KI-Coaching Box -->
+        <div class="ai-coaching-box" id="aiCoachingBox" style="display:none;">
+          <div class="ai-coaching-header">
+            <span class="ai-coaching-icon">🤖</span>
+            <span class="ai-coaching-title">KI-COACHING</span>
+            <div class="ai-coaching-spinner" id="aiCoachingSpinner"></div>
+          </div>
+          <div class="ai-coaching-content" id="aiCoachingContent">Wird analysiert…</div>
+        </div>
+
+        <div class="ic-info">
+          🔒 <b>100% Offline KI:</b> Dein Foto wird lokal auf deinem Gerät analysiert.
+
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- SHARE MODAL -->
+  <div id="shareOverlay" class="share-overlay" onclick="closeShareCard(event)">
+    <div class="share-modal" id="shareModal">
+
+      <!-- Preview Card -->
+      <div class="share-card" id="shareCard">
+        <div class="sc-brand">
+          <span class="sc-brand-icon">🎯</span>
+          <span class="sc-brand-name">SCHUSS CHALLENGE</span>
+        </div>
+        <div class="sc-divider"></div>
+        <div class="sc-result-emoji" id="scResultEmoji"></div>
+        <div class="sc-result-title" id="scResultTitle"></div>
+        <div class="sc-scores">
+          <div class="sc-score-block">
+            <div class="sc-who">👧 Du</div>
+            <div class="sc-pts you" id="scPlayerPts"></div>
+            <div class="sc-unit" id="scPlayerUnit"></div>
+          </div>
+          <div class="sc-vs">vs</div>
+          <div class="sc-score-block">
+            <div class="sc-who" id="scBotLabel">🤖 Bot</div>
+            <div class="sc-pts bot" id="scBotPts"></div>
+            <div class="sc-unit" id="scBotUnit"></div>
+          </div>
+        </div>
+        <div class="sc-margin" id="scMargin"></div>
+        <div class="sc-meta" id="scMeta"></div>
+        <div class="sc-url">kr511.github.io/schuss-challenge/</div>
+      </div>
+
+      <!-- Aktions-Buttons -->
+      <div class="share-actions">
+        <button class="btn-share-go" id="shareGoBtn" onclick="doShare()">
+          📤 &nbsp;Jetzt teilen
+        </button>
+        <button class="btn-share-close" onclick="closeShareCard()">
+          ✕ Schließen
+        </button>
+      </div>
+
+      <!-- Fallback: Copy-Link wenn Web Share API fehlt -->
+      <div class="share-copy-row" id="shareCopyRow" style="display:none;">
+        <input class="share-copy-inp" id="shareCopyInp" readonly value="https://kr511.github.io/schuss-challenge/" />
+        <button class="share-copy-btn" onclick="copyShareLink()">
+          📋 Kopieren
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <script>
+    function openDuelSetup() {
+      if (typeof triggerHaptic === 'function') triggerHaptic();
+      const ov = document.getElementById('duelSetupSheetOverlay');
+      const sheet = document.getElementById('duelSetupSheet');
+      ov.style.display = 'block';
+
+      // Move ALL setup elements into the bottom sheet mount
+      const mount = document.getElementById('duelSetupContentMount');
+      if (mount.children.length === 0) {
+        // Weapon tabs (LG / KK)
+        const weapTabs = document.getElementById('weaponTabs');
+        if (weapTabs) { weapTabs.style.display = ''; mount.appendChild(weapTabs); }
+
+        // Discipline sub-tabs
+        const discTabs = document.getElementById('discTabs');
+        if (discTabs) { discTabs.style.display = ''; mount.appendChild(discTabs); }
+
+        // Setup tag (shows current selection)
+        const setupTag = document.getElementById('setupTag');
+        if (setupTag) { setupTag.style.display = ''; setupTag.style.textAlign = 'center'; setupTag.style.margin = '10px 0'; mount.appendChild(setupTag); }
+
+        // Difficulty card
+        const diffGrp = document.getElementById('diffGroup');
+        if (diffGrp && diffGrp.parentElement) mount.appendChild(diffGrp.parentElement);
+
+        // Difficulty info
+        const diffInfo = document.getElementById('diffInfo');
+        if (diffInfo) mount.appendChild(diffInfo);
+
+        // Distance card
+        const dist = document.getElementById('distCard');
+        if (dist) mount.appendChild(dist);
+
+        // Shot count card
+        const shc = document.getElementById('shotCountCard');
+        if (shc) mount.appendChild(shc);
+
+        // Burst toggle
+        const brst = document.getElementById('burstBtn');
+        if (brst) mount.appendChild(brst);
+
+        // Hide old start button
+        const oldBtnList = document.querySelectorAll('.actions .btn-fire');
+        oldBtnList.forEach(b => { if (b.innerText.includes('STARTEN') && !b.closest('#duelSetupSheet')) b.parentElement.style.display = 'none'; });
+      }
+
+      requestAnimationFrame(() => {
+        ov.style.opacity = '1';
+        sheet.style.bottom = '0';
+      });
+    }
+
+    function closeDuelSetup(e) {
+      if (e && e.target && e.target.id !== 'duelSetupSheetOverlay') return;
+      const ov = document.getElementById('duelSetupSheetOverlay');
+      const sheet = document.getElementById('duelSetupSheet');
+      sheet.style.bottom = '-100%';
+      ov.style.opacity = '0';
+      setTimeout(() => { ov.style.display = 'none'; }, 400);
+    }
+  </script>
+
+</body>
+
+</html>
