@@ -399,7 +399,14 @@
         if (pdGreeting) {
           const pdUserName = document.getElementById('pdUserName');
           const name = pdUserName ? pdUserName.innerText : "";
-          pdGreeting.innerHTML = greeting + ', <span class="pd-name" style="color:#7ab030">' + (name || 'Schütze') + '</span>!';
+          // XSS hardening: build DOM nodes instead of innerHTML concatenation.
+          pdGreeting.textContent = greeting + ', ';
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'pd-name';
+          nameSpan.style.color = '#7ab030';
+          nameSpan.textContent = name || 'Schütze';
+          pdGreeting.appendChild(nameSpan);
+          pdGreeting.appendChild(document.createTextNode('!'));
         }
 
         const pdDate = document.getElementById('pdDate');

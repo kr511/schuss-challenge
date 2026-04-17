@@ -1,4 +1,14 @@
-import type { Achievement, D1Database, Env, GameSession, StreakState, User } from "./types";
+import type {
+  Achievement,
+  D1Database,
+  Env,
+  Feedback,
+  FeedbackStatus,
+  FeedbackType,
+  GameSession,
+  StreakState,
+  User,
+} from "./types";
 
 type UserRow = {
   id: string;
@@ -32,6 +42,7 @@ type FeedbackRow = {
   message: string;
   sent_at: number;
   status: string;
+  updated_at: number | null;
 };
 
 type StreakRow = {
@@ -70,15 +81,16 @@ function mapAchievement(row: AchievementRow): Achievement {
   };
 }
 
-function mapFeedback(row: FeedbackRow): any {
+function mapFeedback(row: FeedbackRow): Feedback {
   return {
     id: row.id,
     userEmail: row.user_email,
-    feedbackType: row.feedback_type,
+    feedbackType: row.feedback_type as FeedbackType,
     title: row.title,
     message: row.message,
     sentAt: Number(row.sent_at),
-    status: row.status,
+    status: row.status as FeedbackStatus,
+    updatedAt: row.updated_at == null ? null : Number(row.updated_at),
   };
 }
 
@@ -299,7 +311,7 @@ export async function getStreakState(env: Env, userId: string): Promise<StreakSt
 export async function saveFeedback(
   env: Env,
   userEmail: string,
-  feedbackType: 'bug' | 'feature_request' | 'general',
+  feedbackType: FeedbackType,
   title: string,
   message: string,
 ): Promise<string> {
@@ -322,14 +334,27 @@ export async function saveFeedback(
 export async function updateFeedbackStatus(
   env: Env,
   feedbackId: string,
-  status: 'pending' | 'sent' | 'failed',
+  status: FeedbackStatus,
 ): Promise<void> {
   await env.DB.prepare(
-    "UPDATE feedback SET status = ? WHERE id = ?",
+    "UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?",
   )
-    .bind(status, feedbackId)
+    .bind(status, Date.now(), feedbackId)
     .run();
 }
+
+export async function getAllFeedback(env: Env): Promise<Feedback[]> {
+  const result = await env.DB.prepare(
+    [
+      "SELECT id, user_email, feedback_type, title, message, sent_at, status, updated_at",
+      "FROM feedback",
+      "ORDER BY sent_at DESC",
+    ].join(" "),
+  ).all<FeedbackRow>();
+
+  return (result.results || []).map(mapFeedback);
+}
+
 
 export async function getPendingFeedback(env: Env, limit = 50): Promise<any[]> {
   const result = await env.DB.prepare(
@@ -388,3 +413,22 @@ export async function getLiveActivity(env: Env): Promise<any[]> {
   return result.results || [];
 }
 
+export function dbHelpers(env: Env) {
+  return {
+    createUser: (email: string, displayName: string) => createUser(env, email, displayName),
+    getUserByEmail: (email: string) => getUserByEmail(env, email),
+    saveGameSession: (
+      userId: string,
+      session: Omit<GameSession, "id" | "userId"> & { id?: string },
+    ) => saveGameSession(env, userId, session),
+    getSessionsByUser: (userId: string, limit = 20) => getSessionsByUser(env, userId, limit),
+    unlockAchievement: (userId: string, type: string) => unlockAchievement(env, userId, type),
+    getAchievements: (userId: string) => getAchievements(env, userId),
+    updateStreak: (userId: string, playedDate: string) => updateStreak(env, userId, playedDate),
+    saveFeedback: (userEmail: string, feedbackType: FeedbackType, title: string, message: string) =>
+      saveFeedback(env, userEmail, feedbackType, title, message),
+    updateFeedbackStatus: (feedbackId: string, status: FeedbackStatus) =>
+      updateFeedbackStatus(env, feedbackId, status),
+    getPendingFeedback: (limit?: number) => getPendingFeedback(env, limit),
+  };
+}

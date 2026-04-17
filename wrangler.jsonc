@@ -10,15 +10,21 @@
     "directory": "."
   },
   "vars": {
-    "ALLOW_INSECURE_DEV_AUTH": "false"
+    "ALLOW_INSECURE_DEV_AUTH": "false",
+    // Comma-separated user IDs permitted to access /api/admin/* routes.
+    // Leave empty in production until admin IDs are known.
+    "ADMIN_USER_IDS": ""
   },
   "env": {
     "production": {
-      "vars": {}
+      "vars": {
+        "ADMIN_USER_IDS": ""
+      }
     },
     "local": {
       "vars": {
-        "ALLOW_INSECURE_DEV_AUTH": "true"
+        "ALLOW_INSECURE_DEV_AUTH": "true",
+        "ADMIN_USER_IDS": "local-admin"
       },
       "d1_databases": [
         {

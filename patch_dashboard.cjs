@@ -124,9 +124,15 @@ const newHtml = `<div class="logo-tag" id="logoTag" style="display:none;">Du vs.
         if(hour >= 5 && hour < 12) greeting = "Guten Morgen";
         else if(hour >= 12 && hour < 18) greeting = "Guten Tag";
         
-        const username = localStorage.getItem('schuss_username') || "Schulze";
-        document.getElementById('pdGreeting').innerHTML = greeting + ', <span class="pd-name" style="color:var(--accent)">' + username + '</span>!';
-        document.getElementById('pdProfileInitial').innerText = username.charAt(0).toUpperCase();
+        const pdGreeting = document.getElementById('pdGreeting');
+        pdGreeting.textContent = greeting + ', ';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'pd-name';
+        nameSpan.style.color = 'var(--accent)';
+        nameSpan.textContent = username;
+        pdGreeting.appendChild(nameSpan);
+        pdGreeting.appendChild(document.createTextNode('!'));
+        document.getElementById('pdProfileInitial').textContent = username.charAt(0).toUpperCase();
         
         const options = { year: 'numeric', month: 'short', day: 'numeric' };
         document.getElementById('pdDate').innerText = new Date().toLocaleDateString('de-DE', options);

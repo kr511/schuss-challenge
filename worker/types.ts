@@ -41,14 +41,18 @@ export interface D1Database {
   prepare(query: string): D1PreparedStatement;
 }
 
+export type FeedbackType = 'bug' | 'feature_request' | 'general';
+export type FeedbackStatus = 'pending' | 'sent' | 'failed' | 'done' | 'archived';
+
 export interface Feedback {
   id: string;
   userEmail: string;
-  feedbackType: 'bug' | 'feature_request' | 'general';
+  feedbackType: FeedbackType;
   title: string;
   message: string;
   sentAt: number;
-  status: 'pending' | 'sent' | 'failed';
+  status: FeedbackStatus;
+  updatedAt: number | null;
 }
 
 export interface Env {
@@ -56,6 +60,8 @@ export interface Env {
   ALLOW_INSECURE_DEV_AUTH?: string;
   SENDGRID_API_KEY?: string;
   ADMIN_EMAIL?: string;
+  /** Comma-separated list of user IDs that are allowed to hit /api/admin/* routes. */
+  ADMIN_USER_IDS?: string;
   ASSETS?: {
     fetch(request: Request): Promise<Response>;
   };

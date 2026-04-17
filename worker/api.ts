@@ -1,6 +1,7 @@
 import { z, ZodError } from "zod";
 import {
   getAchievements,
+  getAllFeedback,
   getSessionsByUser,
   getStreakState,
   saveGameSession,
@@ -13,7 +14,7 @@ import {
   setActivity,
   getLiveActivity,
 } from "./db";
-import type { D1Database, Env, GameMode } from "./types";
+import type { D1Database, Env, Feedback, FeedbackStatus, GameMode } from "./types";
 
 type ApiErrorShape = {
   error: true;
@@ -48,6 +49,16 @@ const feedbackInputSchema = z.object({
   message: z.string().trim().min(10).max(5000),
 });
 
+const feedbackStatusSchema = z.enum(["pending", "sent", "failed", "done", "archived"]);
+
+const feedbackPatchSchema = z.object({
+  status: feedbackStatusSchema,
+});
+
+// UUID v4 shape used by crypto.randomUUID()
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+
 const leaderboardQuerySchema = z.object({
   mode: modeSchema.default("standard"),
   period: periodSchema.default("weekly"),
@@ -64,14 +75,42 @@ class ApiHttpError extends Error {
   }
 }
 
-function json(data: unknown, status = 200): Response {
+const ALLOWED_ORIGINS: readonly string[] = [
+  "https://schuss-challenge.eliaskummel.workers.dev",
+  "http://localhost:8787",
+  "http://127.0.0.1:8787",
+];
+
+function pickAllowedOrigin(request: Request, env: Env): string {
+  const origin = request.headers.get("Origin");
+  if (!origin) return "";
+  if (ALLOWED_ORIGINS.includes(origin)) return origin;
+  // Allow any localhost origin while dev auth is enabled so `wrangler dev`
+  // works from arbitrary ports without config churn.
+  if (env.ALLOW_INSECURE_DEV_AUTH === "true" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+    return origin;
+  }
+  return "";
+}
+
+function corsHeaders(origin: string, methods = "GET,POST,OPTIONS"): Record<string, string> {
+  const headers: Record<string, string> = {
+    "access-control-allow-headers": "content-type,authorization,x-dev-user-id",
+    "access-control-allow-methods": methods,
+    "vary": "Origin",
+  };
+  if (origin) {
+    headers["access-control-allow-origin"] = origin;
+  }
+  return headers;
+}
+
+function json(data: unknown, status = 200, allowOrigin = ""): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "content-type,authorization,x-dev-user-id",
-      "access-control-allow-methods": "GET,POST,OPTIONS",
+      ...corsHeaders(allowOrigin),
     },
   });
 }
@@ -130,6 +169,32 @@ function getAuthenticatedUserId(request: Request, env: Env, url: URL): string | 
 
   return null;
 }
+
+function getAdminUserIds(env: Env): Set<string> {
+  const raw = env.ADMIN_USER_IDS?.trim() ?? "";
+  if (!raw) return new Set();
+  return new Set(
+    raw.split(",").map((id) => id.trim()).filter((id) => id.length > 0),
+  );
+}
+
+function isAdminUser(userId: string, env: Env): boolean {
+  return getAdminUserIds(env).has(userId);
+}
+
+function withCors(response: Response, origin: string): Response {
+  if (!origin) return response;
+  const headers = new Headers(response.headers);
+  headers.set("access-control-allow-origin", origin);
+  const existingVary = headers.get("vary");
+  headers.set("vary", existingVary && !/\borigin\b/i.test(existingVary) ? `${existingVary}, Origin` : "Origin");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 
 function toIsoDateUTC(epochMillis: number): string {
   return new Date(epochMillis).toISOString().slice(0, 10);
@@ -310,13 +375,36 @@ async function handlePostFeedback(request: Request, env: Env): Promise<Response>
 }
 
 async function handleGetFeedbacks(env: Env): Promise<Response> {
-  const result = await env.DB.prepare(
-    "SELECT * FROM feedback ORDER BY sent_at DESC"
-  ).all<Feedback>();
+  const feedbacks: Feedback[] = await getAllFeedback(env);
+  return json({
+    ok: true,
+    feedbacks,
+  });
+}
+
+async function handlePatchFeedback(request: Request, env: Env, feedbackId: string): Promise<Response> {
+  if (!UUID_REGEX.test(feedbackId)) {
+    throw new ApiHttpError(400, "INVALID_ID", "Feedback id must be a UUID");
+  }
+
+  const payload = await parseJson(request, feedbackPatchSchema);
+  const status: FeedbackStatus = payload.status;
+
+  const existing = await env.DB.prepare(
+    "SELECT id FROM feedback WHERE id = ? LIMIT 1",
+  ).bind(feedbackId).first<{ id: string }>();
+
+  if (!existing?.id) {
+    throw new ApiHttpError(404, "NOT_FOUND", "Feedback not found");
+  }
+
+  await updateFeedbackStatus(env, feedbackId, status);
 
   return json({
     ok: true,
-    feedbacks: result.results || [],
+    feedbackId,
+    status,
+    message: "Feedback status updated",
   });
 }
 
@@ -345,13 +433,14 @@ async function handleGetLiveActivity(env: Env): Promise<Response> {
 
 
 export async function handleApiRequest(request: Request, env: Env): Promise<Response> {
+  const origin = pickAllowedOrigin(request, env);
+
+
   if (request.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
       headers: {
-        "access-control-allow-origin": "*",
-        "access-control-allow-headers": "content-type,authorization,x-dev-user-id",
-        "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
+        ...corsHeaders(origin, "GET,POST,PATCH,OPTIONS"),
         "access-control-max-age": "86400",
       },
     });
@@ -362,87 +451,106 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
 
   try {
     if (!hasDatabase(env)) {
-      return serviceUnavailableError('D1 binding "DB" is not configured for this worker');
+      return withCors(serviceUnavailableError('D1 binding "DB" is not configured for this worker'), origin);
     }
 
     if (path === "/api/leaderboard" && request.method === "GET") {
-      return await handleGetLeaderboard(url, env);
+      return withCors(await handleGetLeaderboard(url, env), origin);
     }
 
-    // Feedback endpoint doesn't need authentication
+    // Feedback submission does not require authentication
     if (path === "/api/feedback" && request.method === "POST") {
-      return await handlePostFeedback(request, env);
+      return withCors(await handlePostFeedback(request, env), origin);
     }
 
-    // Admin endpoint to get all feedbacks
-    if (path === "/api/admin/feedbacks" && request.method === "GET") {
-      return await handleGetFeedbacks(env);
-    }
-
-    // Admin endpoint to update feedback status
-    if (path.startsWith("/api/admin/feedbacks/") && request.method === "PATCH") {
-      const feedbackId = path.split("/").pop();
-      return await handlePatchFeedback(request, env, feedbackId);
-    }
-
-    // Activity endpoint
+    // Public live activity feed (no auth required)
     if (path === "/api/activity/live" && request.method === "GET") {
-      return await handleGetLiveActivity(env);
+      return withCors(await handleGetLiveActivity(env), origin);
     }
-    
-    // Profile endpoint (public)
+
+    // Public profile lookup (no auth required)
     if (path.startsWith("/api/profile/") && request.method === "GET") {
-      return await handleGetProfile(url, env);
+      return withCors(await handleGetProfile(url, env), origin);
     }
 
     const userId = getAuthenticatedUserId(request, env, url);
     if (!userId) {
-      return authError(
-        env.ALLOW_INSECURE_DEV_AUTH === "true"
-          ? "Missing x-dev-user-id for local development"
-          : "User-scoped API routes are disabled until secure authentication is configured",
+      return withCors(
+        authError(
+          env.ALLOW_INSECURE_DEV_AUTH === "true"
+            ? "Missing x-dev-user-id for local development"
+            : "User-scoped API routes are disabled until secure authentication is configured",
+        ),
+        origin,
       );
     }
 
-    // New profile and activity routes
+    // Admin endpoints require both authentication AND allow-list membership.
+    if (path.startsWith("/api/admin/")) {
+      if (!isAdminUser(userId, env)) {
+        return withCors(
+          json({ error: true, code: "FORBIDDEN", message: "Admin privileges required" }, 403),
+          origin,
+        );
+      }
+
+      if (path === "/api/admin/feedbacks" && request.method === "GET") {
+        return withCors(await handleGetFeedbacks(env), origin);
+      }
+
+      if (path.startsWith("/api/admin/feedbacks/") && request.method === "PATCH") {
+        const feedbackId = path.split("/").pop() ?? "";
+        return withCors(await handlePatchFeedback(request, env, feedbackId), origin);
+      }
+
+      return withCors(
+        json({ error: true, code: "NOT_FOUND", message: "Admin route not found" }, 404),
+        origin,
+      );
+    }
+
+    // Authenticated profile + activity routes
     if (path === "/api/profile" && request.method === "POST") {
-      return await handlePostProfile(request, env, userId);
+      return withCors(await handlePostProfile(request, env, userId), origin);
     }
     if (path === "/api/activity/start" && request.method === "POST") {
-      return await handleSetActivity(request, env, userId);
+      return withCors(await handleSetActivity(request, env, userId), origin);
     }
 
     if (path === "/api/sessions" && request.method === "POST") {
-      return await handlePostSession(request, env, userId);
+      return withCors(await handlePostSession(request, env, userId), origin);
     }
     if (path === "/api/sessions" && request.method === "GET") {
-      return await handleGetSessions(url, env, userId);
+      return withCors(await handleGetSessions(url, env, userId), origin);
     }
     if (path === "/api/stats" && request.method === "GET") {
-      return await handleGetStats(env, userId);
+      return withCors(await handleGetStats(env, userId), origin);
     }
     if (path === "/api/achievements" && request.method === "POST") {
-      return await handlePostAchievement(request, env, userId);
+      return withCors(await handlePostAchievement(request, env, userId), origin);
     }
     if (path === "/api/achievements" && request.method === "GET") {
-      return await handleGetAchievements(env, userId);
+      return withCors(await handleGetAchievements(env, userId), origin);
     }
 
-    return json({ error: true, code: "NOT_FOUND", message: "Route not found" }, 404);
+    return withCors(json({ error: true, code: "NOT_FOUND", message: "Route not found" }, 404), origin);
   } catch (err) {
     if (err instanceof ApiHttpError) {
       if (err.code === "VALIDATION_ERROR") {
-        return validationError(err.message);
+        return withCors(validationError(err.message), origin);
       }
-      return json({ error: true, code: err.code, message: err.message }, err.status);
+      return withCors(json({ error: true, code: err.code, message: err.message }, err.status), origin);
     }
-    return json(
-      {
-        error: true,
-        code: "INTERNAL_ERROR",
-        message: "An unexpected server error occurred",
-      },
-      500,
+    return withCors(
+      json(
+        {
+          error: true,
+          code: "INTERNAL_ERROR",
+          message: "An unexpected server error occurred",
+        },
+        500,
+      ),
+      origin,
     );
   }
 }

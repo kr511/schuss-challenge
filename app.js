@@ -1704,7 +1704,8 @@ function fbSetDuel(data) {
   // Title
   const titleEl = document.getElementById('fbResultTitle');
   const name = data.opponent || data.discipline;
-  if (titleEl) titleEl.innerHTML = `${name} — <span style="color:${meta.color}">${meta.text}</span>`;
+  // XSS hardening: escape opponent/discipline name and status text; color is from static FB_RESULT_META.
+  if (titleEl) titleEl.innerHTML = escHtml(name) + ' — <span style="color:' + escHtml(meta.color) + '">' + escHtml(meta.text) + '</span>';
   // Score
   const scoreEl = document.getElementById('fbResultScore');
   if (scoreEl) scoreEl.textContent = data.score || '';
@@ -2705,16 +2706,21 @@ function refreshPremiumDashboard() {
     badgesGrid.innerHTML = displayBadges.map((badge, idx) => {
       const isUnlocked = unlockedAchievements.includes(badge);
       const colors = badgeColors[badge.category] || badgeColors.locked;
-      const nameLines = badge.name.length > 12
-        ? badge.name.substring(0, 12).split(' ').slice(0, -1).join('<br>') + '<br>' + badge.name.substring(12).split(' ').slice(1).join(' ')
-        : badge.name.replace(/ /g, '<br>');
+      // XSS hardening: escape name parts before rejoining with <br>.
+      const rawNameParts = badge.name.length > 12
+        ? [
+            ...badge.name.substring(0, 12).split(' ').slice(0, -1),
+            badge.name.substring(12).split(' ').slice(1).join(' '),
+          ]
+        : badge.name.split(' ');
+      const nameLines = rawNameParts.map(p => escHtml(p)).join('<br>');
       const progressText = isUnlocked
         ? 'Freigeschaltet'
-        : `+${badge.xp} XP`;
+        : `+${escHtml(badge.xp)} XP`;
 
       return `
         <div class="badge-item animate-in stagger-${(idx % 4) + 1}" style="background:linear-gradient(145deg, ${colors.bg} 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid ${colors.border};border-top:1px solid ${colors.top};border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px ${colors.glow};${!isUnlocked ? 'opacity:0.6;' : ''}">
-          <div style="font-size:1.7rem;margin-bottom:5px;${!isUnlocked ? 'filter:grayscale(1);' : ''}">${badge.icon}</div>
+          <div style="font-size:1.7rem;margin-bottom:5px;${!isUnlocked ? 'filter:grayscale(1);' : ''}">${escHtml(badge.icon)}</div>
           <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">${nameLines}</div>
           <div style="font-size:0.58rem;color:${colors.text};font-weight:500;">${progressText}</div>
         </div>
@@ -4914,7 +4920,7 @@ function renderLeaderboard(entries, scope = getActiveLeaderboardScope()) {
   setLeaderboardMarkup(markup);
 }
 
-function escHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function escHtml(s) { return String(s ?? '').replace(/[&<>"'`\/]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#x60;', '/': '&#x2F;' }[c])); }
 
 /* ─── FIREBASE SYNC (zentral) ────────────── */
 function buildFirebaseEntry() {
