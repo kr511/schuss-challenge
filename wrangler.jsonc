@@ -3,52 +3,33 @@
   "name": "schuss-challenge",
   "main": "worker/index.ts",
   "compatibility_date": "2025-09-27",
-  "observability": {
-    "enabled": true
-  },
-  "assets": {
-    "directory": "."
-  },
+  "observability": { "enabled": true },
+  "assets": { "directory": "." },
+  "compatibility_flags": ["nodejs_compat"],
+
   "vars": {
+    "SUPABASE_URL": "https://fknftkvozwfkcarldzms.supabase.co",
     "ALLOW_INSECURE_DEV_AUTH": "false",
     // Comma-separated user IDs permitted to access /api/admin/* routes.
-    // MUST be populated before deploying to production — an empty list means
-    // every admin request returns 403 FORBIDDEN (by design, see worker/api.ts
-    // isAdminUser). Rotate via `wrangler secret put ADMIN_USER_IDS` or edit
-    // this file and redeploy. Example: "uuid-a,uuid-b,uuid-c"
     "ADMIN_USER_IDS": ""
   },
+
   "env": {
     "production": {
       "vars": {
-        // Production admin allow-list. Populate before first admin action.
+        "SUPABASE_URL": "https://fknftkvozwfkcarldzms.supabase.co",
         "ADMIN_USER_IDS": ""
       }
+      // Secrets (not committed): SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET
+      // Deploy with: wrangler secret put SUPABASE_SERVICE_KEY --env production
     },
     "local": {
       "vars": {
+        "SUPABASE_URL": "https://fknftkvozwfkcarldzms.supabase.co",
         "ALLOW_INSECURE_DEV_AUTH": "true",
         "ADMIN_USER_IDS": "local-admin"
-      },
-      "d1_databases": [
-        {
-          "binding": "DB",
-          "database_name": "schuss_challenge",
-          "database_id": "local",
-          "migrations_dir": "migrations"
-        }
-      ]
+        // Secrets for local dev: add to .dev.vars (see README)
+      }
     }
-  },
-  "compatibility_flags": [
-    "nodejs_compat"
-  ],
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "schuss_challenge",
-      "database_id": "d103ab03-129b-48db-bdff-b52c73cc9fbb",
-      "migrations_dir": "migrations"
-    }
-  ]
+  }
 }
