@@ -62,10 +62,14 @@
     };
 
     let fbDb = null;
+    let fbDbListeners = [];
+    function onFbDbReady(cb) { if (fbDb) cb(fbDb); else fbDbListeners.push(cb); }
     window.addEventListener('load', () => {
       if (typeof firebase !== 'undefined') {
         if (firebase.apps.length === 0) firebase.initializeApp(FB_CONFIG);
         fbDb = firebase.database();
+        fbDbListeners.forEach(cb => cb(fbDb));
+        fbDbListeners = [];
       }
     });
 
@@ -329,7 +333,7 @@
         ${active.length === 0
           ? html`<div style=${{ textAlign:'center', padding:'60px', color:'#6b7280' }}>🎯 Niemand aktiv gerade</div>`
           : html`<div style=${{ display:'grid', gap:'12px', gridTemplateColumns:'repeat(auto-fill, minmax(260px,1fr))' }}>
-              ${active.map((a,i) => html`<div key=${i} style=${{
+              ${active.map((a,i) => html`<div key=${(a.user_id||'') + '_' + (a.discipline||i)} style=${{
                 background:'#161625', border:'1px solid #1f2937', borderRadius:'10px', padding:'16px 20px',
               }}>
                 <div style=${{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
@@ -348,6 +352,8 @@
       const [form, setForm] = React.useState({ title:'', message:'', priority:'medium', icon:'📢' });
       const [busy,    setBusy]    = React.useState(false);
       const [success, setSuccess] = React.useState(false);
+      const [fbReady, setFbReady] = React.useState(!!fbDb);
+      React.useEffect(() => { if (!fbDb) onFbDbReady(() => setFbReady(true)); }, []);
 
       async function create() {
         if (!form.title || !form.message) { alert('Bitte Titel und Nachricht ausfüllen!'); return; }
@@ -385,7 +391,7 @@
         <div style=${{ background:'#161625', border:'1px solid #1f2937', borderRadius:'12px', padding:'28px' }}>
           <h2 style=${{ marginBottom:'20px', color:'#f3f4f6' }}>🔔 Neues Update erstellen</h2>
           ${success && html`<div style=${{ padding:'12px', background:'rgba(16,185,129,0.15)', color:'#10b981', border:'1px solid #10b981', borderRadius:'8px', marginBottom:'16px', fontWeight:600 }}>✅ Update erfolgreich erstellt!</div>`}
-          ${!fbDb && !success && html`<div style=${{ padding:'10px 14px', background:'rgba(245,158,11,0.1)', color:'#f59e0b', border:'1px solid rgba(245,158,11,0.3)', borderRadius:'8px', marginBottom:'16px', fontSize:'13px' }}>⚠️ Firebase nicht verbunden — Fallback zu localStorage.</div>`}
+          ${!fbReady && !success && html`<div style=${{ padding:'10px 14px', background:'rgba(245,158,11,0.1)', color:'#f59e0b', border:'1px solid rgba(245,158,11,0.3)', borderRadius:'8px', marginBottom:'16px', fontSize:'13px' }}>⚠️ Firebase nicht verbunden — Fallback zu localStorage.</div>`}
           <label style=${{ display:'block', marginBottom:'6px', fontWeight:600, color:'#d1d5db', fontSize:'14px' }}>Titel *</label>
           <input type="text" value=${form.title} onInput=${upd('title')} placeholder="z.B. Neue Features verfügbar!"/>
           <label style=${{ display:'block', marginBottom:'6px', fontWeight:600, color:'#d1d5db', fontSize:'14px' }}>Nachricht *</label>
