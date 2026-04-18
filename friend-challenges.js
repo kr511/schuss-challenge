@@ -262,6 +262,9 @@ const FriendChallenges = {
     const overlay = document.createElement('div');
     overlay.id = 'challengeOverlay';
     overlay.className = 'challenge-overlay';
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) this.closeChallengeOverlay();
+    });
     overlay.innerHTML = `
       <div class="challenge-card">
         <button class="challenge-close" onclick="FriendChallenges.closeChallengeOverlay()">✕</button>
@@ -413,6 +416,7 @@ const FriendChallenges = {
         });
       }
     } catch (error) {
+      this.closeChallengeOverlay();
       showNotification(`❌ ${error.message}`, 'error');
     }
   },

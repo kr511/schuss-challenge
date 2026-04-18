@@ -673,7 +673,15 @@ function toggleProfileMenu() {
     refreshProfileSheet();
     ov.classList.add('active');
     if (icon) icon.classList.add('active');
-    
+
+    document.body.style.overflow = 'hidden';
+    if (window.innerWidth <= 768) {
+      const scrollY = window.scrollY || window.pageYOffset;
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    }
+
     // Blur
     if (dash) { dash.style.transition = transition; dash.style.filter = 'blur(10px) brightness(0.6)'; }
     if (hdrLogo) { hdrLogo.style.transition = transition; hdrLogo.style.filter = 'blur(10px) brightness(0.6)'; }
