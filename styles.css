@@ -6823,12 +6823,16 @@ body.keyboard-visible .bottom-sheet {
   z-index: 5000;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s;
+  visibility: hidden;
+  overflow: hidden;
+  transition: opacity 0.3s, visibility 0s linear 0.3s;
 }
 
 .friends-overlay.active {
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
+  transition: opacity 0.3s, visibility 0s linear 0s;
 }
 
 .friends-sheet {

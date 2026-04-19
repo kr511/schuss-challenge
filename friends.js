@@ -636,17 +636,107 @@ const FriendsSystem = (function() {
   }
 
   /**
-   * Öffnet das Profil-Overlay eines Freundes (delegiert an FriendsUI.showFriendProfile)
+   * Öffnet das Profil-Overlay eines Freundes.
+   * Self-contained: nutzt FriendsUI.showFriendProfile falls geladen,
+   * sonst lokale Implementierung.
    */
   function openFriendProfile(friendId, username) {
     if (typeof window.FriendsUI !== 'undefined' && typeof window.FriendsUI.showFriendProfile === 'function') {
       window.FriendsUI.showFriendProfile(friendId, username);
     } else {
-      showFriendToast('❌ Profil-Ansicht nicht verfügbar', 'error');
+      showFriendProfileOverlay(friendId, username);
     }
 
     if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) {
       MobileFeatures.triggerHaptic('light');
+    }
+  }
+
+  /**
+   * Lokales Profil-Overlay (wenn FriendsUI nicht geladen ist).
+   * Lädt /api/profile/:uid und zeigt Best-Stats + Herausfordern-Button.
+   */
+  async function showFriendProfileOverlay(uid, username) {
+    document.getElementById('friendProfileOverlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'friendProfileOverlay';
+    overlay.className = 'friend-profile-overlay';
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    overlay.innerHTML = `
+      <div class="friend-profile-sheet">
+        <div class="friend-profile-header">
+          <span>👤 ${escapeHtml(username)}</span>
+          <button onclick="document.getElementById('friendProfileOverlay').remove()" class="friend-profile-close">✕</button>
+        </div>
+        <div id="friendProfileBody" style="padding:16px;text-align:center;color:rgba(255,255,255,0.5);">
+          ⏳ Lade Profil…
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => overlay.classList.add('active'), 10);
+
+    const challengeOnClick = (typeof window.AsyncChallenge !== 'undefined' && window.AsyncChallenge.createChallenge)
+      ? `window.AsyncChallenge.createChallenge('${uid}', ${JSON.stringify(username)});document.getElementById('friendProfileOverlay').remove();`
+      : `document.getElementById('friendProfileOverlay').remove();`;
+
+    try {
+      const res = await fetch(`/api/profile/${encodeURIComponent(uid)}`);
+      const data = await res.json();
+      const body = document.getElementById('friendProfileBody');
+      if (!body) return;
+
+      if (data.error || data.privacySettings === 'private') {
+        body.innerHTML = `
+          <div style="padding:24px 16px;color:rgba(255,255,255,0.4);">
+            🔒 Profil privat oder noch nicht synchronisiert.
+          </div>
+          <button class="friend-profile-challenge-btn" onclick="${challengeOnClick}">
+            ⚔️ Trotzdem herausfordern
+          </button>
+        `;
+        return;
+      }
+
+      let bestStats = {};
+      try {
+        bestStats = data.bestStats ? JSON.parse(data.bestStats) : {};
+      } catch {
+        bestStats = {};
+      }
+      const statEntries = Object.entries(bestStats);
+
+      body.innerHTML = `
+        <div class="friend-profile-name">${escapeHtml(data.displayName || username)}</div>
+        ${statEntries.length > 0 ? `
+          <div class="friend-profile-grid">
+            ${statEntries.map(([disc, val]) => `
+              <div class="friend-stat-card">
+                <div class="friend-stat-label">${escapeHtml(disc.toUpperCase())} PB</div>
+                <div class="friend-stat-value">${
+                  typeof val === 'object' && val !== null
+                    ? (val.score !== undefined ? Number(val.score).toFixed(1) : '–')
+                    : escapeHtml(String(val))
+                }</div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <div style="color:rgba(255,255,255,0.4);padding:16px 0;font-size:0.85rem;">
+            Noch keine Stats synchronisiert.
+          </div>
+        `}
+        <button class="friend-profile-challenge-btn" onclick="${challengeOnClick}">
+          ⚔️ Herausfordern
+        </button>
+      `;
+    } catch {
+      const body = document.getElementById('friendProfileBody');
+      if (body) body.innerHTML = '<div style="color:#f06050;padding:16px;">Konnte Profil nicht laden.</div>';
     }
   }
 
@@ -924,19 +1014,20 @@ const FriendsSystem = (function() {
 
 // Initialisierung
 if (typeof window !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      FriendsSystem.init().then(() => {
-        FriendsSystem.addFriendsButton();
-        // Global verfügbar machen
-        window.FriendsSystem = FriendsSystem;
-      });
-    });
-  } else {
+  // Sofort global exportieren, damit der Freunde-Button sofort reagieren kann
+  // (init() ist async und braucht Firebase; ohne diesen Early-Export verpufft
+  //  jeder Click auf #friendsButton, bevor init() durchgelaufen ist).
+  window.FriendsSystem = FriendsSystem;
+
+  const bootstrap = () => {
     FriendsSystem.init().then(() => {
       FriendsSystem.addFriendsButton();
-      // Global verfügbar machen
-      window.FriendsSystem = FriendsSystem;
     });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap);
+  } else {
+    bootstrap();
   }
 }
