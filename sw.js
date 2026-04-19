@@ -3,7 +3,7 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v4.0' // Release: Security-Hardening, Backend-Validierung, UI-Fixes
+const CACHE_VERSION = 'v4.1' // Release: Social Integration – Freundes-Profil, Revanche, Kommentare, Leaderboard-Zeitraum
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 
 const PRECACHE = [

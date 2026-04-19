@@ -3,6 +3,8 @@
    - Erweiterte Statistiken
    - Suchfunktion
    - Filter nach Waffe/Disziplin
+   - Zeitraum: Heute / Woche / Gesamt (via Worker API)
+   - Friends-only Scope
    - Top 3 Medaillen mit spezieller Hervorhebung
    ═══════════════════════════════════════════════════════ */
 
@@ -10,7 +12,9 @@ const LeaderboardModern = {
   // ─── State ───
   allEntries: [],        // Alle geladenen Einträge
   filteredEntries: [],   // Nach Filter/Suche
-  currentFilter: 'all',  // 'all', 'lg', 'kk', discipline key
+  currentFilter: 'all',  // 'all', 'lg', 'kk'
+  currentPeriod: 'all',  // 'daily' | 'weekly' | 'all'
+  friendsOnly: false,
   searchQuery: '',
   isLoading: false,
 
@@ -25,9 +29,11 @@ const LeaderboardModern = {
   // ═══════════════════════════════════════════
 
   /** Modernes Leaderboard laden */
-  async load(scope = 'global', period = 'alltime') {
+  async load(scope = 'global', period = null) {
     if (this.isLoading) return;
     this.isLoading = true;
+
+    const resolvedPeriod = period || this.currentPeriod;
 
     const container = document.querySelector('.lb-panel[data-lb-list]');
     if (!container) {
@@ -35,57 +41,63 @@ const LeaderboardModern = {
       return;
     }
 
-    container.innerHTML = '<div class="lb-modern-loading">⏳ Lade Weltrangliste...</div>';
+    container.innerHTML = '<div class="lb-modern-loading">⏳ Lade Ranking...</div>';
 
-    // NEU: Warte auf Firebase mit Retry-Logic (max 10 Versuche = 5 Sekunden)
-    const waitForFirebase = async (maxRetries = 10) => {
-      for (let i = 0; i < maxRetries; i++) {
-        if (typeof fbReady !== 'undefined' && fbReady && typeof fbDb !== 'undefined' && fbDb) {
-          return true;
-        }
-        // Warte 500ms und versuche erneut
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      return false;
-    };
-
-    const fbIsReady = await waitForFirebase();
-
-    if (!fbIsReady) {
-      console.warn('[LeaderboardModern] Firebase nicht bereit nach 5 Sekunden');
-      container.innerHTML = `
-        <div class="lb-modern-error">
-          🔌 Firebase nicht bereit.<br>
-          <small>Bitte Seite neu laden (F5).</small>
-        </div>
-      `;
-      this.isLoading = false;
-      return;
-    }
-
-    // JETZT laden - Firebase ist bereit
     try {
-      console.debug('[LeaderboardModern] Lade von Firebase...');
+      if (resolvedPeriod !== 'all') {
+        // Worker API für Daily/Weekly
+        const res = await fetch(`/api/leaderboard?period=${resolvedPeriod}&mode=standard`);
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        const data = await res.json();
+        this.allEntries = (data.leaderboard || []).map(e => ({
+          uid: e.userId,
+          name: e.displayName,
+          score: e.bestScore,
+          gamesPlayed: e.gamesPlayed,
+          weapon: null, // D1-Leaderboard hat kein Weapon-Feld
+          xp: 0,
+          wins: 0,
+          losses: 0,
+          streak: 0,
+          rankIcon: '🎯',
+          rank: 'Schütze',
+        }));
+      } else {
+        // Firebase für All-Time (bestehende Logik)
+        const waitForFirebase = async (maxRetries = 10) => {
+          for (let i = 0; i < maxRetries; i++) {
+            if (typeof fbReady !== 'undefined' && fbReady && typeof fbDb !== 'undefined' && fbDb) return true;
+            await new Promise(r => setTimeout(r, 500));
+          }
+          return false;
+        };
 
-      // Lade Top 100 aus Firebase
-      const snapshot = await fbDb.ref('leaderboard_v2')
-        .orderByChild('score')
-        .limitToLast(100)
-        .once('value');
+        const fbIsReady = await waitForFirebase();
+        if (!fbIsReady) {
+          container.innerHTML = `
+            <div class="lb-modern-error">
+              🔌 Firebase nicht bereit.<br>
+              <small>Bitte Seite neu laden (F5).</small>
+            </div>
+          `;
+          this.isLoading = false;
+          return;
+        }
 
-      const entries = [];
-      snapshot.forEach(child => {
-        entries.push(child.val());
-      });
-      entries.reverse(); // Höchster Score zuerst
+        const snapshot = await fbDb.ref('leaderboard_v2')
+          .orderByChild('score')
+          .limitToLast(100)
+          .once('value');
 
-      console.debug(`[LeaderboardModern] ${entries.length} Einträge geladen`);
+        const entries = [];
+        snapshot.forEach(child => entries.push(child.val()));
+        entries.reverse();
+        this.allEntries = entries;
+      }
 
-      this.allEntries = entries;
-      this.filteredEntries = entries;
-
-      // UI rendern
-      this.render(entries, scope);
+      console.debug(`[LeaderboardModern] ${this.allEntries.length} Einträge geladen (period=${resolvedPeriod})`);
+      this.filteredEntries = this.allEntries;
+      this.applyFilters();
 
     } catch (error) {
       console.error('[LeaderboardModern] Ladefehler:', error);
@@ -101,20 +113,28 @@ const LeaderboardModern = {
     if (!container) return;
 
     if (!entries || entries.length === 0) {
-      const emptyText = scope === 'global'
-        ? 'Noch keine Einträge. Sei der Erste! 🏆'
-        : `Noch keine Einträge für ${this.getScopeLabel(scope)}.`;
+      let emptyText;
+      if (this.friendsOnly) {
+        emptyText = '👥 Keine Freunde im Ranking.<br><small>Füge Freunde hinzu, um sie hier zu sehen!</small>';
+      } else if (scope !== 'global') {
+        emptyText = `Noch keine Einträge für ${this.getScopeLabel(scope)}.`;
+      } else {
+        emptyText = 'Noch keine Einträge. Sei der Erste! 🏆';
+      }
       container.innerHTML = `<div class="lb-modern-empty">${emptyText}</div>`;
       return;
     }
 
-    // Suchleiste einfügen
+    // Weapon-Filter bei Daily/Weekly ausgrauen (D1 hat kein Weapon-Feld)
+    const weaponDisabled = this.currentPeriod !== 'all';
+
+    // Suchleiste + Filter-Panel
     const searchHTML = `
       <div class="lb-modern-search-bar">
-        <input 
-          type="text" 
-          id="lbModernSearch" 
-          class="lb-modern-search-input" 
+        <input
+          type="text"
+          id="lbModernSearch"
+          class="lb-modern-search-input"
           placeholder="🔍 Spieler suchen..."
           oninput="LeaderboardModern.handleSearch(this.value)"
         >
@@ -124,23 +144,37 @@ const LeaderboardModern = {
       </div>
       <div id="lbModernFilterPanel" style="display:none;">
         <div class="lb-modern-filter-chips">
-          <button class="lb-filter-chip ${this.currentFilter === 'all' ? 'active' : ''}" 
-                  onclick="LeaderboardModern.setFilter('all')">
+          <button class="lb-filter-chip ${this.currentFilter === 'all' ? 'active' : ''} ${weaponDisabled ? 'lb-chip-disabled' : ''}"
+                  onclick="${weaponDisabled ? '' : "LeaderboardModern.setFilter('all')"}">
             Alle
           </button>
-          <button class="lb-filter-chip ${this.currentFilter === 'lg' ? 'active' : ''}" 
-                  onclick="LeaderboardModern.setFilter('lg')">
+          <button class="lb-filter-chip ${this.currentFilter === 'lg' ? 'active' : ''} ${weaponDisabled ? 'lb-chip-disabled' : ''}"
+                  onclick="${weaponDisabled ? '' : "LeaderboardModern.setFilter('lg')"}">
             🌬️ Luftgewehr
           </button>
-          <button class="lb-filter-chip ${this.currentFilter === 'kk' ? 'active' : ''}" 
-                  onclick="LeaderboardModern.setFilter('kk')">
+          <button class="lb-filter-chip ${this.currentFilter === 'kk' ? 'active' : ''} ${weaponDisabled ? 'lb-chip-disabled' : ''}"
+                  onclick="${weaponDisabled ? '' : "LeaderboardModern.setFilter('kk')"}">
             🎯 Kleinkaliber
           </button>
+        </div>
+        <div class="lb-modern-filter-divider"></div>
+        <div class="lb-modern-filter-label">Zeitraum</div>
+        <div class="lb-modern-filter-chips">
+          <button class="lb-filter-chip lb-period-chip ${this.currentPeriod === 'daily' ? 'active' : ''}"
+                  onclick="LeaderboardModern.setPeriod('daily')">Heute</button>
+          <button class="lb-filter-chip lb-period-chip ${this.currentPeriod === 'weekly' ? 'active' : ''}"
+                  onclick="LeaderboardModern.setPeriod('weekly')">Woche</button>
+          <button class="lb-filter-chip lb-period-chip ${this.currentPeriod === 'all' ? 'active' : ''}"
+                  onclick="LeaderboardModern.setPeriod('all')">Gesamt</button>
+        </div>
+        <div class="lb-modern-filter-divider"></div>
+        <div class="lb-modern-filter-chips">
+          <button id="lbFriendsChip" class="lb-filter-chip ${this.friendsOnly ? 'active' : ''}"
+                  onclick="LeaderboardModern.toggleFriendsOnly()">👥 Nur Freunde</button>
         </div>
       </div>
     `;
 
-    // Einträge rendern
     const entriesHTML = entries.map((entry, index) => this.renderEntry(entry, index)).join('');
 
     container.innerHTML = `
@@ -157,31 +191,24 @@ const LeaderboardModern = {
     const rank = index + 1;
     const displayName = entry.name || entry.username || 'Anonym';
     const isMe = this.isCurrentUser(entry);
-    const weaponIcon = entry.weapon === 'kk' ? '🎯' : '🌬️';
-    const weaponName = entry.weapon === 'kk' ? 'KK' : 'LG';
+    const weaponIcon = entry.weapon === 'kk' ? '🎯' : entry.weapon === 'lg' ? '🌬️' : '🎯';
+    const weaponName = entry.weapon === 'kk' ? 'KK' : entry.weapon === 'lg' ? 'LG' : '–';
     const score = Number(entry.score ?? entry.xp ?? 0) || 0;
     const xp = Number(entry.xp ?? 0) || 0;
     const wins = Number(entry.wins ?? 0) || 0;
     const losses = Number(entry.losses ?? 0) || 0;
-    const totalGames = wins + losses;
-    const winrate = totalGames > 0 ? Math.round((wins / totalGames) * 100) : 0;
+    const totalGames = wins + losses || Number(entry.gamesPlayed ?? 0) || 0;
+    const winrate = totalGames > 0 && wins > 0 ? Math.round((wins / totalGames) * 100) : null;
     const streak = Number(entry.streak ?? 0) || 0;
-    const rankIcon = entry.rankIcon || '👤';
+    const rankIcon = entry.rankIcon || '🎯';
     const rankName = entry.rank || 'Schütze';
 
     // Top 3 spezielle Klassen
     let rankClass = '';
     let medalIcon = '';
-    if (rank === 1) {
-      rankClass = 'top-1';
-      medalIcon = '🥇';
-    } else if (rank === 2) {
-      rankClass = 'top-2';
-      medalIcon = '🥈';
-    } else if (rank === 3) {
-      rankClass = 'top-3';
-      medalIcon = '🥉';
-    }
+    if (rank === 1) { rankClass = 'top-1'; medalIcon = '🥇'; }
+    else if (rank === 2) { rankClass = 'top-2'; medalIcon = '🥈'; }
+    else if (rank === 3) { rankClass = 'top-3'; medalIcon = '🥉'; }
 
     const meClass = isMe ? 'me' : '';
 
@@ -196,15 +223,16 @@ const LeaderboardModern = {
             ${isMe ? '<span class="lb-modern-me-badge">Du</span>' : ''}
           </div>
           <div class="lb-modern-stats">
-            <span class="lb-modern-stat">${weaponIcon} ${weaponName}</span>
-            <span class="lb-modern-stat">🏆 ${winrate}%</span>
-            <span class="lb-modern-stat">🔥 ${streak}</span>
+            ${entry.weapon ? `<span class="lb-modern-stat">${weaponIcon} ${weaponName}</span>` : ''}
+            ${winrate !== null ? `<span class="lb-modern-stat">🏆 ${winrate}%</span>` : ''}
+            ${streak > 0 ? `<span class="lb-modern-stat">🔥 ${streak}</span>` : ''}
+            ${entry.gamesPlayed ? `<span class="lb-modern-stat">🎮 ${entry.gamesPlayed}</span>` : ''}
           </div>
         </div>
         <div class="lb-modern-score">
           <div class="lb-modern-score-value">${score}</div>
           <div class="lb-modern-score-label">Score</div>
-          <div class="lb-modern-score-sub">${xp} XP</div>
+          ${xp > 0 ? `<div class="lb-modern-score-sub">${xp} XP</div>` : ''}
         </div>
       </div>
     `;
@@ -224,21 +252,33 @@ const LeaderboardModern = {
   toggleFilterPanel() {
     const panel = document.getElementById('lbModernFilterPanel');
     if (panel) {
-      const isVisible = panel.style.display !== 'none';
-      panel.style.display = isVisible ? 'none' : 'block';
+      panel.style.display = panel.style.display !== 'none' ? 'none' : 'block';
     }
   },
 
-  /** Filter setzen */
+  /** Waffe-Filter setzen */
   setFilter(filter) {
+    if (this.currentPeriod !== 'all') return; // Weapon-Filter nur bei All-Time
     this.currentFilter = filter;
-
-    // UI aktualisieren
-    document.querySelectorAll('.lb-filter-chip').forEach(chip => {
+    document.querySelectorAll('.lb-filter-chip:not(.lb-period-chip):not(#lbFriendsChip)').forEach(chip => {
       chip.classList.remove('active');
     });
     event.target.classList.add('active');
+    this.applyFilters();
+  },
 
+  /** Zeitraum-Filter setzen */
+  setPeriod(period) {
+    this.currentPeriod = period;
+    // Wenn Period != all, Waffe-Filter zurücksetzen
+    if (period !== 'all') this.currentFilter = 'all';
+    this.load();
+  },
+
+  /** Friends-only umschalten */
+  toggleFriendsOnly() {
+    this.friendsOnly = !this.friendsOnly;
+    document.getElementById('lbFriendsChip')?.classList.toggle('active', this.friendsOnly);
     this.applyFilters();
   },
 
@@ -246,11 +286,22 @@ const LeaderboardModern = {
   applyFilters() {
     let filtered = this.allEntries;
 
-    // Waffe-Filter
-    if (this.currentFilter === 'lg') {
-      filtered = filtered.filter(e => e.weapon !== 'kk');
-    } else if (this.currentFilter === 'kk') {
-      filtered = filtered.filter(e => e.weapon === 'kk');
+    // Waffe-Filter (nur bei All-Time sinnvoll)
+    if (this.currentPeriod === 'all') {
+      if (this.currentFilter === 'lg') {
+        filtered = filtered.filter(e => e.weapon !== 'kk');
+      } else if (this.currentFilter === 'kk') {
+        filtered = filtered.filter(e => e.weapon === 'kk');
+      }
+    }
+
+    // Friends-only Filter
+    if (this.friendsOnly) {
+      const myId = typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null;
+      const friendUids = (typeof SocialSystem !== 'undefined')
+        ? SocialSystem.getFriends().map(f => f.uid)
+        : [];
+      filtered = filtered.filter(e => e.uid === myId || friendUids.includes(e.uid));
     }
 
     // Such-Filter
@@ -271,16 +322,19 @@ const LeaderboardModern = {
 
   /** Prüfen ob aktueller User */
   isCurrentUser(entry) {
-    const ownerId = getFirebaseOwnerId();
+    const ownerId = typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null;
     return (ownerId && entry.uid === ownerId) ||
-           (G.username && (entry.name === G.username || entry.username === G.username));
+           (typeof G !== 'undefined' && G.username && (entry.name === G.username || entry.username === G.username));
   },
 
   /** Scope-Label */
   getScopeLabel(scope) {
     if (scope === 'global') return 'Global';
-    const disc = DISC[scope];
-    return disc ? disc.name : scope;
+    if (typeof DISC !== 'undefined') {
+      const disc = DISC[scope];
+      return disc ? disc.name : scope;
+    }
+    return scope;
   },
 
   /** HTML escapen */

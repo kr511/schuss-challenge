@@ -22,11 +22,19 @@ const UpdatesSystem = (function() {
   // Demo-Updates (wenn Firebase nicht verfügbar)
   const demoUpdates = [
     {
+      id: 'release_v4_1',
+      title: '👥 Social Update v4.1!',
+      message: 'Freundes-Profile, Revanche-Button, Challenge-Kommentare und Leaderboard-Zeitraum-Filter sind jetzt live!',
+      date: Date.now(),
+      priority: 'high',
+      icon: '🤝',
+    },
+    {
       id: 'release_v4_0',
       title: '🚀 Version 4.0 ist da!',
       message: 'Sicherheits-Updates, stabilere Sync, UI-Fixes und neue Tests. Details im Changelog.',
-      date: Date.now(),
-      priority: 'high',
+      date: Date.now() - (24 * 60 * 60 * 1000),
+      priority: 'medium',
       icon: '🎉',
     },
     {

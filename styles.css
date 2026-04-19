@@ -8224,3 +8224,153 @@ body.keyboard-visible .bottom-sheet {
   }
 }
 
+
+/* ═══════════════════════════════════════════
+   v4.1 SOCIAL INTEGRATION STYLES
+═══════════════════════════════════════════ */
+
+/* ─── Friend Profile Overlay ─── */
+.friend-profile-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px);
+  z-index: 9000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.friend-profile-overlay.active {
+  opacity: 1;
+}
+.friend-profile-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: linear-gradient(160deg, rgba(20,32,14,0.98) 0%, rgba(10,20,8,0.99) 100%);
+  border: 1px solid rgba(122,176,48,0.2);
+  border-bottom: none;
+  border-radius: 24px 24px 0 0;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  transform: translateY(40px);
+  transition: transform 0.25s ease;
+}
+.friend-profile-overlay.active .friend-profile-sheet {
+  transform: translateY(0);
+}
+.friend-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-weight: 700;
+  color: #fff;
+  font-size: 1rem;
+}
+.friend-profile-close {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.6);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.friend-profile-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.friend-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 16px 16px;
+}
+.friend-stat-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+}
+.friend-stat-label {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.friend-stat-value {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #7ab030;
+  font-family: 'Bebas Neue', sans-serif;
+}
+.friend-profile-challenge-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 0 16px 16px;
+  padding: 14px;
+  background: linear-gradient(135deg, #7ab030 0%, #5c8a22 100%);
+  border: none;
+  border-radius: 14px;
+  color: #000;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Async Result – Revanche & Comment ─── */
+.result-rematch-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, #7ab030 0%, #5c8a22 100%);
+  border: none;
+  border-radius: 14px;
+  color: #000;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+.challenge-result-comment {
+  font-style: italic;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.45);
+  margin: 8px 0 12px;
+  padding: 8px 12px;
+  border-left: 2px solid rgba(122,176,48,0.4);
+  text-align: left;
+}
+
+/* ─── Leaderboard – Period & Friends Filter ─── */
+.lb-modern-filter-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.07);
+  margin: 8px 0;
+}
+.lb-modern-filter-label {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+.lb-chip-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}

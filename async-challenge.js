@@ -16,11 +16,19 @@ const AsyncChallenge = (function() {
   // State
   const state = {
     myChallenges: [], // Von mir erstellte Challenges
-    availableChallenges: // Für mich verfügbare Challenges
+    availableChallenges: [], // Für mich verfügbare Challenges
     acceptedChallenges: [], // Von mir angenommene Challenges
     currentChallenge: null, // Aktuell laufende Challenge
+    lastOpponent: null,     // { id, username } für Rematch
+    lastSettings: null,     // Settings der letzten Challenge für Rematch
     initialized: false,
   };
+
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str || '';
+    return d.innerHTML;
+  }
 
   /**
    * Initialisiert das Async-Challenge-System
@@ -51,6 +59,9 @@ const AsyncChallenge = (function() {
       return false;
     }
 
+    const commentEl = document.getElementById('challengeCommentInput');
+    const comment = commentEl ? commentEl.value.trim().slice(0, 120) || null : null;
+
     // Challenge-Daten
     const challengeData = {
       id: generateChallengeId(),
@@ -64,6 +75,7 @@ const AsyncChallenge = (function() {
       difficulty: G.diff,
       shots: G.shots,
       burst: G.burst,
+      comment: comment,
       createdAt: Date.now(),
       status: 'pending', // pending, accepted, completed, expired
       expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 Tage gültig
@@ -95,6 +107,26 @@ const AsyncChallenge = (function() {
       showChallengeToast('❌ Fehler beim Erstellen', 'error');
       return false;
     }
+  }
+
+  /**
+   * Startet eine Revanche mit dem letzten Gegner und den Original-Settings
+   */
+  function rematch() {
+    if (!state.lastOpponent) return;
+    const { id, username } = state.lastOpponent;
+    const s = state.lastSettings;
+    if (s) {
+      G.discipline = s.discipline;
+      G.weapon = s.weapon;
+      G.dist = s.distance;
+      G.diff = s.difficulty;
+      G.shots = s.shots;
+      G.burst = s.burst;
+    }
+    document.querySelector('.async-result-overlay')?.remove();
+    createChallenge(id, username);
+    if (typeof triggerHaptic === 'function') triggerHaptic();
   }
 
   /**
@@ -201,7 +233,8 @@ const AsyncChallenge = (function() {
       // Duell starten mit Challenge-Einstellungen
       startChallengeDuel(challenge);
 
-      showChallengeToast(`⚔️ Challenge von ${challenge.creatorUsername} angenommen!`, 'success');
+      const commentText = challenge.comment ? ` 💬 „${escapeHtml(challenge.comment)}"` : '';
+      showChallengeToast(`⚔️ Challenge von ${challenge.creatorUsername} angenommen!${commentText}`, 'success');
 
       if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) {
         MobileFeatures.triggerHaptic('strong');
@@ -246,9 +279,9 @@ const AsyncChallenge = (function() {
     const banner = document.getElementById('challengeBanner');
     if (banner && state.currentChallenge) {
       banner.classList.add('active');
-      banner.querySelector('.challenge-opponent').textContent = 
+      banner.querySelector('.challenge-opponent').textContent =
         `vs ${state.currentChallenge.creatorUsername}`;
-      banner.querySelector('.challenge-diff').textContent = 
+      banner.querySelector('.challenge-diff').textContent =
         state.currentChallenge.difficulty.toUpperCase();
     }
   }
@@ -300,7 +333,7 @@ const AsyncChallenge = (function() {
   async function compareResults(challengeId, myScore) {
     try {
       const snapshot = await fbDb.ref(`${FIREBASE_PATHS.results}/${challengeId}`).once('value');
-      
+
       if (!snapshot.exists()) return;
 
       const results = snapshot.val();
@@ -326,8 +359,20 @@ const AsyncChallenge = (function() {
         result = 'draw';
       }
 
-      // Ergebnis-Overlay anzeigen
-      showAsyncResult(myFinalScore, opponentFinalScore, opponentResult.challengerUsername, result);
+      const originalSettings = state.currentChallenge ? {
+        discipline: state.currentChallenge.discipline,
+        weapon: state.currentChallenge.weapon,
+        distance: state.currentChallenge.distance,
+        difficulty: state.currentChallenge.difficulty,
+        shots: state.currentChallenge.shots,
+        burst: state.currentChallenge.burst,
+      } : null;
+
+      const comment = state.currentChallenge?.comment || null;
+
+      // Ergebnis-Overlay anzeigen (vor dem Nullsetzen von currentChallenge)
+      showAsyncResult(myFinalScore, opponentFinalScore, opponentResult.challengerUsername, result,
+        opponentResult.challengerId, originalSettings, comment);
 
       // XP vergeben
       if (result === 'win' && typeof awardXP === 'function') {
@@ -343,15 +388,20 @@ const AsyncChallenge = (function() {
   /**
    * Zeigt Async-Duell-Ergebnis
    */
-  function showAsyncResult(myScore, opponentScore, opponentName, result) {
+  function showAsyncResult(myScore, opponentScore, opponentName, result, opponentId, originalSettings, comment) {
+    // Rematch-State speichern
+    state.lastOpponent = opponentId ? { id: opponentId, username: opponentName } : null;
+    state.lastSettings = originalSettings || null;
+
     const overlay = document.createElement('div');
     overlay.className = 'async-result-overlay';
     overlay.innerHTML = `
       <div class="async-result-card">
         <div class="result-icon">${result === 'win' ? '🏆' : result === 'lose' ? '😔' : '🤝'}</div>
         <div class="result-title">${result === 'win' ? 'SIEG!' : result === 'lose' ? 'NIEDERLAGE' : 'UNENTSCHIEDEN'}</div>
-        <div class="result-subtitle">gegen ${opponentName}</div>
-        
+        <div class="result-subtitle">gegen ${escapeHtml(opponentName)}</div>
+        ${comment ? `<div class="challenge-result-comment">💬 „${escapeHtml(comment)}"</div>` : ''}
+
         <div class="result-scores">
           <div class="result-score-item">
             <div class="result-label">Du</div>
@@ -359,11 +409,16 @@ const AsyncChallenge = (function() {
           </div>
           <div class="result-divider">vs</div>
           <div class="result-score-item">
-            <div class="result-label">${opponentName}</div>
+            <div class="result-label">${escapeHtml(opponentName)}</div>
             <div class="result-value ${result === 'lose' ? 'winner' : ''}">${opponentScore}</div>
           </div>
         </div>
 
+        ${opponentId ? `
+        <button class="result-rematch-btn" onclick="AsyncChallenge.rematch()">
+          🔁 Revanche
+        </button>
+        ` : ''}
         <button class="result-close-btn" onclick="this.closest('.async-result-overlay').remove()">
           SCHLIEẞEN
         </button>
@@ -419,6 +474,9 @@ const AsyncChallenge = (function() {
           <div class="challenge-create-section">
             <h4>Neue Challenge erstellen</h4>
             <p class="challenge-hint">Erstelle eine Herausforderung mit deinen aktuellen Einstellungen</p>
+            <textarea id="challengeCommentInput" maxlength="120"
+              placeholder="💬 Optional: Nachricht an den Gegner…"
+              style="width:100%;background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 14px;color:#fff;font-family:Outfit,sans-serif;font-size:0.8rem;resize:none;height:56px;margin-bottom:10px;box-sizing:border-box;"></textarea>
             <button class="challenge-create-btn" onclick="AsyncChallenge.createChallenge()">
               ⚔️ Challenge erstellen
             </button>
@@ -461,8 +519,8 @@ const AsyncChallenge = (function() {
         availableContainer.innerHTML = `
           ${state.availableChallenges.map(ch => `
             <div class="challenge-card">
-              <div class="challenge-from">${ch.fromUsername}</div>
-              <div class="challenge-details">${ch.discipline} · ${ch.difficulty}</div>
+              <div class="challenge-from">${escapeHtml(ch.fromUsername)}</div>
+              <div class="challenge-details">${escapeHtml(ch.discipline)} · ${escapeHtml(ch.difficulty)}</div>
               <div class="challenge-time">${formatTime(ch.createdAt)}</div>
               <button class="challenge-accept-btn" onclick="AsyncChallenge.acceptChallenge('${ch.challengeId}')">
                 ✓ Annehmen
@@ -482,8 +540,8 @@ const AsyncChallenge = (function() {
         myContainer.innerHTML = `
           ${state.myChallenges.map(ch => `
             <div class="challenge-card ${ch.status}">
-              <div class="challenge-opponent">${ch.friendUsername || 'Öffentlich'}</div>
-              <div class="challenge-details">${ch.discipline} · ${ch.difficulty}</div>
+              <div class="challenge-opponent">${escapeHtml(ch.friendUsername || 'Öffentlich')}</div>
+              <div class="challenge-details">${escapeHtml(ch.discipline)} · ${escapeHtml(ch.difficulty)}</div>
               <div class="challenge-status ${ch.status}">${getStatusText(ch.status)}</div>
               <div class="challenge-time">${formatTime(ch.createdAt)}</div>
             </div>
@@ -595,6 +653,7 @@ const AsyncChallenge = (function() {
     createChallenge,
     acceptChallenge,
     submitResult,
+    rematch,
     showChallengesOverlay,
     closeChallengesOverlay,
     addChallengeButton,
@@ -626,6 +685,7 @@ if (typeof window !== 'undefined') {
   }
 
   // Global verfügbar machen
+  window.AsyncChallenge = AsyncChallenge;
   window.createAsyncChallenge = function(friendId, friendUsername) {
     return AsyncChallenge.createChallenge(friendId, friendUsername);
   };

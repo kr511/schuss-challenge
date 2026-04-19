@@ -4,6 +4,22 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 
 Das Format basiert lose auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/). Für technische Deep-Dives zu einzelnen Bugfixes siehe `BUGFIXES.md`.
 
+## [4.1.0] – 2026-04-19
+
+Social & Multiplayer Quick-Wins – alle Tier-1-Features.
+
+### Added
+- **Freundes-Profil-Overlay**: 👤-Button in der Freundesliste öffnet Profil-Karte mit persönlichen Bestwerten und direktem Herausforderungs-Button (`friends-ui.js`).
+- **Challenge-Kommentar**: Beim Erstellen einer Challenge kann ein kurzer Text (max. 120 Zeichen) mitgeschickt werden – erscheint im Accept-Toast und im Ergebnis-Overlay.
+- **Revanche-Button**: Nach jedem Async-Duell-Ergebnis direkt eine Revanche mit den Original-Settings starten.
+- **Leaderboard Zeitraum-Filter**: Heute / Woche / Gesamt — Daily & Weekly nutzen Worker-API (`/api/leaderboard?period=`), Gesamt lädt weiterhin aus Firebase.
+- **Leaderboard Nur-Freunde-Filter**: „👥 Nur Freunde" blendet alle Einträge aus, die nicht zum eigenen Freundeskreis gehören (`SocialSystem.getFriends()`).
+- **Challenge-Button verdrahtet**: 🎯-Button in der Freundesliste ruft jetzt `AsyncChallenge.createChallenge(uid, username)` auf (vorher nur Alert).
+
+### Fixed
+- Syntax-Bug in `async-challenge.js:19`: `availableChallenges` hatte keinen Wert, was zu einem `SyntaxError: Unexpected token ':'` führte.
+- XSS: `escapeHtml` jetzt durchgängig in Challenge-Overlay-Render-Pfaden (`async-challenge.js`, `friends-ui.js`).
+
 ## [4.0.0] – 2026-04-19
 
 Erstes Major-Release nach umfassender Security-Härtung, Backend-Validierung und Stabilisierung der Sync-Pipeline.
