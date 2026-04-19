@@ -22,6 +22,14 @@ const UpdatesSystem = (function() {
   // Demo-Updates (wenn Firebase nicht verfügbar)
   const demoUpdates = [
     {
+      id: 'release_v4_0',
+      title: '🚀 Version 4.0 ist da!',
+      message: 'Sicherheits-Updates, stabilere Sync, UI-Fixes und neue Tests. Details im Changelog.',
+      date: Date.now(),
+      priority: 'high',
+      icon: '🎉',
+    },
+    {
       id: 'demo_1',
       title: '🎉 Multiplayer-Update!',
       message: 'Neue Features: Async-Challenges, Freundesliste und Mobile-Optimierung sind da!',
