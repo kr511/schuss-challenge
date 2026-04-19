@@ -7203,6 +7203,17 @@ body.keyboard-visible .bottom-sheet {
   transform: scale(1.05);
 }
 
+.friend-btn.profile {
+  background: rgba(122, 122, 240, 0.18);
+  color: #aab8ff;
+  padding: 8px 10px;
+}
+
+.friend-btn.profile:hover {
+  background: rgba(122, 122, 240, 0.3);
+  transform: scale(1.05);
+}
+
 .friend-btn.remove {
   background: rgba(255, 59, 48, 0.1);
   color: #ff3b30;

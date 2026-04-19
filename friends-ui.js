@@ -271,6 +271,11 @@ const FriendsUI = (function() {
   };
 })();
 
+// Global verfügbar machen für Cross-Modul-Aufrufe (z.B. FriendsSystem → FriendsUI.showFriendProfile)
+if (typeof window !== 'undefined') {
+  window.FriendsUI = FriendsUI;
+}
+
 // Auto-Init
 document.addEventListener('DOMContentLoaded', FriendsUI.init);
 

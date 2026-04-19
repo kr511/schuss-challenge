@@ -544,6 +544,9 @@ const FriendsSystem = (function() {
             <button class="friend-btn challenge" onclick="FriendsSystem.challengeFriend('${friend.userId}')">
               ⚔️ Duell
             </button>
+            <button class="friend-btn profile" onclick="FriendsSystem.openFriendProfile('${friend.userId}', '${escapeHtml(friend.username)}')" title="Profil ansehen">
+              👤
+            </button>
             <button class="friend-btn remove" onclick="FriendsSystem.removeFriend('${friend.userId}')">
               ✕
             </button>
@@ -618,15 +621,32 @@ const FriendsSystem = (function() {
       return;
     }
 
-    showFriendToast(`⚔️ Herausforderung an ${friend.username} gesendet!`, 'success');
-    
-    // TODO: Async Challenge erstellen
-    if (typeof window.createAsyncChallenge === 'function') {
+    if (typeof window.AsyncChallenge !== 'undefined' && typeof window.AsyncChallenge.createChallenge === 'function') {
+      window.AsyncChallenge.createChallenge(friendId, friend.username);
+    } else if (typeof window.createAsyncChallenge === 'function') {
       window.createAsyncChallenge(friendId, friend.username);
+    } else {
+      showFriendToast('❌ Challenge-System nicht geladen', 'error');
+      return;
     }
 
     if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) {
       MobileFeatures.triggerHaptic('medium');
+    }
+  }
+
+  /**
+   * Öffnet das Profil-Overlay eines Freundes (delegiert an FriendsUI.showFriendProfile)
+   */
+  function openFriendProfile(friendId, username) {
+    if (typeof window.FriendsUI !== 'undefined' && typeof window.FriendsUI.showFriendProfile === 'function') {
+      window.FriendsUI.showFriendProfile(friendId, username);
+    } else {
+      showFriendToast('❌ Profil-Ansicht nicht verfügbar', 'error');
+    }
+
+    if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) {
+      MobileFeatures.triggerHaptic('light');
     }
   }
 
@@ -891,6 +911,7 @@ const FriendsSystem = (function() {
     declineRequest,
     removeFriend,
     challengeFriend,
+    openFriendProfile,
     showFriendsOverlay,
     closeFriendsOverlay,
     copyFriendCode,
