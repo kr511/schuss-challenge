@@ -3,7 +3,7 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v4.1' // Release: Social Integration – Freundes-Profil, Revanche, Kommentare, Leaderboard-Zeitraum
+const CACHE_VERSION = 'v4.1.1' // Hotfix: Friends-Button Click-Staleness
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -21,13 +21,22 @@ const PRECACHE = [
   './contextual-ocr.js',
   './enhanced-analytics.js',
   './mobile-features.js',
+  './mobile-responsive.js',
   './multi-score-detection.js',
   './training-modes.js',
   './sounds.js',
   './tutorial.js',
   './storage-manager.js',
+  './friends.js',
+  './async-challenge.js',
+  './updates.js',
+  './modern-ux.js',
+  './reward-system.js',
+  './ProfileView.js',
+  './gemini-ai.js',
   // Lokale CSS-Dateien
   './styles.css',
+  './modern-animations.css',
   './image-compare.css',
   './manifest.json',
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap',

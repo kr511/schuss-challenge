@@ -4,6 +4,18 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 
 Das Format basiert lose auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/). Für technische Deep-Dives zu einzelnen Bugfixes siehe `BUGFIXES.md`.
 
+## [4.1.1] – 2026-04-20
+
+Hotfix-Patch für Cache-Staleness der v4.1-Fixes.
+
+### Fixed
+- Friends-Button (👥) im Dashboard war nach v4.1-Deploy unklickbar, weil der Service-Worker den alten `friends.js?v=4.1` lieferte, der `window.FriendsSystem` erst nach `init()` setzte. Cache-Invalidation via `?v=4.1.1` und `CACHE_VERSION=v4.1.1`.
+- Profile-Overlay (`showFriendProfileOverlay`) in `friends.js` jetzt self-contained — keine harte Abhängigkeit mehr auf das nicht geladene `friends-ui.js`.
+- `.friends-overlay` bekommt `visibility:hidden` im Inaktiv-Zustand, verhindert „Code kopieren / Freund hinzufügen"-Durchsickern beim Scrollen auf Mobile.
+
+### Changed
+- Service-Worker `PRECACHE` vervollständigt: `friends.js`, `async-challenge.js`, `updates.js`, `modern-ux.js`, `reward-system.js`, `ProfileView.js`, `mobile-responsive.js`, `gemini-ai.js`, `modern-animations.css` explizit gelistet.
+
 ## [4.1.0] – 2026-04-19
 
 Social & Multiplayer Quick-Wins – alle Tier-1-Features.

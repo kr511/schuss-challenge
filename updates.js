@@ -22,10 +22,18 @@ const UpdatesSystem = (function() {
   // Demo-Updates (wenn Firebase nicht verfügbar)
   const demoUpdates = [
     {
+      id: 'release_v4_1_1',
+      title: '🔧 Hotfix v4.1.1',
+      message: 'Der Freunde-Button funktioniert jetzt wieder zuverlässig. Falls du ihn noch nicht klicken kannst, lade die Seite einmal neu.',
+      date: Date.now(),
+      priority: 'high',
+      icon: '🛠️',
+    },
+    {
       id: 'release_v4_1',
       title: '👥 Social Update v4.1!',
       message: 'Freundes-Profile, Revanche-Button, Challenge-Kommentare und Leaderboard-Zeitraum-Filter sind jetzt live!',
-      date: Date.now(),
+      date: Date.now() - (24 * 60 * 60 * 1000),
       priority: 'high',
       icon: '🤝',
     },
