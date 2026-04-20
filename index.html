@@ -66,6 +66,7 @@
   <script src="mobile-features.js?v=4.1.2" defer></script>
   <script src="mobile-responsive.js?v=4.1.2" defer></script>
   <script src="friends.js?v=4.1.2" defer></script>
+  <script src="friends-page.js?v=4.1.2" defer></script>
   <script src="async-challenge.js?v=4.1.2" defer></script>
   <script src="updates.js?v=4.1.2" defer></script>
   <link rel="stylesheet" href="styles.css?v=4.1.2">
@@ -186,7 +187,9 @@
               </div>
             </div>
           </div>
-          <button id="friendsButton" type="button" title="Freunde" style="width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.15);border:1px solid rgba(0,195,255,0.3);color:#fff;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">👥</button>
+          <button id="friendsButton" type="button" title="Freunde"
+            onclick="if(typeof showScreen==='function'){showScreen('screenFriends');if(window.FriendsPage)FriendsPage.onOpen();}else{console.error('showScreen missing');}"
+            style="width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.15);border:1px solid rgba(0,195,255,0.3);color:#fff;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">👥</button>
           <div id="pdProfileBtn"
             onclick="if(window.toggleProfileMenu) window.toggleProfileMenu(); else console.error('toggleProfileMenu missing');"
             style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
@@ -1295,6 +1298,73 @@
           <div class="lb-loading">⏳</div>
         </div>
       </div>
+
+    </div>
+
+  </div>
+
+  <!-- 👥 FREUNDE-SCREEN -->
+  <div id="screenFriends" class="screen">
+    <div class="hdr" style="position:relative;">
+      <button onclick="showScreen('screenSetup')"
+        style="position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(255,255,255,.45);font-size:1.4rem;cursor:pointer;z-index:2;padding:4px 8px;"
+        aria-label="Schließen">✕</button>
+      <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">👥 FREUNDE</div>
+      <div class="logo-tag">Finde, verwalte und fordere deine Freunde heraus</div>
+      <div class="hdr-tag">◆ SOCIAL ◆</div>
+    </div>
+
+    <div class="content" style="padding-top:14px;">
+
+      <!-- Tab-Leiste -->
+      <div class="friends-tabs" role="tablist">
+        <button type="button" class="friends-tab active" data-tab="list" role="tab" aria-selected="true">Meine Freunde</button>
+        <button type="button" class="friends-tab" data-tab="search" role="tab" aria-selected="false">Suchen</button>
+        <button type="button" class="friends-tab" data-tab="requests" role="tab" aria-selected="false">Anfragen<span id="friendsReqBadge" class="friends-req-badge" hidden>0</span></button>
+      </div>
+
+      <!-- Panel: Meine Freunde -->
+      <section data-tab-panel="list" class="friends-panel">
+        <div class="friend-code-section">
+          <div class="friend-code-label">Dein Freundes-Code</div>
+          <div class="friend-code" id="friendCodeDisplay">------</div>
+          <button class="friend-code-copy" onclick="FriendsSystem.copyFriendCode()">📋 Code kopieren</button>
+        </div>
+
+        <input id="friendsFilterInput" class="friends-filter-input" type="text"
+          placeholder="Freunde filtern …" autocomplete="off" />
+
+        <h4 id="friendsListTitle" class="friends-section-title">Deine Freunde</h4>
+        <div id="friendsListContainer"></div>
+      </section>
+
+      <!-- Panel: Suchen & Hinzufügen -->
+      <section data-tab-panel="search" class="friends-panel" hidden>
+        <div class="friends-section-title">User nach Name suchen</div>
+        <input id="friendsSearchInput" class="friends-filter-input" type="text"
+          placeholder="Mind. 2 Zeichen – Name eingeben …" autocomplete="off" />
+        <div id="friendsSearchStatus" class="friends-search-status" hidden></div>
+        <div id="friendsSearchResults"></div>
+
+        <div class="friend-add-section" style="margin-top:18px;">
+          <div class="friends-section-title" style="margin-bottom:8px;">Direkt per Code hinzufügen</div>
+          <input id="friendCodeInput" class="friend-code-input" type="text"
+            placeholder="6-stelliger Code …" maxlength="6" autocomplete="off" />
+          <button class="friend-add-btn" onclick="FriendsSystem.addFriendFromInput()">➕ Freund hinzufügen</button>
+        </div>
+      </section>
+
+      <!-- Panel: Anfragen -->
+      <section data-tab-panel="requests" class="friends-panel" hidden>
+        <div class="friend-requests-section">
+          <h4 class="friends-section-title">📨 Eingehende Anfragen</h4>
+          <div id="receivedRequestsContainer"></div>
+        </div>
+        <div class="friend-requests-section" style="margin-top:18px;">
+          <h4 class="friends-section-title">📤 Gesendete Anfragen</h4>
+          <div id="sentRequestsContainer"></div>
+        </div>
+      </section>
 
     </div>
 

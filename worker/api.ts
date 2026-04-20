@@ -11,6 +11,7 @@ import {
   updateFeedbackStatus,
   updateProfile,
   getProfile,
+  searchProfiles,
   setActivity,
   getLiveActivity,
 } from "./db";
@@ -62,6 +63,16 @@ const profileInputSchema = z.object({
   displayName: z.string().trim().min(1).max(50),
   privacySettings: z.enum(["public", "private"]).default("private"),
   bestStats: z.record(z.unknown()).optional(),
+  friendCode: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{6}$/, "friendCode must be 6 alphanumeric characters")
+    .optional(),
+});
+
+const friendsSearchQuerySchema = z.object({
+  q: z.string().trim().min(2).max(32),
 });
 
 const activityInputSchema = z.object({
@@ -444,8 +455,32 @@ async function handleGetProfile(url: URL, env: EnvWithDB): Promise<Response> {
 async function handlePostProfile(request: Request, env: EnvWithDB, userId: string): Promise<Response> {
   const payload = await parseJson(request, profileInputSchema);
   const bestStats = payload.bestStats ? JSON.stringify(payload.bestStats) : null;
-  await updateProfile(env, userId, payload.displayName, payload.privacySettings, bestStats);
+  const friendCode = payload.friendCode ?? null;
+  await updateProfile(env, userId, payload.displayName, payload.privacySettings, bestStats, friendCode);
   return json({ ok: true });
+}
+
+async function handleFriendsSearch(url: URL, env: EnvWithDB): Promise<Response> {
+  let query: { q: string };
+  try {
+    query = parseQuery(url, friendsSearchQuerySchema);
+  } catch (err) {
+    if (err instanceof ApiHttpError && err.code === "VALIDATION_ERROR") {
+      // Treat too-short / missing input as an empty result rather than 400,
+      // because the client sends every keystroke.
+      return json({ results: [] });
+    }
+    throw err;
+  }
+  const rows = await searchProfiles(env, query.q, 20);
+  return json({
+    results: rows.map((row) => ({
+      user_id: row.user_id,
+      public_id: row.public_id,
+      display_name: row.display_name,
+      friend_code: row.friend_code,
+    })),
+  });
 }
 
 async function handleSetActivity(request: Request, env: EnvWithDB, userId: string): Promise<Response> {
@@ -499,6 +534,12 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
     // Public profile lookup (no auth required)
     if (path.startsWith("/api/profile/") && request.method === "GET") {
       return withCors(await handleGetProfile(url, env), origin);
+    }
+
+    // Public friends search (no auth required so the "Freunde"-page works
+    // for logged-out debug sessions; server returns only public fields).
+    if (path === "/api/friends/search" && request.method === "GET") {
+      return withCors(await handleFriendsSearch(url, env), origin);
     }
 
     const userId = getAuthenticatedUserId(request, env, url);

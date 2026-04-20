@@ -148,6 +148,7 @@ const FriendsSystem = (function() {
     const localCode = StorageManager.getRaw('friendCode');
     if (localCode) {
       state.userCode = localCode;
+      syncProfileToBackend();
       return;
     }
 
@@ -156,7 +157,7 @@ const FriendsSystem = (function() {
       try {
         const snapshot = await fbDb.ref(`${FIREBASE_PATHS.userCodes}/${state.currentUserId}`).once('value');
         const data = snapshot.val();
-        
+
         if (data && data.code) {
           state.userCode = data.code;
         } else {
@@ -180,6 +181,50 @@ const FriendsSystem = (function() {
 
     // Local speichern
     StorageManager.setRaw('friendCode', state.userCode);
+    syncProfileToBackend();
+  }
+
+  /**
+   * Schreibt displayName + friendCode best-effort nach D1, damit die
+   * öffentliche /api/friends/search den User findet. Fehler werden
+   * ignoriert – die Firebase-Seite bleibt Source of Truth.
+   */
+  function syncProfileToBackend() {
+    if (!state.userCode || !state.currentUserId) return;
+    if (typeof fetch !== 'function') return;
+
+    const displayName = (typeof G !== 'undefined' && G && G.username)
+      ? String(G.username).slice(0, 50)
+      : null;
+    if (!displayName) return;
+
+    const lastSyncKey = 'friendCode:lastSync';
+    let lastSync = '';
+    try { lastSync = StorageManager.getRaw(lastSyncKey) || ''; } catch (_) { /* noop */ }
+    const currentSignature = `${displayName}|${state.userCode}`;
+    if (lastSync === currentSignature) return;
+
+    const body = JSON.stringify({
+      displayName,
+      privacySettings: 'public',
+      friendCode: state.userCode,
+    });
+
+    try {
+      fetch('/api/profile', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-dev-user-id': state.currentUserId,
+        },
+        body,
+        keepalive: true,
+      }).then((res) => {
+        if (res && res.ok) {
+          try { StorageManager.setRaw(lastSyncKey, currentSignature); } catch (_) { /* noop */ }
+        }
+      }).catch(() => { /* ignore network errors */ });
+    } catch (_) { /* ignore */ }
   }
 
   /**
@@ -1007,6 +1052,11 @@ const FriendsSystem = (function() {
     copyFriendCode,
     addFriendFromInput,
     addFriendsButton,
+    // Renderer (used by FriendsPage)
+    renderFriendCode,
+    renderFriendsList,
+    renderPendingRequests,
+    showFriendToast,
     // State (readonly)
     getState: () => ({ ...state }),
   };
@@ -1017,31 +1067,14 @@ if (typeof window !== 'undefined') {
   // Sofort global exportieren, damit der Freunde-Button sofort reagieren kann
   window.FriendsSystem = FriendsSystem;
 
-  function attachFriendsButtonHandler() {
-    const btn = document.getElementById('friendsButton');
-    if (!btn) {
-      console.warn('⚠️ FriendsSystem: #friendsButton im DOM nicht gefunden');
-      return;
-    }
-    if (btn.dataset.friendsBound === '1') return;
-    btn.dataset.friendsBound = '1';
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('👥 FriendsSystem: Button-Click registriert');
-      try {
-        FriendsSystem.showFriendsOverlay();
-      } catch (err) {
-        console.error('FriendsSystem.showFriendsOverlay() fehlgeschlagen:', err);
-      }
-    });
-    console.log('✅ FriendsSystem: Click-Handler an #friendsButton gebunden');
-  }
-
+  // Der Header-Button ruft showScreen('screenFriends') direkt via inline onclick auf.
+  // Hier nur noch: System nach DOMContentLoaded einmal initialisieren, damit
+  // Freundes-Code + Online-Status bereitstehen, sobald Firebase verfügbar ist.
   const bootstrap = () => {
-    attachFriendsButtonHandler();
     FriendsSystem.init().then(() => {
       FriendsSystem.addFriendsButton();
+    }).catch((err) => {
+      console.warn('FriendsSystem.init fehlgeschlagen:', err);
     });
   };
 

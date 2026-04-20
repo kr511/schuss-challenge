@@ -372,13 +372,61 @@ export async function updateProfile(
   displayName: string,
   privacySettings: 'public' | 'private' = 'private',
   bestStats: string | null = null,
+  friendCode: string | null = null,
 ): Promise<void> {
   await ensureUserExists(env.DB, userId);
+  // Preserve a previously stored friend_code when the caller does not provide one.
   await env.DB.prepare(
-    "INSERT OR REPLACE INTO profiles (user_id, public_id, display_name, privacy_settings, best_stats) VALUES (?, COALESCE((SELECT public_id FROM profiles WHERE user_id = ?), lower(hex(randomblob(8)))), ?, ?, ?)",
+    `INSERT OR REPLACE INTO profiles (user_id, public_id, display_name, privacy_settings, best_stats, friend_code)
+     VALUES (
+       ?,
+       COALESCE((SELECT public_id FROM profiles WHERE user_id = ?), lower(hex(randomblob(8)))),
+       ?,
+       ?,
+       ?,
+       COALESCE(?, (SELECT friend_code FROM profiles WHERE user_id = ?))
+     )`,
   )
-    .bind(userId, userId, displayName, privacySettings, bestStats)
+    .bind(userId, userId, displayName, privacySettings, bestStats, friendCode, userId)
     .run();
+}
+
+type ProfileSearchRow = {
+  user_id: string;
+  public_id: string;
+  display_name: string | null;
+  friend_code: string | null;
+};
+
+export async function searchProfiles(
+  env: EnvWithDB,
+  query: string,
+  limit = 20,
+): Promise<ProfileSearchRow[]> {
+  const trimmed = (query ?? "").trim();
+  if (trimmed.length < 2) return [];
+  // Escape SQL LIKE wildcards so user input is treated literally.
+  const escaped = trimmed.replace(/[\\%_]/g, (m) => `\\${m}`);
+  const like = `%${escaped}%`;
+  const upperExact = trimmed.toUpperCase();
+  const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)));
+
+  const result = await env.DB.prepare(
+    `SELECT user_id, public_id, display_name, friend_code
+     FROM profiles
+     WHERE (display_name LIKE ? ESCAPE '\\' OR friend_code = ?)
+       AND display_name IS NOT NULL
+       AND length(display_name) >= 2
+     ORDER BY
+       CASE WHEN friend_code = ? THEN 0 ELSE 1 END,
+       length(display_name) ASC,
+       display_name ASC
+     LIMIT ?`,
+  )
+    .bind(like, upperExact, upperExact, safeLimit)
+    .all<ProfileSearchRow>();
+
+  return result.results ?? [];
 }
 
 export async function getProfile(env: EnvWithDB, publicId: string): Promise<any | null> {
