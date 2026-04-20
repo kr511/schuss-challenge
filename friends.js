@@ -1015,11 +1015,31 @@ const FriendsSystem = (function() {
 // Initialisierung
 if (typeof window !== 'undefined') {
   // Sofort global exportieren, damit der Freunde-Button sofort reagieren kann
-  // (init() ist async und braucht Firebase; ohne diesen Early-Export verpufft
-  //  jeder Click auf #friendsButton, bevor init() durchgelaufen ist).
   window.FriendsSystem = FriendsSystem;
 
+  function attachFriendsButtonHandler() {
+    const btn = document.getElementById('friendsButton');
+    if (!btn) {
+      console.warn('⚠️ FriendsSystem: #friendsButton im DOM nicht gefunden');
+      return;
+    }
+    if (btn.dataset.friendsBound === '1') return;
+    btn.dataset.friendsBound = '1';
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('👥 FriendsSystem: Button-Click registriert');
+      try {
+        FriendsSystem.showFriendsOverlay();
+      } catch (err) {
+        console.error('FriendsSystem.showFriendsOverlay() fehlgeschlagen:', err);
+      }
+    });
+    console.log('✅ FriendsSystem: Click-Handler an #friendsButton gebunden');
+  }
+
   const bootstrap = () => {
+    attachFriendsButtonHandler();
     FriendsSystem.init().then(() => {
       FriendsSystem.addFriendsButton();
     });

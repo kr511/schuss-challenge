@@ -4,6 +4,17 @@ Alle wichtigen Änderungen an diesem Projekt werden in dieser Datei dokumentiert
 
 Das Format basiert lose auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/), und das Projekt folgt [Semantic Versioning](https://semver.org/lang/de/). Für technische Deep-Dives zu einzelnen Bugfixes siehe `BUGFIXES.md`.
 
+## [4.1.2] – 2026-04-20
+
+Folge-Hotfix nach v4.1.1: Friends-Button war bei einigen Usern weiterhin unklickbar.
+
+### Fixed
+- `#friendsButton` verwendet jetzt `addEventListener` (in `friends.js`) statt fragilem inline-`onclick`. Der Handler wird erst registriert, wenn `FriendsSystem` garantiert geladen ist — eliminiert die Timing-Race komplett. Zusätzliches Console-Logging (`👥 FriendsSystem: Button-Click registriert`) erleichtert Remote-Diagnose.
+- Updates-Dropdown (🔔) schließt jetzt auf Mobile und Desktop auch, wenn man außerhalb des Popups klickt. Vorher musste man den Bell-Button erneut treffen.
+
+### Changed
+- Service-Worker `CACHE_VERSION` auf `v4.1.2` gebumpt. Alle JS/CSS-Query-Strings in `index.html` auf `?v=4.1.2` angeglichen.
+
 ## [4.1.1] – 2026-04-20
 
 Hotfix-Patch für Cache-Staleness der v4.1-Fixes.

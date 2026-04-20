@@ -3,7 +3,7 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v4.1.1' // Hotfix: Friends-Button Click-Staleness
+const CACHE_VERSION = 'v4.1.2' // Fix: Friends addEventListener + Updates outside-click
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 
 const PRECACHE = [

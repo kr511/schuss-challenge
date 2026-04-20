@@ -22,6 +22,14 @@ const UpdatesSystem = (function() {
   // Demo-Updates (wenn Firebase nicht verfügbar)
   const demoUpdates = [
     {
+      id: 'release_v4_1_2',
+      title: '🛠️ Hotfix v4.1.2',
+      message: 'Friends-Button komplett überarbeitet (addEventListener statt inline-onclick). Updates-Popup schließt jetzt auch bei Klick außerhalb.',
+      date: Date.now(),
+      priority: 'high',
+      icon: '🩹',
+    },
+    {
       id: 'release_v4_1_1',
       title: '🔧 Hotfix v4.1.1',
       message: 'Der Freunde-Button funktioniert jetzt wieder zuverlässig. Falls du ihn noch nicht klicken kannst, lade die Seite einmal neu.',
@@ -243,7 +251,24 @@ const UpdatesSystem = (function() {
     // Alle als gelesen markieren
     markAllAsRead();
 
+    // Outside-Click schließt Dropdown (Delay, damit das öffnende Click-Event nicht sofort triggert)
+    setTimeout(() => {
+      document.addEventListener('click', handleOutsideClick, true);
+    }, 0);
+
     if (typeof triggerHaptic === 'function') triggerHaptic();
+  }
+
+  /**
+   * Outside-Click-Handler für Updates-Dropdown
+   */
+  function handleOutsideClick(e) {
+    const dropdown = document.getElementById('updatesDropdown');
+    const btn = document.getElementById('updatesButton');
+    if (!dropdown) return;
+    if (btn && (e.target === btn || btn.contains(e.target))) return;
+    if (e.target === dropdown || dropdown.contains(e.target)) return;
+    hideUpdates();
   }
 
   /**
@@ -252,6 +277,8 @@ const UpdatesSystem = (function() {
   function hideUpdates() {
     const dropdown = document.getElementById('updatesDropdown');
     if (!dropdown) return;
+
+    document.removeEventListener('click', handleOutsideClick, true);
 
     dropdown.style.opacity = '0';
     dropdown.style.transform = 'translateY(-10px)';

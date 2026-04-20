@@ -25,7 +25,7 @@
   <!-- Supabase JS (muss vor auth-gate.js geladen sein) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <!-- Auth-Gate: zeigt Login-Screen bis User authentifiziert ist -->
-  <script src="auth-gate.js?v=4.1.1"></script>
+  <script src="auth-gate.js?v=4.1.2"></script>
 
   <!-- Firebase v9 Compat SDK (async – initFirebaseWithRetry wartet auf Laden) -->
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -38,41 +38,41 @@
   <!-- Chart.js -->
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <!-- Experience-Erweiterungen -->
-  <script src="haptics.js?v=4.1.1"></script>
-  <script src="sounds.js?v=4.1.1"></script>
-  <script src="tutorial.js?v=4.1.1"></script>
-  <script src="image-compare-brain.js?v=4.1.1"></script>
-  <script src="gemini-ai.js?v=4.1.1" defer></script>
-  <script src="image-compare.js?v=4.1.1" defer></script>
+  <script src="haptics.js?v=4.1.2"></script>
+  <script src="sounds.js?v=4.1.2"></script>
+  <script src="tutorial.js?v=4.1.2"></script>
+  <script src="image-compare-brain.js?v=4.1.2"></script>
+  <script src="gemini-ai.js?v=4.1.2" defer></script>
+  <script src="image-compare.js?v=4.1.2" defer></script>
 
   <!-- NEUE FEATURES: Physics Engine, Adaptive Bot-KI und erweiterte OCR -->
-  <script src="feature-fallback.js?v=4.1.1" defer></script>
+  <script src="feature-fallback.js?v=4.1.2" defer></script>
   <!-- physics-engine.js — aktuell nicht aktiv genutzt -->
   <!-- <script src="physics-engine.js"></script> -->
-  <script src="adaptive-bot.js?v=4.1.1" defer></script>
-  <script src="contextual-ocr.js?v=4.1.1" defer></script>
-  <script src="multi-score-detection.js?v=4.1.1" defer></script>
+  <script src="adaptive-bot.js?v=4.1.2" defer></script>
+  <script src="contextual-ocr.js?v=4.1.2" defer></script>
+  <script src="multi-score-detection.js?v=4.1.2" defer></script>
 
   <!-- HAUPT-APP (MUSS VOR ALLEN ABHÄNGIGEN MODulen LADEN) -->
-  <script src="app.js?v=4.1.1" defer></script>
+  <script src="app.js?v=4.1.2" defer></script>
   
   <!-- ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile -->
-  <script src="daily-challenge.js?v=4.1.1" defer></script>
-  <script src="streak-tracker.js?v=4.1.1" defer></script>
-  <script src="enhanced-achievements.js?v=4.1.1" defer></script>
-  <script src="enhanced-analytics.js?v=4.1.1" defer></script>
-  <script src="ProfileView.js?v=4.1.1" defer></script>
-  <script src="training-modes.js?v=4.1.1" defer></script>
-  <script src="mobile-features.js?v=4.1.1" defer></script>
-  <script src="mobile-responsive.js?v=4.1.1" defer></script>
-  <script src="friends.js?v=4.1.1" defer></script>
-  <script src="async-challenge.js?v=4.1.1" defer></script>
-  <script src="updates.js?v=4.1.1" defer></script>
-  <link rel="stylesheet" href="styles.css?v=4.1.1">
-  <link rel="stylesheet" href="modern-animations.css?v=4.1.1">
-  <script src="modern-ux.js?v=4.1.1" defer></script>
-  <script src="reward-system.js?v=4.1.1" defer></script>
-  <script src="storage-manager.js?v=4.1.1"></script>
+  <script src="daily-challenge.js?v=4.1.2" defer></script>
+  <script src="streak-tracker.js?v=4.1.2" defer></script>
+  <script src="enhanced-achievements.js?v=4.1.2" defer></script>
+  <script src="enhanced-analytics.js?v=4.1.2" defer></script>
+  <script src="ProfileView.js?v=4.1.2" defer></script>
+  <script src="training-modes.js?v=4.1.2" defer></script>
+  <script src="mobile-features.js?v=4.1.2" defer></script>
+  <script src="mobile-responsive.js?v=4.1.2" defer></script>
+  <script src="friends.js?v=4.1.2" defer></script>
+  <script src="async-challenge.js?v=4.1.2" defer></script>
+  <script src="updates.js?v=4.1.2" defer></script>
+  <link rel="stylesheet" href="styles.css?v=4.1.2">
+  <link rel="stylesheet" href="modern-animations.css?v=4.1.2">
+  <script src="modern-ux.js?v=4.1.2" defer></script>
+  <script src="reward-system.js?v=4.1.2" defer></script>
+  <script src="storage-manager.js?v=4.1.2"></script>
   <script src="performance-config.js"></script>
   <script src="battle-balance.js" defer></script>
   <script src="qa-test-suite.js" defer></script>
@@ -186,7 +186,7 @@
               </div>
             </div>
           </div>
-          <button id="friendsButton" onclick="if(window.FriendsSystem) window.FriendsSystem.showFriendsOverlay();" title="Freunde" style="width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.15);border:1px solid rgba(0,195,255,0.3);color:#fff;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">👥</button>
+          <button id="friendsButton" type="button" title="Freunde" style="width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.15);border:1px solid rgba(0,195,255,0.3);color:#fff;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">👥</button>
           <div id="pdProfileBtn"
             onclick="if(window.toggleProfileMenu) window.toggleProfileMenu(); else console.error('toggleProfileMenu missing');"
             style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
