@@ -1305,65 +1305,139 @@
 
   <!-- 👥 FREUNDE-SCREEN -->
   <div id="screenFriends" class="screen">
-    <div class="hdr" style="position:relative;">
-      <button onclick="showScreen('screenSetup')"
-        style="position:absolute;top:12px;right:14px;background:none;border:none;color:rgba(255,255,255,.45);font-size:1.4rem;cursor:pointer;z-index:2;padding:4px 8px;"
-        aria-label="Schließen">✕</button>
-      <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">👥 FREUNDE</div>
-      <div class="logo-tag">Finde, verwalte und fordere deine Freunde heraus</div>
-      <div class="hdr-tag">◆ SOCIAL ◆</div>
+    <div class="fr-topbar">
+      <button type="button" class="fr-back" onclick="showScreen('screenSetup')" aria-label="Zurück">
+        <span aria-hidden="true">←</span>
+      </button>
+      <div class="fr-title">
+        <div class="fr-title-eyebrow">◆ SOCIAL ◆</div>
+        <div class="fr-title-main">Freunde</div>
+      </div>
+      <button type="button" class="fr-refresh" onclick="if(window.FriendsPage)FriendsPage.onOpen()" aria-label="Neu laden" title="Aktualisieren">
+        <span aria-hidden="true">⟳</span>
+      </button>
     </div>
 
-    <div class="content" style="padding-top:14px;">
+    <div class="content fr-content">
+
+      <!-- Hero-Karte: eigener Code -->
+      <section class="fr-hero">
+        <div class="fr-hero-glow" aria-hidden="true"></div>
+        <div class="fr-hero-inner">
+          <div class="fr-hero-label">Dein Freundes-Code</div>
+          <div class="fr-hero-code" id="friendCodeDisplay">------</div>
+          <div class="fr-hero-hint">Teile den Code mit deinen Freunden, um euch zu verbinden.</div>
+          <div class="fr-hero-actions">
+            <button type="button" class="fr-btn fr-btn-primary" onclick="FriendsSystem.copyFriendCode()">
+              <span aria-hidden="true">📋</span><span>Code kopieren</span>
+            </button>
+            <button type="button" class="fr-btn fr-btn-ghost" onclick="FriendsPage.activateTab('search')">
+              <span aria-hidden="true">➕</span><span>Freund hinzufügen</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats-Leiste -->
+      <section class="fr-stats" aria-label="Übersicht">
+        <button type="button" class="fr-stat" data-stat-tab="list" onclick="FriendsPage.activateTab('list')">
+          <div class="fr-stat-icon" aria-hidden="true">👥</div>
+          <div class="fr-stat-body">
+            <div class="fr-stat-value" id="frStatFriends">–</div>
+            <div class="fr-stat-label">Freunde</div>
+          </div>
+        </button>
+        <button type="button" class="fr-stat" data-stat-tab="requests" onclick="FriendsPage.activateTab('requests')">
+          <div class="fr-stat-icon" aria-hidden="true">📨</div>
+          <div class="fr-stat-body">
+            <div class="fr-stat-value" id="frStatReceived">–</div>
+            <div class="fr-stat-label">Anfragen</div>
+          </div>
+        </button>
+        <button type="button" class="fr-stat" data-stat-tab="requests" onclick="FriendsPage.activateTab('requests')">
+          <div class="fr-stat-icon" aria-hidden="true">📤</div>
+          <div class="fr-stat-body">
+            <div class="fr-stat-value" id="frStatSent">–</div>
+            <div class="fr-stat-label">Gesendet</div>
+          </div>
+        </button>
+      </section>
 
       <!-- Tab-Leiste -->
       <div class="friends-tabs" role="tablist">
-        <button type="button" class="friends-tab active" data-tab="list" role="tab" aria-selected="true">Meine Freunde</button>
-        <button type="button" class="friends-tab" data-tab="search" role="tab" aria-selected="false">Suchen</button>
-        <button type="button" class="friends-tab" data-tab="requests" role="tab" aria-selected="false">Anfragen<span id="friendsReqBadge" class="friends-req-badge" hidden>0</span></button>
+        <button type="button" class="friends-tab active" data-tab="list" role="tab" aria-selected="true">
+          <span class="friends-tab-icon" aria-hidden="true">👥</span>
+          <span>Freunde</span>
+        </button>
+        <button type="button" class="friends-tab" data-tab="search" role="tab" aria-selected="false">
+          <span class="friends-tab-icon" aria-hidden="true">🔍</span>
+          <span>Entdecken</span>
+        </button>
+        <button type="button" class="friends-tab" data-tab="requests" role="tab" aria-selected="false">
+          <span class="friends-tab-icon" aria-hidden="true">📬</span>
+          <span>Anfragen</span>
+          <span id="friendsReqBadge" class="friends-req-badge" hidden>0</span>
+        </button>
       </div>
 
       <!-- Panel: Meine Freunde -->
       <section data-tab-panel="list" class="friends-panel">
-        <div class="friend-code-section">
-          <div class="friend-code-label">Dein Freundes-Code</div>
-          <div class="friend-code" id="friendCodeDisplay">------</div>
-          <button class="friend-code-copy" onclick="FriendsSystem.copyFriendCode()">📋 Code kopieren</button>
+        <div class="fr-search-wrap">
+          <span class="fr-search-icon" aria-hidden="true">🔎</span>
+          <input id="friendsFilterInput" class="fr-search-input" type="text"
+            placeholder="Freunde filtern …" autocomplete="off" />
         </div>
 
-        <input id="friendsFilterInput" class="friends-filter-input" type="text"
-          placeholder="Freunde filtern …" autocomplete="off" />
-
-        <h4 id="friendsListTitle" class="friends-section-title">Deine Freunde</h4>
+        <div class="fr-section-head">
+          <h4 id="friendsListTitle" class="fr-section-title">Deine Freunde</h4>
+        </div>
         <div id="friendsListContainer"></div>
       </section>
 
       <!-- Panel: Suchen & Hinzufügen -->
       <section data-tab-panel="search" class="friends-panel" hidden>
-        <div class="friends-section-title">User nach Name suchen</div>
-        <input id="friendsSearchInput" class="friends-filter-input" type="text"
-          placeholder="Mind. 2 Zeichen – Name eingeben …" autocomplete="off" />
-        <div id="friendsSearchStatus" class="friends-search-status" hidden></div>
-        <div id="friendsSearchResults"></div>
+        <div class="fr-section-head">
+          <h4 class="fr-section-title">User entdecken</h4>
+          <div class="fr-section-hint">Mind. 2 Zeichen</div>
+        </div>
+        <div class="fr-search-wrap">
+          <span class="fr-search-icon" aria-hidden="true">🔍</span>
+          <input id="friendsSearchInput" class="fr-search-input" type="text"
+            placeholder="Name oder Code eingeben …" autocomplete="off" />
+        </div>
+        <div id="friendsSearchStatus" class="fr-search-status" hidden></div>
+        <div id="friendsSearchResults" class="fr-results-list"></div>
 
-        <div class="friend-add-section" style="margin-top:18px;">
-          <div class="friends-section-title" style="margin-bottom:8px;">Direkt per Code hinzufügen</div>
-          <input id="friendCodeInput" class="friend-code-input" type="text"
-            placeholder="6-stelliger Code …" maxlength="6" autocomplete="off" />
-          <button class="friend-add-btn" onclick="FriendsSystem.addFriendFromInput()">➕ Freund hinzufügen</button>
+        <div class="fr-divider" role="presentation">
+          <span>oder direkt per Code</span>
+        </div>
+
+        <div class="fr-code-add-row">
+          <input id="friendCodeInput" class="fr-code-input" type="text"
+            placeholder="6-stelliger Code" maxlength="6" autocomplete="off" />
+          <button class="fr-btn fr-btn-primary fr-btn-compact" onclick="FriendsSystem.addFriendFromInput()">
+            <span aria-hidden="true">➕</span><span>Hinzufügen</span>
+          </button>
         </div>
       </section>
 
       <!-- Panel: Anfragen -->
       <section data-tab-panel="requests" class="friends-panel" hidden>
-        <div class="friend-requests-section">
-          <h4 class="friends-section-title">📨 Eingehende Anfragen</h4>
-          <div id="receivedRequestsContainer"></div>
+        <div class="fr-section-head">
+          <h4 class="fr-section-title">
+            <span class="fr-section-icon" aria-hidden="true">📨</span>
+            Eingehend
+          </h4>
         </div>
-        <div class="friend-requests-section" style="margin-top:18px;">
-          <h4 class="friends-section-title">📤 Gesendete Anfragen</h4>
-          <div id="sentRequestsContainer"></div>
+        <div id="receivedRequestsContainer"></div>
+
+        <div class="fr-section-head" style="margin-top:22px;">
+          <h4 class="fr-section-title">
+            <span class="fr-section-icon" aria-hidden="true">📤</span>
+            Gesendet
+          </h4>
         </div>
+        <div id="sentRequestsContainer"></div>
       </section>
 
     </div>

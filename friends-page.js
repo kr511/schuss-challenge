@@ -24,6 +24,12 @@
     return div.innerHTML;
   }
 
+  function getAvatarInitial(name) {
+    const s = (name || '').trim();
+    if (!s) return '?';
+    return s.charAt(0).toUpperCase();
+  }
+
   function showToast(message, type) {
     if (window.FriendsSystem && typeof window.FriendsSystem.showFriendToast === 'function') {
       window.FriendsSystem.showFriendToast(message, type);
@@ -97,10 +103,26 @@
     return headers;
   }
 
+  function renderSkeletons(count) {
+    const box = qs('#friendsSearchResults');
+    if (!box) return;
+    const rows = new Array(count).fill(0).map(() => `
+      <div class="fr-skeleton" aria-hidden="true">
+        <div class="fr-skeleton-avatar"></div>
+        <div class="fr-skeleton-body">
+          <div class="fr-skeleton-line" style="width:60%;"></div>
+          <div class="fr-skeleton-line" style="width:35%;height:8px;"></div>
+        </div>
+      </div>
+    `).join('');
+    box.innerHTML = rows;
+  }
+
   async function runSearch(query) {
     if (searchAbort) searchAbort.abort();
     searchAbort = new AbortController();
-    setSearchStatus('Suche …');
+    setSearchStatus('');
+    renderSkeletons(3);
     try {
       const url = `${buildApiBase()}/api/friends/search?q=${encodeURIComponent(query)}`;
       const res = await fetch(url, {
@@ -136,7 +158,9 @@
     );
 
     box.innerHTML = list.map((u) => {
-      const name = escapeHtml(u.display_name || 'Unbekannt');
+      const displayName = u.display_name || 'Unbekannt';
+      const name = escapeHtml(displayName);
+      const initial = escapeHtml(getAvatarInitial(displayName));
       const code = (u.friend_code || '').toString().toUpperCase();
       const codeDisplay = code ? `#${escapeHtml(code)}` : '– kein Code –';
       const isSelf = code && ownCode && code === ownCode;
@@ -153,6 +177,7 @@
       }
       return `
         <div class="friend-search-item">
+          <div class="friend-search-avatar" aria-hidden="true">${initial}</div>
           <div class="friend-search-meta">
             <div class="friend-search-name">${name}</div>
             <div class="friend-search-code">${codeDisplay}</div>
@@ -203,20 +228,55 @@
     }
   }
 
-  function updateRequestBadge() {
+  function getCounts() {
+    const fallback = { friends: 0, received: 0, sent: 0 };
     try {
-      const badge = qs('#friendsReqBadge');
-      if (!badge || !window.FriendsSystem) return;
-      const state = FriendsSystem.getState ? FriendsSystem.getState() : null;
-      const count = state && Array.isArray(state.pendingRequests) ? state.pendingRequests.length : 0;
-      if (count > 0) {
+      if (!window.FriendsSystem || typeof FriendsSystem.getState !== 'function') return fallback;
+      const state = FriendsSystem.getState();
+      return {
+        friends: Array.isArray(state.friends) ? state.friends.length : 0,
+        received: Array.isArray(state.pendingRequests) ? state.pendingRequests.length : 0,
+        sent: Array.isArray(state.sentRequests) ? state.sentRequests.length : 0,
+      };
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function updateStats() {
+    const counts = getCounts();
+    const friendsEl = qs('#frStatFriends');
+    const receivedEl = qs('#frStatReceived');
+    const sentEl = qs('#frStatSent');
+    if (friendsEl) friendsEl.textContent = String(counts.friends);
+    if (receivedEl) receivedEl.textContent = String(counts.received);
+    if (sentEl) sentEl.textContent = String(counts.sent);
+
+    const badge = qs('#friendsReqBadge');
+    if (badge) {
+      if (counts.received > 0) {
         badge.hidden = false;
-        badge.textContent = String(count);
+        badge.textContent = String(counts.received);
       } else {
         badge.hidden = true;
         badge.textContent = '0';
       }
-    } catch (_) { /* noop */ }
+    }
+  }
+
+  function hookFriendsSystemRenders() {
+    const fs = window.FriendsSystem;
+    if (!fs || fs.__frPageHooked) return;
+    fs.__frPageHooked = true;
+    ['renderFriendsList', 'renderPendingRequests'].forEach((name) => {
+      const orig = fs[name];
+      if (typeof orig !== 'function') return;
+      fs[name] = function patched() {
+        const out = orig.apply(this, arguments);
+        try { updateStats(); } catch (_) { /* noop */ }
+        return out;
+      };
+    });
   }
 
   async function onOpen() {
@@ -230,6 +290,7 @@
       bindFilter();
       bindSearch();
       activateTab('list');
+      hookFriendsSystemRenders();
       initialized = true;
     }
 
@@ -242,12 +303,12 @@
       console.warn('FriendsPage: init fehlgeschlagen:', err);
     }
 
-    updateRequestBadge();
+    updateStats();
 
     // Filter-Input leeren, damit beim Wiederkehren alle Freunde sichtbar sind.
     const filterInput = qs('#friendsFilterInput');
     if (filterInput) { filterInput.value = ''; filterOwnFriends(''); }
   }
 
-  window.FriendsPage = { onOpen, activateTab };
+  window.FriendsPage = { onOpen, activateTab, updateStats };
 })();
