@@ -1,16 +1,13 @@
 /**
- * Runtime Fixes + local QA Test Suite
- *
- * Diese Datei wird in index.html als letztes defer-Script geladen.
- * Auf Produktion installiert sie kritische UI-Fixes.
+ * Production runtime fix: Duel setup + hard no-blur mode.
+ * Loaded as the final script in index.html.
  */
-
-(function installProductionDuelFlowFix() {
+(function () {
   'use strict';
 
-  const QA_IS_LOCAL_DEV = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-  if (QA_IS_LOCAL_DEV) {
-    console.info('🧪 QA Test Suite available in local development');
+  const isLocal = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  if (isLocal) {
+    console.info('🧪 QA file loaded locally');
     return;
   }
 
@@ -41,41 +38,51 @@
   }
 
   function installNoBlurCss() {
-    let style = byId('duelNoBlurRuntimeStyle');
+    let style = byId('runtimeNoBlurStyle');
     if (!style) {
       style = document.createElement('style');
-      style.id = 'duelNoBlurRuntimeStyle';
+      style.id = 'runtimeNoBlurStyle';
       document.head.appendChild(style);
     }
 
     style.textContent = `
-      html, body {
-        overflow-x: hidden !important;
-        filter: none !important;
-        -webkit-filter: none !important;
-      }
-
-      #duelSetupSheetOverlay {
-        background: #020403 !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-        filter: none !important;
-        -webkit-filter: none !important;
-        transform: none !important;
-        -webkit-transform: none !important;
-      }
-
+      html,
+      body,
+      body::before,
+      body::after,
+      #screenSetup,
+      #screenSetup *,
+      #premiumDashboard,
+      #premiumDashboard *,
+      #duelSetupSheetOverlay,
+      #duelSetupSheetOverlay *,
       #duelSetupSheet,
       #duelSetupSheet *,
       #duelSettingsContent,
       #duelSettingsContent *,
       #gameModeSelection,
       #gameModeSelection * {
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
         filter: none !important;
         -webkit-filter: none !important;
-        text-shadow: none;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+      }
+
+      html,
+      body {
+        overflow-x: hidden !important;
+      }
+
+      #duelSetupSheetOverlay {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100dvh !important;
+        background: #020403 !important;
+        transform: none !important;
+        -webkit-transform: none !important;
+        z-index: 9000 !important;
       }
 
       #duelSetupSheet {
@@ -92,8 +99,92 @@
         background: #121214 !important;
         -webkit-font-smoothing: antialiased !important;
         text-rendering: geometricPrecision !important;
+        padding-bottom: calc(34px + env(safe-area-inset-bottom)) !important;
+      }
+
+      #premiumDashboard > div[style*="filter"],
+      #premiumDashboard [style*="filter:blur"],
+      #screenSetup [style*="filter:blur"],
+      #screenSetup [style*="backdrop-filter"] {
+        filter: none !important;
+        -webkit-filter: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
       }
     `;
+  }
+
+  function hardNoBlur() {
+    installNoBlurCss();
+
+    const selectors = [
+      'body',
+      '#screenSetup',
+      '#premiumDashboard',
+      '#premiumDashboard *',
+      '#duelSetupSheetOverlay',
+      '#duelSetupSheetOverlay *',
+      '#duelSetupSheet',
+      '#duelSetupSheet *',
+      '#duelSettingsContent',
+      '#duelSettingsContent *',
+      '#gameModeSelection',
+      '#gameModeSelection *'
+    ];
+
+    document.documentElement.style.setProperty('overflow-x', 'hidden', 'important');
+    document.body.style.setProperty('overflow-x', 'hidden', 'important');
+    document.body.style.setProperty('width', '100%', 'important');
+
+    selectors.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((el) => {
+        el.style.setProperty('filter', 'none', 'important');
+        el.style.setProperty('-webkit-filter', 'none', 'important');
+        el.style.setProperty('backdrop-filter', 'none', 'important');
+        el.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+      });
+    });
+
+    const overlay = byId('duelSetupSheetOverlay');
+    const sheet = byId('duelSetupSheet');
+    const floatingButton = byId('btnOpenDuelSetup');
+
+    if (overlay) {
+      overlay.style.setProperty('position', 'fixed', 'important');
+      overlay.style.setProperty('inset', '0', 'important');
+      overlay.style.setProperty('background', '#020403', 'important');
+      overlay.style.setProperty('transform', 'none', 'important');
+      overlay.style.setProperty('-webkit-transform', 'none', 'important');
+    }
+
+    if (sheet) {
+      sheet.style.setProperty('position', 'fixed', 'important');
+      sheet.style.setProperty('left', '0', 'important');
+      sheet.style.setProperty('right', '0', 'important');
+      sheet.style.setProperty('width', '100vw', 'important');
+      sheet.style.setProperty('max-width', '100vw', 'important');
+      sheet.style.setProperty('transform', 'none', 'important');
+      sheet.style.setProperty('-webkit-transform', 'none', 'important');
+      sheet.style.setProperty('background', '#121214', 'important');
+      sheet.style.setProperty('box-sizing', 'border-box', 'important');
+      sheet.style.setProperty('will-change', 'auto', 'important');
+    }
+
+    if (floatingButton) {
+      floatingButton.style.setProperty('left', '50%', 'important');
+      floatingButton.style.setProperty('right', 'auto', 'important');
+      floatingButton.style.setProperty('transform', 'translateX(-50%)', 'important');
+    }
+  }
+
+  function hardNoBlurLoop() {
+    hardNoBlur();
+    let ticks = 0;
+    const id = setInterval(() => {
+      hardNoBlur();
+      ticks += 1;
+      if (ticks >= 30) clearInterval(id);
+    }, 50);
   }
 
   function optionStyle(active) {
@@ -110,111 +201,18 @@
     ].join(';');
   }
 
-  function hardRemoveBlur() {
-    installNoBlurCss();
-
-    const ids = [
-      'duelSetupSheetOverlay',
-      'duelSetupSheet',
-      'duelSettingsContent',
-      'gameModeSelection',
-      'screenSetup',
-      'premiumDashboard'
-    ];
-
-    ids.forEach((id) => {
-      const el = byId(id);
-      if (!el) return;
-      el.style.setProperty('filter', 'none', 'important');
-      el.style.setProperty('-webkit-filter', 'none', 'important');
-      el.style.setProperty('backdrop-filter', 'none', 'important');
-      el.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
-    });
-
-    const overlay = byId('duelSetupSheetOverlay');
-    const sheet = byId('duelSetupSheet');
-    const floatingButton = byId('btnOpenDuelSetup');
-
-    document.documentElement.style.setProperty('overflow-x', 'hidden', 'important');
-    document.body.style.setProperty('overflow-x', 'hidden', 'important');
-    document.body.style.setProperty('width', '100%', 'important');
-    document.body.style.setProperty('filter', 'none', 'important');
-    document.body.style.setProperty('-webkit-filter', 'none', 'important');
-
-    if (overlay) {
-      overlay.style.setProperty('position', 'fixed', 'important');
-      overlay.style.setProperty('inset', '0', 'important');
-      overlay.style.setProperty('width', '100vw', 'important');
-      overlay.style.setProperty('max-width', '100vw', 'important');
-      overlay.style.setProperty('height', '100dvh', 'important');
-      overlay.style.setProperty('overflow-x', 'hidden', 'important');
-      overlay.style.setProperty('z-index', '9000', 'important');
-      overlay.style.setProperty('background', '#020403', 'important');
-      overlay.style.setProperty('transform', 'none', 'important');
-      overlay.style.setProperty('-webkit-transform', 'none', 'important');
-    }
-
-    if (sheet) {
-      sheet.style.setProperty('position', 'fixed', 'important');
-      sheet.style.setProperty('left', '0', 'important');
-      sheet.style.setProperty('right', '0', 'important');
-      sheet.style.setProperty('width', '100vw', 'important');
-      sheet.style.setProperty('max-width', '100vw', 'important');
-      sheet.style.setProperty('box-sizing', 'border-box', 'important');
-      sheet.style.setProperty('margin', '0', 'important');
-      sheet.style.setProperty('transform', 'none', 'important');
-      sheet.style.setProperty('-webkit-transform', 'none', 'important');
-      sheet.style.setProperty('will-change', 'auto', 'important');
-      sheet.style.setProperty('overflow-x', 'hidden', 'important');
-      sheet.style.setProperty('background', '#121214', 'important');
-      sheet.style.setProperty('padding-bottom', 'calc(34px + env(safe-area-inset-bottom))', 'important');
-      sheet.style.setProperty('-webkit-font-smoothing', 'antialiased', 'important');
-      sheet.style.setProperty('text-rendering', 'geometricPrecision', 'important');
-    }
-
-    if (floatingButton) {
-      floatingButton.style.setProperty('left', '50%', 'important');
-      floatingButton.style.setProperty('right', 'auto', 'important');
-      floatingButton.style.setProperty('transform', 'translateX(-50%)', 'important');
-    }
-  }
-
-  function removeBlurForASecond() {
-    hardRemoveBlur();
-    let ticks = 0;
-    const interval = setInterval(() => {
-      hardRemoveBlur();
-      ticks += 1;
-      if (ticks >= 24) clearInterval(interval);
-    }, 50);
-  }
-
   function syncGameState() {
     const disc = disciplines[state.discipline] || disciplines.lg40;
-
-    try {
-      if (typeof G !== 'undefined') {
-        G.weapon = disc.weapon;
-        G.discipline = state.discipline;
-        G.diff = state.difficulty;
-        G.dist = disc.dist;
-        G.shots = disc.shots;
-        G.maxShots = disc.shots;
-        G.playerShotsLeft = disc.shots;
-        G.botShotsLeft = disc.shots;
-        G.is3x20 = state.discipline === 'kk3x20';
-
-        if (G.is3x20) {
-          G.positions = ['Kniend', 'Liegend', 'Stehend'];
-          G.posIcons = ['🦵', '🛏️', '🧍'];
-          G.posIdx = 0;
-          G.posShots = 0;
-          G.perPos = 20;
-          G.posResults = [];
-        }
-      }
-    } catch (e) {
-      console.warn('[DuelRuntimeFix] G sync failed', e);
+    if (typeof G !== 'undefined') {
+      G.weapon = disc.weapon;
+      G.discipline = state.discipline;
+      G.diff = state.difficulty;
+      G.dist = disc.dist;
+      G.shots = disc.shots;
+      G.maxShots = disc.shots;
+      G.playerShotsLeft = disc.shots;
+      G.botShotsLeft = disc.shots;
+      G.is3x20 = state.discipline === 'kk3x20';
     }
   }
 
@@ -224,7 +222,6 @@
 
   function renderDuelSettings(mode) {
     state.mode = mode === 'multiplayer' ? 'multiplayer' : 'bot';
-
     if (state.mode === 'multiplayer') {
       state.mode = 'bot';
       setTimeout(() => alert('Multiplayer ist noch nicht stabil. Ich öffne den Bot-Modus.'), 0);
@@ -233,11 +230,7 @@
     const modeSelection = byId('gameModeSelection');
     const settings = byId('duelSettingsContent');
     const sheet = byId('duelSetupSheet');
-
-    if (!settings) {
-      console.error('[DuelRuntimeFix] duelSettingsContent fehlt');
-      return;
-    }
+    if (!settings) return;
 
     if (modeSelection) modeSelection.style.display = 'none';
     settings.style.display = 'block';
@@ -255,31 +248,15 @@
     settings.innerHTML = `
       <button onclick="showGameModeSelection()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.72);border-radius:14px;padding:12px 16px;margin-bottom:22px;font-weight:800;font-size:1rem;">← Zurück zur Modus-Auswahl</button>
       <h2 style="color:#fff;margin:0 0 18px 0;font-size:1.55rem;font-weight:900;letter-spacing:.03em;">DUELL EINSTELLUNGEN</h2>
-      <section style="margin-bottom:18px;">
-        <div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Waffe</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <button onclick="duelRuntimeFixSetWeapon('lg')" style="${optionStyle(state.weapon === 'lg')}"><div style="font-size:1.05rem;margin-bottom:4px;">🌬️ Luftgewehr</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">10 Meter</div></button>
-          <button onclick="duelRuntimeFixSetWeapon('kk')" style="${optionStyle(state.weapon === 'kk')}"><div style="font-size:1.05rem;margin-bottom:4px;">🎯 Kleinkaliber</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">50 / 100 m</div></button>
-        </div>
-      </section>
-      <section style="margin-bottom:18px;">
-        <div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Disziplin</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          ${availableDisciplines.map(([key, disc]) => `<button onclick="duelRuntimeFixSetDiscipline('${key}')" style="${optionStyle(state.discipline === key)}"><div style="font-size:.98rem;margin-bottom:4px;">${disc.label}</div><div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${disc.desc}</div></button>`).join('')}
-        </div>
-      </section>
-      <section style="margin-bottom:18px;">
-        <div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Schwierigkeit</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          ${Object.entries(difficulties).map(([key, diff]) => `<button onclick="duelRuntimeFixSetDifficulty('${key}')" style="${optionStyle(state.difficulty === key)}"><div style="font-size:.95rem;margin-bottom:4px;">${diff.label}</div><div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${diff.desc}</div></button>`).join('')}
-        </div>
-      </section>
+      <section style="margin-bottom:18px;"><div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Waffe</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"><button onclick="duelRuntimeFixSetWeapon('lg')" style="${optionStyle(state.weapon === 'lg')}"><div style="font-size:1.05rem;margin-bottom:4px;">🌬️ Luftgewehr</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">10 Meter</div></button><button onclick="duelRuntimeFixSetWeapon('kk')" style="${optionStyle(state.weapon === 'kk')}"><div style="font-size:1.05rem;margin-bottom:4px;">🎯 Kleinkaliber</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">50 / 100 m</div></button></div></section>
+      <section style="margin-bottom:18px;"><div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Disziplin</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${availableDisciplines.map(([key, disc]) => `<button onclick="duelRuntimeFixSetDiscipline('${key}')" style="${optionStyle(state.discipline === key)}"><div style="font-size:.98rem;margin-bottom:4px;">${disc.label}</div><div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${disc.desc}</div></button>`).join('')}</div></section>
+      <section style="margin-bottom:18px;"><div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Schwierigkeit</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${Object.entries(difficulties).map(([key, diff]) => `<button onclick="duelRuntimeFixSetDifficulty('${key}')" style="${optionStyle(state.difficulty === key)}"><div style="font-size:.95rem;margin-bottom:4px;">${diff.label}</div><div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${diff.desc}</div></button>`).join('')}</div></section>
       <div style="border:1px solid rgba(122,176,48,.22);background:rgba(122,176,48,.08);border-radius:18px;padding:14px 16px;margin-bottom:18px;color:rgba(255,255,255,.78);font-size:.88rem;line-height:1.45;"><b style="color:#fff;">Aktiv:</b> ${activeDiscipline.label} · ${activeDifficulty.label} · ${activeDiscipline.shots} Schuss</div>
       ${fallbackStartButtonHtml()}
     `;
 
     syncGameState();
-    removeBlurForASecond();
+    hardNoBlurLoop();
     if (sheet) sheet.scrollTop = 0;
   }
 
@@ -288,77 +265,56 @@
     const sheet = byId('duelSetupSheet');
     const modeSelection = byId('gameModeSelection');
     const settings = byId('duelSettingsContent');
-
     if (!overlay || !sheet) return;
-
     if (modeSelection) modeSelection.style.display = 'block';
     if (settings) settings.style.display = 'none';
-
     overlay.style.display = 'block';
     overlay.style.opacity = '1';
     sheet.style.bottom = '0';
     document.body.style.overflow = 'hidden';
-    removeBlurForASecond();
+    hardNoBlurLoop();
   }
 
-  window.openDuelSetup = function patchedOpenDuelSetup() {
-    forceOpenSheet();
-  };
-
-  window.selectGameMode = function patchedSelectGameMode(mode) {
-    renderDuelSettings(mode || 'bot');
-  };
-
-  window.showGameModeSelection = function patchedShowGameModeSelection() {
+  window.openDuelSetup = forceOpenSheet;
+  window.selectGameMode = (mode) => renderDuelSettings(mode || 'bot');
+  window.showGameModeSelection = function () {
     const modeSelection = byId('gameModeSelection');
     const settings = byId('duelSettingsContent');
     if (modeSelection) modeSelection.style.display = 'block';
     if (settings) settings.style.display = 'none';
-    removeBlurForASecond();
+    hardNoBlurLoop();
   };
-
-  window.duelRuntimeFixSetWeapon = function duelRuntimeFixSetWeapon(weapon) {
+  window.duelRuntimeFixSetWeapon = function (weapon) {
     state.weapon = weapon === 'kk' ? 'kk' : 'lg';
     state.discipline = state.weapon === 'lg' ? 'lg40' : 'kk50';
     renderDuelSettings(state.mode);
   };
-
-  window.duelRuntimeFixSetDiscipline = function duelRuntimeFixSetDiscipline(discipline) {
+  window.duelRuntimeFixSetDiscipline = function (discipline) {
     if (disciplines[discipline]) {
       state.discipline = discipline;
       state.weapon = disciplines[discipline].weapon;
     }
     renderDuelSettings(state.mode);
   };
-
-  window.duelRuntimeFixSetDifficulty = function duelRuntimeFixSetDifficulty(difficulty) {
+  window.duelRuntimeFixSetDifficulty = function (difficulty) {
     state.difficulty = difficulties[difficulty] ? difficulty : 'easy';
     renderDuelSettings(state.mode);
   };
-
-  window.duelRuntimeFixStart = function duelRuntimeFixStart() {
+  window.duelRuntimeFixStart = function () {
     syncGameState();
-    removeBlurForASecond();
+    hardNoBlurLoop();
     const candidates = ['startBattle', 'startDuel', 'beginBattle', 'beginDuel', 'startMatch', 'beginMatch', 'startGame', 'startBotBattle', 'startBotDuel'];
-
     for (const name of candidates) {
       if (typeof window[name] === 'function') {
-        try {
-          window[name]();
-          return;
-        } catch (e) {
-          console.error('[DuelRuntimeFix] start failed:', name, e);
-        }
+        try { window[name](); return; } catch (e) { console.error('[DuelRuntimeFix] start failed:', name, e); }
       }
     }
-
     alert('Einstellungen gesetzt. Startfunktion ist noch nicht eindeutig gefunden.');
   };
 
-  document.addEventListener('click', function interceptModeButtons(event) {
+  document.addEventListener('click', function (event) {
     const botButton = event.target.closest && event.target.closest('#modeBotBtn');
     const multiButton = event.target.closest && event.target.closest('#modeMultiBtn');
-
     if (botButton || multiButton) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -366,16 +322,14 @@
     }
   }, true);
 
-  window.addEventListener('resize', hardRemoveBlur);
-  window.addEventListener('orientationchange', function () {
-    setTimeout(hardRemoveBlur, 200);
-  });
+  window.addEventListener('resize', hardNoBlur);
+  window.addEventListener('orientationchange', () => setTimeout(hardNoBlur, 200));
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', hardRemoveBlur);
+    document.addEventListener('DOMContentLoaded', hardNoBlur);
   } else {
-    hardRemoveBlur();
+    hardNoBlur();
   }
 
-  console.info('✅ Duel Runtime Fix active, original open bypassed, solid no-blur overlay');
+  console.info('✅ Runtime duel fix active: dashboard blur disabled too');
 })();
