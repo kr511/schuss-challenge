@@ -3,11 +3,12 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v3.8'; // Duel Setup Overview UI
+const CACHE_VERSION = 'v3.9'; // Duel Setup cache/version hardening
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
-const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=3.8" defer></script>';
-const QA_SCRIPT_PATTERN = '<script src="qa-test-suite.js" defer></script>';
-const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=3.8" defer></script>';
+const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=3.9" defer></script>';
+const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=3.9" defer></script>';
+const DUEL_RUNTIME_RE = /<script\s+src=["']duel-setup-runtime\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
+const QA_SCRIPT_RE = /<script\s+src=["']qa-test-suite\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 
 const PRECACHE = [
   './',
@@ -32,12 +33,15 @@ const PRECACHE = [
   './storage-manager.js',
   './async-challenge.js',
   './duel-setup-runtime.js',
+  './duel-setup-runtime.js?v=3.9',
   './performance-config.js',
   './battle-balance.js',
   './qa-test-suite.js',
+  './qa-test-suite.js?v=3.9',
   // Lokale CSS-Dateien
   './styles.css',
   './duel-setup.css',
+  './duel-setup.css?v=3.9',
   './image-compare.css',
   './manifest.json',
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap',
@@ -53,16 +57,21 @@ const NEVER_CACHE = [
 
 function enhanceIndexHtml(html) {
   let nextHtml = html;
+  const hasRuntime = DUEL_RUNTIME_RE.test(nextHtml);
+  DUEL_RUNTIME_RE.lastIndex = 0;
+  QA_SCRIPT_RE.lastIndex = 0;
 
-  if (!nextHtml.includes('duel-setup-runtime.js')) {
-    if (nextHtml.includes(QA_SCRIPT_PATTERN)) {
-      nextHtml = nextHtml.replace(QA_SCRIPT_PATTERN, `${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
-    } else if (nextHtml.includes('</head>')) {
-      nextHtml = nextHtml.replace('</head>', `  ${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}\n</head>`);
-    }
-  } else if (nextHtml.includes(QA_SCRIPT_PATTERN)) {
-    nextHtml = nextHtml.replace(QA_SCRIPT_PATTERN, QA_SCRIPT_VERSIONED);
+  if (hasRuntime) {
+    nextHtml = nextHtml.replace(DUEL_RUNTIME_RE, DUEL_RUNTIME_SCRIPT);
+  } else if (QA_SCRIPT_RE.test(nextHtml)) {
+    QA_SCRIPT_RE.lastIndex = 0;
+    nextHtml = nextHtml.replace(QA_SCRIPT_RE, `${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
+  } else if (nextHtml.includes('</head>')) {
+    nextHtml = nextHtml.replace('</head>', `  ${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}\n</head>`);
   }
+
+  QA_SCRIPT_RE.lastIndex = 0;
+  nextHtml = nextHtml.replace(QA_SCRIPT_RE, QA_SCRIPT_VERSIONED);
 
   return nextHtml;
 }
