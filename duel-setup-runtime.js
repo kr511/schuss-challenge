@@ -39,7 +39,7 @@
     if (document.querySelector('link[href*="duel-setup.css"]')) return;
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'duel-setup.css?v=3.7';
+    link.href = 'duel-setup.css?v=3.8';
     document.head.appendChild(link);
   }
 
