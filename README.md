@@ -2,7 +2,7 @@
 
 **Schuss Challenge** is a modern **Progressive Web App (PWA)** designed to help shooters train precision, consistency, and grouping — whether you're using air rifles, smallbore, pistol, or dry-fire practice.
 
-Take real shots on paper targets → take a photo with your phone → get scoring support, feedback, and coaching.
+Take real shots on paper targets → take a photo with your phone → get scoring support, feedback, and coaching-style training hints.
 
 No extra hardware. No subscriptions. Just your browser and a target.
 
@@ -12,7 +12,6 @@ No extra hardware. No subscriptions. Just your browser and a target.
 - **Offline-first PWA** — Installable on phone/home screen and usable for many local training functions after first load
 - **Local progress tracking** — Stats, XP, achievements, best groups and training history can be stored in the browser
 - **Optional online account features** — Login, leaderboard and sync features use online services
-- **Optional AI analysis** — AI-powered photo feedback can be used when configured and available
 - **Advanced Target Preprocessing** — Built-in Moiré-reduction, adaptive thresholding and correction helpers for target/display images
 - **Adaptive Training Bot** — Difficulty and target size adjust automatically based on your performance
 - **Multiple Training Modes** — Standard groups, timed challenges, training drills and duel modes
@@ -27,9 +26,8 @@ Einige Funktionen benötigen Internet:
 
 - **Login und Account-Funktionen** über Supabase
 - **Ranglisten / Sync** über Firebase
-- **optionale KI-Fotoanalyse** über Google Gemini, falls ein API-Key konfiguriert ist
 
-Wichtig: Lokale Trainingsfunktionen können ohne KI genutzt werden. Wenn KI-Fotoanalyse aktiviert ist, kann das ausgewählte Bild zur Auswertung an den KI-Dienst gesendet werden. Deshalb werden Online- und KI-Funktionen transparent gekennzeichnet.
+Die Foto- und OCR-Funktionen sollen ohne externe KI-API auskommen. Gemini/Google-KI ist nicht Bestandteil der aktuellen App-Konfiguration.
 
 ## 🚀 Quick Start
 
