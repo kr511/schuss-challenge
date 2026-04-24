@@ -1,14 +1,16 @@
 /**
  * Duel Result Screen
  *
- * Shows the result only after the player has actually submitted a score
- * through photo/OCR or manual entry. Bot-only scores must never trigger the
- * outcome screen.
+ * Strict flow:
+ * 1) start duel
+ * 2) show existing Ergebnis-eingeben screen
+ * 3) wait for player confirmation via Vergleich / Foto / Gewonnen / Verloren
+ * 4) then show this result overlay.
  */
 (function () {
   'use strict';
 
-  const VERSION = '5.0';
+  const VERSION = '5.1';
   if (window.DuelResultScreen?.version === VERSION) return;
 
   const XP_REWARD = { easy: 10, real: 20, hard: 40, elite: 75 };
@@ -24,7 +26,9 @@
     lastConfig: null,
     lastSignature: '',
     lastPlayerSignature: '',
-    stablePlayerTicks: 0
+    stablePlayerTicks: 0,
+    playerSubmissionConfirmed: false,
+    confirmationSource: ''
   };
 
   function getGame() {
@@ -46,7 +50,7 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+      .replace(/\"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
 
@@ -127,13 +131,37 @@
     const game = getGame();
     const playerScore = scoreFromGame('player');
     const playerValues = shotValues('player');
-
-    // Important: bot-only scores are generated at duel start. They must not
-    // trigger the final result. A real player result is required first.
     if (playerScore > 0) return true;
     if (playerValues.length > 0 && playerValues.some((value) => value > 0)) return true;
     if (game?.playerResultSubmitted === true || game?.playerScoreSubmitted === true || game?.ocrConfirmed === true || game?.manualScoreSubmitted === true) return true;
     return false;
+  }
+
+  function markSubmissionConfirmed(source = 'unknown') {
+    state.playerSubmissionConfirmed = true;
+    state.confirmationSource = source;
+    const game = getGame();
+    if (game) {
+      game.playerResultSubmitted = true;
+      if (source === 'manual' || source === 'compare') game.manualScoreSubmitted = true;
+      if (source === 'photo') game.ocrConfirmed = true;
+    }
+    state.active = true;
+    if (!state.startedAt) state.startedAt = Date.now();
+    setTimeout(tryShowConfirmedResult, 180);
+    setTimeout(tryShowConfirmedResult, 650);
+    setTimeout(tryShowConfirmedResult, 1300);
+  }
+
+  function isConfirmedByGameFlags() {
+    const game = getGame();
+    return Boolean(
+      state.playerSubmissionConfirmed ||
+      game?.playerResultSubmitted === true ||
+      game?.playerScoreSubmitted === true ||
+      game?.ocrConfirmed === true ||
+      game?.manualScoreSubmitted === true
+    );
   }
 
   function isPlayerResultStable() {
@@ -155,6 +183,7 @@
   function isFinished() {
     const game = getGame();
     if (!game) return false;
+    if (!isConfirmedByGameFlags()) return false;
     if (!hasPlayerResult()) return false;
 
     const config = captureConfig() || {};
@@ -166,9 +195,6 @@
     if (game.battleFinished === true || game.duelFinished === true || game.gameOver === true || game.isFinished === true || game.dnf === true) return true;
     if (Number.isFinite(playerLeft) && playerLeft <= 0) return true;
     if (expectedShots > 0 && playerValues.length >= expectedShots) return true;
-
-    // Manual score entry normally sets a total but not individual shots. Wait
-    // for two stable polls to avoid showing while OCR/manual input is still changing.
     return isPlayerResultStable();
   }
 
@@ -220,7 +246,7 @@
   }
 
   function showResult(payload) {
-    if (!payload || payload.playerScore <= 0) return false;
+    if (!payload || payload.playerScore <= 0 || !isConfirmedByGameFlags()) return false;
     ensureStyles();
     const signature = [payload.result, payload.playerScore, payload.botScore, payload.discipline, payload.difficulty, payload.shots].join('|');
     if (signature === state.lastSignature && document.querySelector('.duel-result-overlay')) return true;
@@ -257,6 +283,20 @@
   function resetRunState() {
     state.stablePlayerTicks = 0;
     state.lastPlayerSignature = '';
+    state.playerSubmissionConfirmed = false;
+    state.confirmationSource = '';
+  }
+
+  function tryShowConfirmedResult() {
+    if (!state.active) return false;
+    if (!isFinished()) return false;
+    const payload = resultPayload();
+    const didShow = showResult(payload);
+    if (didShow) {
+      state.active = false;
+      stopPolling();
+    }
+    return didShow;
   }
 
   function startPolling() {
@@ -264,11 +304,7 @@
     state.pollTimer = setInterval(() => {
       if (!state.active) return;
       if (Date.now() - state.startedAt < 1000) return;
-      if (!isFinished()) return;
-      const payload = resultPayload();
-      if (!showResult(payload)) return;
-      state.active = false;
-      stopPolling();
+      tryShowConfirmedResult();
     }, 500);
   }
 
@@ -312,6 +348,34 @@
     return true;
   }
 
+  function isConfirmationText(text) {
+    const t = String(text || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    return (
+      t.includes('VERGLEICH') ||
+      t.includes('GEWONNEN') ||
+      t.includes('VERLOREN') ||
+      t.includes('FOTO VERGLEICHEN') ||
+      t.includes('WETTKAMPF-FOTO')
+    );
+  }
+
+  function sourceFromText(text) {
+    const t = String(text || '').toUpperCase();
+    if (t.includes('FOTO')) return 'photo';
+    if (t.includes('VERGLEICH')) return 'compare';
+    if (t.includes('GEWONNEN')) return 'direct-win';
+    if (t.includes('VERLOREN')) return 'direct-lose';
+    return 'manual';
+  }
+
+  document.addEventListener('click', (event) => {
+    const target = event.target.closest('button, [role="button"], label, input[type="button"], input[type="submit"]');
+    if (!target) return;
+    const text = target.value || target.textContent || target.getAttribute('aria-label') || '';
+    if (!isConfirmationText(text)) return;
+    markSubmissionConfirmed(sourceFromText(text));
+  }, true);
+
   function waitForStartBattle(attempt = 0) {
     if (patchStartBattle()) return;
     if (attempt > 120) {
@@ -340,6 +404,7 @@
     newSettings,
     patchStartBattle,
     hasPlayerResult,
+    confirmSubmission: markSubmissionConfirmed,
     getState: () => ({ ...state })
   };
 })();
