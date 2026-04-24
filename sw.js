@@ -3,13 +3,15 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v4.2'; // Hard Duel Setup touch-scroll patch
+const CACHE_VERSION = 'v4.3'; // Filter Duel Setup disciplines by weapon
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.1" defer></script>';
 const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.2" defer></script>';
+const DUEL_DISCIPLINE_FILTER_SCRIPT = '<script src="duel-discipline-filter.js?v=4.3" defer></script>';
 const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=4.1" defer></script>';
 const DUEL_RUNTIME_RE = /<script\s+src=["']duel-setup-runtime\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_SCROLL_LOCK_RE = /<script\s+src=["']duel-scroll-lock\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
+const DUEL_DISCIPLINE_FILTER_RE = /<script\s+src=["']duel-discipline-filter\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const QA_SCRIPT_RE = /<script\s+src=["']qa-test-suite\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 
 const PRECACHE = [
@@ -38,6 +40,8 @@ const PRECACHE = [
   './duel-setup-runtime.js?v=4.1',
   './duel-scroll-lock.js',
   './duel-scroll-lock.js?v=4.2',
+  './duel-discipline-filter.js',
+  './duel-discipline-filter.js?v=4.3',
   './performance-config.js',
   './battle-balance.js',
   './qa-test-suite.js',
@@ -62,6 +66,7 @@ const NEVER_CACHE = [
 function resetRegexes() {
   DUEL_RUNTIME_RE.lastIndex = 0;
   DUEL_SCROLL_LOCK_RE.lastIndex = 0;
+  DUEL_DISCIPLINE_FILTER_RE.lastIndex = 0;
   QA_SCRIPT_RE.lastIndex = 0;
 }
 
@@ -93,6 +98,22 @@ function enhanceIndexHtml(html) {
     nextHtml = nextHtml.replace(DUEL_RUNTIME_SCRIPT, `${DUEL_RUNTIME_SCRIPT}\n  ${DUEL_SCROLL_LOCK_SCRIPT}`);
   } else if (nextHtml.includes('</head>')) {
     nextHtml = nextHtml.replace('</head>', `  ${DUEL_SCROLL_LOCK_SCRIPT}\n</head>`);
+  }
+
+  resetRegexes();
+  const hasDisciplineFilter = DUEL_DISCIPLINE_FILTER_RE.test(nextHtml);
+  resetRegexes();
+
+  if (hasDisciplineFilter) {
+    nextHtml = nextHtml.replace(DUEL_DISCIPLINE_FILTER_RE, DUEL_DISCIPLINE_FILTER_SCRIPT);
+  } else if (nextHtml.includes(QA_SCRIPT_VERSIONED)) {
+    nextHtml = nextHtml.replace(QA_SCRIPT_VERSIONED, `${DUEL_DISCIPLINE_FILTER_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
+  } else if (nextHtml.includes(DUEL_SCROLL_LOCK_SCRIPT)) {
+    nextHtml = nextHtml.replace(DUEL_SCROLL_LOCK_SCRIPT, `${DUEL_SCROLL_LOCK_SCRIPT}\n  ${DUEL_DISCIPLINE_FILTER_SCRIPT}`);
+  } else if (nextHtml.includes(DUEL_RUNTIME_SCRIPT)) {
+    nextHtml = nextHtml.replace(DUEL_RUNTIME_SCRIPT, `${DUEL_RUNTIME_SCRIPT}\n  ${DUEL_DISCIPLINE_FILTER_SCRIPT}`);
+  } else if (nextHtml.includes('</head>')) {
+    nextHtml = nextHtml.replace('</head>', `  ${DUEL_DISCIPLINE_FILTER_SCRIPT}\n</head>`);
   }
 
   resetRegexes();
