@@ -3,16 +3,18 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v4.6'; // Duel Result Screen
+const CACHE_VERSION = 'v4.7'; // Duel discipline distance guard
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.5" defer></script>';
 const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.2" defer></script>';
 const DUEL_RESULT_SCREEN_SCRIPT = '<script src="duel-result-screen.js?v=4.6" defer></script>';
+const DUEL_DISTANCE_GUARD_SCRIPT = '<script src="duel-distance-guard.js?v=4.7" defer></script>';
 const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=4.1" defer></script>';
 const DUEL_RUNTIME_RE = /<script\s+src=["']duel-setup-runtime\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_SCROLL_LOCK_RE = /<script\s+src=["']duel-scroll-lock\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_DISCIPLINE_FILTER_RE = /<script\s+src=["']duel-discipline-filter\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_RESULT_SCREEN_RE = /<script\s+src=["']duel-result-screen\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
+const DUEL_DISTANCE_GUARD_RE = /<script\s+src=["']duel-distance-guard\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const QA_SCRIPT_RE = /<script\s+src=["']qa-test-suite\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 
 const PRECACHE = [
@@ -43,6 +45,8 @@ const PRECACHE = [
   './duel-scroll-lock.js?v=4.2',
   './duel-result-screen.js',
   './duel-result-screen.js?v=4.6',
+  './duel-distance-guard.js',
+  './duel-distance-guard.js?v=4.7',
   './performance-config.js',
   './battle-balance.js',
   './qa-test-suite.js',
@@ -69,6 +73,7 @@ function resetRegexes() {
   DUEL_SCROLL_LOCK_RE.lastIndex = 0;
   DUEL_DISCIPLINE_FILTER_RE.lastIndex = 0;
   DUEL_RESULT_SCREEN_RE.lastIndex = 0;
+  DUEL_DISTANCE_GUARD_RE.lastIndex = 0;
   QA_SCRIPT_RE.lastIndex = 0;
 }
 
@@ -120,6 +125,22 @@ function enhanceIndexHtml(html) {
     nextHtml = nextHtml.replace(DUEL_RUNTIME_SCRIPT, `${DUEL_RUNTIME_SCRIPT}\n  ${DUEL_RESULT_SCREEN_SCRIPT}`);
   } else if (nextHtml.includes('</head>')) {
     nextHtml = nextHtml.replace('</head>', `  ${DUEL_RESULT_SCREEN_SCRIPT}\n</head>`);
+  }
+
+  resetRegexes();
+  const hasDistanceGuard = DUEL_DISTANCE_GUARD_RE.test(nextHtml);
+  resetRegexes();
+
+  if (hasDistanceGuard) {
+    nextHtml = nextHtml.replace(DUEL_DISTANCE_GUARD_RE, DUEL_DISTANCE_GUARD_SCRIPT);
+  } else if (nextHtml.includes(QA_SCRIPT_VERSIONED)) {
+    nextHtml = nextHtml.replace(QA_SCRIPT_VERSIONED, `${DUEL_DISTANCE_GUARD_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
+  } else if (nextHtml.includes(DUEL_RESULT_SCREEN_SCRIPT)) {
+    nextHtml = nextHtml.replace(DUEL_RESULT_SCREEN_SCRIPT, `${DUEL_RESULT_SCREEN_SCRIPT}\n  ${DUEL_DISTANCE_GUARD_SCRIPT}`);
+  } else if (nextHtml.includes(DUEL_RUNTIME_SCRIPT)) {
+    nextHtml = nextHtml.replace(DUEL_RUNTIME_SCRIPT, `${DUEL_RUNTIME_SCRIPT}\n  ${DUEL_DISTANCE_GUARD_SCRIPT}`);
+  } else if (nextHtml.includes('</head>')) {
+    nextHtml = nextHtml.replace('</head>', `  ${DUEL_DISTANCE_GUARD_SCRIPT}\n</head>`);
   }
 
   resetRegexes();
