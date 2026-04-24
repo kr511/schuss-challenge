@@ -3,7 +3,7 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v3.5'; // Bugfixes: Async Challenges, Mobile UX und Performance
+const CACHE_VERSION = 'v3.6'; // Refactor: Duel Setup Runtime + QA Smoke Suite
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -28,8 +28,10 @@ const PRECACHE = [
   './tutorial.js',
   './storage-manager.js',
   './async-challenge.js',
+  './duel-setup-runtime.js',
   './performance-config.js',
   './battle-balance.js',
+  './qa-test-suite.js',
   // Lokale CSS-Dateien
   './styles.css',
   './image-compare.css',
