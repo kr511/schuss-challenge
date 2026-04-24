@@ -3,9 +3,10 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v4.1'; // Integrated Duel Setup mobile scroll lock
+const CACHE_VERSION = 'v4.2'; // Hard Duel Setup touch-scroll patch
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.1" defer></script>';
+const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.2" defer></script>';
 const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=4.1" defer></script>';
 const DUEL_RUNTIME_RE = /<script\s+src=["']duel-setup-runtime\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_SCROLL_LOCK_RE = /<script\s+src=["']duel-scroll-lock\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
@@ -35,6 +36,8 @@ const PRECACHE = [
   './async-challenge.js',
   './duel-setup-runtime.js',
   './duel-setup-runtime.js?v=4.1',
+  './duel-scroll-lock.js',
+  './duel-scroll-lock.js?v=4.2',
   './performance-config.js',
   './battle-balance.js',
   './qa-test-suite.js',
@@ -78,9 +81,19 @@ function enhanceIndexHtml(html) {
     nextHtml = nextHtml.replace('</head>', `  ${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}\n</head>`);
   }
 
-  // Scroll-lock is integrated into duel-setup-runtime.js from v4.1 onward.
   resetRegexes();
-  nextHtml = nextHtml.replace(DUEL_SCROLL_LOCK_RE, '');
+  const hasScrollPatch = DUEL_SCROLL_LOCK_RE.test(nextHtml);
+  resetRegexes();
+
+  if (hasScrollPatch) {
+    nextHtml = nextHtml.replace(DUEL_SCROLL_LOCK_RE, DUEL_SCROLL_LOCK_SCRIPT);
+  } else if (nextHtml.includes(QA_SCRIPT_VERSIONED)) {
+    nextHtml = nextHtml.replace(QA_SCRIPT_VERSIONED, `${DUEL_SCROLL_LOCK_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
+  } else if (nextHtml.includes(DUEL_RUNTIME_SCRIPT)) {
+    nextHtml = nextHtml.replace(DUEL_RUNTIME_SCRIPT, `${DUEL_RUNTIME_SCRIPT}\n  ${DUEL_SCROLL_LOCK_SCRIPT}`);
+  } else if (nextHtml.includes('</head>')) {
+    nextHtml = nextHtml.replace('</head>', `  ${DUEL_SCROLL_LOCK_SCRIPT}\n</head>`);
+  }
 
   resetRegexes();
   nextHtml = nextHtml.replace(QA_SCRIPT_RE, QA_SCRIPT_VERSIONED);
