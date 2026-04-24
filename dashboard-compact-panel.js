@@ -212,8 +212,7 @@
 
     panel.innerHTML =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 10px 0;gap:10px">' +
-        '<div><div style="font-size:1.05rem;font-weight:800;color:#fff;line-height:1.2">Highscore</div><div style="font-size:.72rem;color:rgba(255,255,255,.42)">Antippen für komplette Liste</div></div>' +
-        '<button type="button" data-open-hs="1" style="font-size:.68rem;color:rgba(255,255,255,.75);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:6px 10px;white-space:nowrap;font-weight:800">Öffnen</button>' +
+        '<div><div style="font-size:1.05rem;font-weight:800;color:#fff;line-height:1.2">Highscore</div><div style="font-size:.72rem;color:rgba(255,255,255,.42)">Karte antippen für komplette Liste</div></div>' +
       '</div>' +
       '<section class="cp-card" role="button" tabindex="0" aria-label="Highscore öffnen"><div class="cp-head"><span>🏆 Beste Spieler-Ergebnisse</span><span class="cp-pill">Top 5</span></div>' +
         (highs.length ? highs.map(function (h, i) {
@@ -222,7 +221,6 @@
       '</section>';
 
     var card = panel.querySelector('.cp-card');
-    var openBtn = panel.querySelector('[data-open-hs]');
     if (card) {
       card.onclick = openHighscoreOverlay;
       card.onkeydown = function (event) {
@@ -232,7 +230,6 @@
         }
       };
     }
-    if (openBtn) openBtn.onclick = openHighscoreOverlay;
   }
 
   function mount() {
