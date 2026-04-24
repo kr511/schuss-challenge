@@ -8,13 +8,22 @@
 
   if (window.DuelSetupRuntime?.initialized) return;
 
-  const ASSET_VERSION = '3.9';
+  const ASSET_VERSION = '4.1';
 
   const state = {
     mode: 'bot',
     weapon: 'lg',
     discipline: 'lg40',
     difficulty: 'easy'
+  };
+
+  const scrollLock = {
+    locked: false,
+    scrollY: 0,
+    lastTouchY: 0,
+    touchGuardsAttached: false,
+    bodyStyles: {},
+    htmlStyles: {}
   };
 
   const disciplines = {
@@ -58,6 +67,152 @@
     ensureStylesheet();
     document.documentElement.style.setProperty('overflow-x', 'hidden', 'important');
     document.body.style.setProperty('overflow-x', 'hidden', 'important');
+  }
+
+  function getSheet() {
+    return byId('duelSetupSheet');
+  }
+
+  function getOverlay() {
+    return byId('duelSetupSheetOverlay');
+  }
+
+  function saveScrollStyles() {
+    const body = document.body;
+    const html = document.documentElement;
+
+    scrollLock.bodyStyles = {
+      position: body.style.position,
+      top: body.style.top,
+      left: body.style.left,
+      right: body.style.right,
+      width: body.style.width,
+      overflow: body.style.overflow,
+      height: body.style.height,
+      overscrollBehavior: body.style.overscrollBehavior,
+      touchAction: body.style.touchAction
+    };
+
+    scrollLock.htmlStyles = {
+      overflow: html.style.overflow,
+      height: html.style.height,
+      overscrollBehavior: html.style.overscrollBehavior,
+      touchAction: html.style.touchAction
+    };
+  }
+
+  function restoreScrollStyles() {
+    const body = document.body;
+    const html = document.documentElement;
+
+    Object.entries(scrollLock.bodyStyles).forEach(([key, value]) => {
+      body.style[key] = value || '';
+    });
+
+    Object.entries(scrollLock.htmlStyles).forEach(([key, value]) => {
+      html.style[key] = value || '';
+    });
+  }
+
+  function prepareSheetScroll() {
+    const sheet = getSheet();
+    if (!sheet) return;
+
+    sheet.style.overflowY = 'auto';
+    sheet.style.webkitOverflowScrolling = 'touch';
+    sheet.style.overscrollBehavior = 'contain';
+    sheet.style.touchAction = 'pan-y';
+  }
+
+  function lockPageScroll() {
+    prepareSheetScroll();
+    if (scrollLock.locked) return;
+
+    const body = document.body;
+    const html = document.documentElement;
+    scrollLock.scrollY = window.scrollY || html.scrollTop || body.scrollTop || 0;
+    saveScrollStyles();
+
+    html.style.overflow = 'hidden';
+    html.style.height = '100%';
+    html.style.overscrollBehavior = 'none';
+    html.style.touchAction = 'none';
+
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollLock.scrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.height = '100%';
+    body.style.overflow = 'hidden';
+    body.style.overscrollBehavior = 'none';
+    body.style.touchAction = 'none';
+    body.classList.add('duel-scroll-lock-active');
+
+    scrollLock.locked = true;
+  }
+
+  function unlockPageScroll() {
+    if (!scrollLock.locked) return;
+
+    document.body.classList.remove('duel-scroll-lock-active');
+    restoreScrollStyles();
+    window.scrollTo(0, scrollLock.scrollY || 0);
+    scrollLock.locked = false;
+  }
+
+  function handleOverlayTouchStart(event) {
+    scrollLock.lastTouchY = event.touches && event.touches.length ? event.touches[0].clientY : 0;
+  }
+
+  function handleOverlayTouchMove(event) {
+    if (!scrollLock.locked) return;
+
+    const sheet = getSheet();
+    if (!sheet) return;
+
+    if (!sheet.contains(event.target)) {
+      event.preventDefault();
+      return;
+    }
+
+    const currentY = event.touches && event.touches.length ? event.touches[0].clientY : scrollLock.lastTouchY;
+    const deltaY = currentY - scrollLock.lastTouchY;
+    scrollLock.lastTouchY = currentY;
+
+    const canScroll = sheet.scrollHeight > sheet.clientHeight + 1;
+    const atTop = sheet.scrollTop <= 0;
+    const atBottom = Math.ceil(sheet.scrollTop + sheet.clientHeight) >= sheet.scrollHeight;
+
+    if (!canScroll || (atTop && deltaY > 0) || (atBottom && deltaY < 0)) {
+      event.preventDefault();
+    }
+  }
+
+  function attachOverlayTouchGuards() {
+    const overlay = getOverlay();
+    if (!overlay || scrollLock.touchGuardsAttached) return;
+
+    overlay.addEventListener('touchstart', handleOverlayTouchStart, { passive: true });
+    overlay.addEventListener('touchmove', handleOverlayTouchMove, { passive: false });
+    scrollLock.touchGuardsAttached = true;
+  }
+
+  function closeOverlayImmediately() {
+    const overlay = getOverlay();
+    const sheet = getSheet();
+
+    if (sheet) {
+      sheet.classList.remove('is-open');
+      sheet.style.bottom = '-100%';
+    }
+
+    if (overlay) {
+      overlay.style.opacity = '0';
+      overlay.style.display = 'none';
+    }
+
+    unlockPageScroll();
   }
 
   function escapeHtml(value) {
@@ -267,7 +422,7 @@
 
     const modeSelection = byId('gameModeSelection');
     const settings = byId('duelSettingsContent');
-    const sheet = byId('duelSetupSheet');
+    const sheet = getSheet();
     if (!settings) return;
 
     if (modeSelection) modeSelection.style.display = 'none';
@@ -278,26 +433,28 @@
 
     syncGameState();
     applyLayoutGuards();
+    prepareSheetScroll();
     if (sheet) sheet.scrollTop = 0;
   }
 
   function openSheet() {
-    const overlay = byId('duelSetupSheetOverlay');
-    const sheet = byId('duelSetupSheet');
+    const overlay = getOverlay();
+    const sheet = getSheet();
     if (!overlay || !sheet) return;
 
     applyLayoutGuards();
+    renderSettings(state.mode);
+    attachOverlayTouchGuards();
     overlay.style.display = 'block';
     overlay.style.opacity = '1';
     sheet.style.bottom = '0';
     sheet.classList.add('is-open');
-    document.body.style.overflow = 'hidden';
-    renderSettings(state.mode);
+    lockPageScroll();
   }
 
   function closeSheet(event) {
-    const overlay = byId('duelSetupSheetOverlay');
-    const sheet = byId('duelSetupSheet');
+    const overlay = getOverlay();
+    const sheet = getSheet();
     if (event && sheet && event.target !== overlay) return;
 
     if (sheet) {
@@ -310,7 +467,7 @@
         overlay.style.display = 'none';
       }, 250);
     }
-    document.body.style.overflow = '';
+    setTimeout(unlockPageScroll, 260);
   }
 
   function showModeSelection() {
@@ -326,6 +483,7 @@
       if (typeof window[name] === 'function') {
         try {
           window[name]();
+          closeOverlayImmediately();
           return;
         } catch (e) {
           console.error('[DuelSetupRuntime] start failed:', name, e);
@@ -338,11 +496,14 @@
 
   const api = {
     initialized: true,
+    version: ASSET_VERSION,
     openSheet,
     closeSheet,
     renderSettings,
     showModeSelection,
     startDuel,
+    lockPageScroll,
+    unlockPageScroll,
     setMode(mode) {
       state.mode = mode === 'multiplayer' ? 'multiplayer' : 'bot';
       renderSettings(state.mode);
@@ -365,7 +526,7 @@
       renderSettings(state.mode);
     },
     getState() {
-      return { ...state };
+      return { ...state, scrollLocked: scrollLock.locked };
     }
   };
 
@@ -391,8 +552,18 @@
     }
   }, true);
 
-  window.addEventListener('resize', applyLayoutGuards);
-  window.addEventListener('orientationchange', () => setTimeout(applyLayoutGuards, 200));
+  window.addEventListener('resize', () => {
+    applyLayoutGuards();
+    if (scrollLock.locked) prepareSheetScroll();
+  });
+  window.addEventListener('orientationchange', () => setTimeout(() => {
+    applyLayoutGuards();
+    if (scrollLock.locked) prepareSheetScroll();
+  }, 200));
+  window.addEventListener('pagehide', unlockPageScroll);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) unlockPageScroll();
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', applyLayoutGuards);
