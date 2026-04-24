@@ -3,8 +3,11 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v3.6'; // Refactor: Duel Setup Runtime + QA Smoke Suite
+const CACHE_VERSION = 'v3.7'; // Served index injects Duel Setup Runtime directly
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
+const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=3.6" defer></script>';
+const QA_SCRIPT_PATTERN = '<script src="qa-test-suite.js" defer></script>';
+const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=3.6" defer></script>';
 
 const PRECACHE = [
   './',
@@ -46,6 +49,36 @@ const NEVER_CACHE = [
   'googleapis.com/identitytoolkit',
   'googleapis.com/firebase',
 ];
+
+function enhanceIndexHtml(html) {
+  let nextHtml = html;
+
+  if (!nextHtml.includes('duel-setup-runtime.js')) {
+    if (nextHtml.includes(QA_SCRIPT_PATTERN)) {
+      nextHtml = nextHtml.replace(QA_SCRIPT_PATTERN, `${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
+    } else if (nextHtml.includes('</head>')) {
+      nextHtml = nextHtml.replace('</head>', `  ${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}\n</head>`);
+    }
+  } else if (nextHtml.includes(QA_SCRIPT_PATTERN)) {
+    nextHtml = nextHtml.replace(QA_SCRIPT_PATTERN, QA_SCRIPT_VERSIONED);
+  }
+
+  return nextHtml;
+}
+
+async function indexResponseWithRuntime(response) {
+  if (!response || response.status !== 200) return response;
+
+  const html = await response.clone().text();
+  const enhancedHtml = enhanceIndexHtml(html);
+  const enhancedResponse = new Response(enhancedHtml, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+  enhancedResponse.headers.set('content-type', 'text/html; charset=UTF-8');
+  return enhancedResponse;
+}
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -95,18 +128,21 @@ self.addEventListener('fetch', event => {
   if (event.request.mode === 'navigate' || url.endsWith('.html')) {
     event.respondWith(
       fetch(event.request)
-        .then(response => {
-          // Cache successful HTML responses
-          if (response && response.status === 200) {
-            const clone = response.clone();
+        .then(async response => {
+          const enhancedResponse = await indexResponseWithRuntime(response);
+          // Cache successful HTML responses after runtime injection
+          if (enhancedResponse && enhancedResponse.status === 200) {
+            const clone = enhancedResponse.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }
-          return response;
+          return enhancedResponse;
         })
         .catch(() => {
           // Offline fallback: use cached HTML
-          return caches.match(event.request).then(cached => {
-            return cached || caches.match('./index.html');
+          return caches.match(event.request).then(async cached => {
+            if (cached) return indexResponseWithRuntime(cached);
+            const fallback = await caches.match('./index.html');
+            return fallback ? indexResponseWithRuntime(fallback) : fallback;
           });
         })
     );
@@ -131,7 +167,7 @@ self.addEventListener('fetch', event => {
       }).catch(() => {
         // Offline fallback: return cached index.html for navigation requests
         if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
+          return caches.match('./index.html').then(fallback => fallback ? indexResponseWithRuntime(fallback) : fallback);
         }
       });
     })
