@@ -8,6 +8,7 @@
 (function () {
   'use strict';
 
+  const ASSET_VERSION = '3.9';
   const REQUIRED_GLOBALS = [
     'StorageManager',
     'BattleBalance'
@@ -18,7 +19,8 @@
     if (document.querySelector('script[src*="duel-setup-runtime.js"]')) return;
 
     const script = document.createElement('script');
-    script.src = 'duel-setup-runtime.js?v=3.6';
+    script.src = `duel-setup-runtime.js?v=${ASSET_VERSION}`;
+    script.async = false;
     script.defer = true;
     script.onload = () => console.info('✅ DuelSetupRuntime loaded by QA compatibility loader');
     script.onerror = () => console.warn('⚠️ DuelSetupRuntime konnte nicht geladen werden');
