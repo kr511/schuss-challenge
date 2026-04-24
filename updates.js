@@ -7,11 +7,13 @@
   'use strict';
 
   const hotfixes = [
-    'duel-setup-hotfix.js?v=1.0'
+    'duel-setup-hotfix.js?v=1.3',
+    'dashboard-compact-panel.js?v=2.0'
   ];
 
   hotfixes.forEach((src) => {
-    if (document.querySelector(`script[src="${src}"]`)) return;
+    const base = src.split('?')[0];
+    if (document.querySelector(`script[src^="${base}"]`)) return;
 
     const script = document.createElement('script');
     script.src = src;
