@@ -16,11 +16,42 @@ const AsyncChallenge = (function() {
   // State
   const state = {
     myChallenges: [], // Von mir erstellte Challenges
-    availableChallenges: // Für mich verfügbare Challenges
+    availableChallenges: [], // Für mich verfügbare Challenges
     acceptedChallenges: [], // Von mir angenommene Challenges
     currentChallenge: null, // Aktuell laufende Challenge
     initialized: false,
   };
+
+  function hasFirebase() {
+    return typeof fbReady !== 'undefined' && fbReady && typeof fbDb !== 'undefined' && fbDb;
+  }
+
+  function getCurrentUserId() {
+    if (typeof getFirebaseOwnerId !== 'function') return null;
+    return getFirebaseOwnerId();
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function getCurrentGameSettings() {
+    const game = typeof G !== 'undefined' ? G : {};
+    return {
+      username: game.username || 'Spieler',
+      discipline: game.discipline || 'lg40',
+      weapon: game.weapon || 'lg',
+      distance: game.dist || '10',
+      difficulty: game.diff || 'easy',
+      shots: Number(game.shots) || 40,
+      burst: Boolean(game.burst),
+    };
+  }
 
   /**
    * Initialisiert das Async-Challenge-System
@@ -28,7 +59,7 @@ const AsyncChallenge = (function() {
   async function init() {
     console.log('⚔️ Async Challenge-System initialisiert');
 
-    if (!fbReady || !fbDb) {
+    if (!hasFirebase()) {
       console.warn('⚠️ Firebase nicht verfügbar, Async Challenges deaktiviert');
       return;
     }
@@ -45,25 +76,32 @@ const AsyncChallenge = (function() {
    * Erstellt eine neue Challenge
    */
   async function createChallenge(friendId = null, friendUsername = null) {
-    const userId = getFirebaseOwnerId();
+    if (!hasFirebase()) {
+      showChallengeToast('❌ Firebase nicht verfügbar', 'error');
+      return false;
+    }
+
+    const userId = getCurrentUserId();
     if (!userId) {
       console.error('❌ Keine User-ID verfügbar');
       return false;
     }
 
+    const settings = getCurrentGameSettings();
+
     // Challenge-Daten
     const challengeData = {
       id: generateChallengeId(),
       creatorId: userId,
-      creatorUsername: G.username,
+      creatorUsername: settings.username,
       friendId: friendId,
       friendUsername: friendUsername,
-      discipline: G.discipline,
-      weapon: G.weapon,
-      distance: G.dist,
-      difficulty: G.diff,
-      shots: G.shots,
-      burst: G.burst,
+      discipline: settings.discipline,
+      weapon: settings.weapon,
+      distance: settings.distance,
+      difficulty: settings.difficulty,
+      shots: settings.shots,
+      burst: settings.burst,
       createdAt: Date.now(),
       status: 'pending', // pending, accepted, completed, expired
       expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 Tage gültig
@@ -77,15 +115,16 @@ const AsyncChallenge = (function() {
       if (friendId) {
         await fbDb.ref(`${FIREBASE_PATHS.activeChallenges}/${friendId}/${challengeData.id}`).set({
           challengeId: challengeData.id,
-          fromUsername: G.username,
-          discipline: G.discipline,
-          difficulty: G.diff,
+          fromUsername: settings.username,
+          discipline: settings.discipline,
+          difficulty: settings.difficulty,
           createdAt: Date.now(),
           expiresAt: challengeData.expiresAt,
         });
       }
 
       state.myChallenges.push(challengeData);
+      renderChallengesList();
 
       console.log('✅ Challenge erstellt:', challengeData.id);
       showChallengeToast('⚔️ Challenge erstellt!', 'success');
@@ -101,8 +140,8 @@ const AsyncChallenge = (function() {
    * Lädt meine erstellten Challenges
    */
   async function loadMyChallenges() {
-    const userId = getFirebaseOwnerId();
-    if (!userId) return;
+    const userId = getCurrentUserId();
+    if (!userId || !hasFirebase()) return;
 
     try {
       const snapshot = await fbDb.ref(FIREBASE_PATHS.challenges)
@@ -110,8 +149,8 @@ const AsyncChallenge = (function() {
         .equalTo(userId)
         .once('value');
 
+      state.myChallenges = [];
       if (snapshot.exists()) {
-        state.myChallenges = [];
         snapshot.forEach(child => {
           state.myChallenges.push(child.val());
         });
@@ -125,14 +164,14 @@ const AsyncChallenge = (function() {
    * Lädt verfügbare Challenges für mich
    */
   async function loadAvailableChallenges() {
-    const userId = getFirebaseOwnerId();
-    if (!userId) return;
+    const userId = getCurrentUserId();
+    if (!userId || !hasFirebase()) return;
 
     try {
       const snapshot = await fbDb.ref(`${FIREBASE_PATHS.activeChallenges}/${userId}`).once('value');
 
+      state.availableChallenges = [];
       if (snapshot.exists()) {
-        state.availableChallenges = [];
         snapshot.forEach(child => {
           state.availableChallenges.push(child.val());
         });
@@ -146,8 +185,8 @@ const AsyncChallenge = (function() {
    * Lädt angenommene Challenges
    */
   async function loadAcceptedChallenges() {
-    const userId = getFirebaseOwnerId();
-    if (!userId) return;
+    const userId = getCurrentUserId();
+    if (!userId || !hasFirebase()) return;
 
     try {
       const snapshot = await fbDb.ref(FIREBASE_PATHS.results)
@@ -155,8 +194,8 @@ const AsyncChallenge = (function() {
         .equalTo(userId)
         .once('value');
 
+      state.acceptedChallenges = [];
       if (snapshot.exists()) {
-        state.acceptedChallenges = [];
         snapshot.forEach(child => {
           state.acceptedChallenges.push(child.val());
         });
@@ -170,7 +209,9 @@ const AsyncChallenge = (function() {
    * Nimmt eine Challenge an
    */
   async function acceptChallenge(challengeId) {
-    const userId = getFirebaseOwnerId();
+    if (!hasFirebase()) return false;
+
+    const userId = getCurrentUserId();
     if (!userId) return false;
 
     try {
@@ -201,7 +242,7 @@ const AsyncChallenge = (function() {
       // Duell starten mit Challenge-Einstellungen
       startChallengeDuel(challenge);
 
-      showChallengeToast(`⚔️ Challenge von ${challenge.creatorUsername} angenommen!`, 'success');
+      showChallengeToast(`⚔️ Challenge von ${challenge.creatorUsername || 'Spieler'} angenommen!`, 'success');
 
       if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) {
         MobileFeatures.triggerHaptic('strong');
@@ -220,12 +261,17 @@ const AsyncChallenge = (function() {
    */
   function startChallengeDuel(challenge) {
     // Globale Einstellungen setzen
-    G.discipline = challenge.discipline;
-    G.weapon = challenge.weapon;
-    G.dist = challenge.distance;
-    G.diff = challenge.difficulty;
-    G.shots = challenge.shots;
-    G.burst = challenge.burst;
+    if (typeof G !== 'undefined') {
+      G.discipline = challenge.discipline || G.discipline;
+      G.weapon = challenge.weapon || G.weapon;
+      G.dist = challenge.distance || G.dist;
+      G.diff = challenge.difficulty || G.diff;
+      G.shots = Number(challenge.shots) || G.shots;
+      G.maxShots = Number(challenge.shots) || G.maxShots;
+      G.playerShotsLeft = Number(challenge.shots) || G.playerShotsLeft;
+      G.botShotsLeft = Number(challenge.shots) || G.botShotsLeft;
+      G.burst = Boolean(challenge.burst);
+    }
 
     // UI aktualisieren
     updateChallengeUI();
@@ -233,6 +279,8 @@ const AsyncChallenge = (function() {
     // Duell starten
     if (typeof startBattle === 'function') {
       startBattle();
+    } else {
+      showChallengeToast('⚠️ Challenge gesetzt, Startfunktion fehlt', 'error');
     }
 
     showChallengeToast('🎯 Duell startet!', 'success');
@@ -246,10 +294,10 @@ const AsyncChallenge = (function() {
     const banner = document.getElementById('challengeBanner');
     if (banner && state.currentChallenge) {
       banner.classList.add('active');
-      banner.querySelector('.challenge-opponent').textContent = 
-        `vs ${state.currentChallenge.creatorUsername}`;
-      banner.querySelector('.challenge-diff').textContent = 
-        state.currentChallenge.difficulty.toUpperCase();
+      const opponentEl = banner.querySelector('.challenge-opponent');
+      const diffEl = banner.querySelector('.challenge-diff');
+      if (opponentEl) opponentEl.textContent = `vs ${state.currentChallenge.creatorUsername || 'Spieler'}`;
+      if (diffEl) diffEl.textContent = String(state.currentChallenge.difficulty || '').toUpperCase();
     }
   }
 
@@ -257,13 +305,14 @@ const AsyncChallenge = (function() {
    * Sendet das Duell-Ergebnis
    */
   async function submitResult(score, shots = []) {
-    if (!state.currentChallenge) return false;
+    if (!state.currentChallenge || !hasFirebase()) return false;
 
-    const userId = getFirebaseOwnerId();
+    const userId = getCurrentUserId();
+    const settings = getCurrentGameSettings();
     const resultData = {
       challengeId: state.currentChallenge.id,
       challengerId: userId,
-      challengerUsername: G.username,
+      challengerUsername: settings.username,
       score: score,
       shots: shots,
       submittedAt: Date.now(),
@@ -308,14 +357,16 @@ const AsyncChallenge = (function() {
 
       if (resultEntries.length < 2) return; // Noch nicht alle Ergebnisse da
 
+      const currentUserId = getCurrentUserId();
+
       // Ergebnisse vergleichen
-      const myResult = resultEntries.find(r => r.challengerId === getFirebaseOwnerId());
-      const opponentResult = resultEntries.find(r => r.challengerId !== getFirebaseOwnerId());
+      const myResult = resultEntries.find(r => r.challengerId === currentUserId);
+      const opponentResult = resultEntries.find(r => r.challengerId !== currentUserId);
 
       if (!myResult || !opponentResult) return;
 
-      const myFinalScore = myResult.score;
-      const opponentFinalScore = opponentResult.score;
+      const myFinalScore = Number(myResult.score) || Number(myScore) || 0;
+      const opponentFinalScore = Number(opponentResult.score) || 0;
 
       let result = '';
       if (myFinalScore > opponentFinalScore) {
@@ -344,23 +395,24 @@ const AsyncChallenge = (function() {
    * Zeigt Async-Duell-Ergebnis
    */
   function showAsyncResult(myScore, opponentScore, opponentName, result) {
+    const safeOpponent = escapeHtml(opponentName || 'Gegner');
     const overlay = document.createElement('div');
     overlay.className = 'async-result-overlay';
     overlay.innerHTML = `
       <div class="async-result-card">
         <div class="result-icon">${result === 'win' ? '🏆' : result === 'lose' ? '😔' : '🤝'}</div>
         <div class="result-title">${result === 'win' ? 'SIEG!' : result === 'lose' ? 'NIEDERLAGE' : 'UNENTSCHIEDEN'}</div>
-        <div class="result-subtitle">gegen ${opponentName}</div>
+        <div class="result-subtitle">gegen ${safeOpponent}</div>
         
         <div class="result-scores">
           <div class="result-score-item">
             <div class="result-label">Du</div>
-            <div class="result-value ${result === 'win' ? 'winner' : ''}">${myScore}</div>
+            <div class="result-value ${result === 'win' ? 'winner' : ''}">${escapeHtml(myScore)}</div>
           </div>
           <div class="result-divider">vs</div>
           <div class="result-score-item">
-            <div class="result-label">${opponentName}</div>
-            <div class="result-value ${result === 'lose' ? 'winner' : ''}">${opponentScore}</div>
+            <div class="result-label">${safeOpponent}</div>
+            <div class="result-value ${result === 'lose' ? 'winner' : ''}">${escapeHtml(opponentScore)}</div>
           </div>
         </div>
 
@@ -383,14 +435,16 @@ const AsyncChallenge = (function() {
    * Zeigt Challenge-Übersicht
    */
   function showChallengesOverlay() {
-    const overlay = document.getElementById('challengesOverlay');
+    let overlay = document.getElementById('challengesOverlay');
     if (!overlay) {
       createChallengesOverlay();
-      return;
+      overlay = document.getElementById('challengesOverlay');
     }
 
-    overlay.classList.add('active');
-    renderChallengesList();
+    if (overlay) {
+      overlay.classList.add('active');
+      renderChallengesList();
+    }
   }
 
   /**
@@ -426,13 +480,13 @@ const AsyncChallenge = (function() {
 
           <!-- Verfügbare Challenges -->
           <div class="challenge-available-section">
-            <h4>Verfügbare Challenges (${state.availableChallenges.length})</h4>
+            <h4>Verfügbare Challenges (<span id="availableChallengesCount">0</span>)</h4>
             <div id="availableChallengesContainer"></div>
           </div>
 
           <!-- Meine Challenges -->
           <div class="challenge-my-section">
-            <h4>Meine Challenges (${state.myChallenges.length})</h4>
+            <h4>Meine Challenges (<span id="myChallengesCount">0</span>)</h4>
             <div id="myChallengesContainer"></div>
           </div>
         </div>
@@ -452,6 +506,11 @@ const AsyncChallenge = (function() {
    * Rendert Challenges-Liste
    */
   function renderChallengesList() {
+    const availableCount = document.getElementById('availableChallengesCount');
+    const myCount = document.getElementById('myChallengesCount');
+    if (availableCount) availableCount.textContent = state.availableChallenges.length;
+    if (myCount) myCount.textContent = state.myChallenges.length;
+
     // Verfügbare Challenges
     const availableContainer = document.getElementById('availableChallengesContainer');
     if (availableContainer) {
@@ -461,10 +520,10 @@ const AsyncChallenge = (function() {
         availableContainer.innerHTML = `
           ${state.availableChallenges.map(ch => `
             <div class="challenge-card">
-              <div class="challenge-from">${ch.fromUsername}</div>
-              <div class="challenge-details">${ch.discipline} · ${ch.difficulty}</div>
-              <div class="challenge-time">${formatTime(ch.createdAt)}</div>
-              <button class="challenge-accept-btn" onclick="AsyncChallenge.acceptChallenge('${ch.challengeId}')">
+              <div class="challenge-from">${escapeHtml(ch.fromUsername || 'Spieler')}</div>
+              <div class="challenge-details">${escapeHtml(ch.discipline || '-')} · ${escapeHtml(ch.difficulty || '-')}</div>
+              <div class="challenge-time">${escapeHtml(formatTime(ch.createdAt))}</div>
+              <button class="challenge-accept-btn" onclick="AsyncChallenge.acceptChallenge('${escapeHtml(ch.challengeId)}')">
                 ✓ Annehmen
               </button>
             </div>
@@ -481,11 +540,11 @@ const AsyncChallenge = (function() {
       } else {
         myContainer.innerHTML = `
           ${state.myChallenges.map(ch => `
-            <div class="challenge-card ${ch.status}">
-              <div class="challenge-opponent">${ch.friendUsername || 'Öffentlich'}</div>
-              <div class="challenge-details">${ch.discipline} · ${ch.difficulty}</div>
-              <div class="challenge-status ${ch.status}">${getStatusText(ch.status)}</div>
-              <div class="challenge-time">${formatTime(ch.createdAt)}</div>
+            <div class="challenge-card ${escapeHtml(ch.status || '')}">
+              <div class="challenge-opponent">${escapeHtml(ch.friendUsername || 'Öffentlich')}</div>
+              <div class="challenge-details">${escapeHtml(ch.discipline || '-')} · ${escapeHtml(ch.difficulty || '-')}</div>
+              <div class="challenge-status ${escapeHtml(ch.status || '')}">${escapeHtml(getStatusText(ch.status))}</div>
+              <div class="challenge-time">${escapeHtml(formatTime(ch.createdAt))}</div>
             </div>
           `).join('')}
         `;
@@ -503,7 +562,7 @@ const AsyncChallenge = (function() {
       completed: '🏁 Abgeschlossen',
       expired: '⌛ Abgelaufen',
     };
-    return statusMap[status] || status;
+    return statusMap[status] || status || '-';
   }
 
   /**
@@ -527,7 +586,7 @@ const AsyncChallenge = (function() {
    */
   function generateChallengeId() {
     const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substr(2, 9);
+    const random = Math.random().toString(36).slice(2, 11);
     return `challenge_${timestamp}_${random}`;
   }
 
@@ -606,23 +665,28 @@ const AsyncChallenge = (function() {
 
 // Initialisierung
 if (typeof window !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      AsyncChallenge.init().then(() => {
+  window.AsyncChallenge = AsyncChallenge;
+
+  const startAsyncChallenge = () => {
+    AsyncChallenge.init()
+      .then(() => {
         AsyncChallenge.addChallengeButton();
         AsyncChallenge.createChallengeBanner();
+      })
+      .catch((error) => {
+        console.warn('⚠️ AsyncChallenge konnte nicht initialisiert werden:', error);
       });
-    });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startAsyncChallenge);
   } else {
-    AsyncChallenge.init().then(() => {
-      AsyncChallenge.addChallengeButton();
-      AsyncChallenge.createChallengeBanner();
-    });
+    startAsyncChallenge();
   }
 
   // Debug export
   if (window.DEBUG) {
-    window.AsyncChallenge = AsyncChallenge;
+    window.AsyncChallengeDebug = AsyncChallenge;
   }
 
   // Global verfügbar machen
