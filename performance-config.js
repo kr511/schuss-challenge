@@ -35,11 +35,32 @@ const PerformanceConfig = (function() {
         return;
       }
 
+      const existingScript = document.querySelector(`script[src*="${moduleMap[moduleName]}"]`);
+      if (existingScript) {
+        // Das Modul ist bereits in index.html eingebunden. Nicht doppelt ausführen.
+        if (existingScript.dataset.loaded === 'true') {
+          lazyModules.loaded[moduleName] = true;
+          resolve();
+          return;
+        }
+
+        existingScript.addEventListener('load', () => {
+          existingScript.dataset.loaded = 'true';
+          lazyModules.loaded[moduleName] = true;
+          resolve();
+        }, { once: true });
+        existingScript.addEventListener('error', () => {
+          reject(new Error(`Failed to load ${moduleName}`));
+        }, { once: true });
+        return;
+      }
+
       const script = document.createElement('script');
       script.src = moduleMap[moduleName];
       script.async = true;
       
       script.onload = () => {
+        script.dataset.loaded = 'true';
         lazyModules.loaded[moduleName] = true;
         console.log(`✅ Lazy loaded: ${moduleName}`);
         resolve();
@@ -66,6 +87,8 @@ const PerformanceConfig = (function() {
     ];
 
     criticalImages.forEach(img => {
+      if (document.querySelector(`link[rel="preload"][href="${img}"]`)) return;
+
       const link = document.createElement('link');
       link.rel = 'preload';
       link.as = 'image';
@@ -100,22 +123,54 @@ const PerformanceConfig = (function() {
    */
   function getCachedAsset(key) {
     const cached = assetCache.get(key);
-    if (!cached) return null;
-
-    const age = Date.now() - cached.timestamp;
-    if (age > CACHE_DURATION) {
+    if (cached) {
+      const age = Date.now() - cached.timestamp;
+      if (age <= CACHE_DURATION) return cached.data;
       assetCache.delete(key);
-      return null;
     }
 
-    return cached.data;
+    try {
+      const raw = localStorage.getItem(`cache_${key}`);
+      if (!raw) return null;
+
+      const stored = JSON.parse(raw);
+      if (!stored || typeof stored.timestamp !== 'number') return null;
+
+      const age = Date.now() - stored.timestamp;
+      if (age > CACHE_DURATION) {
+        localStorage.removeItem(`cache_${key}`);
+        return null;
+      }
+
+      assetCache.set(key, stored);
+      return stored.data;
+    } catch (e) {
+      console.warn('Cache read failed:', e);
+      return null;
+    }
   }
 
   /**
    * Monitor performance metrics
    */
   function reportMetrics() {
-    if (!window.performance || !window.performance.timing) return;
+    if (!window.performance) return null;
+
+    const navigation = window.performance.getEntriesByType &&
+      window.performance.getEntriesByType('navigation')[0];
+
+    if (navigation) {
+      const metrics = {
+        domLoaded: Math.round(navigation.domContentLoadedEventEnd),
+        pageLoaded: Math.round(navigation.loadEventEnd),
+        resourcesLoaded: Math.round(navigation.responseEnd - navigation.fetchStart)
+      };
+
+      console.log('📊 Performance Metrics:', metrics);
+      return metrics;
+    }
+
+    if (!window.performance.timing) return null;
 
     const timing = window.performance.timing;
     const metrics = {
@@ -135,10 +190,13 @@ const PerformanceConfig = (function() {
     if ('connection' in navigator) {
       const connection = navigator.connection;
       const effectiveType = connection.effectiveType;
-      const isSlowConnection = effectiveType === '4g' || effectiveType === '3g' || effectiveType === '2g';
+      const isSlowConnection = Boolean(connection.saveData) ||
+        effectiveType === 'slow-2g' ||
+        effectiveType === '2g' ||
+        effectiveType === '3g';
       
+      document.body.classList.toggle('slow-network', isSlowConnection);
       if (isSlowConnection) {
-        document.body.classList.add('slow-network');
         console.warn('⚠️ Slow connection detected - reducing animations');
       }
       
