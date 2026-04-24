@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '4.2';
+  const VERSION = '4.9';
   if (window.DuelSetupScrollLock?.version === VERSION) return;
 
   const state = {
@@ -229,7 +229,9 @@
 
     api.startDuel = function patchedStartDuel(...args) {
       const result = typeof originalStart === 'function' ? originalStart.apply(this, args) : undefined;
-      closeOverlayImmediately();
+      if (result !== false) {
+        closeOverlayImmediately();
+      }
       return result;
     };
 
