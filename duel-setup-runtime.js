@@ -8,7 +8,7 @@
 
   if (window.DuelSetupRuntime?.initialized) return;
 
-  const ASSET_VERSION = '4.4';
+  const ASSET_VERSION = '4.5';
 
   const state = {
     mode: 'bot',
@@ -32,6 +32,16 @@
     kk50: { weapon: 'kk', label: 'KK 50m', shots: 60, dist: '50', desc: '60 Schuss · 50 m', icon: 'target' },
     kk100: { weapon: 'kk', label: 'KK 100m', shots: 60, dist: '100', desc: '60 Schuss · 100 m', icon: 'target' },
     kk3x20: { weapon: 'kk', label: 'KK 3×20', shots: 60, dist: '50', desc: '3 × 20 Schuss', icon: 'cluster' }
+  };
+
+  const disciplineByWeapon = {
+    lg: ['lg40', 'lg60'],
+    kk: ['kk50', 'kk100', 'kk3x20']
+  };
+
+  const defaultDisciplineByWeapon = {
+    lg: 'lg40',
+    kk: 'kk50'
   };
 
   const difficultyOrder = ['easy', 'real', 'hard', 'elite'];
@@ -63,8 +73,25 @@
     document.head.appendChild(link);
   }
 
+  function ensureRuntimePolishStyles() {
+    if (document.getElementById('duelSetupRuntimePolish')) return;
+
+    const style = document.createElement('style');
+    style.id = 'duelSetupRuntimePolish';
+    style.textContent = `
+      .duel-discipline-content{display:flex;flex-direction:column;gap:4px;min-width:0}
+      .duel-discipline-meta{display:block;color:rgba(230,238,244,.54);font-size:.72rem;font-weight:700;line-height:1.15}
+      .duel-discipline.selected .duel-discipline-meta{color:rgba(230,255,190,.68)}
+      .duel-summary-line.duel-summary-note{color:rgba(230,238,244,.54);font-size:.78rem;margin-top:3px}
+      .duel-start-btn.is-starting{opacity:.78;pointer-events:none;filter:saturate(.8)}
+      .duel-start-error{margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(255,90,90,.38);background:rgba(255,60,60,.10);color:#ffd3d3;font-size:.8rem;font-weight:800;line-height:1.3}
+    `;
+    document.head.appendChild(style);
+  }
+
   function applyLayoutGuards() {
     ensureStylesheet();
+    ensureRuntimePolishStyles();
     document.documentElement.style.setProperty('overflow-x', 'hidden', 'important');
     document.body.style.setProperty('overflow-x', 'hidden', 'important');
   }
@@ -75,6 +102,17 @@
 
   function getOverlay() {
     return byId('duelSetupSheetOverlay');
+  }
+
+  function getVisibleDisciplineKeys() {
+    return disciplineByWeapon[state.weapon] || disciplineByWeapon.lg;
+  }
+
+  function ensureValidDisciplineForWeapon() {
+    const visibleKeys = getVisibleDisciplineKeys();
+    if (!visibleKeys.includes(state.discipline)) {
+      state.discipline = defaultDisciplineByWeapon[state.weapon] || visibleKeys[0] || 'lg40';
+    }
   }
 
   function saveScrollStyles() {
@@ -225,6 +263,7 @@
   }
 
   function getActiveDiscipline() {
+    ensureValidDisciplineForWeapon();
     return disciplines[state.discipline] || disciplines.lg40;
   }
 
@@ -233,6 +272,7 @@
   }
 
   function syncGameState() {
+    ensureValidDisciplineForWeapon();
     const disc = getActiveDiscipline();
     if (typeof G !== 'undefined') {
       G.weapon = disc.weapon;
@@ -338,15 +378,23 @@
   }
 
   function renderDisciplineSection() {
+    ensureValidDisciplineForWeapon();
+    const visibleEntries = getVisibleDisciplineKeys()
+      .map((key) => [key, disciplines[key]])
+      .filter((entry) => Boolean(entry[1]));
+
     return `
       <section class="duel-section">
         <div class="duel-section-title"><span class="duel-section-icon">◎</span>3. DISZIPLIN</div>
-        <div class="duel-option-grid disciplines">
-          ${Object.entries(disciplines).map(([key, disc]) => `
+        <div class="duel-option-grid disciplines" data-weapon="${escapeHtml(state.weapon)}">
+          ${visibleEntries.map(([key, disc]) => `
             <button class="duel-discipline ${state.discipline === key ? 'selected' : ''}" onclick="DuelSetupRuntime.setDiscipline('${key}')" type="button">
               ${renderCheck()}
               ${disc.icon === 'cluster' ? clusterIconHtml() : targetIconHtml()}
-              <span class="duel-discipline-label">${escapeHtml(disc.label)}</span>
+              <span class="duel-discipline-content">
+                <span class="duel-discipline-label">${escapeHtml(disc.label)}</span>
+                <span class="duel-discipline-meta">${escapeHtml(disc.desc)}</span>
+              </span>
             </button>
           `).join('')}
         </div>
@@ -362,7 +410,7 @@
           ${difficultyOrder.map((key) => {
             const diff = difficulties[key];
             return `
-              <button class="duel-difficulty ${diff.cls} ${state.difficulty === key ? 'selected' : ''}" onclick="DuelSetupRuntime.setDifficulty('${key}')" type="button">
+              <button class="duel-difficulty ${diff.cls} ${state.difficulty === key ? 'selected' : ''}" onclick="DuelSetupRuntime.setDifficulty('${key}')" type="button" title="${escapeHtml(diff.desc)}">
                 ${renderCheck()}
                 <span class="duel-difficulty-icon" aria-hidden="true">${diff.icon}</span>
                 <span class="duel-difficulty-label">${escapeHtml(diff.label)}</span>
@@ -391,6 +439,7 @@
             </div>
             <div class="duel-summary-line">🤖 Bot-Zielbereich: <b>${escapeHtml(target)}</b></div>
             <div class="duel-summary-line">📏 Entfernung: <b>${escapeHtml(disc.dist)} m</b></div>
+            <div class="duel-summary-line duel-summary-note">Werte sind Bot-Zielbereiche, keine Änderung an der Balance.</div>
           </div>
         </div>
         <div class="duel-hint"><span class="duel-hint-icon">i</span><span>Wähle Waffenart, Disziplin und Schwierigkeit für dein Duell.</span></div>
@@ -409,8 +458,20 @@
         ${renderDisciplineSection()}
         ${renderDifficultySection()}
         ${renderSummarySection()}
+        <div id="duelStartError" class="duel-start-error" style="display:none"></div>
       </div>
     `;
+  }
+
+  function showStartError(message) {
+    const errorEl = byId('duelStartError');
+    if (!errorEl) {
+      alert(message);
+      return;
+    }
+
+    errorEl.textContent = message;
+    errorEl.style.display = 'block';
   }
 
   function renderSettings(mode) {
@@ -420,6 +481,7 @@
       setTimeout(() => alert('Multiplayer ist noch nicht stabil. Ich öffne den Bot-Modus.'), 0);
     }
 
+    ensureValidDisciplineForWeapon();
     const modeSelection = byId('gameModeSelection');
     const settings = byId('duelSettingsContent');
     const sheet = getSheet();
@@ -478,20 +540,34 @@
     syncGameState();
     applyLayoutGuards();
 
-    const candidates = ['startBattle', 'startDuel', 'beginBattle', 'beginDuel', 'startMatch', 'beginMatch', 'startGame', 'startBotBattle', 'startBotDuel'];
-    for (const name of candidates) {
-      if (typeof window[name] === 'function') {
-        try {
-          window[name]();
-          closeOverlayImmediately();
-          return;
-        } catch (e) {
-          console.error('[DuelSetupRuntime] start failed:', name, e);
-        }
-      }
+    const startButton = document.querySelector('.duel-start-btn');
+    if (startButton) {
+      startButton.classList.add('is-starting');
+      startButton.textContent = '🎯 STARTE...';
     }
 
-    alert('Einstellungen gesetzt. Startfunktion ist noch nicht eindeutig gefunden.');
+    if (typeof window.startBattle !== 'function') {
+      if (startButton) {
+        startButton.classList.remove('is-starting');
+        startButton.textContent = '🎯 DUELL STARTEN';
+      }
+      showStartError('Startfunktion startBattle() wurde nicht gefunden. Duell konnte nicht gestartet werden.');
+      return false;
+    }
+
+    try {
+      window.startBattle();
+      closeOverlayImmediately();
+      return true;
+    } catch (e) {
+      console.error('[DuelSetupRuntime] startBattle failed:', e);
+      if (startButton) {
+        startButton.classList.remove('is-starting');
+        startButton.textContent = '🎯 DUELL STARTEN';
+      }
+      showStartError('Duell konnte nicht gestartet werden. Bitte erneut versuchen.');
+      return false;
+    }
   }
 
   const api = {
@@ -510,8 +586,7 @@
     },
     setWeapon(weapon) {
       state.weapon = weapon === 'kk' ? 'kk' : 'lg';
-      if (state.weapon === 'lg' && disciplines[state.discipline]?.weapon !== 'lg') state.discipline = 'lg40';
-      if (state.weapon === 'kk' && disciplines[state.discipline]?.weapon !== 'kk') state.discipline = 'kk50';
+      ensureValidDisciplineForWeapon();
       renderSettings(state.mode);
     },
     setDiscipline(discipline) {
@@ -519,14 +594,16 @@
         state.discipline = discipline;
         state.weapon = disciplines[discipline].weapon;
       }
+      ensureValidDisciplineForWeapon();
       renderSettings(state.mode);
     },
     setDifficulty(difficulty) {
       state.difficulty = difficulties[difficulty] ? difficulty : 'easy';
       renderSettings(state.mode);
     },
+    getVisibleDisciplineKeys,
     getState() {
-      return { ...state, scrollLocked: scrollLock.locked };
+      return { ...state, visibleDisciplines: getVisibleDisciplineKeys(), scrollLocked: scrollLock.locked };
     }
   };
 
@@ -571,5 +648,5 @@
     applyLayoutGuards();
   }
 
-  console.info('✅ DuelSetupRuntime overview active');
+  console.info('✅ DuelSetupRuntime overview active', ASSET_VERSION);
 })();
