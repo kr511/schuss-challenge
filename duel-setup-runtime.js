@@ -8,6 +8,8 @@
 
   if (window.DuelSetupRuntime?.initialized) return;
 
+  const ASSET_VERSION = '3.9';
+
   const state = {
     mode: 'bot',
     weapon: 'lg',
@@ -36,10 +38,19 @@
   }
 
   function ensureStylesheet() {
-    if (document.querySelector('link[href*="duel-setup.css"]')) return;
+    const href = `duel-setup.css?v=${ASSET_VERSION}`;
+    const existing = document.querySelector('link[href*="duel-setup.css"]');
+
+    if (existing) {
+      if (!existing.getAttribute('href')?.includes(`v=${ASSET_VERSION}`)) {
+        existing.setAttribute('href', href);
+      }
+      return;
+    }
+
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = 'duel-setup.css?v=3.8';
+    link.href = href;
     document.head.appendChild(link);
   }
 
@@ -275,8 +286,10 @@
     const sheet = byId('duelSetupSheet');
     if (!overlay || !sheet) return;
 
+    applyLayoutGuards();
     overlay.style.display = 'block';
     overlay.style.opacity = '1';
+    sheet.style.bottom = '0';
     sheet.classList.add('is-open');
     document.body.style.overflow = 'hidden';
     renderSettings(state.mode);
@@ -287,7 +300,10 @@
     const sheet = byId('duelSetupSheet');
     if (event && sheet && event.target !== overlay) return;
 
-    if (sheet) sheet.classList.remove('is-open');
+    if (sheet) {
+      sheet.classList.remove('is-open');
+      sheet.style.bottom = '-100%';
+    }
     if (overlay) {
       overlay.style.opacity = '0';
       setTimeout(() => {
