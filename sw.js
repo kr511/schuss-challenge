@@ -1,11 +1,11 @@
 // Schussduell Service Worker
 // Offline-first Cache + kleines HTML-Cleanup für veraltete Script-Tags.
 
-const CACHE_VERSION = 'v5.4'; // quick start flow
+const CACHE_VERSION = 'v5.5'; // updates dropdown outside-click fix
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 
 const NORMALIZED_SCRIPTS = [
-  'site-cleanup.js?v=1.1',
+  'site-cleanup.js?v=1.2',
   'duel-setup-runtime.js?v=4.5',
   'duel-scroll-lock.js?v=4.9',
   'duel-result-screen.js?v=5.1',
@@ -18,7 +18,7 @@ const PRECACHE = [
   './index.html',
   './app.js',
   './site-cleanup.js',
-  './site-cleanup.js?v=1.1',
+  './site-cleanup.js?v=1.2',
   './adaptive-bot.js',
   './daily-challenge.js',
   './enhanced-achievements.js',
