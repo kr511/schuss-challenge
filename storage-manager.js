@@ -54,6 +54,22 @@ const StorageManager = (function () {
   }
 
   /**
+   * Holt einen Rohwert als Number.
+   */
+  function getNumber(key, fallback = 0) {
+    const value = Number(getRaw(key, fallback));
+    return Number.isFinite(value) ? value : fallback;
+  }
+
+  /**
+   * Holt einen Rohwert als String.
+   */
+  function getString(key, fallback = '') {
+    const value = getRaw(key, fallback);
+    return typeof value === 'string' ? value : fallback;
+  }
+
+  /**
    * Setzt einen Rohwert (String) ohne JSON.stringify.
    */
   function setRaw(key, value) {
@@ -120,5 +136,5 @@ const StorageManager = (function () {
     }
   }
 
-  return { get, set, getRaw, setRaw, remove, keys, clearAll, PREFIX };
+  return { get, set, getRaw, getNumber, getString, setRaw, remove, keys, clearAll, PREFIX };
 })();
