@@ -34,6 +34,7 @@ const UpdatesSystem = (function() {
     updates: [],
     unreadCount: 0,
     initialized: false,
+    closeHandlersInstalled: false,
   };
 
   // Demo-Updates (wenn Firebase nicht verfügbar)
@@ -72,6 +73,7 @@ const UpdatesSystem = (function() {
 
     await loadUpdates();
     updateUnreadBadge();
+    installDropdownCloseHandlers();
 
     state.initialized = true;
     console.log('✅ Updates-System bereit, ' + state.unreadCount + ' ungelesen');
@@ -188,6 +190,33 @@ const UpdatesSystem = (function() {
     }
   }
 
+  function isDropdownVisible(dropdown) {
+    return !!dropdown && dropdown.style.display === 'block' && dropdown.style.opacity === '1';
+  }
+
+  /**
+   * Installiert Schließen bei Klick außerhalb und Escape.
+   */
+  function installDropdownCloseHandlers() {
+    if (state.closeHandlersInstalled) return;
+    state.closeHandlersInstalled = true;
+
+    document.addEventListener('pointerdown', (e) => {
+      const dropdown = document.getElementById('updatesDropdown');
+      const button = document.getElementById('updatesButton');
+      if (!isDropdownVisible(dropdown)) return;
+      if (dropdown.contains(e.target)) return;
+      if (button && button.contains(e.target)) return;
+      hideUpdates();
+    }, true);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const dropdown = document.getElementById('updatesDropdown');
+      if (isDropdownVisible(dropdown)) hideUpdates();
+    });
+  }
+
   /**
    * Toggle Updates-Dropdown
    */
@@ -198,7 +227,7 @@ const UpdatesSystem = (function() {
       return;
     }
 
-    const isVisible = dropdown.style.display === 'block' && dropdown.style.opacity === '1';
+    const isVisible = isDropdownVisible(dropdown);
     
     if (isVisible) {
       hideUpdates();
@@ -213,6 +242,8 @@ const UpdatesSystem = (function() {
   function showUpdatesDropdown() {
     const dropdown = document.getElementById('updatesDropdown');
     if (!dropdown) return;
+
+    installDropdownCloseHandlers();
 
     dropdown.style.display = 'block';
     renderUpdatesDropdown();
@@ -303,7 +334,7 @@ const UpdatesSystem = (function() {
       <div class="updates-sheet">
         <div class="updates-header">
           <h3>🔔 UPDATES & ANKÜNDIGUNGEN</h3>
-          <button class="updates-close" onclick="UpdatesSystem.closeUpdates()">✕</button>
+          <button class="updates-close" onclick="UpdatesSystem.hideUpdates()">✕</button>
         </div>
         <div class="updates-body" id="updatesListContainer">
         </div>
@@ -314,7 +345,7 @@ const UpdatesSystem = (function() {
 
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
-        closeUpdates();
+        hideUpdates();
       }
     });
   }
@@ -440,14 +471,13 @@ const UpdatesSystem = (function() {
 if (typeof window !== 'undefined') {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      UpdatesSystem.init();
-      // Global verfügbar machen
+      // Erst global verfügbar machen, dann initialisieren.
       window.UpdatesSystem = UpdatesSystem;
+      UpdatesSystem.init();
     });
   } else {
-    UpdatesSystem.init();
-    // Global verfügbar machen
     window.UpdatesSystem = UpdatesSystem;
+    UpdatesSystem.init();
   }
 
   // Global verfügbar machen für Admin
