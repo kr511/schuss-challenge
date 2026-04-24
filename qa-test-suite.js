@@ -68,6 +68,10 @@
       overlay.style.height = '100dvh';
       overlay.style.overflowX = 'hidden';
       overlay.style.zIndex = '9000';
+      overlay.style.background = 'rgba(0,0,0,.58)';
+      overlay.style.backdropFilter = 'none';
+      overlay.style.webkitBackdropFilter = 'none';
+      overlay.style.filter = 'none';
     }
 
     if (sheet) {
@@ -78,9 +82,14 @@
       sheet.style.maxWidth = '100vw';
       sheet.style.boxSizing = 'border-box';
       sheet.style.margin = '0';
-      sheet.style.transform = 'translate3d(0,0,0)';
+      sheet.style.transform = 'none';
+      sheet.style.backdropFilter = 'none';
+      sheet.style.webkitBackdropFilter = 'none';
+      sheet.style.filter = 'none';
       sheet.style.overflowX = 'hidden';
       sheet.style.paddingBottom = 'calc(34px + env(safe-area-inset-bottom))';
+      sheet.style.webkitFontSmoothing = 'antialiased';
+      sheet.style.textRendering = 'geometricPrecision';
     }
 
     if (floatingButton) {
@@ -152,6 +161,9 @@
     settings.style.display = 'block';
     settings.style.visibility = 'visible';
     settings.style.opacity = '1';
+    settings.style.filter = 'none';
+    settings.style.backdropFilter = 'none';
+    settings.style.webkitBackdropFilter = 'none';
 
     const availableDisciplines = Object.entries(disciplines).filter(([, disc]) => disc.weapon === state.weapon);
     if (!availableDisciplines.some(([key]) => key === state.discipline)) {
@@ -315,7 +327,7 @@
     fixMobileLayout();
   }
 
-  console.info('✅ Duel Runtime Fix active');
+  console.info('✅ Duel Runtime Fix active, blur disabled');
 })();
 
 // Local QA placeholder
