@@ -2,14 +2,17 @@
  * Runtime Fixes + local QA Test Suite
  *
  * Diese Datei wird in index.html als letztes defer-Script geladen.
- * Auf Produktion installiert sie kritische UI-Fixes. Lokal kann sie weiter für QA genutzt werden.
+ * Auf Produktion installiert sie kritische UI-Fixes.
  */
 
 (function installProductionDuelFlowFix() {
   'use strict';
 
   const QA_IS_LOCAL_DEV = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-  if (QA_IS_LOCAL_DEV) return;
+  if (QA_IS_LOCAL_DEV) {
+    console.info('🧪 QA Test Suite available in local development');
+    return;
+  }
 
   const state = {
     mode: 'bot',
@@ -37,6 +40,62 @@
     return document.getElementById(id);
   }
 
+  function installNoBlurCss() {
+    let style = byId('duelNoBlurRuntimeStyle');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'duelNoBlurRuntimeStyle';
+      document.head.appendChild(style);
+    }
+
+    style.textContent = `
+      html, body {
+        overflow-x: hidden !important;
+        filter: none !important;
+        -webkit-filter: none !important;
+      }
+
+      #duelSetupSheetOverlay {
+        background: rgba(0,0,0,.54) !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        filter: none !important;
+        -webkit-filter: none !important;
+        transform: none !important;
+        -webkit-transform: none !important;
+      }
+
+      #duelSetupSheet,
+      #duelSetupSheet *,
+      #duelSettingsContent,
+      #duelSettingsContent *,
+      #gameModeSelection,
+      #gameModeSelection * {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        filter: none !important;
+        -webkit-filter: none !important;
+        text-shadow: none;
+      }
+
+      #duelSetupSheet {
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        transform: none !important;
+        -webkit-transform: none !important;
+        will-change: auto !important;
+        background: rgb(18,18,20) !important;
+        -webkit-font-smoothing: antialiased !important;
+        text-rendering: geometricPrecision !important;
+      }
+    `;
+  }
+
   function optionStyle(active) {
     return [
       'border-radius:16px',
@@ -51,52 +110,83 @@
     ].join(';');
   }
 
-  function fixMobileLayout() {
-    document.documentElement.style.overflowX = 'hidden';
-    document.body.style.overflowX = 'hidden';
-    document.body.style.width = '100%';
+  function hardRemoveBlur() {
+    installNoBlurCss();
+
+    const ids = [
+      'duelSetupSheetOverlay',
+      'duelSetupSheet',
+      'duelSettingsContent',
+      'gameModeSelection',
+      'screenSetup',
+      'premiumDashboard'
+    ];
+
+    ids.forEach((id) => {
+      const el = byId(id);
+      if (!el) return;
+      el.style.setProperty('filter', 'none', 'important');
+      el.style.setProperty('-webkit-filter', 'none', 'important');
+      el.style.setProperty('backdrop-filter', 'none', 'important');
+      el.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+    });
 
     const overlay = byId('duelSetupSheetOverlay');
     const sheet = byId('duelSetupSheet');
     const floatingButton = byId('btnOpenDuelSetup');
 
+    document.documentElement.style.setProperty('overflow-x', 'hidden', 'important');
+    document.body.style.setProperty('overflow-x', 'hidden', 'important');
+    document.body.style.setProperty('width', '100%', 'important');
+    document.body.style.setProperty('filter', 'none', 'important');
+    document.body.style.setProperty('-webkit-filter', 'none', 'important');
+
     if (overlay) {
-      overlay.style.position = 'fixed';
-      overlay.style.inset = '0';
-      overlay.style.width = '100vw';
-      overlay.style.maxWidth = '100vw';
-      overlay.style.height = '100dvh';
-      overlay.style.overflowX = 'hidden';
-      overlay.style.zIndex = '9000';
-      overlay.style.background = 'rgba(0,0,0,.58)';
-      overlay.style.backdropFilter = 'none';
-      overlay.style.webkitBackdropFilter = 'none';
-      overlay.style.filter = 'none';
+      overlay.style.setProperty('position', 'fixed', 'important');
+      overlay.style.setProperty('inset', '0', 'important');
+      overlay.style.setProperty('width', '100vw', 'important');
+      overlay.style.setProperty('max-width', '100vw', 'important');
+      overlay.style.setProperty('height', '100dvh', 'important');
+      overlay.style.setProperty('overflow-x', 'hidden', 'important');
+      overlay.style.setProperty('z-index', '9000', 'important');
+      overlay.style.setProperty('background', 'rgba(0,0,0,.54)', 'important');
+      overlay.style.setProperty('transform', 'none', 'important');
+      overlay.style.setProperty('-webkit-transform', 'none', 'important');
     }
 
     if (sheet) {
-      sheet.style.position = 'fixed';
-      sheet.style.left = '0';
-      sheet.style.right = '0';
-      sheet.style.width = '100vw';
-      sheet.style.maxWidth = '100vw';
-      sheet.style.boxSizing = 'border-box';
-      sheet.style.margin = '0';
-      sheet.style.transform = 'none';
-      sheet.style.backdropFilter = 'none';
-      sheet.style.webkitBackdropFilter = 'none';
-      sheet.style.filter = 'none';
-      sheet.style.overflowX = 'hidden';
-      sheet.style.paddingBottom = 'calc(34px + env(safe-area-inset-bottom))';
-      sheet.style.webkitFontSmoothing = 'antialiased';
-      sheet.style.textRendering = 'geometricPrecision';
+      sheet.style.setProperty('position', 'fixed', 'important');
+      sheet.style.setProperty('left', '0', 'important');
+      sheet.style.setProperty('right', '0', 'important');
+      sheet.style.setProperty('width', '100vw', 'important');
+      sheet.style.setProperty('max-width', '100vw', 'important');
+      sheet.style.setProperty('box-sizing', 'border-box', 'important');
+      sheet.style.setProperty('margin', '0', 'important');
+      sheet.style.setProperty('transform', 'none', 'important');
+      sheet.style.setProperty('-webkit-transform', 'none', 'important');
+      sheet.style.setProperty('will-change', 'auto', 'important');
+      sheet.style.setProperty('overflow-x', 'hidden', 'important');
+      sheet.style.setProperty('background', 'rgb(18,18,20)', 'important');
+      sheet.style.setProperty('padding-bottom', 'calc(34px + env(safe-area-inset-bottom))', 'important');
+      sheet.style.setProperty('-webkit-font-smoothing', 'antialiased', 'important');
+      sheet.style.setProperty('text-rendering', 'geometricPrecision', 'important');
     }
 
     if (floatingButton) {
-      floatingButton.style.left = '50%';
-      floatingButton.style.right = 'auto';
-      floatingButton.style.transform = 'translateX(-50%)';
+      floatingButton.style.setProperty('left', '50%', 'important');
+      floatingButton.style.setProperty('right', 'auto', 'important');
+      floatingButton.style.setProperty('transform', 'translateX(-50%)', 'important');
     }
+  }
+
+  function removeBlurForASecond() {
+    hardRemoveBlur();
+    let ticks = 0;
+    const interval = setInterval(() => {
+      hardRemoveBlur();
+      ticks += 1;
+      if (ticks >= 24) clearInterval(interval);
+    }, 50);
   }
 
   function syncGameState() {
@@ -128,11 +218,6 @@
     }
   }
 
-  function findOriginalStartButton(settings) {
-    const buttons = Array.from(settings.querySelectorAll('button'));
-    return buttons.reverse().find((btn) => /duell\s*starten/i.test(btn.textContent || '')) || null;
-  }
-
   function fallbackStartButtonHtml() {
     return '<button onclick="duelRuntimeFixStart()" style="width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);border:0;border-radius:22px;padding:18px 20px;color:#061006;font-size:1.12rem;font-weight:950;letter-spacing:.16em;box-shadow:0 10px 35px rgba(122,176,48,.35);">🎯 DUELL STARTEN</button>';
   }
@@ -154,16 +239,10 @@
       return;
     }
 
-    const originalStartButton = findOriginalStartButton(settings);
-    const originalStartButtonHtml = originalStartButton ? originalStartButton.outerHTML : fallbackStartButtonHtml();
-
     if (modeSelection) modeSelection.style.display = 'none';
     settings.style.display = 'block';
     settings.style.visibility = 'visible';
     settings.style.opacity = '1';
-    settings.style.filter = 'none';
-    settings.style.backdropFilter = 'none';
-    settings.style.webkitBackdropFilter = 'none';
 
     const availableDisciplines = Object.entries(disciplines).filter(([, disc]) => disc.weapon === state.weapon);
     if (!availableDisciplines.some(([key]) => key === state.discipline)) {
@@ -175,56 +254,32 @@
 
     settings.innerHTML = `
       <button onclick="showGameModeSelection()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.72);border-radius:14px;padding:12px 16px;margin-bottom:22px;font-weight:800;font-size:1rem;">← Zurück zur Modus-Auswahl</button>
-
       <h2 style="color:#fff;margin:0 0 18px 0;font-size:1.55rem;font-weight:900;letter-spacing:.03em;">DUELL EINSTELLUNGEN</h2>
-
       <section style="margin-bottom:18px;">
         <div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Waffe</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <button onclick="duelRuntimeFixSetWeapon('lg')" style="${optionStyle(state.weapon === 'lg')}">
-            <div style="font-size:1.05rem;margin-bottom:4px;">🌬️ Luftgewehr</div>
-            <div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">10 Meter</div>
-          </button>
-          <button onclick="duelRuntimeFixSetWeapon('kk')" style="${optionStyle(state.weapon === 'kk')}">
-            <div style="font-size:1.05rem;margin-bottom:4px;">🎯 Kleinkaliber</div>
-            <div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">50 / 100 m</div>
-          </button>
+          <button onclick="duelRuntimeFixSetWeapon('lg')" style="${optionStyle(state.weapon === 'lg')}"><div style="font-size:1.05rem;margin-bottom:4px;">🌬️ Luftgewehr</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">10 Meter</div></button>
+          <button onclick="duelRuntimeFixSetWeapon('kk')" style="${optionStyle(state.weapon === 'kk')}"><div style="font-size:1.05rem;margin-bottom:4px;">🎯 Kleinkaliber</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">50 / 100 m</div></button>
         </div>
       </section>
-
       <section style="margin-bottom:18px;">
         <div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Disziplin</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          ${availableDisciplines.map(([key, disc]) => `
-            <button onclick="duelRuntimeFixSetDiscipline('${key}')" style="${optionStyle(state.discipline === key)}">
-              <div style="font-size:.98rem;margin-bottom:4px;">${disc.label}</div>
-              <div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${disc.desc}</div>
-            </button>
-          `).join('')}
+          ${availableDisciplines.map(([key, disc]) => `<button onclick="duelRuntimeFixSetDiscipline('${key}')" style="${optionStyle(state.discipline === key)}"><div style="font-size:.98rem;margin-bottom:4px;">${disc.label}</div><div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${disc.desc}</div></button>`).join('')}
         </div>
       </section>
-
       <section style="margin-bottom:18px;">
         <div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Schwierigkeit</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          ${Object.entries(difficulties).map(([key, diff]) => `
-            <button onclick="duelRuntimeFixSetDifficulty('${key}')" style="${optionStyle(state.difficulty === key)}">
-              <div style="font-size:.95rem;margin-bottom:4px;">${diff.label}</div>
-              <div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${diff.desc}</div>
-            </button>
-          `).join('')}
+          ${Object.entries(difficulties).map(([key, diff]) => `<button onclick="duelRuntimeFixSetDifficulty('${key}')" style="${optionStyle(state.difficulty === key)}"><div style="font-size:.95rem;margin-bottom:4px;">${diff.label}</div><div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${diff.desc}</div></button>`).join('')}
         </div>
       </section>
-
-      <div style="border:1px solid rgba(122,176,48,.22);background:rgba(122,176,48,.08);border-radius:18px;padding:14px 16px;margin-bottom:18px;color:rgba(255,255,255,.78);font-size:.88rem;line-height:1.45;">
-        <b style="color:#fff;">Aktiv:</b> ${activeDiscipline.label} · ${activeDifficulty.label} · ${activeDiscipline.shots} Schuss
-      </div>
-
-      ${originalStartButtonHtml}
+      <div style="border:1px solid rgba(122,176,48,.22);background:rgba(122,176,48,.08);border-radius:18px;padding:14px 16px;margin-bottom:18px;color:rgba(255,255,255,.78);font-size:.88rem;line-height:1.45;"><b style="color:#fff;">Aktiv:</b> ${activeDiscipline.label} · ${activeDifficulty.label} · ${activeDiscipline.shots} Schuss</div>
+      ${fallbackStartButtonHtml()}
     `;
 
     syncGameState();
-    fixMobileLayout();
+    removeBlurForASecond();
     if (sheet) sheet.scrollTop = 0;
   }
 
@@ -243,7 +298,7 @@
     overlay.style.opacity = '1';
     sheet.style.bottom = '0';
     document.body.style.overflow = 'hidden';
-    fixMobileLayout();
+    removeBlurForASecond();
   }
 
   const originalOpen = window.openDuelSetup;
@@ -265,7 +320,7 @@
     const settings = byId('duelSettingsContent');
     if (modeSelection) modeSelection.style.display = 'block';
     if (settings) settings.style.display = 'none';
-    fixMobileLayout();
+    removeBlurForASecond();
   };
 
   window.duelRuntimeFixSetWeapon = function duelRuntimeFixSetWeapon(weapon) {
@@ -289,6 +344,7 @@
 
   window.duelRuntimeFixStart = function duelRuntimeFixStart() {
     syncGameState();
+    removeBlurForASecond();
     const candidates = ['startBattle', 'startDuel', 'beginBattle', 'beginDuel', 'startMatch', 'beginMatch', 'startGame', 'startBotBattle', 'startBotDuel'];
 
     for (const name of candidates) {
@@ -316,21 +372,16 @@
     }
   }, true);
 
-  window.addEventListener('resize', fixMobileLayout);
+  window.addEventListener('resize', hardRemoveBlur);
   window.addEventListener('orientationchange', function () {
-    setTimeout(fixMobileLayout, 200);
+    setTimeout(hardRemoveBlur, 200);
   });
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fixMobileLayout);
+    document.addEventListener('DOMContentLoaded', hardRemoveBlur);
   } else {
-    fixMobileLayout();
+    hardRemoveBlur();
   }
 
-  console.info('✅ Duel Runtime Fix active, blur disabled');
+  console.info('✅ Duel Runtime Fix active, hard no-blur enabled');
 })();
-
-// Local QA placeholder
-if (['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)) {
-  console.info('🧪 QA Test Suite available in local development');
-}
