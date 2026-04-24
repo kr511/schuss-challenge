@@ -143,12 +143,13 @@
   function renameLabels(){
     var all=document.querySelectorAll('body *');
     all.forEach(function(el){
-      if(el.children.length) return;
-      if(!el.textContent) return;
-      el.textContent=el.textContent
+      if(el.children.length || !el.textContent) return;
+      var before=el.textContent;
+      var after=before
         .replace(/KI-Fotoanalyse/g,'Fotoauswertung')
         .replace(/KI Fotoanalyse/g,'Fotoauswertung')
         .replace(/KI-Analyse/g,'Fotoauswertung');
+      if(after!==before) el.textContent=after;
     });
   }
 
@@ -159,5 +160,11 @@
 
   function run(){removeOldTags();addStyle();addTrust();addStartFlow();addGuest();installUpdatesCloseFix();renameLabels();}
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run); else run();
-  new MutationObserver(function(){addStartFlow();addGuest();installUpdatesCloseFix();renameLabels();removeOldTags();}).observe(document.documentElement,{childList:true,subtree:true});
+
+  var scheduled=false;
+  new MutationObserver(function(){
+    if(scheduled) return;
+    scheduled=true;
+    setTimeout(function(){scheduled=false;addStartFlow();addGuest();installUpdatesCloseFix();renameLabels();removeOldTags();},120);
+  }).observe(document.documentElement,{childList:true,subtree:true});
 })();
