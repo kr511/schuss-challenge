@@ -3,11 +3,13 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v3.9'; // Duel Setup cache/version hardening
+const CACHE_VERSION = 'v4.0'; // Duel Setup mobile scroll lock
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=3.9" defer></script>';
+const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.0" defer></script>';
 const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=3.9" defer></script>';
 const DUEL_RUNTIME_RE = /<script\s+src=["']duel-setup-runtime\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
+const DUEL_SCROLL_LOCK_RE = /<script\s+src=["']duel-scroll-lock\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const QA_SCRIPT_RE = /<script\s+src=["']qa-test-suite\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 
 const PRECACHE = [
@@ -34,6 +36,8 @@ const PRECACHE = [
   './async-challenge.js',
   './duel-setup-runtime.js',
   './duel-setup-runtime.js?v=3.9',
+  './duel-scroll-lock.js',
+  './duel-scroll-lock.js?v=4.0',
   './performance-config.js',
   './battle-balance.js',
   './qa-test-suite.js',
@@ -55,23 +59,45 @@ const NEVER_CACHE = [
   'googleapis.com/firebase',
 ];
 
+function resetRegexes() {
+  DUEL_RUNTIME_RE.lastIndex = 0;
+  DUEL_SCROLL_LOCK_RE.lastIndex = 0;
+  QA_SCRIPT_RE.lastIndex = 0;
+}
+
 function enhanceIndexHtml(html) {
   let nextHtml = html;
+  resetRegexes();
+
   const hasRuntime = DUEL_RUNTIME_RE.test(nextHtml);
-  DUEL_RUNTIME_RE.lastIndex = 0;
-  QA_SCRIPT_RE.lastIndex = 0;
+  resetRegexes();
 
   if (hasRuntime) {
     nextHtml = nextHtml.replace(DUEL_RUNTIME_RE, DUEL_RUNTIME_SCRIPT);
   } else if (QA_SCRIPT_RE.test(nextHtml)) {
-    QA_SCRIPT_RE.lastIndex = 0;
+    resetRegexes();
     nextHtml = nextHtml.replace(QA_SCRIPT_RE, `${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
   } else if (nextHtml.includes('</head>')) {
     nextHtml = nextHtml.replace('</head>', `  ${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}\n</head>`);
   }
 
-  QA_SCRIPT_RE.lastIndex = 0;
+  resetRegexes();
+  const hasScrollLock = DUEL_SCROLL_LOCK_RE.test(nextHtml);
+  resetRegexes();
+
+  if (hasScrollLock) {
+    nextHtml = nextHtml.replace(DUEL_SCROLL_LOCK_RE, DUEL_SCROLL_LOCK_SCRIPT);
+  } else if (nextHtml.includes(QA_SCRIPT_VERSIONED)) {
+    nextHtml = nextHtml.replace(QA_SCRIPT_VERSIONED, `${DUEL_SCROLL_LOCK_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
+  } else if (nextHtml.includes(DUEL_RUNTIME_SCRIPT)) {
+    nextHtml = nextHtml.replace(DUEL_RUNTIME_SCRIPT, `${DUEL_RUNTIME_SCRIPT}\n  ${DUEL_SCROLL_LOCK_SCRIPT}`);
+  } else if (nextHtml.includes('</head>')) {
+    nextHtml = nextHtml.replace('</head>', `  ${DUEL_SCROLL_LOCK_SCRIPT}\n</head>`);
+  }
+
+  resetRegexes();
   nextHtml = nextHtml.replace(QA_SCRIPT_RE, QA_SCRIPT_VERSIONED);
+  resetRegexes();
 
   return nextHtml;
 }
