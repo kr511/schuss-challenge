@@ -3,11 +3,11 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v4.9'; // Corrected Duel Setup scroll-lock start failure behavior
+const CACHE_VERSION = 'v5.0'; // Result screen waits for player submission
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.5" defer></script>';
 const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.9" defer></script>';
-const DUEL_RESULT_SCREEN_SCRIPT = '<script src="duel-result-screen.js?v=4.8" defer></script>';
+const DUEL_RESULT_SCREEN_SCRIPT = '<script src="duel-result-screen.js?v=5.0" defer></script>';
 const DUEL_DISTANCE_GUARD_SCRIPT = '<script src="duel-distance-guard.js?v=4.7" defer></script>';
 const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=4.1" defer></script>';
 const DUEL_RUNTIME_RE = /<script\s+src=["']duel-setup-runtime\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
@@ -20,7 +20,6 @@ const QA_SCRIPT_RE = /<script\s+src=["']qa-test-suite\.js(?:\?v=[^"']*)?["']\s+d
 const PRECACHE = [
   './',
   './index.html',
-  // Alle lokalen JS-Dateien
   './app.js',
   './adaptive-bot.js',
   './daily-challenge.js',
@@ -44,14 +43,13 @@ const PRECACHE = [
   './duel-scroll-lock.js',
   './duel-scroll-lock.js?v=4.9',
   './duel-result-screen.js',
-  './duel-result-screen.js?v=4.8',
+  './duel-result-screen.js?v=5.0',
   './duel-distance-guard.js',
   './duel-distance-guard.js?v=4.7',
   './performance-config.js',
   './battle-balance.js',
   './qa-test-suite.js',
   './qa-test-suite.js?v=4.1',
-  // Lokale CSS-Dateien
   './styles.css',
   './duel-setup.css',
   './duel-setup.css?v=4.5',
@@ -60,7 +58,6 @@ const PRECACHE = [
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap',
 ];
 
-// Firebase-Domains nie cachen
 const NEVER_CACHE = [
   'firebasedatabase.app',
   'firebaseio.com',
@@ -107,7 +104,6 @@ function enhanceIndexHtml(html) {
     nextHtml = nextHtml.replace('</head>', `  ${DUEL_SCROLL_LOCK_SCRIPT}\n</head>`);
   }
 
-  // Discipline filtering moved into duel-setup-runtime.js in v4.5.
   resetRegexes();
   nextHtml = nextHtml.replace(DUEL_DISCIPLINE_FILTER_RE, '');
 
@@ -180,76 +176,52 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 
   console.log(`🔄 Service Worker ${CACHE_VERSION} aktiviert`);
-  
-  // Benachrichtige alle Clients über neues Update
   self.clients.matchAll().then(clients => {
-    clients.forEach(client => {
-      client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION });
-    });
+    clients.forEach(client => client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION }));
   });
 });
 
 self.addEventListener('fetch', event => {
   const url = event.request.url;
 
-  // Never cache Firebase or external auth requests
   if (NEVER_CACHE.some(domain => url.includes(domain))) {
     event.respondWith(fetch(event.request));
     return;
   }
 
-  // Skip non-GET requests (POST, PUT, DELETE, etc.) - don't cache API calls
-  if (event.request.method !== 'GET') {
-    return;
-  }
+  if (event.request.method !== 'GET') return;
+  if (event.request.url.includes('workers.dev') || event.request.url.includes('/api/')) return;
 
-  // Skip API requests to external domains (Worker API)
-  if (event.request.url.includes('workers.dev') || event.request.url.includes('/api/')) {
-    return;
-  }
-
-  // Network-first for HTML (index.html) - always check for updates!
   if (event.request.mode === 'navigate' || url.endsWith('.html')) {
     event.respondWith(
       fetch(event.request)
         .then(async response => {
           const enhancedResponse = await indexResponseWithRuntime(response);
-          // Cache successful HTML responses after runtime injection
           if (enhancedResponse && enhancedResponse.status === 200) {
             const clone = enhancedResponse.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }
           return enhancedResponse;
         })
-        .catch(() => {
-          // Offline fallback: use cached HTML
-          return caches.match(event.request).then(async cached => {
-            if (cached) return indexResponseWithRuntime(cached);
-            const fallback = await caches.match('./index.html');
-            return fallback ? indexResponseWithRuntime(fallback) : fallback;
-          });
-        })
+        .catch(() => caches.match(event.request).then(async cached => {
+          if (cached) return indexResponseWithRuntime(cached);
+          const fallback = await caches.match('./index.html');
+          return fallback ? indexResponseWithRuntime(fallback) : fallback;
+        }))
     );
     return;
   }
 
-  // Cache-first for all other assets (JS, CSS, images, fonts)
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        // Only cache valid same-origin or CORS responses
-        if (
-          response &&
-          response.status === 200 &&
-          (response.type === 'basic' || response.type === 'cors')
-        ) {
+        if (response && response.status === 200 && (response.type === 'basic' || response.type === 'cors')) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
       }).catch(() => {
-        // Offline fallback: return cached index.html for navigation requests
         if (event.request.mode === 'navigate') {
           return caches.match('./index.html').then(fallback => fallback ? indexResponseWithRuntime(fallback) : fallback);
         }
