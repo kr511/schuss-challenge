@@ -230,8 +230,21 @@
     });
   }
 
+  function bindTopFriendsButton() {
+    var topButton = document.getElementById('friendsButton');
+    if (!topButton) return;
+    topButton.onclick = function (event) {
+      if (event) event.preventDefault();
+      openFriendshipsPage();
+    };
+    topButton.title = 'Freundschaften';
+    topButton.setAttribute('aria-label', 'Freundschaften öffnen');
+    topButton.setAttribute('data-friendships-page-bound', 'true');
+  }
+
   function render() {
     addStyles();
+    bindTopFriendsButton();
     var dashboard = document.getElementById('premiumDashboard');
     if (!dashboard) return;
 
@@ -288,12 +301,14 @@
 
   window.openFriendshipsPage = openFriendshipsPage;
   window.closeFriendshipsPage = closeFriendshipsPage;
+  window.bindTopFriendsButtonToPage = bindTopFriendsButton;
 
   onReady(function () {
     render();
-    setTimeout(function () { hookFriendsInit(); render(); }, 500);
-    setTimeout(function () { hookFriendsInit(); render(); }, 1500);
-    setTimeout(function () { hookFriendsInit(); render(); }, 3000);
-    setInterval(function () { hookFriendsInit(); render(); }, 30000);
+    bindTopFriendsButton();
+    setTimeout(function () { hookFriendsInit(); render(); bindTopFriendsButton(); }, 500);
+    setTimeout(function () { hookFriendsInit(); render(); bindTopFriendsButton(); }, 1500);
+    setTimeout(function () { hookFriendsInit(); render(); bindTopFriendsButton(); }, 3000);
+    setInterval(function () { hookFriendsInit(); render(); bindTopFriendsButton(); }, 30000);
   });
 })();
