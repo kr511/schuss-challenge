@@ -1,8 +1,7 @@
 /**
  * Duel Setup Runtime Controller
  *
- * Centralizes the production duel setup sheet behavior that previously lived in
- * qa-test-suite.js as a last-minute runtime patch.
+ * Production controller for the Duell Setup bottom sheet.
  */
 (function () {
   'use strict';
@@ -17,85 +16,58 @@
   };
 
   const disciplines = {
-    lg40: { weapon: 'lg', label: 'LG 40', shots: 40, dist: '10', desc: '40 Schuss · 10 m' },
-    lg60: { weapon: 'lg', label: 'LG 60', shots: 60, dist: '10', desc: '60 Schuss · 10 m' },
-    kk50: { weapon: 'kk', label: 'KK 50m', shots: 60, dist: '50', desc: '60 Schuss · 50 m' },
-    kk100: { weapon: 'kk', label: 'KK 100m', shots: 60, dist: '100', desc: '60 Schuss · 100 m' },
-    kk3x20: { weapon: 'kk', label: 'KK 3×20', shots: 60, dist: '50', desc: '3 × 20 Schuss' }
+    lg40: { weapon: 'lg', label: 'LG 40', shots: 40, dist: '10', desc: '40 Schuss · 10 m', icon: 'target' },
+    lg60: { weapon: 'lg', label: 'LG 60', shots: 60, dist: '10', desc: '60 Schuss · 10 m', icon: 'target' },
+    kk50: { weapon: 'kk', label: 'KK 50m', shots: 60, dist: '50', desc: '60 Schuss · 50 m', icon: 'target' },
+    kk100: { weapon: 'kk', label: 'KK 100m', shots: 60, dist: '100', desc: '60 Schuss · 100 m', icon: 'target' },
+    kk3x20: { weapon: 'kk', label: 'KK 3×20', shots: 60, dist: '50', desc: '3 × 20 Schuss', icon: 'cluster' }
   };
 
+  const difficultyOrder = ['easy', 'real', 'hard', 'elite'];
   const difficulties = {
-    easy: { label: '😊 Einfach', desc: 'Einstieg' },
-    real: { label: '🎯 Mittel', desc: 'Solider Gegner' },
-    hard: { label: '💪 Elite', desc: 'Sehr stark' },
-    elite: { label: '💫 Profi', desc: 'Extrem schwer' }
+    easy: { label: 'Einfach', icon: '☺', cls: 'easy', stars: 1, desc: 'Einstieg' },
+    real: { label: 'Mittel', icon: '◎', cls: 'real', stars: 3, desc: 'Solider Gegner' },
+    hard: { label: 'Elite', icon: '💪', cls: 'hard', stars: 4, desc: 'Sehr stark' },
+    elite: { label: 'Profi', icon: '✦', cls: 'elite', stars: 5, desc: 'Extrem schwer' }
   };
 
   function byId(id) {
     return document.getElementById(id);
   }
 
-  function applyLayoutGuards() {
-    let style = byId('duelSetupRuntimeStyle');
-    if (!style) {
-      style = document.createElement('style');
-      style.id = 'duelSetupRuntimeStyle';
-      document.head.appendChild(style);
-    }
-
-    style.textContent = `
-      html,
-      body {
-        overflow-x: hidden !important;
-      }
-
-      #duelSetupSheetOverlay {
-        position: fixed !important;
-        inset: 0 !important;
-        width: 100vw !important;
-        max-width: 100vw !important;
-        height: 100dvh !important;
-        background: rgba(2, 4, 3, .92) !important;
-        z-index: 9000 !important;
-      }
-
-      #duelSetupSheet {
-        position: fixed !important;
-        left: 0 !important;
-        right: 0 !important;
-        width: 100vw !important;
-        max-width: 100vw !important;
-        box-sizing: border-box !important;
-        margin: 0 !important;
-        background: #121214 !important;
-        padding-bottom: calc(34px + env(safe-area-inset-bottom)) !important;
-        -webkit-font-smoothing: antialiased !important;
-      }
-
-      #btnOpenDuelSetup {
-        left: 50% !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
-      }
-    `;
+  function ensureStylesheet() {
+    if (document.querySelector('link[href*="duel-setup.css"]')) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'duel-setup.css?v=3.7';
+    document.head.appendChild(link);
   }
 
-  function optionStyle(active) {
-    return [
-      'border-radius:16px',
-      'padding:13px 12px',
-      'border:' + (active ? '2px solid rgba(122,176,48,.95)' : '1px solid rgba(255,255,255,.13)'),
-      'background:' + (active ? 'linear-gradient(135deg,rgba(122,176,48,.28),rgba(0,195,255,.18))' : 'rgba(255,255,255,.055)'),
-      'color:#fff',
-      'font-weight:800',
-      'text-align:left',
-      'cursor:pointer',
-      'box-shadow:' + (active ? '0 0 22px rgba(122,176,48,.18)' : 'none')
-    ].join(';');
+  function applyLayoutGuards() {
+    ensureStylesheet();
+    document.documentElement.style.setProperty('overflow-x', 'hidden', 'important');
+    document.body.style.setProperty('overflow-x', 'hidden', 'important');
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function getActiveDiscipline() {
+    return disciplines[state.discipline] || disciplines.lg40;
+  }
+
+  function getActiveDifficulty() {
+    return difficulties[state.difficulty] || difficulties.easy;
   }
 
   function syncGameState() {
-    const disc = disciplines[state.discipline] || disciplines.lg40;
+    const disc = getActiveDiscipline();
     if (typeof G !== 'undefined') {
       G.weapon = disc.weapon;
       G.discipline = state.discipline;
@@ -109,16 +81,174 @@
     }
   }
 
-  function getAvailableDisciplines() {
-    return Object.entries(disciplines).filter(([, disc]) => disc.weapon === state.weapon);
+  function getTargetLabel() {
+    const target = window.BattleBalance?.getBalanceTarget?.(state.discipline, state.difficulty) ||
+      window.BattleBalance?.BALANCE_TARGETS?.[state.discipline]?.[state.difficulty];
+
+    if (!target) return '—';
+    if (target.floor !== undefined) return `≥${target.floor}`;
+    if (target.min !== undefined && target.max !== undefined) return `${target.min}–${target.max}`;
+    return '—';
   }
 
-  function startButtonHtml() {
-    return '<button onclick="DuelSetupRuntime.startDuel()" style="width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);border:0;border-radius:22px;padding:18px 20px;color:#061006;font-size:1.12rem;font-weight:950;letter-spacing:.16em;box-shadow:0 10px 35px rgba(122,176,48,.35);">🎯 DUELL STARTEN</button>';
+  function renderCheck() {
+    return '<span class="duel-check" aria-hidden="true">✓</span>';
+  }
+
+  function targetIconHtml() {
+    return '<span class="duel-target-icon" aria-hidden="true"><span></span></span>';
+  }
+
+  function clusterIconHtml() {
+    return '<span style="font-size:2rem;color:#65717e;line-height:1;" aria-hidden="true">◉◉◉</span>';
+  }
+
+  function starsHtml(count) {
+    return `<span class="duel-stars" aria-hidden="true">${Array.from({ length: 5 }, (_, idx) => (
+      `<span class="duel-star ${idx < count ? 'filled' : ''}">★</span>`
+    )).join('')}</span>`;
+  }
+
+  function renderHeader() {
+    return `
+      <div class="duel-runtime-header">
+        <div class="duel-brand-row">
+          <div class="duel-brand-mark"><span class="duel-brand-dot"></span></div>
+          <div>
+            <h2 class="duel-title">SCHUSS<span>DUELL</span></h2>
+            <div class="duel-subtitle">Duell Setup Übersicht</div>
+          </div>
+        </div>
+        <div class="duel-shield" aria-hidden="true">⌖</div>
+      </div>
+    `;
+  }
+
+  function renderModeSection() {
+    const modes = [
+      { key: 'bot', icon: '🤖', title: 'Gegen Bot', sub: 'Fordere den Bot heraus' },
+      { key: 'multiplayer', icon: '👥', title: 'Multiplayer', sub: 'Spiele gegen andere' }
+    ];
+
+    return `
+      <section class="duel-section">
+        <div class="duel-section-title"><span class="duel-section-icon">🎮</span>1. SPIELMODUS</div>
+        <div class="duel-option-grid two">
+          ${modes.map((mode) => `
+            <button class="duel-card ${state.mode === mode.key ? 'selected' : ''}" onclick="DuelSetupRuntime.setMode('${mode.key}')" type="button">
+              ${renderCheck()}
+              <span class="duel-card-icon" aria-hidden="true">${mode.icon}</span>
+              <span>
+                <span class="duel-card-title">${escapeHtml(mode.title)}</span>
+                <span class="duel-card-sub">${escapeHtml(mode.sub)}</span>
+              </span>
+            </button>
+          `).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderWeaponSection() {
+    const weapons = [
+      { key: 'lg', icon: '≋', label: 'Luftgewehr' },
+      { key: 'kk', icon: '🎯', label: 'Kleinkaliber' }
+    ];
+
+    return `
+      <section class="duel-section">
+        <div class="duel-section-title"><span class="duel-section-icon">⌁</span>2. WAFFE</div>
+        <div class="duel-option-grid two">
+          ${weapons.map((weapon) => `
+            <button class="duel-pill ${state.weapon === weapon.key ? 'selected' : ''}" onclick="DuelSetupRuntime.setWeapon('${weapon.key}')" type="button">
+              ${renderCheck()}
+              <span class="duel-pill-icon" aria-hidden="true">${weapon.icon}</span>
+              <span>${escapeHtml(weapon.label)}</span>
+            </button>
+          `).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderDisciplineSection() {
+    return `
+      <section class="duel-section">
+        <div class="duel-section-title"><span class="duel-section-icon">◎</span>3. DISZIPLIN</div>
+        <div class="duel-option-grid disciplines">
+          ${Object.entries(disciplines).map(([key, disc]) => `
+            <button class="duel-discipline ${state.discipline === key ? 'selected' : ''}" onclick="DuelSetupRuntime.setDiscipline('${key}')" type="button">
+              ${renderCheck()}
+              ${disc.icon === 'cluster' ? clusterIconHtml() : targetIconHtml()}
+              <span class="duel-discipline-label">${escapeHtml(disc.label)}</span>
+            </button>
+          `).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderDifficultySection() {
+    return `
+      <section class="duel-section">
+        <div class="duel-section-title"><span class="duel-section-icon">▥</span>4. SCHWIERIGKEIT</div>
+        <div class="duel-option-grid difficulties">
+          ${difficultyOrder.map((key) => {
+            const diff = difficulties[key];
+            return `
+              <button class="duel-difficulty ${diff.cls} ${state.difficulty === key ? 'selected' : ''}" onclick="DuelSetupRuntime.setDifficulty('${key}')" type="button">
+                ${renderCheck()}
+                <span class="duel-difficulty-icon" aria-hidden="true">${diff.icon}</span>
+                <span class="duel-difficulty-label">${escapeHtml(diff.label)}</span>
+                ${starsHtml(diff.stars)}
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderSummarySection() {
+    const disc = getActiveDiscipline();
+    const diff = getActiveDifficulty();
+    const target = getTargetLabel();
+
+    return `
+      <section class="duel-section">
+        <div class="duel-section-title"><span class="duel-section-icon">▣</span>5. AKTIVE AUSWAHL</div>
+        <div class="duel-summary-card">
+          <div class="duel-summary-target" aria-hidden="true"></div>
+          <div class="duel-summary-text">
+            <div class="duel-summary-main">
+              <span class="lime">${escapeHtml(disc.label)}</span><span class="dot">·</span><span class="lime">${escapeHtml(diff.label)}</span><span class="dot">·</span><span class="cyan">${disc.shots} Schuss</span>
+            </div>
+            <div class="duel-summary-line">🤖 Bot-Zielbereich: <b>${escapeHtml(target)}</b></div>
+            <div class="duel-summary-line">📏 Entfernung: <b>${escapeHtml(disc.dist)} m</b></div>
+          </div>
+        </div>
+        <div class="duel-hint"><span class="duel-hint-icon">i</span><span>Wähle Waffenart, Disziplin und Schwierigkeit für dein Duell.</span></div>
+        <button class="duel-start-btn" onclick="DuelSetupRuntime.startDuel()" type="button">🎯 DUELL STARTEN</button>
+      </section>
+    `;
+  }
+
+  function renderOverview() {
+    return `
+      <div class="duel-runtime">
+        <div class="duel-grabber" aria-hidden="true"></div>
+        ${renderHeader()}
+        ${renderModeSection()}
+        ${renderWeaponSection()}
+        ${renderDisciplineSection()}
+        ${renderDifficultySection()}
+        ${renderSummarySection()}
+      </div>
+    `;
   }
 
   function renderSettings(mode) {
-    state.mode = mode === 'multiplayer' ? 'multiplayer' : 'bot';
+    if (mode) state.mode = mode === 'multiplayer' ? 'multiplayer' : 'bot';
     if (state.mode === 'multiplayer') {
       state.mode = 'bot';
       setTimeout(() => alert('Multiplayer ist noch nicht stabil. Ich öffne den Bot-Modus.'), 0);
@@ -133,40 +263,7 @@
     settings.style.display = 'block';
     settings.style.visibility = 'visible';
     settings.style.opacity = '1';
-
-    const availableDisciplines = getAvailableDisciplines();
-    if (!availableDisciplines.some(([key]) => key === state.discipline)) {
-      state.discipline = state.weapon === 'lg' ? 'lg40' : 'kk50';
-    }
-
-    const activeDiscipline = disciplines[state.discipline] || disciplines.lg40;
-    const activeDifficulty = difficulties[state.difficulty] || difficulties.easy;
-
-    settings.innerHTML = `
-      <button onclick="DuelSetupRuntime.showModeSelection()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.72);border-radius:14px;padding:12px 16px;margin-bottom:22px;font-weight:800;font-size:1rem;">← Zurück zur Modus-Auswahl</button>
-      <h2 style="color:#fff;margin:0 0 18px 0;font-size:1.55rem;font-weight:900;letter-spacing:.03em;">DUELL EINSTELLUNGEN</h2>
-      <section style="margin-bottom:18px;">
-        <div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Waffe</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <button onclick="DuelSetupRuntime.setWeapon('lg')" style="${optionStyle(state.weapon === 'lg')}"><div style="font-size:1.05rem;margin-bottom:4px;">🌬️ Luftgewehr</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">10 Meter</div></button>
-          <button onclick="DuelSetupRuntime.setWeapon('kk')" style="${optionStyle(state.weapon === 'kk')}"><div style="font-size:1.05rem;margin-bottom:4px;">🎯 Kleinkaliber</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600;">50 / 100 m</div></button>
-        </div>
-      </section>
-      <section style="margin-bottom:18px;">
-        <div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Disziplin</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          ${availableDisciplines.map(([key, disc]) => `<button onclick="DuelSetupRuntime.setDiscipline('${key}')" style="${optionStyle(state.discipline === key)}"><div style="font-size:.98rem;margin-bottom:4px;">${disc.label}</div><div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${disc.desc}</div></button>`).join('')}
-        </div>
-      </section>
-      <section style="margin-bottom:18px;">
-        <div style="color:rgba(255,255,255,.45);font-size:.74rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px;">Schwierigkeit</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          ${Object.entries(difficulties).map(([key, diff]) => `<button onclick="DuelSetupRuntime.setDifficulty('${key}')" style="${optionStyle(state.difficulty === key)}"><div style="font-size:.95rem;margin-bottom:4px;">${diff.label}</div><div style="font-size:.7rem;color:rgba(255,255,255,.55);font-weight:600;">${diff.desc}</div></button>`).join('')}
-        </div>
-      </section>
-      <div style="border:1px solid rgba(122,176,48,.22);background:rgba(122,176,48,.08);border-radius:18px;padding:14px 16px;margin-bottom:18px;color:rgba(255,255,255,.78);font-size:.88rem;line-height:1.45;"><b style="color:#fff;">Aktiv:</b> ${activeDiscipline.label} · ${activeDifficulty.label} · ${activeDiscipline.shots} Schuss</div>
-      ${startButtonHtml()}
-    `;
+    settings.innerHTML = renderOverview();
 
     syncGameState();
     applyLayoutGuards();
@@ -176,17 +273,13 @@
   function openSheet() {
     const overlay = byId('duelSetupSheetOverlay');
     const sheet = byId('duelSetupSheet');
-    const modeSelection = byId('gameModeSelection');
-    const settings = byId('duelSettingsContent');
     if (!overlay || !sheet) return;
 
-    if (modeSelection) modeSelection.style.display = 'block';
-    if (settings) settings.style.display = 'none';
     overlay.style.display = 'block';
     overlay.style.opacity = '1';
-    sheet.style.bottom = '0';
+    sheet.classList.add('is-open');
     document.body.style.overflow = 'hidden';
-    applyLayoutGuards();
+    renderSettings(state.mode);
   }
 
   function closeSheet(event) {
@@ -194,7 +287,7 @@
     const sheet = byId('duelSetupSheet');
     if (event && sheet && event.target !== overlay) return;
 
-    if (sheet) sheet.style.bottom = '-100%';
+    if (sheet) sheet.classList.remove('is-open');
     if (overlay) {
       overlay.style.opacity = '0';
       setTimeout(() => {
@@ -205,11 +298,7 @@
   }
 
   function showModeSelection() {
-    const modeSelection = byId('gameModeSelection');
-    const settings = byId('duelSettingsContent');
-    if (modeSelection) modeSelection.style.display = 'block';
-    if (settings) settings.style.display = 'none';
-    applyLayoutGuards();
+    renderSettings(state.mode);
   }
 
   function startDuel() {
@@ -238,9 +327,14 @@
     renderSettings,
     showModeSelection,
     startDuel,
+    setMode(mode) {
+      state.mode = mode === 'multiplayer' ? 'multiplayer' : 'bot';
+      renderSettings(state.mode);
+    },
     setWeapon(weapon) {
       state.weapon = weapon === 'kk' ? 'kk' : 'lg';
-      state.discipline = state.weapon === 'lg' ? 'lg40' : 'kk50';
+      if (state.weapon === 'lg' && disciplines[state.discipline]?.weapon !== 'lg') state.discipline = 'lg40';
+      if (state.weapon === 'kk' && disciplines[state.discipline]?.weapon !== 'kk') state.discipline = 'kk50';
       renderSettings(state.mode);
     },
     setDiscipline(discipline) {
@@ -290,5 +384,5 @@
     applyLayoutGuards();
   }
 
-  console.info('✅ DuelSetupRuntime active');
+  console.info('✅ DuelSetupRuntime overview active');
 })();
