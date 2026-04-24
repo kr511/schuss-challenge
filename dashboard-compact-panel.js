@@ -6,6 +6,7 @@
   var STYLE_ID = 'pdCompactChallengeHighscoreStyle';
   var OVERLAY_ID = 'pdHighscoreOverlay';
   var discNames = { lg40: 'LG 40', lg60: 'LG 60', kk50: 'KK 50m', kk100: 'KK 100m', kk3x20: 'KK 3×20', lg: 'LG', kk: 'KK' };
+  var lastRows = [];
 
   function onReady(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
@@ -37,6 +38,19 @@
       return new Date(time).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
     } catch (e) {
       return 'Kein Datum';
+    }
+  }
+
+  function playerName() {
+    try {
+      if (window.G && window.G.username) return window.G.username;
+      if (typeof StorageManager !== 'undefined' && StorageManager.getRaw) {
+        var stored = StorageManager.getRaw('username');
+        if (stored) return stored;
+      }
+      return localStorage.getItem('username') || localStorage.getItem('sd_username') || 'Spieler';
+    } catch (e) {
+      return 'Spieler';
     }
   }
 
@@ -73,31 +87,79 @@
     document.head.appendChild(style);
   }
 
-  function playerScoreOf(game) {
-    var score = Number(game && game.playerScore);
-    if (!Number.isFinite(score) || score <= 0) return null;
-    return score;
+  function getPlayerScore(obj) {
+    if (!obj || typeof obj !== 'object') return null;
+    var fields = ['playerScore', 'playerTotal', 'playerTotalInt', '_playerTotalTenths'];
+    for (var i = 0; i < fields.length; i++) {
+      var n = Number(obj[fields[i]]);
+      if (Number.isFinite(n) && n > 0 && n < 1000) {
+        if (fields[i] === '_playerTotalTenths') return n / 10;
+        return n;
+      }
+    }
+    return null;
+  }
+
+  function rowFromGame(game, source) {
+    var score = getPlayerScore(game);
+    if (score == null) return null;
+    var disc = discNames[game.discipline] || discNames[game.weapon] || game.discipline || game.weapon || 'Duell';
+    return {
+      name: game.playerName || game.username || game.name || playerName(),
+      score: score,
+      disc: disc,
+      result: game.result || game.outcome || '',
+      time: Number(game.timestamp || game.date || game.time || game.createdAt || 0) || 0,
+      source: source || 'local'
+    };
+  }
+
+  function collectRowsFromValue(value, source, rows, seen, depth) {
+    if (depth > 5 || value == null) return;
+    if (Array.isArray(value)) {
+      value.forEach(function (item) { collectRowsFromValue(item, source, rows, seen, depth + 1); });
+      return;
+    }
+    if (typeof value !== 'object') return;
+    if (seen.has(value)) return;
+    seen.add(value);
+
+    var row = rowFromGame(value, source);
+    if (row) rows.push(row);
+
+    Object.keys(value).forEach(function (key) {
+      if (/game|duel|match|history|recent|analytics|session|result|stats|entries|items|games/i.test(key)) {
+        collectRowsFromValue(value[key], source, rows, seen, depth + 1);
+      }
+    });
   }
 
   function highscoreRows(limit) {
-    var data = json('sd_enhanced_analytics', {});
-    var games = Array.isArray(data.games) ? data.games.slice() : [];
-    return games
-      .map(function (g) {
-        var score = playerScoreOf(g);
-        if (score == null) return null;
-        return {
-          name: (window.G && window.G.username) || localStorage.getItem('username') || 'Spieler',
-          score: score,
-          botScore: Number.isFinite(Number(g.botScore)) ? Number(g.botScore) : null,
-          disc: discNames[g.discipline] || discNames[g.weapon] || g.discipline || 'Duell',
-          result: g.result || '',
-          time: Number(g.timestamp || g.date || 0) || 0
-        };
-      })
-      .filter(Boolean)
-      .sort(function (a, b) { return b.score - a.score || b.time - a.time; })
-      .slice(0, limit || 5);
+    var rows = [];
+    var seen = new WeakSet();
+
+    collectRowsFromValue(json('sd_enhanced_analytics', {}), 'analytics', rows, seen, 0);
+
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (!key || !/sd_|duel|game|match|history|recent|analytics|stats|score/i.test(key)) continue;
+        collectRowsFromValue(json(key, null), key, rows, seen, 0);
+      }
+    } catch (e) {
+      console.warn('[Highscore] Local scan failed', e);
+    }
+
+    var unique = new Map();
+    rows.forEach(function (row) {
+      var id = [row.name, row.disc, Math.round(row.score * 10), row.time || row.source].join('|');
+      if (!unique.has(id)) unique.set(id, row);
+    });
+
+    lastRows = Array.from(unique.values())
+      .sort(function (a, b) { return b.score - a.score || b.time - a.time; });
+
+    return lastRows.slice(0, limit || 5);
   }
 
   function emptyRow(text) {
@@ -128,9 +190,10 @@
           var meta = h.disc + (h.result ? ' · ' + h.result : '') + ' · ' + fmtDate(h.time);
           return '<div class="hs-row"><div class="hs-rank">' + rank + '</div><div><div class="hs-name">' + esc(h.name) + '</div><div class="hs-meta">' + esc(meta) + '</div></div><div class="hs-score">' + fmtScore(h.score) + '</div></div>';
         }).join('') : '<div class="hs-row"><div class="hs-rank">ℹ️</div><div><div class="hs-name">Noch kein Highscore</div><div class="hs-meta">Spiele ein Duell, dann erscheint dein Spieler-Score hier.</div></div><div class="hs-score">–</div></div>') +
-        '<div class="hs-note">Wichtig: Diese Liste liest ausschließlich <b>playerScore</b> aus den gespeicherten Analytics-Duellen. <b>botScore</b> wird nicht fürs Ranking verwendet.</div>' +
+        '<div class="hs-note">Wichtig: Gezählt werden nur Spieler-Felder wie <b>playerScore</b> oder <b>playerTotal</b>. <b>botScore</b> und Bot-Werte werden ignoriert.</div>' +
       '</div>';
-    overlay.querySelector('.hs-close').addEventListener('click', closeHighscoreOverlay);
+    var close = overlay.querySelector('.hs-close');
+    if (close) close.addEventListener('click', closeHighscoreOverlay);
     overlay.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
@@ -150,7 +213,7 @@
     panel.innerHTML =
       '<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 10px 0;gap:10px">' +
         '<div><div style="font-size:1.05rem;font-weight:800;color:#fff;line-height:1.2">Highscore</div><div style="font-size:.72rem;color:rgba(255,255,255,.42)">Antippen für komplette Liste</div></div>' +
-        '<div style="font-size:.68rem;color:rgba(255,255,255,.55);background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:5px 9px;white-space:nowrap">Spieler</div>' +
+        '<button type="button" data-open-hs="1" style="font-size:.68rem;color:rgba(255,255,255,.75);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:999px;padding:6px 10px;white-space:nowrap;font-weight:800">Öffnen</button>' +
       '</div>' +
       '<section class="cp-card" role="button" tabindex="0" aria-label="Highscore öffnen"><div class="cp-head"><span>🏆 Beste Spieler-Ergebnisse</span><span class="cp-pill">Top 5</span></div>' +
         (highs.length ? highs.map(function (h, i) {
@@ -159,15 +222,17 @@
       '</section>';
 
     var card = panel.querySelector('.cp-card');
+    var openBtn = panel.querySelector('[data-open-hs]');
     if (card) {
-      card.addEventListener('click', openHighscoreOverlay);
-      card.addEventListener('keydown', function (event) {
+      card.onclick = openHighscoreOverlay;
+      card.onkeydown = function (event) {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           openHighscoreOverlay();
         }
-      });
+      };
     }
+    if (openBtn) openBtn.onclick = openHighscoreOverlay;
   }
 
   function mount() {
@@ -199,14 +264,18 @@
     window.refreshPremiumDashboard.__compactPanelWrapped = true;
   }
 
+  window.openPlayerHighscore = openHighscoreOverlay;
+  window.closePlayerHighscore = closeHighscoreOverlay;
+  window.refreshPlayerHighscorePanel = mount;
+
   onReady(function () {
     hookRefresh();
     mount();
     setTimeout(function () { hookRefresh(); mount(); }, 400);
     setTimeout(function () { hookRefresh(); mount(); }, 1200);
+    setTimeout(function () { hookRefresh(); mount(); }, 2500);
     setInterval(mount, 30000);
     window.addEventListener('storage', mount);
-    window.openPlayerHighscore = openHighscoreOverlay;
-    window.closePlayerHighscore = closeHighscoreOverlay;
+    window.addEventListener('analyticsUpdated', mount);
   });
 })();
