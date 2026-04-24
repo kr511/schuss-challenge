@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const ASSET_VERSION = '3.9';
+  const ASSET_VERSION = '4.1';
   const REQUIRED_GLOBALS = [
     'StorageManager',
     'BattleBalance'
