@@ -3,7 +3,7 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v3.4' // Bugfix: Stable anonyme User-ID für Challenges
+const CACHE_VERSION = 'v3.5'; // Bugfixes: Async Challenges, Mobile UX und Performance
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -21,11 +21,15 @@ const PRECACHE = [
   './contextual-ocr.js',
   './enhanced-analytics.js',
   './mobile-features.js',
+  './mobile-responsive.js',
   './multi-score-detection.js',
   './training-modes.js',
   './sounds.js',
   './tutorial.js',
   './storage-manager.js',
+  './async-challenge.js',
+  './performance-config.js',
+  './battle-balance.js',
   // Lokale CSS-Dateien
   './styles.css',
   './image-compare.css',
