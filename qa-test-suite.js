@@ -56,7 +56,7 @@
       }
 
       #duelSetupSheetOverlay {
-        background: rgba(0,0,0,.54) !important;
+        background: #020403 !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
         filter: none !important;
@@ -89,7 +89,7 @@
         transform: none !important;
         -webkit-transform: none !important;
         will-change: auto !important;
-        background: rgb(18,18,20) !important;
+        background: #121214 !important;
         -webkit-font-smoothing: antialiased !important;
         text-rendering: geometricPrecision !important;
       }
@@ -149,7 +149,7 @@
       overlay.style.setProperty('height', '100dvh', 'important');
       overlay.style.setProperty('overflow-x', 'hidden', 'important');
       overlay.style.setProperty('z-index', '9000', 'important');
-      overlay.style.setProperty('background', 'rgba(0,0,0,.54)', 'important');
+      overlay.style.setProperty('background', '#020403', 'important');
       overlay.style.setProperty('transform', 'none', 'important');
       overlay.style.setProperty('-webkit-transform', 'none', 'important');
     }
@@ -166,7 +166,7 @@
       sheet.style.setProperty('-webkit-transform', 'none', 'important');
       sheet.style.setProperty('will-change', 'auto', 'important');
       sheet.style.setProperty('overflow-x', 'hidden', 'important');
-      sheet.style.setProperty('background', 'rgb(18,18,20)', 'important');
+      sheet.style.setProperty('background', '#121214', 'important');
       sheet.style.setProperty('padding-bottom', 'calc(34px + env(safe-area-inset-bottom))', 'important');
       sheet.style.setProperty('-webkit-font-smoothing', 'antialiased', 'important');
       sheet.style.setProperty('text-rendering', 'geometricPrecision', 'important');
@@ -301,13 +301,7 @@
     removeBlurForASecond();
   }
 
-  const originalOpen = window.openDuelSetup;
   window.openDuelSetup = function patchedOpenDuelSetup() {
-    try {
-      if (typeof originalOpen === 'function') originalOpen.apply(this, arguments);
-    } catch (e) {
-      console.warn('[DuelRuntimeFix] original open failed', e);
-    }
     forceOpenSheet();
   };
 
@@ -383,5 +377,5 @@
     hardRemoveBlur();
   }
 
-  console.info('✅ Duel Runtime Fix active, hard no-blur enabled');
+  console.info('✅ Duel Runtime Fix active, original open bypassed, solid no-blur overlay');
 })();
