@@ -3,6 +3,23 @@
  * Admin kann Updates erstellen, alle User sehen sie als Benachrichtigung
  */
 
+(function loadCriticalHotfixes() {
+  'use strict';
+
+  const hotfixes = [
+    'duel-setup-hotfix.js?v=1.0'
+  ];
+
+  hotfixes.forEach((src) => {
+    if (document.querySelector(`script[src="${src}"]`)) return;
+
+    const script = document.createElement('script');
+    script.src = src;
+    script.defer = true;
+    document.head.appendChild(script);
+  });
+})();
+
 const UpdatesSystem = (function() {
   'use strict';
 
