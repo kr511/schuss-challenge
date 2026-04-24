@@ -1,32 +1,24 @@
 // Schussduell Service Worker
-// Cacht alle lokalen Assets für Offline-Nutzung.
-// Firebase-Requests werden NICHT gecacht (immer live).
+// Offline-first Cache + kleines HTML-Cleanup für veraltete Script-Tags.
 
-// Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v5.3'; // Trust cleanup + guest mode
+const CACHE_VERSION = 'v5.4'; // quick start flow
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
-const SITE_CLEANUP_SCRIPT = '<script src="site-cleanup.js?v=1.0" defer></script>';
-const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.5" defer></script>';
-const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.9" defer></script>';
-const DUEL_RESULT_SCREEN_SCRIPT = '<script src="duel-result-screen.js?v=5.1" defer></script>';
-const DUEL_DISTANCE_GUARD_SCRIPT = '<script src="duel-distance-guard.js?v=4.7" defer></script>';
-const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=4.1" defer></script>';
-const GEMINI_SCRIPT_RE = /<script\s+src=["']gemini-ai\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
-const FIREBASE_GOOGLE_DUP_RE = /\s*<!-- Google Sign-In Provider -->\s*<script\s+defer\s+src=["']https:\/\/www\.gstatic\.com\/firebasejs\/9\.23\.0\/firebase-auth-compat\.js["']\s+data-provider=["']google["']><\/script>/g;
-const SITE_CLEANUP_RE = /<script\s+src=["']site-cleanup\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
-const DUEL_RUNTIME_RE = /<script\s+src=["']duel-setup-runtime\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
-const DUEL_SCROLL_LOCK_RE = /<script\s+src=["']duel-scroll-lock\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
-const DUEL_DISCIPLINE_FILTER_RE = /<script\s+src=["']duel-discipline-filter\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
-const DUEL_RESULT_SCREEN_RE = /<script\s+src=["']duel-result-screen\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
-const DUEL_DISTANCE_GUARD_RE = /<script\s+src=["']duel-distance-guard\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
-const QA_SCRIPT_RE = /<script\s+src=["']qa-test-suite\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
+
+const NORMALIZED_SCRIPTS = [
+  'site-cleanup.js?v=1.1',
+  'duel-setup-runtime.js?v=4.5',
+  'duel-scroll-lock.js?v=4.9',
+  'duel-result-screen.js?v=5.1',
+  'duel-distance-guard.js?v=4.7',
+  'qa-test-suite.js?v=4.1'
+];
 
 const PRECACHE = [
   './',
   './index.html',
   './app.js',
   './site-cleanup.js',
-  './site-cleanup.js?v=1.0',
+  './site-cleanup.js?v=1.1',
   './adaptive-bot.js',
   './daily-challenge.js',
   './enhanced-achievements.js',
@@ -61,7 +53,7 @@ const PRECACHE = [
   './duel-setup.css?v=4.5',
   './image-compare.css',
   './manifest.json',
-  'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap',
+  'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap'
 ];
 
 const NEVER_CACHE = [
@@ -69,107 +61,47 @@ const NEVER_CACHE = [
   'firebaseio.com',
   'googleapis.com/identitytoolkit',
   'googleapis.com/firebase',
-  'generativelanguage.googleapis.com',
+  'generativelanguage.googleapis.com'
 ];
 
-function resetRegexes() {
-  GEMINI_SCRIPT_RE.lastIndex = 0;
-  FIREBASE_GOOGLE_DUP_RE.lastIndex = 0;
-  SITE_CLEANUP_RE.lastIndex = 0;
-  DUEL_RUNTIME_RE.lastIndex = 0;
-  DUEL_SCROLL_LOCK_RE.lastIndex = 0;
-  DUEL_DISCIPLINE_FILTER_RE.lastIndex = 0;
-  DUEL_RESULT_SCREEN_RE.lastIndex = 0;
-  DUEL_DISTANCE_GUARD_RE.lastIndex = 0;
-  QA_SCRIPT_RE.lastIndex = 0;
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function removeScriptByFile(html, fileName) {
+  const re = new RegExp(`\\s*<script\\s+[^>]*src=["'][^"']*${escapeRegExp(fileName)}(?:\\?v=[^"']*)?["'][^>]*><\\/script>`, 'g');
+  return html.replace(re, '');
+}
+
+function removeLegacyScripts(html) {
+  let nextHtml = html;
+  nextHtml = removeScriptByFile(nextHtml, 'gemini-ai.js');
+  nextHtml = removeScriptByFile(nextHtml, 'duel-discipline-filter.js');
+  nextHtml = nextHtml.replace(/\\s*<!-- Google Sign-In Provider -->\\s*<script\\s+defer\\s+src=["']https:\\/\\/www\\.gstatic\\.com\\/firebasejs\\/9\\.23\\.0\\/firebase-auth-compat\\.js["']\\s+data-provider=["']google["']><\\/script>/g, '');
+  return nextHtml;
+}
+
+function normalizeRuntimeScripts(html) {
+  let nextHtml = html;
+  const files = NORMALIZED_SCRIPTS.map(src => src.split('?')[0]);
+
+  files.forEach(file => {
+    nextHtml = removeScriptByFile(nextHtml, file);
+  });
+
+  const block = NORMALIZED_SCRIPTS
+    .map(src => `  <script src="${src}" defer></script>`)
+    .join('\n');
+
+  if (nextHtml.includes('</head>')) {
+    return nextHtml.replace('</head>', `${block}\n</head>`);
+  }
+
+  return `${nextHtml}\n${block}`;
 }
 
 function enhanceIndexHtml(html) {
-  let nextHtml = html;
-  resetRegexes();
-
-  // Gemini/Google-KI wurde entfernt. Entferne alte Script-Tags aus gecachten HTML-Versionen.
-  nextHtml = nextHtml.replace(GEMINI_SCRIPT_RE, '');
-  resetRegexes();
-
-  // Entferne doppelten Firebase Auth Import mit data-provider="google".
-  nextHtml = nextHtml.replace(FIREBASE_GOOGLE_DUP_RE, '');
-  resetRegexes();
-
-  const hasSiteCleanup = SITE_CLEANUP_RE.test(nextHtml);
-  resetRegexes();
-  if (hasSiteCleanup) {
-    nextHtml = nextHtml.replace(SITE_CLEANUP_RE, SITE_CLEANUP_SCRIPT);
-  } else if (nextHtml.includes('</head>')) {
-    nextHtml = nextHtml.replace('</head>', `  ${SITE_CLEANUP_SCRIPT}\n</head>`);
-  }
-
-  const hasRuntime = DUEL_RUNTIME_RE.test(nextHtml);
-  resetRegexes();
-
-  if (hasRuntime) {
-    nextHtml = nextHtml.replace(DUEL_RUNTIME_RE, DUEL_RUNTIME_SCRIPT);
-  } else if (QA_SCRIPT_RE.test(nextHtml)) {
-    resetRegexes();
-    nextHtml = nextHtml.replace(QA_SCRIPT_RE, `${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
-  } else if (nextHtml.includes('</head>')) {
-    nextHtml = nextHtml.replace('</head>', `  ${DUEL_RUNTIME_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}\n</head>`);
-  }
-
-  resetRegexes();
-  const hasScrollPatch = DUEL_SCROLL_LOCK_RE.test(nextHtml);
-  resetRegexes();
-
-  if (hasScrollPatch) {
-    nextHtml = nextHtml.replace(DUEL_SCROLL_LOCK_RE, DUEL_SCROLL_LOCK_SCRIPT);
-  } else if (nextHtml.includes(QA_SCRIPT_VERSIONED)) {
-    nextHtml = nextHtml.replace(QA_SCRIPT_VERSIONED, `${DUEL_SCROLL_LOCK_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
-  } else if (nextHtml.includes(DUEL_RUNTIME_SCRIPT)) {
-    nextHtml = nextHtml.replace(DUEL_RUNTIME_SCRIPT, `${DUEL_RUNTIME_SCRIPT}\n  ${DUEL_SCROLL_LOCK_SCRIPT}`);
-  } else if (nextHtml.includes('</head>')) {
-    nextHtml = nextHtml.replace('</head>', `  ${DUEL_SCROLL_LOCK_SCRIPT}\n</head>`);
-  }
-
-  resetRegexes();
-  nextHtml = nextHtml.replace(DUEL_DISCIPLINE_FILTER_RE, '');
-
-  resetRegexes();
-  const hasResultScreen = DUEL_RESULT_SCREEN_RE.test(nextHtml);
-  resetRegexes();
-
-  if (hasResultScreen) {
-    nextHtml = nextHtml.replace(DUEL_RESULT_SCREEN_RE, DUEL_RESULT_SCREEN_SCRIPT);
-  } else if (nextHtml.includes(QA_SCRIPT_VERSIONED)) {
-    nextHtml = nextHtml.replace(QA_SCRIPT_VERSIONED, `${DUEL_RESULT_SCREEN_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
-  } else if (nextHtml.includes(DUEL_SCROLL_LOCK_SCRIPT)) {
-    nextHtml = nextHtml.replace(DUEL_SCROLL_LOCK_SCRIPT, `${DUEL_SCROLL_LOCK_SCRIPT}\n  ${DUEL_RESULT_SCREEN_SCRIPT}`);
-  } else if (nextHtml.includes(DUEL_RUNTIME_SCRIPT)) {
-    nextHtml = nextHtml.replace(DUEL_RUNTIME_SCRIPT, `${DUEL_RUNTIME_SCRIPT}\n  ${DUEL_RESULT_SCREEN_SCRIPT}`);
-  } else if (nextHtml.includes('</head>')) {
-    nextHtml = nextHtml.replace('</head>', `  ${DUEL_RESULT_SCREEN_SCRIPT}\n</head>`);
-  }
-
-  resetRegexes();
-  const hasDistanceGuard = DUEL_DISTANCE_GUARD_RE.test(nextHtml);
-  resetRegexes();
-
-  if (hasDistanceGuard) {
-    nextHtml = nextHtml.replace(DUEL_DISTANCE_GUARD_RE, DUEL_DISTANCE_GUARD_SCRIPT);
-  } else if (nextHtml.includes(QA_SCRIPT_VERSIONED)) {
-    nextHtml = nextHtml.replace(QA_SCRIPT_VERSIONED, `${DUEL_DISTANCE_GUARD_SCRIPT}\n  ${QA_SCRIPT_VERSIONED}`);
-  } else if (nextHtml.includes(DUEL_RESULT_SCREEN_SCRIPT)) {
-    nextHtml = nextHtml.replace(DUEL_RESULT_SCREEN_SCRIPT, `${DUEL_RESULT_SCREEN_SCRIPT}\n  ${DUEL_DISTANCE_GUARD_SCRIPT}`);
-  } else if (nextHtml.includes(DUEL_RUNTIME_SCRIPT)) {
-    nextHtml = nextHtml.replace(DUEL_RUNTIME_SCRIPT, `${DUEL_RUNTIME_SCRIPT}\n  ${DUEL_DISTANCE_GUARD_SCRIPT}`);
-  } else if (nextHtml.includes('</head>')) {
-    nextHtml = nextHtml.replace('</head>', `  ${DUEL_DISTANCE_GUARD_SCRIPT}\n</head>`);
-  }
-
-  resetRegexes();
-  nextHtml = nextHtml.replace(QA_SCRIPT_RE, QA_SCRIPT_VERSIONED);
-  resetRegexes();
-
-  return nextHtml;
+  return normalizeRuntimeScripts(removeLegacyScripts(html));
 }
 
 async function indexResponseWithRuntime(response) {
@@ -180,8 +112,9 @@ async function indexResponseWithRuntime(response) {
   const enhancedResponse = new Response(enhancedHtml, {
     status: response.status,
     statusText: response.statusText,
-    headers: response.headers,
+    headers: response.headers
   });
+
   enhancedResponse.headers.set('content-type', 'text/html; charset=UTF-8');
   return enhancedResponse;
 }
@@ -196,7 +129,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))
     )
   );
   self.clients.claim();
@@ -216,7 +149,7 @@ self.addEventListener('fetch', event => {
   }
 
   if (event.request.method !== 'GET') return;
-  if (event.request.url.includes('workers.dev') || event.request.url.includes('/api/')) return;
+  if (url.includes('workers.dev') || url.includes('/api/')) return;
 
   if (event.request.mode === 'navigate' || url.endsWith('.html')) {
     event.respondWith(
@@ -241,16 +174,13 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
+
       return fetch(event.request).then(response => {
         if (response && response.status === 200 && (response.type === 'basic' || response.type === 'cors')) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html').then(fallback => fallback ? indexResponseWithRuntime(fallback) : fallback);
-        }
       });
     })
   );
