@@ -1,19 +1,8 @@
-/* Duel Setup Hotfix + Compact Dashboard Loader */
+/* Duel Setup Hotfix */
 (function () {
   'use strict';
 
   function byId(id) { return document.getElementById(id); }
-
-  function loadScript(src) {
-    var base = src.split('?')[0];
-    if (document.querySelector('script[src^="' + base + '"]')) return;
-    var script = document.createElement('script');
-    script.src = src;
-    script.defer = true;
-    document.head.appendChild(script);
-  }
-
-  loadScript('dashboard-compact-panel.js?v=1.0');
 
   var originalOpen = window.openDuelSetup;
   var originalClose = window.closeDuelSetup;
