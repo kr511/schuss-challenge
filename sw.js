@@ -3,10 +3,10 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v4.8'; // Hardened Duel Result Screen completion detection
+const CACHE_VERSION = 'v4.9'; // Corrected Duel Setup scroll-lock start failure behavior
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.5" defer></script>';
-const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.2" defer></script>';
+const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.9" defer></script>';
 const DUEL_RESULT_SCREEN_SCRIPT = '<script src="duel-result-screen.js?v=4.8" defer></script>';
 const DUEL_DISTANCE_GUARD_SCRIPT = '<script src="duel-distance-guard.js?v=4.7" defer></script>';
 const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=4.1" defer></script>';
@@ -42,7 +42,7 @@ const PRECACHE = [
   './duel-setup-runtime.js',
   './duel-setup-runtime.js?v=4.5',
   './duel-scroll-lock.js',
-  './duel-scroll-lock.js?v=4.2',
+  './duel-scroll-lock.js?v=4.9',
   './duel-result-screen.js',
   './duel-result-screen.js?v=4.8',
   './duel-distance-guard.js',
