@@ -3,14 +3,17 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v5.2'; // Gemini integration removed
+const CACHE_VERSION = 'v5.3'; // Trust cleanup + guest mode
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
+const SITE_CLEANUP_SCRIPT = '<script src="site-cleanup.js?v=1.0" defer></script>';
 const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.5" defer></script>';
 const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.9" defer></script>';
 const DUEL_RESULT_SCREEN_SCRIPT = '<script src="duel-result-screen.js?v=5.1" defer></script>';
 const DUEL_DISTANCE_GUARD_SCRIPT = '<script src="duel-distance-guard.js?v=4.7" defer></script>';
 const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=4.1" defer></script>';
 const GEMINI_SCRIPT_RE = /<script\s+src=["']gemini-ai\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
+const FIREBASE_GOOGLE_DUP_RE = /\s*<!-- Google Sign-In Provider -->\s*<script\s+defer\s+src=["']https:\/\/www\.gstatic\.com\/firebasejs\/9\.23\.0\/firebase-auth-compat\.js["']\s+data-provider=["']google["']><\/script>/g;
+const SITE_CLEANUP_RE = /<script\s+src=["']site-cleanup\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_RUNTIME_RE = /<script\s+src=["']duel-setup-runtime\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_SCROLL_LOCK_RE = /<script\s+src=["']duel-scroll-lock\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_DISCIPLINE_FILTER_RE = /<script\s+src=["']duel-discipline-filter\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
@@ -22,6 +25,8 @@ const PRECACHE = [
   './',
   './index.html',
   './app.js',
+  './site-cleanup.js',
+  './site-cleanup.js?v=1.0',
   './adaptive-bot.js',
   './daily-challenge.js',
   './enhanced-achievements.js',
@@ -69,6 +74,8 @@ const NEVER_CACHE = [
 
 function resetRegexes() {
   GEMINI_SCRIPT_RE.lastIndex = 0;
+  FIREBASE_GOOGLE_DUP_RE.lastIndex = 0;
+  SITE_CLEANUP_RE.lastIndex = 0;
   DUEL_RUNTIME_RE.lastIndex = 0;
   DUEL_SCROLL_LOCK_RE.lastIndex = 0;
   DUEL_DISCIPLINE_FILTER_RE.lastIndex = 0;
@@ -84,6 +91,18 @@ function enhanceIndexHtml(html) {
   // Gemini/Google-KI wurde entfernt. Entferne alte Script-Tags aus gecachten HTML-Versionen.
   nextHtml = nextHtml.replace(GEMINI_SCRIPT_RE, '');
   resetRegexes();
+
+  // Entferne doppelten Firebase Auth Import mit data-provider="google".
+  nextHtml = nextHtml.replace(FIREBASE_GOOGLE_DUP_RE, '');
+  resetRegexes();
+
+  const hasSiteCleanup = SITE_CLEANUP_RE.test(nextHtml);
+  resetRegexes();
+  if (hasSiteCleanup) {
+    nextHtml = nextHtml.replace(SITE_CLEANUP_RE, SITE_CLEANUP_SCRIPT);
+  } else if (nextHtml.includes('</head>')) {
+    nextHtml = nextHtml.replace('</head>', `  ${SITE_CLEANUP_SCRIPT}\n</head>`);
+  }
 
   const hasRuntime = DUEL_RUNTIME_RE.test(nextHtml);
   resetRegexes();
