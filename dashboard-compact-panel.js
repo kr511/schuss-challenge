@@ -6,7 +6,6 @@
   var STYLE_ID = 'pdCompactChallengeHighscoreStyle';
   var OVERLAY_ID = 'pdHighscoreOverlay';
   var discNames = { lg40: 'LG 40', lg60: 'LG 60', kk50: 'KK 50m', kk100: 'KK 100m', kk3x20: 'KK 3×20', lg: 'LG', kk: 'KK' };
-  var lastRows = [];
 
   function onReady(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
@@ -29,6 +28,8 @@
   }
 
   function fmtScore(score) {
+    score = Number(score);
+    if (!Number.isFinite(score)) return '–';
     return Number.isInteger(score) ? String(score) : score.toFixed(1);
   }
 
@@ -93,8 +94,8 @@
     for (var i = 0; i < fields.length; i++) {
       var n = Number(obj[fields[i]]);
       if (Number.isFinite(n) && n > 0 && n < 1000) {
-        if (fields[i] === '_playerTotalTenths') return n / 10;
-        return n;
+        if (fields[i] === '_playerTotalTenths') return Math.round((n / 10) * 10) / 10;
+        return Math.round(n * 10) / 10;
       }
     }
     return null;
@@ -128,7 +129,7 @@
     if (row) rows.push(row);
 
     Object.keys(value).forEach(function (key) {
-      if (/game|duel|match|history|recent|analytics|session|result|stats|entries|items|games/i.test(key)) {
+      if (/game|duel|match|history|recent|analytics|session|result|stats|entries|items|games|highscore/i.test(key)) {
         collectRowsFromValue(value[key], source, rows, seen, depth + 1);
       }
     });
@@ -138,12 +139,14 @@
     var rows = [];
     var seen = new WeakSet();
 
+    collectRowsFromValue(json('sd_player_highscores', []), 'player-highscores', rows, seen, 0);
     collectRowsFromValue(json('sd_enhanced_analytics', {}), 'analytics', rows, seen, 0);
 
     try {
       for (var i = 0; i < localStorage.length; i++) {
         var key = localStorage.key(i);
-        if (!key || !/sd_|duel|game|match|history|recent|analytics|stats|score/i.test(key)) continue;
+        if (!key || !/sd_|duel|game|match|history|recent|analytics|stats|score|highscore/i.test(key)) continue;
+        if (key === 'sd_player_highscores' || key === 'sd_enhanced_analytics') continue;
         collectRowsFromValue(json(key, null), key, rows, seen, 0);
       }
     } catch (e) {
@@ -156,14 +159,13 @@
       if (!unique.has(id)) unique.set(id, row);
     });
 
-    lastRows = Array.from(unique.values())
-      .sort(function (a, b) { return b.score - a.score || b.time - a.time; });
-
-    return lastRows.slice(0, limit || 5);
+    return Array.from(unique.values())
+      .sort(function (a, b) { return b.score - a.score || b.time - a.time; })
+      .slice(0, limit || 5);
   }
 
   function emptyRow(text) {
-    return '<div class="cp-row"><div class="cp-i">ℹ️</div><div><div class="cp-name">' + esc(text) + '</div><div class="cp-sub">Nur Spieler-Scores werden gezählt.</div></div><div class="cp-val">–</div></div>';
+    return '<div class="cp-row"><div class="cp-i">ℹ️</div><div><div class="cp-name">' + esc(text) + '</div><div class="cp-sub">Nach dem nächsten abgeschlossenen Duell erscheint dein Score.</div></div><div class="cp-val">–</div></div>';
   }
 
   function ensureOverlay() {
@@ -190,7 +192,7 @@
           var meta = h.disc + (h.result ? ' · ' + h.result : '') + ' · ' + fmtDate(h.time);
           return '<div class="hs-row"><div class="hs-rank">' + rank + '</div><div><div class="hs-name">' + esc(h.name) + '</div><div class="hs-meta">' + esc(meta) + '</div></div><div class="hs-score">' + fmtScore(h.score) + '</div></div>';
         }).join('') : '<div class="hs-row"><div class="hs-rank">ℹ️</div><div><div class="hs-name">Noch kein Highscore</div><div class="hs-meta">Spiele ein Duell, dann erscheint dein Spieler-Score hier.</div></div><div class="hs-score">–</div></div>') +
-        '<div class="hs-note">Wichtig: Gezählt werden nur Spieler-Felder wie <b>playerScore</b> oder <b>playerTotal</b>. <b>botScore</b> und Bot-Werte werden ignoriert.</div>' +
+        '<div class="hs-note">Wichtig: Gezählt werden nur Spieler-Felder wie <b>playerScore</b>, <b>playerTotal</b> oder interne Spieler-Zehntel. <b>botScore</b> wird nie fürs Ranking genutzt.</div>' +
       '</div>';
     var close = overlay.querySelector('.hs-close');
     if (close) close.addEventListener('click', closeHighscoreOverlay);
@@ -274,5 +276,6 @@
     setInterval(mount, 30000);
     window.addEventListener('storage', mount);
     window.addEventListener('analyticsUpdated', mount);
+    window.addEventListener('playerHighscoreUpdated', mount);
   });
 })();
