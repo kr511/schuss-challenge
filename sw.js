@@ -3,11 +3,11 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v3.7'; // Served index injects Duel Setup Runtime directly
+const CACHE_VERSION = 'v3.8'; // Duel Setup Overview UI
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
-const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=3.6" defer></script>';
+const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=3.8" defer></script>';
 const QA_SCRIPT_PATTERN = '<script src="qa-test-suite.js" defer></script>';
-const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=3.6" defer></script>';
+const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=3.8" defer></script>';
 
 const PRECACHE = [
   './',
@@ -37,6 +37,7 @@ const PRECACHE = [
   './qa-test-suite.js',
   // Lokale CSS-Dateien
   './styles.css',
+  './duel-setup.css',
   './image-compare.css',
   './manifest.json',
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap',
