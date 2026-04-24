@@ -3,13 +3,14 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v5.1'; // Result screen requires player confirmation
+const CACHE_VERSION = 'v5.2'; // Gemini integration removed
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
 const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.5" defer></script>';
 const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.9" defer></script>';
 const DUEL_RESULT_SCREEN_SCRIPT = '<script src="duel-result-screen.js?v=5.1" defer></script>';
 const DUEL_DISTANCE_GUARD_SCRIPT = '<script src="duel-distance-guard.js?v=4.7" defer></script>';
 const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=4.1" defer></script>';
+const GEMINI_SCRIPT_RE = /<script\s+src=["']gemini-ai\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_RUNTIME_RE = /<script\s+src=["']duel-setup-runtime\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_SCROLL_LOCK_RE = /<script\s+src=["']duel-scroll-lock\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
 const DUEL_DISCIPLINE_FILTER_RE = /<script\s+src=["']duel-discipline-filter\.js(?:\?v=[^"']*)?["']\s+defer><\/script>/g;
@@ -63,9 +64,11 @@ const NEVER_CACHE = [
   'firebaseio.com',
   'googleapis.com/identitytoolkit',
   'googleapis.com/firebase',
+  'generativelanguage.googleapis.com',
 ];
 
 function resetRegexes() {
+  GEMINI_SCRIPT_RE.lastIndex = 0;
   DUEL_RUNTIME_RE.lastIndex = 0;
   DUEL_SCROLL_LOCK_RE.lastIndex = 0;
   DUEL_DISCIPLINE_FILTER_RE.lastIndex = 0;
@@ -76,6 +79,10 @@ function resetRegexes() {
 
 function enhanceIndexHtml(html) {
   let nextHtml = html;
+  resetRegexes();
+
+  // Gemini/Google-KI wurde entfernt. Entferne alte Script-Tags aus gecachten HTML-Versionen.
+  nextHtml = nextHtml.replace(GEMINI_SCRIPT_RE, '');
   resetRegexes();
 
   const hasRuntime = DUEL_RUNTIME_RE.test(nextHtml);
