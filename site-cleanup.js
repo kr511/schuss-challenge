@@ -106,6 +106,40 @@
     document.getElementById('qsfLogin').onclick=goLogin;
   }
 
+  function closeUpdatesDropdown(){
+    var dropdown=document.getElementById('updatesDropdown');
+    if(!dropdown) return;
+    var visible=dropdown.style.display==='block' && dropdown.style.opacity==='1';
+    if(!visible) return;
+    if(window.UpdatesSystem && typeof window.UpdatesSystem.hideUpdates==='function'){
+      window.UpdatesSystem.hideUpdates();
+      return;
+    }
+    dropdown.style.opacity='0';
+    dropdown.style.transform='translateY(-10px)';
+    setTimeout(function(){ dropdown.style.display='none'; },200);
+  }
+
+  function installUpdatesCloseFix(){
+    if(window.__updatesCloseFixInstalled) return;
+    window.__updatesCloseFixInstalled=true;
+
+    document.addEventListener('pointerdown',function(e){
+      var dropdown=document.getElementById('updatesDropdown');
+      var button=document.getElementById('updatesButton');
+      if(!dropdown) return;
+      var visible=dropdown.style.display==='block' && dropdown.style.opacity==='1';
+      if(!visible) return;
+      if(dropdown.contains(e.target)) return;
+      if(button && button.contains(e.target)) return;
+      closeUpdatesDropdown();
+    },true);
+
+    document.addEventListener('keydown',function(e){
+      if(e.key==='Escape') closeUpdatesDropdown();
+    });
+  }
+
   function renameLabels(){
     var all=document.querySelectorAll('body *');
     all.forEach(function(el){
@@ -123,7 +157,7 @@
     document.querySelectorAll('script[src*="firebase-auth-compat.js"][data-provider="google"]').forEach(function(el){el.remove();});
   }
 
-  function run(){removeOldTags();addStyle();addTrust();addStartFlow();addGuest();renameLabels();}
+  function run(){removeOldTags();addStyle();addTrust();addStartFlow();addGuest();installUpdatesCloseFix();renameLabels();}
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run); else run();
-  new MutationObserver(function(){addStartFlow();addGuest();renameLabels();removeOldTags();}).observe(document.documentElement,{childList:true,subtree:true});
+  new MutationObserver(function(){addStartFlow();addGuest();installUpdatesCloseFix();renameLabels();removeOldTags();}).observe(document.documentElement,{childList:true,subtree:true});
 })();
