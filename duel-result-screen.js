@@ -8,7 +8,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '4.6';
+  const VERSION = '4.8';
   if (window.DuelResultScreen?.version === VERSION) return;
 
   const XP_REWARD = { easy: 10, real: 20, hard: 40, elite: 75 };
@@ -25,6 +25,13 @@
     kk100: 'KK 100m',
     kk3x20: 'KK 3×20'
   };
+  const DISTANCE_BY_DISCIPLINE = {
+    lg40: '10',
+    lg60: '10',
+    kk50: '50',
+    kk100: '100',
+    kk3x20: '50'
+  };
 
   const state = {
     active: false,
@@ -32,7 +39,9 @@
     lastSignature: '',
     lastConfig: null,
     patched: false,
-    startedAt: 0
+    startedAt: 0,
+    stableFinishedTicks: 0,
+    lastScorePair: ''
   };
 
   function getGame() {
@@ -328,10 +337,15 @@
     return number(shot.score ?? shot.value ?? shot.points ?? shot.ring ?? shot.total, NaN);
   }
 
-  function getPlayerShotValues() {
+  function getShotValues(side) {
     const game = getGame();
-    if (!game || !Array.isArray(game.playerShots)) return [];
-    return game.playerShots.map(shotValue).filter(Number.isFinite);
+    const key = side === 'bot' ? 'botShots' : 'playerShots';
+    if (!game || !Array.isArray(game[key])) return [];
+    return game[key].map(shotValue).filter(Number.isFinite);
+  }
+
+  function getPlayerShotValues() {
+    return getShotValues('player');
   }
 
   function bestSeries(values, score, shots) {
@@ -366,18 +380,24 @@
     return '<strong>+5 XP</strong> · Erfahrung gesammelt. Nächste Runde wird besser.';
   }
 
+  function normalizeDiscipline(discipline, weapon) {
+    if (DISCIPLINE_LABELS[discipline]) return discipline;
+    if (weapon === 'kk') return 'kk50';
+    return 'lg40';
+  }
+
   function captureConfig() {
     const game = getGame();
     if (!game) return null;
 
-    const discipline = game.discipline || 'lg40';
+    const discipline = normalizeDiscipline(game.discipline || 'lg40', game.weapon);
     const difficulty = game.diff || 'easy';
     const shots = Number(game.maxShots || game.shots || game.playerShots?.length || 40) || 40;
     return {
       discipline,
       difficulty,
       shots,
-      distance: game.dist || (discipline.startsWith('lg') ? '10' : '50'),
+      distance: DISTANCE_BY_DISCIPLINE[discipline] || game.dist || (discipline.startsWith('lg') ? '10' : '50'),
       weapon: game.weapon || (discipline.startsWith('lg') ? 'lg' : 'kk')
     };
   }
@@ -386,14 +406,33 @@
     const game = getGame();
     if (!game) return false;
 
+    const config = captureConfig() || state.lastConfig || {};
+    const expectedShots = Number(config.shots || game.maxShots || game.shots || 0);
     const playerLeft = Number(game.playerShotsLeft);
     const botLeft = Number(game.botShotsLeft);
-    const hasScore = getScore('player') > 0 || getScore('bot') > 0;
+    const playerValues = getShotValues('player');
+    const botValues = getShotValues('bot');
+    const playerScore = getScore('player');
+    const botScore = getScore('bot');
+    const hasScore = playerScore > 0 || botScore > 0;
+    const scorePair = `${playerScore}:${botScore}:${playerValues.length}:${botValues.length}`;
 
-    return hasScore && (
-      game.dnf === true ||
-      (Number.isFinite(playerLeft) && Number.isFinite(botLeft) && playerLeft <= 0 && botLeft <= 0)
-    );
+    if (!hasScore) return false;
+    if (game.dnf === true || game.battleFinished === true || game.duelFinished === true || game.gameOver === true || game.isFinished === true) return true;
+    if (Number.isFinite(playerLeft) && Number.isFinite(botLeft) && playerLeft <= 0 && botLeft <= 0) return true;
+    if (expectedShots > 0 && playerValues.length >= expectedShots && botValues.length >= expectedShots) return true;
+
+    // Fallback: if both totals are stable for several polls after all known shots are gone,
+    // show the result instead of silently failing because one internal flag is missing.
+    if (scorePair === state.lastScorePair) {
+      state.stableFinishedTicks += 1;
+    } else {
+      state.lastScorePair = scorePair;
+      state.stableFinishedTicks = 0;
+    }
+
+    const noKnownShotsLeft = (!Number.isFinite(playerLeft) || playerLeft <= 0) && (!Number.isFinite(botLeft) || botLeft <= 0);
+    return noKnownShotsLeft && state.stableFinishedTicks >= 3;
   }
 
   function resultPayload() {
@@ -406,6 +445,8 @@
     const result = diff > 0 ? 'win' : diff < 0 ? 'lose' : 'draw';
     const values = getPlayerShotValues();
     const shots = config.shots || Number(game?.maxShots || game?.shots || 40) || 40;
+    const discipline = config.discipline || normalizeDiscipline(game?.discipline || 'lg40', game?.weapon);
+    const difficulty = config.difficulty || game?.diff || 'easy';
 
     return {
       result,
@@ -413,11 +454,11 @@
       botScore,
       diff,
       diffAbs,
-      discipline: config.discipline || game?.discipline || 'lg40',
-      difficulty: config.difficulty || game?.diff || 'easy',
+      discipline,
+      difficulty,
       shots,
-      distance: config.distance || game?.dist || '10',
-      targetRange: getTargetLabel(config.discipline || game?.discipline || 'lg40', config.difficulty || game?.diff || 'easy'),
+      distance: DISTANCE_BY_DISCIPLINE[discipline] || config.distance || game?.dist || '10',
+      targetRange: getTargetLabel(discipline, difficulty),
       bestSeries: bestSeries(values, playerScore, shots),
       average: formatAverage(playerScore, shots)
     };
@@ -495,8 +536,14 @@
     document.body.classList.remove('duel-result-open');
   }
 
+  function resetRunState() {
+    state.stableFinishedTicks = 0;
+    state.lastScorePair = '';
+  }
+
   function rematch() {
     close();
+    resetRunState();
     state.active = true;
     state.startedAt = Date.now();
     state.lastConfig = captureConfig() || state.lastConfig;
@@ -524,7 +571,7 @@
       state.active = false;
       stopPolling();
       setTimeout(() => showResult(payload), 450);
-    }, 600);
+    }, 500);
   }
 
   function stopPolling() {
@@ -537,6 +584,7 @@
 
     const originalStartBattle = window.startBattle;
     window.startBattle = function patchedStartBattle(...args) {
+      resetRunState();
       state.lastConfig = captureConfig();
       state.active = true;
       state.startedAt = Date.now();
