@@ -9,7 +9,7 @@
   const hotfixes = [
     'duel-setup-hotfix.js?v=1.3',
     'dashboard-compact-panel.js?v=2.0',
-    'dashboard-friends-button.js?v=1.0'
+    'dashboard-friends-button.js?v=1.1'
   ];
 
   hotfixes.forEach((src) => {
