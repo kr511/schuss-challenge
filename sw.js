@@ -3,9 +3,9 @@
 // Firebase-Requests werden NICHT gecacht (immer live).
 
 // Dynamische Versionskonstante für Cache-Name
-const CACHE_VERSION = 'v4.3'; // Filter Duel Setup disciplines by weapon
+const CACHE_VERSION = 'v4.4'; // Duel Setup profile/header layer fix
 const CACHE_NAME = `schussduell-${CACHE_VERSION}`;
-const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.1" defer></script>';
+const DUEL_RUNTIME_SCRIPT = '<script src="duel-setup-runtime.js?v=4.4" defer></script>';
 const DUEL_SCROLL_LOCK_SCRIPT = '<script src="duel-scroll-lock.js?v=4.2" defer></script>';
 const DUEL_DISCIPLINE_FILTER_SCRIPT = '<script src="duel-discipline-filter.js?v=4.3" defer></script>';
 const QA_SCRIPT_VERSIONED = '<script src="qa-test-suite.js?v=4.1" defer></script>';
@@ -37,7 +37,7 @@ const PRECACHE = [
   './storage-manager.js',
   './async-challenge.js',
   './duel-setup-runtime.js',
-  './duel-setup-runtime.js?v=4.1',
+  './duel-setup-runtime.js?v=4.4',
   './duel-scroll-lock.js',
   './duel-scroll-lock.js?v=4.2',
   './duel-discipline-filter.js',
@@ -49,7 +49,7 @@ const PRECACHE = [
   // Lokale CSS-Dateien
   './styles.css',
   './duel-setup.css',
-  './duel-setup.css?v=4.1',
+  './duel-setup.css?v=4.4',
   './image-compare.css',
   './manifest.json',
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap',
