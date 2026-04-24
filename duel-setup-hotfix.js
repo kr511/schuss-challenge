@@ -5,7 +5,8 @@
   function byId(id) { return document.getElementById(id); }
 
   function loadScript(src) {
-    if (document.querySelector('script[src^="' + src.split('?')[0] + '"]')) return;
+    var base = src.split('?')[0];
+    if (document.querySelector('script[src^="' + base + '"]')) return;
     var script = document.createElement('script');
     script.src = src;
     script.defer = true;
@@ -16,9 +17,9 @@
 
   var originalOpen = window.openDuelSetup;
   var originalClose = window.closeDuelSetup;
-  var FIX = { mode: 'bot', weapon: 'lg', discipline: 'lg40', difficulty: 'easy' };
+  var state = { mode: 'bot', weapon: 'lg', discipline: 'lg40', difficulty: 'easy' };
 
-  var DISCIPLINES = {
+  var disciplines = {
     lg40: { weapon: 'lg', label: 'LG 40', shots: 40, dist: '10', desc: '40 Schuss · 10 m' },
     lg60: { weapon: 'lg', label: 'LG 60', shots: 60, dist: '10', desc: '60 Schuss · 10 m' },
     kk50: { weapon: 'kk', label: 'KK 50m', shots: 60, dist: '50', desc: '60 Schuss · 50 m' },
@@ -26,14 +27,14 @@
     kk3x20: { weapon: 'kk', label: 'KK 3×20', shots: 60, dist: '50', desc: '3 × 20 Schuss' }
   };
 
-  var DIFFICULTIES = {
+  var difficulties = {
     easy: { label: '😊 Einfach', desc: 'Guter Einstieg' },
     real: { label: '🎯 Mittel', desc: 'Solider Gegner' },
     hard: { label: '💪 Elite', desc: 'Sehr stark' },
     elite: { label: '💫 Profi', desc: 'Extrem schwer' }
   };
 
-  function buttonStyle(active) {
+  function btnCss(active) {
     return [
       'border-radius:16px',
       'padding:14px 12px',
@@ -88,17 +89,17 @@
   }
 
   function syncState() {
-    var disc = DISCIPLINES[FIX.discipline] || DISCIPLINES.lg40;
+    var disc = disciplines[state.discipline] || disciplines.lg40;
     if (typeof window.G !== 'undefined') {
       window.G.weapon = disc.weapon;
-      window.G.discipline = FIX.discipline;
-      window.G.diff = FIX.difficulty;
+      window.G.discipline = state.discipline;
+      window.G.diff = state.difficulty;
       window.G.dist = disc.dist;
       window.G.shots = disc.shots;
       window.G.maxShots = disc.shots;
       window.G.playerShotsLeft = disc.shots;
       window.G.botShotsLeft = disc.shots;
-      window.G.is3x20 = FIX.discipline === 'kk3x20';
+      window.G.is3x20 = state.discipline === 'kk3x20';
       if (window.G.is3x20) {
         window.G.positions = ['Kniend', 'Liegend', 'Stehend'];
         window.G.posIcons = ['🦵', '🛏️', '🧍'];
@@ -108,21 +109,43 @@
         window.G.posResults = [];
       }
     }
+
     try {
       if (typeof StorageManager !== 'undefined') {
         StorageManager.setRaw('last_weapon', disc.weapon);
-        StorageManager.setRaw('last_discipline', FIX.discipline);
-        StorageManager.setRaw('last_diff', FIX.difficulty);
+        StorageManager.setRaw('last_discipline', state.discipline);
+        StorageManager.setRaw('last_diff', state.difficulty);
       }
     } catch (e) {
       console.warn('[DuelFix] Storage sync failed', e);
     }
   }
 
+  function cardButton(action, key, title, sub, active) {
+    return '<button type="button" data-action="' + action + '" data-key="' + key + '" style="' + btnCss(active) + '">' +
+      '<div style="font-size:1rem;margin-bottom:4px">' + title + '</div>' +
+      '<div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600">' + sub + '</div>' +
+      '</button>';
+  }
+
+  function bindSettingsEvents(settings) {
+    Array.from(settings.querySelectorAll('[data-action]')).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var action = btn.getAttribute('data-action');
+        var key = btn.getAttribute('data-key');
+        if (action === 'back') window.showGameModeSelection();
+        if (action === 'weapon') window.duelFixSetWeapon(key);
+        if (action === 'discipline') window.duelFixSetDiscipline(key);
+        if (action === 'difficulty') window.duelFixSetDifficulty(key);
+        if (action === 'start') window.duelFixStart();
+      });
+    });
+  }
+
   function renderSettings(mode) {
-    FIX.mode = mode || FIX.mode || 'bot';
-    if (FIX.mode === 'multiplayer') {
-      FIX.mode = 'bot';
+    state.mode = mode || state.mode || 'bot';
+    if (state.mode === 'multiplayer') {
+      state.mode = 'bot';
       alert('Multiplayer ist noch nicht stabil. Ich öffne den Bot-Modus.');
     }
 
@@ -131,41 +154,40 @@
     if (modeSelection) modeSelection.style.display = 'none';
     if (!settings) return;
 
-    var available = Object.entries(DISCIPLINES).filter(function (entry) { return entry[1].weapon === FIX.weapon; });
-    if (!DISCIPLINES[FIX.discipline] || DISCIPLINES[FIX.discipline].weapon !== FIX.weapon) {
-      FIX.discipline = FIX.weapon === 'lg' ? 'lg40' : 'kk50';
+    if (!disciplines[state.discipline] || disciplines[state.discipline].weapon !== state.weapon) {
+      state.discipline = state.weapon === 'lg' ? 'lg40' : 'kk50';
     }
 
-    var disc = DISCIPLINES[FIX.discipline];
-    var difficulty = DIFFICULTIES[FIX.difficulty] || DIFFICULTIES.easy;
+    var disc = disciplines[state.discipline];
+    var diff = difficulties[state.difficulty] || difficulties.easy;
+    var discButtons = Object.keys(disciplines)
+      .filter(function (key) { return disciplines[key].weapon === state.weapon; })
+      .map(function (key) {
+        var d = disciplines[key];
+        return cardButton('discipline', key, d.label, d.desc, state.discipline === key);
+      }).join('');
+
+    var diffButtons = Object.keys(difficulties).map(function (key) {
+      var d = difficulties[key];
+      return cardButton('difficulty', key, d.label, d.desc, state.difficulty === key);
+    }).join('');
+
     settings.style.display = 'block';
     settings.style.opacity = '1';
     settings.style.visibility = 'visible';
-
     settings.innerHTML =
-      '<button onclick="showGameModeSelection()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.72);border-radius:14px;padding:12px 16px;margin-bottom:22px;font-weight:800;font-size:1rem">← Zurück zur Modus-Auswahl</button>' +
+      '<button type="button" data-action="back" data-key="" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.72);border-radius:14px;padding:12px 16px;margin-bottom:22px;font-weight:800;font-size:1rem">← Zurück zur Modus-Auswahl</button>' +
       '<h2 style="color:#fff;margin:0 0 18px 0;font-size:1.55rem;font-weight:900;letter-spacing:.03em">DUELL EINSTELLUNGEN</h2>' +
       '<div style="margin-bottom:18px"><div style="color:rgba(255,255,255,.45);font-size:.75rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px">Waffe</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-        '<button onclick="duelFixSetWeapon(\'lg\')" style="' + buttonStyle(FIX.weapon === 'lg') + '"><div style="font-size:1.35rem;margin-bottom:4px">🌬️ Luftgewehr</div><div style="font-size:.75rem;color:rgba(255,255,255,.55);font-weight:600">10 Meter</div></button>' +
-        '<button onclick="duelFixSetWeapon(\'kk\')" style="' + buttonStyle(FIX.weapon === 'kk') + '"><div style="font-size:1.35rem;margin-bottom:4px">🎯 Kleinkaliber</div><div style="font-size:.75rem;color:rgba(255,255,255,.55);font-weight:600">50 / 100 Meter</div></button>' +
+        cardButton('weapon', 'lg', '🌬️ Luftgewehr', '10 Meter', state.weapon === 'lg') +
+        cardButton('weapon', 'kk', '🎯 Kleinkaliber', '50 / 100 Meter', state.weapon === 'kk') +
       '</div></div>' +
-      '<div style="margin-bottom:18px"><div style="color:rgba(255,255,255,.45);font-size:.75rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px">Disziplin</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-        available.map(function (entry) {
-          var key = entry[0];
-          var value = entry[1];
-          return '<button onclick="duelFixSetDiscipline(\'' + key + '\')" style="' + buttonStyle(FIX.discipline === key) + '"><div style="font-size:1rem;margin-bottom:4px">' + value.label + '</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600">' + value.desc + '</div></button>';
-        }).join('') +
-      '</div></div>' +
-      '<div style="margin-bottom:20px"><div style="color:rgba(255,255,255,.45);font-size:.75rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px">Schwierigkeit</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-        Object.entries(DIFFICULTIES).map(function (entry) {
-          var key = entry[0];
-          var value = entry[1];
-          return '<button onclick="duelFixSetDifficulty(\'' + key + '\')" style="' + buttonStyle(FIX.difficulty === key) + '"><div style="font-size:.98rem;margin-bottom:4px">' + value.label + '</div><div style="font-size:.72rem;color:rgba(255,255,255,.55);font-weight:600">' + value.desc + '</div></button>';
-        }).join('') +
-      '</div></div>' +
-      '<div style="border:1px solid rgba(122,176,48,.22);background:rgba(122,176,48,.08);border-radius:18px;padding:14px 16px;margin-bottom:18px;color:rgba(255,255,255,.76);font-size:.88rem;line-height:1.45"><b style="color:#fff">Aktiv:</b> ' + disc.label + ' · ' + difficulty.label + ' · ' + disc.shots + ' Schuss</div>' +
-      '<button onclick="duelFixStart()" style="width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);border:0;border-radius:22px;padding:18px 20px;color:#061006;font-size:1.15rem;font-weight:950;letter-spacing:.18em;box-shadow:0 10px 35px rgba(122,176,48,.35)">🎯 DUELL STARTEN</button>';
+      '<div style="margin-bottom:18px"><div style="color:rgba(255,255,255,.45);font-size:.75rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px">Disziplin</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + discButtons + '</div></div>' +
+      '<div style="margin-bottom:20px"><div style="color:rgba(255,255,255,.45);font-size:.75rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin-bottom:9px">Schwierigkeit</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + diffButtons + '</div></div>' +
+      '<div style="border:1px solid rgba(122,176,48,.22);background:rgba(122,176,48,.08);border-radius:18px;padding:14px 16px;margin-bottom:18px;color:rgba(255,255,255,.76);font-size:.88rem;line-height:1.45"><b style="color:#fff">Aktiv:</b> ' + disc.label + ' · ' + diff.label + ' · ' + disc.shots + ' Schuss</div>' +
+      '<button type="button" data-action="start" data-key="" style="width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);border:0;border-radius:22px;padding:18px 20px;color:#061006;font-size:1.15rem;font-weight:950;letter-spacing:.18em;box-shadow:0 10px 35px rgba(122,176,48,.35)">🎯 DUELL STARTEN</button>';
 
+    bindSettingsEvents(settings);
     syncState();
     fixLayout();
   }
@@ -220,9 +242,9 @@
   };
 
   window.selectGameMode = function selectGameMode(mode) { renderSettings(mode || 'bot'); };
-  window.duelFixSetWeapon = function duelFixSetWeapon(weapon) { FIX.weapon = weapon === 'kk' ? 'kk' : 'lg'; FIX.discipline = FIX.weapon === 'lg' ? 'lg40' : 'kk50'; renderSettings(FIX.mode); };
-  window.duelFixSetDiscipline = function duelFixSetDiscipline(discipline) { if (DISCIPLINES[discipline]) { FIX.discipline = discipline; FIX.weapon = DISCIPLINES[discipline].weapon; } renderSettings(FIX.mode); };
-  window.duelFixSetDifficulty = function duelFixSetDifficulty(difficulty) { FIX.difficulty = DIFFICULTIES[difficulty] ? difficulty : 'easy'; renderSettings(FIX.mode); };
+  window.duelFixSetWeapon = function duelFixSetWeapon(weapon) { state.weapon = weapon === 'kk' ? 'kk' : 'lg'; state.discipline = state.weapon === 'lg' ? 'lg40' : 'kk50'; renderSettings(state.mode); };
+  window.duelFixSetDiscipline = function duelFixSetDiscipline(discipline) { if (disciplines[discipline]) { state.discipline = discipline; state.weapon = disciplines[discipline].weapon; } renderSettings(state.mode); };
+  window.duelFixSetDifficulty = function duelFixSetDifficulty(difficulty) { state.difficulty = difficulties[difficulty] ? difficulty : 'easy'; renderSettings(state.mode); };
 
   window.duelFixStart = function duelFixStart() {
     syncState();
