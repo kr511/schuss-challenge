@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "check:js": "node --check async-challenge.js && node --check mobile-responsive.js && node --check performance-config.js && node --check battle-balance.js && node --check duel-setup-runtime.js && node --check qa-test-suite.js && node --check sw.js",
     "verify:balance": "node verify-balance.js",
+    "test": "npm run check:js && npm run verify:balance",
     "d1:migrate:local": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql --local",
     "d1:migrate:remote": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql"
   },
