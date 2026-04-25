@@ -8,6 +8,8 @@
 (function () {
   'use strict';
 
+  const hasBrowserDom = typeof window !== 'undefined' && typeof document !== 'undefined';
+
   const ASSET_VERSION = '4.1';
   const REQUIRED_GLOBALS = [
     'StorageManager',
@@ -87,22 +89,33 @@
   }
 
   function runSmokeChecks() {
+    if (!hasBrowserDom) {
+      console.warn('⚠️ QA Smoke: Browser-DOM nicht verfügbar, Checks werden übersprungen.');
+      return false;
+    }
     loadDuelSetupRuntimeIfNeeded();
     assertRequiredDom();
     assertRequiredGlobals();
     assertBalanceConfig();
+    return true;
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', runSmokeChecks);
+  if (hasBrowserDom) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', runSmokeChecks);
+    } else {
+      runSmokeChecks();
+    }
   } else {
     runSmokeChecks();
   }
 
-  window.QASmokeSuite = {
-    run: runSmokeChecks,
-    assertRequiredDom,
-    assertRequiredGlobals,
-    assertBalanceConfig
-  };
+  if (typeof globalThis !== 'undefined') {
+    globalThis.QASmokeSuite = {
+      run: runSmokeChecks,
+      assertRequiredDom,
+      assertRequiredGlobals,
+      assertBalanceConfig
+    };
+  }
 })();
