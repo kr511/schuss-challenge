@@ -130,9 +130,14 @@
     return true;
   }
 
-  function boot() {
+  function installGlobals() {
     window.startSchussduellLocalMode = function () { enter({ reload: true }); };
     window.exitSchussduellLocalMode = function () { exit({ reload: true }); };
+    window.__agLocal = function () { enter({ reload: true }); };
+  }
+
+  function boot() {
+    installGlobals();
 
     if (hasLocalMode()) {
       enter({ reload: false });
@@ -143,6 +148,7 @@
     var tries = 0;
     var timer = setInterval(function () {
       tries += 1;
+      installGlobals();
       if (addButton() || tries > 100) clearInterval(timer);
     }, 100);
   }
@@ -154,6 +160,8 @@
     addButton: addButton,
     prepareLocalState: prepareLocalState
   };
+
+  installGlobals();
 
   if (hasLocalMode()) {
     prepareLocalState();
