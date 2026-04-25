@@ -5,18 +5,21 @@
  * - waits for document.body before inserting the login overlay
  * - waits for the Supabase CDN script without throwing during <head> parsing
  * - keeps the old public globals used by inline handlers
+ * - reloads once after password sign-in so the app boots from a clean authenticated state
  */
 (function () {
   'use strict';
 
   const SUPABASE_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0.pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg';
+  const AUTH_RELOAD_KEY = 'sd_auth_reload_after_signin';
 
   let client = null;
   let currentMode = 'signin';
   let busy = false;
   let gateEl = null;
   let initialized = false;
+  let authFinishing = false;
 
   function onReady(fn) {
     if (document.readyState === 'loading') {
@@ -138,20 +141,21 @@
     setBusy(false);
   }
 
-  function hideGate() {
+  function hideGate(immediate = false) {
     if (!gateEl) return;
+
+    if (immediate) {
+      if (gateEl.parentElement) gateEl.remove();
+      return;
+    }
+
     gateEl.classList.add('fade-out');
     setTimeout(() => {
       if (gateEl && gateEl.parentElement) gateEl.remove();
     }, 420);
   }
 
-  function onAuthenticated(session) {
-    if (!session || !session.access_token) {
-      showForm();
-      return;
-    }
-
+  function exposeSession(session) {
     window.SupabaseClient = client;
     window.SupabaseSession = session;
     window.getAuthHeaders = () => ({ Authorization: `Bearer ${session.access_token}` });
@@ -165,6 +169,35 @@
       }
     } catch (e) {
       console.warn('[AuthGate] Username prefill skipped:', e);
+    }
+  }
+
+  function reloadCleanlyAfterSignin() {
+    try {
+      sessionStorage.setItem(AUTH_RELOAD_KEY, '1');
+    } catch (e) {
+      console.warn('[AuthGate] Could not mark auth reload:', e);
+    }
+
+    const cleanUrl = window.location.origin + window.location.pathname + window.location.search;
+    setTimeout(() => window.location.replace(cleanUrl), 80);
+  }
+
+  function onAuthenticated(session, options = {}) {
+    if (!session || !session.access_token) {
+      showForm();
+      return;
+    }
+
+    if (authFinishing && !options.reloadAfterSignin) return;
+    exposeSession(session);
+
+    if (options.reloadAfterSignin) {
+      authFinishing = true;
+      showInfo('✅ Anmeldung erfolgreich. App wird geladen…');
+      hideGate(true);
+      reloadCleanlyAfterSignin();
+      return;
     }
 
     hideGate();
@@ -186,6 +219,13 @@
         }
       }, 50);
     });
+  }
+
+  async function getStoredSession() {
+    if (!client) return null;
+    const { data, error } = await client.auth.getSession();
+    if (error) throw error;
+    return data && data.session ? data.session : null;
   }
 
   function setMode(mode) {
@@ -227,8 +267,9 @@
       if (currentMode === 'signup') {
         const { data, error } = await client.auth.signUp({ email, password });
         if (error) throw error;
-        if (data && data.session) {
-          onAuthenticated(data.session);
+        const session = (data && data.session) || await getStoredSession();
+        if (session) {
+          onAuthenticated(session, { reloadAfterSignin: true });
         } else {
           showInfo('✅ Bestätigungs-E-Mail gesendet! Bitte überprüfe deinen Posteingang.');
           setBusy(false);
@@ -236,7 +277,13 @@
       } else {
         const { data, error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        onAuthenticated(data.session);
+
+        const session = (data && data.session) || await getStoredSession();
+        if (!session) {
+          throw new Error('Anmeldung erfolgreich, aber die Session konnte nicht gespeichert werden. Bitte lade die Seite neu und versuche es erneut.');
+        }
+
+        onAuthenticated(session, { reloadAfterSignin: true });
       }
     } catch (err) {
       const message = err && err.message ? err.message : 'Unbekannter Fehler';
@@ -245,6 +292,7 @@
       else if (message.includes('User already registered')) showError('Diese E-Mail ist bereits registriert. Melde dich an.');
       else showError(message);
       setBusy(false);
+      authFinishing = false;
     }
   };
 
@@ -288,9 +336,14 @@
         }
       });
 
-      const { data } = await client.auth.getSession();
-      if (data && data.session) {
-        onAuthenticated(data.session);
+      const session = await getStoredSession();
+      if (session) {
+        try {
+          sessionStorage.removeItem(AUTH_RELOAD_KEY);
+        } catch (e) {
+          console.warn('[AuthGate] Could not clear auth reload marker:', e);
+        }
+        onAuthenticated(session);
         return;
       }
 
