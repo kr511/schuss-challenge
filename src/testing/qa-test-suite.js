@@ -8,15 +8,19 @@
 (function () {
   'use strict';
 
-  const ASSET_VERSION = '4.1';
+  const hasBrowserDom = typeof window !== 'undefined' && typeof document !== 'undefined';
+  const root = typeof globalThis !== 'undefined' ? globalThis : {};
+
+  const ASSET_VERSION = '4.5';
   const REQUIRED_GLOBALS = [
     'StorageManager',
     'BattleBalance'
   ];
 
   function loadDuelSetupRuntimeIfNeeded() {
-    if (window.DuelSetupRuntime?.initialized) return;
-    if (document.querySelector('script[src*="duel-setup-runtime.js"]')) return;
+    if (!hasBrowserDom) return false;
+    if (window.DuelSetupRuntime?.initialized) return true;
+    if (document.querySelector('script[src*="duel-setup-runtime.js"]')) return true;
 
     const script = document.createElement('script');
     script.src = `duel-setup-runtime.js?v=${ASSET_VERSION}`;
@@ -25,9 +29,15 @@
     script.onload = () => console.info('✅ DuelSetupRuntime loaded by QA compatibility loader');
     script.onerror = () => console.warn('⚠️ DuelSetupRuntime konnte nicht geladen werden');
     document.head.appendChild(script);
+    return true;
   }
 
   function assertRequiredDom() {
+    if (!hasBrowserDom) {
+      console.warn('⚠️ QA Smoke: Browser-DOM nicht verfügbar, DOM-Checks werden übersprungen.');
+      return false;
+    }
+
     const requiredIds = [
       'btnOpenDuelSetup',
       'duelSetupSheetOverlay',
@@ -47,6 +57,11 @@
   }
 
   function assertRequiredGlobals() {
+    if (!hasBrowserDom) {
+      console.warn('⚠️ QA Smoke: Browser-DOM nicht verfügbar, Global-Checks werden übersprungen.');
+      return false;
+    }
+
     const missing = REQUIRED_GLOBALS.filter((name) => typeof window[name] === 'undefined');
     if (missing.length) {
       console.warn('⚠️ QA Smoke: fehlende globale Module:', missing.join(', '));
@@ -58,7 +73,15 @@
   }
 
   function assertBalanceConfig() {
-    if (!window.BattleBalance?.BALANCE_TARGETS) return false;
+    if (!hasBrowserDom) {
+      console.warn('⚠️ QA Smoke: Browser-DOM nicht verfügbar, Balance-Checks werden übersprungen.');
+      return false;
+    }
+
+    if (!window.BattleBalance?.BALANCE_TARGETS) {
+      console.warn('⚠️ QA Smoke: BattleBalance.BALANCE_TARGETS fehlt');
+      return false;
+    }
 
     const expected = {
       lg40: ['easy', 'real', 'hard', 'elite'],
@@ -87,19 +110,31 @@
   }
 
   function runSmokeChecks() {
+    if (!hasBrowserDom) {
+      console.warn('⚠️ QA Smoke: Browser-DOM nicht verfügbar, Checks werden übersprungen.');
+      return false;
+    }
+
     loadDuelSetupRuntimeIfNeeded();
-    assertRequiredDom();
-    assertRequiredGlobals();
-    assertBalanceConfig();
+
+    const domOk = assertRequiredDom();
+    const globalsOk = assertRequiredGlobals();
+    const balanceOk = assertBalanceConfig();
+
+    return domOk && globalsOk && balanceOk;
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', runSmokeChecks);
+  if (hasBrowserDom) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', runSmokeChecks);
+    } else {
+      runSmokeChecks();
+    }
   } else {
     runSmokeChecks();
   }
 
-  window.QASmokeSuite = {
+  root.QASmokeSuite = {
     run: runSmokeChecks,
     assertRequiredDom,
     assertRequiredGlobals,
