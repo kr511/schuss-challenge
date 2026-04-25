@@ -58,6 +58,7 @@ export interface Feedback {
 export interface Env {
   DB?: D1Database;
   ALLOW_INSECURE_DEV_AUTH?: string;
+  ALLOWED_ORIGINS_CSV?: string;
   SENDGRID_API_KEY?: string;
   ADMIN_EMAIL?: string;
   /** Comma-separated list of user IDs that are allowed to hit /api/admin/* routes. */
