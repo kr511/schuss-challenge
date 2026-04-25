@@ -16,6 +16,13 @@
     'StorageManager',
     'BattleBalance'
   ];
+  const REQUIRED_DUEL_DOM_IDS = [
+    'btnOpenDuelSetup',
+    'duelSetupSheetOverlay',
+    'duelSetupSheet',
+    'gameModeSelection',
+    'duelSettingsContent'
+  ];
 
   function loadDuelSetupRuntimeIfNeeded() {
     if (!hasBrowserDom) return false;
@@ -32,21 +39,59 @@
     return true;
   }
 
+  function diagnoseDuelSetup() {
+    if (!hasBrowserDom) {
+      return {
+        hasBrowserDom: false,
+        runtimeInitialized: false,
+        runtimeScriptPresent: false,
+        handlers: {
+          openDuelSetup: 'undefined',
+          selectGameMode: 'undefined',
+          closeDuelSetup: 'undefined'
+        },
+        dom: Object.fromEntries(REQUIRED_DUEL_DOM_IDS.map((id) => [id, false]))
+      };
+    }
+
+    return {
+      hasBrowserDom: true,
+      runtimeInitialized: Boolean(window.DuelSetupRuntime?.initialized),
+      runtimeScriptPresent: Boolean(document.querySelector('script[src*="duel-setup-runtime.js"]')),
+      handlers: {
+        openDuelSetup: typeof window.openDuelSetup,
+        selectGameMode: typeof window.selectGameMode,
+        closeDuelSetup: typeof window.closeDuelSetup
+      },
+      dom: Object.fromEntries(REQUIRED_DUEL_DOM_IDS.map((id) => [id, Boolean(document.getElementById(id))]))
+    };
+  }
+
+  function assertDuelRuntimeRequested() {
+    if (!hasBrowserDom) {
+      console.warn('⚠️ QA Smoke: Browser-DOM nicht verfügbar, Runtime-Check wird übersprungen.');
+      return false;
+    }
+
+    const runtimeOk = Boolean(window.DuelSetupRuntime?.initialized);
+    const scriptOk = Boolean(document.querySelector('script[src*="duel-setup-runtime.js"]'));
+
+    if (!runtimeOk && !scriptOk) {
+      console.warn('⚠️ QA Smoke: duel-setup-runtime.js ist weder aktiv noch als Script geladen.');
+      return false;
+    }
+
+    console.info(runtimeOk ? '✅ QA Smoke: DuelSetupRuntime aktiv' : '✅ QA Smoke: DuelSetupRuntime wird geladen');
+    return true;
+  }
+
   function assertRequiredDom() {
     if (!hasBrowserDom) {
       console.warn('⚠️ QA Smoke: Browser-DOM nicht verfügbar, DOM-Checks werden übersprungen.');
       return false;
     }
 
-    const requiredIds = [
-      'btnOpenDuelSetup',
-      'duelSetupSheetOverlay',
-      'duelSetupSheet',
-      'gameModeSelection',
-      'duelSettingsContent'
-    ];
-
-    const missing = requiredIds.filter((id) => !document.getElementById(id));
+    const missing = REQUIRED_DUEL_DOM_IDS.filter((id) => !document.getElementById(id));
     if (missing.length) {
       console.warn('⚠️ QA Smoke: fehlende Duel-Setup-DOM-Elemente:', missing.join(', '));
       return false;
@@ -117,11 +162,16 @@
 
     loadDuelSetupRuntimeIfNeeded();
 
+    const runtimeRequestedOk = assertDuelRuntimeRequested();
     const domOk = assertRequiredDom();
     const globalsOk = assertRequiredGlobals();
     const balanceOk = assertBalanceConfig();
 
-    return domOk && globalsOk && balanceOk;
+    if (!runtimeRequestedOk || !domOk || !globalsOk || !balanceOk) {
+      console.warn('⚠️ QA Smoke Diagnose:', diagnoseDuelSetup());
+    }
+
+    return runtimeRequestedOk && domOk && globalsOk && balanceOk;
   }
 
   if (hasBrowserDom) {
@@ -136,6 +186,8 @@
 
   root.QASmokeSuite = {
     run: runSmokeChecks,
+    diagnoseDuelSetup,
+    assertDuelRuntimeRequested,
     assertRequiredDom,
     assertRequiredGlobals,
     assertBalanceConfig
