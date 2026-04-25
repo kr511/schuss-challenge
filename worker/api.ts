@@ -55,6 +55,17 @@ const feedbackPatchSchema = z.object({
   status: feedbackStatusSchema,
 });
 
+const profileInputSchema = z.object({
+  displayName: z.string().trim().min(1).max(80),
+  privacySettings: z.enum(["public", "private"]).default("private"),
+  bestStats: z.record(z.unknown()).nullable().optional(),
+});
+
+const activityInputSchema = z.object({
+  discipline: z.string().trim().min(1).max(80),
+  difficulty: z.string().trim().min(1).max(80),
+});
+
 // UUID v4 shape used by crypto.randomUUID()
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -75,16 +86,24 @@ class ApiHttpError extends Error {
   }
 }
 
-const ALLOWED_ORIGINS: readonly string[] = [
+const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
   "https://schuss-challenge.eliaskummel.workers.dev",
+  "https://kr511.github.io",
   "http://localhost:8787",
   "http://127.0.0.1:8787",
 ];
 
+function getAllowedOrigins(env: Env): Set<string> {
+  const configured = env.ALLOWED_ORIGINS_CSV?.split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0) ?? [];
+  return new Set([...DEFAULT_ALLOWED_ORIGINS, ...configured]);
+}
+
 function pickAllowedOrigin(request: Request, env: Env): string {
   const origin = request.headers.get("Origin");
   if (!origin) return "";
-  if (ALLOWED_ORIGINS.includes(origin)) return origin;
+  if (getAllowedOrigins(env).has(origin)) return origin;
   // Allow any localhost origin while dev auth is enabled so `wrangler dev`
   // works from arbitrary ports without config churn.
   if (env.ALLOW_INSECURE_DEV_AUTH === "true" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
@@ -365,8 +384,6 @@ async function handlePostFeedback(request: Request, env: Env): Promise<Response>
     payload.message,
   );
 
-  // Feedback saved successfully
-  await updateFeedbackStatus(env, feedbackId, "pending");
   return json({
     ok: true,
     feedbackId,
@@ -415,13 +432,14 @@ async function handleGetProfile(url: URL, env: Env): Promise<Response> {
 }
 
 async function handlePostProfile(request: Request, env: Env, userId: string): Promise<Response> {
-  const payload = await request.json();
-  await updateProfile(env, userId, payload.displayName, payload.privacySettings, payload.bestStats);
+  const payload = await parseJson(request, profileInputSchema);
+  const bestStats = payload.bestStats == null ? null : JSON.stringify(payload.bestStats);
+  await updateProfile(env, userId, payload.displayName, payload.privacySettings, bestStats);
   return json({ ok: true });
 }
 
 async function handleSetActivity(request: Request, env: Env, userId: string): Promise<Response> {
-  const payload = await request.json();
+  const payload = await parseJson(request, activityInputSchema);
   await setActivity(env, userId, payload.discipline, payload.difficulty, 'active');
   return json({ ok: true });
 }

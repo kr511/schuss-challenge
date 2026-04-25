@@ -371,7 +371,7 @@ export async function updateProfile(
   userId: string,
   displayName: string,
   privacySettings: 'public' | 'private' = 'private',
-  bestStats: string,
+  bestStats: string | null,
 ): Promise<void> {
   await ensureUserExists(env.DB, userId);
   await env.DB.prepare(
