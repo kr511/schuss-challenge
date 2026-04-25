@@ -17,6 +17,7 @@
   loadScriptOnce('local-entry.js?v=1.2');
   loadScriptOnce('profile-scroll-fix.js?v=1.0');
   loadScriptOnce('debug-panel.js?v=1.0');
+  loadScriptOnce('supabase-social.js?v=0.1');
 })();
 
 const FeatureFallback = (function () {
