@@ -177,48 +177,52 @@ if (!localStorage.getItem('sd_reset_v3')) {
   if (keepXP) StorageManager.setRaw('xp', keepXP);
 }
 
+const SC_MODULES = (typeof window !== 'undefined' && window.SchussChallenge) ? window.SchussChallenge : null;
+const SC_DOM = SC_MODULES?.ui?.dom || null;
+const SC_SCORING = SC_MODULES?.game?.scoring || null;
+const SC_XP = SC_MODULES?.game?.xp || null;
+const SC_STATE = SC_MODULES?.core || null;
+
 /* ─── STATE ──────────────────────────────── */
-const G = {
-  dist: '10', diff: 'easy',
-  weapon: 'lg',          // 'lg' | 'kk'
-  username: StorageManager.getRaw('username', ''),
-  lbScope: StorageManager.getRaw('lb_scope', 'global'),
-  lbPeriod: StorageManager.getRaw('lb_period', 'alltime'),
-  discipline: 'lg40',    // 'lg40' | 'lg60' | 'kk50' | 'kk100' | 'kk3x20'
-  shots: 40,             // Schussanzahl (aus Disziplin oder manuell)
-  burst: false,          // 5er-Salve Modus
-  targetShots: [],       // Sichtbare Treffer auf der Scheibe
-  botShots: [], botPlan: null, botTotal: 0, botTotalInt: 0, _botTotalTenths: 0,
-  playerTotal: 0, playerTotalInt: 0, _playerTotalTenths: 0,
-  playerShotsLeft: 40, botShotsLeft: 40, maxShots: 40,
-  xp: 0,                 // XP-Stand
-  streak: 0,             // Aktueller Streak (für Firebase)
-  // 3×20 position tracking
-  is3x20: false,
-  positions: [],         // ['Kniend','Liegend','Stehend']
-  posIcons: [],          // emoji per position
-  posIdx: 0,             // aktueller Positions-Index
-  posShots: 0,           // Schüsse in aktueller Position
-  perPos: 20,            // Schüsse pro Position
-  posResults: [],        // Summe pro Position [{total, int, shots}]
-  // Timer & Bot-Auto-Shoot
-  _botInterval: null,    // setTimeout handle für Auto-Bot
-  _timerInterval: null,  // setInterval handle für Countdown
-  _timerSecsLeft: 0,     // verbleibende Sekunden
-  _botStartTimeout: null, // setTimeout für verzögerter Bot-Start nach Probe
-  dnf: false,            // Did Not Finish (Zeit abgelaufen)
-  playerShots: [],       // Spieler-Treffer für Analytics
-  currentDetectedShots: [], // NEU: Letzte erkannte Schüsse aus Foto
-  _gameStartTime: 0,     // Für Spieldauer-Berechnung
-  _lastPlayerShotAt: 0,  // Zeitstempel des letzten Spieler-Schusses
-  // Probezeit
-  probeActive: false,    // Probezeit ist aktiv
-  probeSecsLeft: 0,      // Verbleibende Sekunden in Probezeit
-  botStarted: false,     // Bot hat bereits zu schießen angefangen
-  // 3x20 Übergangsphasen (Positionswechsel / Umbau / Probe)
-  transitionSecsLeft: 0, // verbleibende Sekunden in Übergangsphase
-  transitionLabel: '',   // Label für aktuelle Übergangsphase
-};
+const G = (SC_STATE && typeof SC_STATE.createInitialState === 'function')
+  ? SC_STATE.createInitialState({ storageManager: StorageManager })
+  : {
+    dist: '10', diff: 'easy',
+    weapon: 'lg',
+    username: StorageManager.getRaw('username', ''),
+    lbScope: StorageManager.getRaw('lb_scope', 'global'),
+    lbPeriod: StorageManager.getRaw('lb_period', 'alltime'),
+    discipline: 'lg40',
+    shots: 40,
+    burst: false,
+    targetShots: [],
+    botShots: [], botPlan: null, botTotal: 0, botTotalInt: 0, _botTotalTenths: 0,
+    playerTotal: 0, playerTotalInt: 0, _playerTotalTenths: 0,
+    playerShotsLeft: 40, botShotsLeft: 40, maxShots: 40,
+    xp: 0,
+    streak: 0,
+    is3x20: false,
+    positions: [],
+    posIcons: [],
+    posIdx: 0,
+    posShots: 0,
+    perPos: 20,
+    posResults: [],
+    _botInterval: null,
+    _timerInterval: null,
+    _timerSecsLeft: 0,
+    _botStartTimeout: null,
+    dnf: false,
+    playerShots: [],
+    currentDetectedShots: [],
+    _gameStartTime: 0,
+    _lastPlayerShotAt: 0,
+    probeActive: false,
+    probeSecsLeft: 0,
+    botStarted: false,
+    transitionSecsLeft: 0,
+    transitionLabel: ''
+  };
 
 /* ─── DISZIPLIN CONFIG ───────────────────── */
 const DISC = {
@@ -467,6 +471,8 @@ const DIFF_INFO_BY_DISC = {
 
 // Hilfsfunktion zum Abrufen der disziplinspezifischen Schwierigkeits-Info
 function getDiffInfo(diff) {
+  const moduleInfo = window.SchussChallenge?.bot?.battleBalance?.getDifficultyInfoFromBalance?.(G.discipline, diff);
+  if (moduleInfo) return moduleInfo;
   if (typeof BattleBalance !== 'undefined') {
     const info = BattleBalance.getDifficultyInfo(G.discipline, diff);
     if (info) return info;
@@ -497,8 +503,8 @@ const WEAPON_CFG = {
 };
 
 /* ─── XP / RANKS ─────────────────────────── */
-const XP_PER_WIN = { easy: 10, real: 20, hard: 40, elite: 75 };
-const RANKS = [
+const XP_PER_WIN = SC_XP?.XP_PER_WIN || { easy: 10, real: 20, hard: 40, elite: 75 };
+const RANKS = SC_XP?.RANKS || [
   { name: 'Anfänger', min: 0, max: 99, icon: '🎯' },
   { name: 'Schütze', min: 100, max: 299, icon: '🔫' },
   { name: 'Fortgeschr.', min: 300, max: 599, icon: '⭐' },
@@ -508,6 +514,9 @@ const RANKS = [
 ];
 
 function getRank(xp) {
+  if (SC_XP && typeof SC_XP.getRankInfo === 'function') {
+    return SC_XP.getRankInfo(xp);
+  }
   for (let i = RANKS.length - 1; i >= 0; i--) {
     if (xp >= RANKS[i].min) return { rank: RANKS[i], idx: i };
   }
@@ -728,7 +737,7 @@ function refreshProfileSheet() {
   const savedAvatar = StorageManager.getRaw('profileAvatar') || '🎯';
 
   // Hero
-  const el = id => document.getElementById(id);
+  const el = id => (SC_DOM?.byId ? SC_DOM.byId(id) : document.getElementById(id));
   if (el('psAvatarIcon')) el('psAvatarIcon').textContent = savedAvatar;
   if (el('psRankIcon')) el('psRankIcon').textContent = rank.icon;
   if (el('psRankName')) el('psRankName').textContent = rank.name;
@@ -5567,6 +5576,9 @@ function gauss(s) {
 /* ─── SCORING ─────────────────────────────── */
 function scoreHit(dx, dy) {
   const maxR = canvas.width / 2 - 3;
+  if (SC_SCORING && typeof SC_SCORING.calculateScoreHit === 'function') {
+    return SC_SCORING.calculateScoreHit({ dx, dy, maxRadius: maxR, rings: RINGS });
+  }
   const d = Math.sqrt(dx * dx + dy * dy);
 
   if (d > RINGS[0][0] * maxR) return { pts: 0, label: 'Daneben!', isX: false };
