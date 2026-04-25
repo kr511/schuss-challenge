@@ -1,18 +1,14 @@
 /**
  * Auth-Gate — Supabase-Authentifizierung
  *
- * Safe boot version:
- * - waits for document.body before inserting the login overlay
- * - waits for the Supabase CDN script without throwing during <head> parsing
- * - keeps the old public globals used by inline handlers
- * - reloads once after password sign-in so the app boots from a clean authenticated state
+ * Handles email/password and Google OAuth in a static GitHub Pages/PWA setup.
+ * Important: Google OAuth also requires Supabase + Google Cloud redirect settings.
  */
 (function () {
   'use strict';
 
   const SUPABASE_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0.pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg';
-  const AUTH_RELOAD_KEY = 'sd_auth_reload_after_signin';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0.pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg'.replace('JIUzI1NiIsInJlZiI6','JIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6');
 
   let client = null;
   let currentMode = 'signin';
@@ -31,6 +27,35 @@
 
   function el(id) {
     return document.getElementById(id);
+  }
+
+  function getCanonicalRedirectUrl() {
+    let path = window.location.pathname || '/';
+    if (!path.endsWith('/') && !/\.[a-z0-9]+$/i.test(path)) path += '/';
+    return window.location.origin + path;
+  }
+
+  function cleanAuthUrl() {
+    try {
+      window.history.replaceState({}, document.title, getCanonicalRedirectUrl());
+    } catch (e) {
+      console.warn('[AuthGate] Could not clean auth URL:', e);
+    }
+  }
+
+  function getAuthCallbackParams() {
+    const search = new URLSearchParams(window.location.search || '');
+    const hashText = (window.location.hash || '').replace(/^#/, '');
+    const hash = new URLSearchParams(hashText);
+
+    return {
+      code: search.get('code') || hash.get('code'),
+      accessToken: hash.get('access_token'),
+      refreshToken: hash.get('refresh_token'),
+      error: search.get('error') || hash.get('error'),
+      errorCode: search.get('error_code') || hash.get('error_code'),
+      errorDescription: search.get('error_description') || hash.get('error_description')
+    };
   }
 
   function safeSetText(id, text) {
@@ -143,12 +168,10 @@
 
   function hideGate(immediate = false) {
     if (!gateEl) return;
-
     if (immediate) {
       if (gateEl.parentElement) gateEl.remove();
       return;
     }
-
     gateEl.classList.add('fade-out');
     setTimeout(() => {
       if (gateEl && gateEl.parentElement) gateEl.remove();
@@ -173,13 +196,7 @@
   }
 
   function reloadCleanlyAfterSignin() {
-    try {
-      sessionStorage.setItem(AUTH_RELOAD_KEY, '1');
-    } catch (e) {
-      console.warn('[AuthGate] Could not mark auth reload:', e);
-    }
-
-    const cleanUrl = window.location.origin + window.location.pathname + window.location.search;
+    const cleanUrl = getCanonicalRedirectUrl();
     setTimeout(() => window.location.replace(cleanUrl), 80);
   }
 
@@ -212,7 +229,6 @@
           resolve(window.supabase);
           return;
         }
-
         if (Date.now() - started >= timeoutMs) {
           clearInterval(timer);
           reject(new Error('Supabase konnte nicht geladen werden.'));
@@ -226,6 +242,30 @@
     const { data, error } = await client.auth.getSession();
     if (error) throw error;
     return data && data.session ? data.session : null;
+  }
+
+  async function processOAuthRedirectIfPresent() {
+    const params = getAuthCallbackParams();
+    if (params.error || params.errorCode) {
+      cleanAuthUrl();
+      const msg = params.errorDescription || params.error || params.errorCode || 'Google-Anmeldung wurde abgebrochen oder ist fehlgeschlagen.';
+      throw new Error(decodeURIComponent(String(msg).replace(/\+/g, ' ')));
+    }
+
+    if (params.code && client.auth.exchangeCodeForSession) {
+      const { data, error } = await client.auth.exchangeCodeForSession(params.code);
+      cleanAuthUrl();
+      if (error) throw error;
+      return (data && data.session) || await getStoredSession();
+    }
+
+    if (params.accessToken || params.refreshToken || window.location.hash.includes('access_token')) {
+      const session = await getStoredSession();
+      if (session) cleanAuthUrl();
+      return session;
+    }
+
+    return null;
   }
 
   function setMode(mode) {
@@ -268,21 +308,16 @@
         const { data, error } = await client.auth.signUp({ email, password });
         if (error) throw error;
         const session = (data && data.session) || await getStoredSession();
-        if (session) {
-          onAuthenticated(session, { reloadAfterSignin: true });
-        } else {
+        if (session) onAuthenticated(session, { reloadAfterSignin: true });
+        else {
           showInfo('✅ Bestätigungs-E-Mail gesendet! Bitte überprüfe deinen Posteingang.');
           setBusy(false);
         }
       } else {
         const { data, error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
-
         const session = (data && data.session) || await getStoredSession();
-        if (!session) {
-          throw new Error('Anmeldung erfolgreich, aber die Session konnte nicht gespeichert werden. Bitte lade die Seite neu und versuche es erneut.');
-        }
-
+        if (!session) throw new Error('Anmeldung erfolgreich, aber die Session konnte nicht gespeichert werden. Bitte lade die Seite neu und versuche es erneut.');
         onAuthenticated(session, { reloadAfterSignin: true });
       }
     } catch (err) {
@@ -305,11 +340,15 @@
 
     setBusy(true);
     showError('');
+    showInfo('Weiterleitung zu Google…');
 
     try {
       const { error } = await client.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin + window.location.pathname }
+        options: {
+          redirectTo: getCanonicalRedirectUrl(),
+          queryParams: { prompt: 'select_account' }
+        }
       });
       if (error) throw error;
     } catch (err) {
@@ -328,21 +367,27 @@
 
     try {
       await waitForSupabase();
-      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          flowType: 'pkce'
+        }
+      });
+
+      const oauthSession = await processOAuthRedirectIfPresent();
+      if (oauthSession) {
+        onAuthenticated(oauthSession, { reloadAfterSignin: true });
+        return;
+      }
 
       client.auth.onAuthStateChange((event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-          onAuthenticated(session);
-        }
+        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) onAuthenticated(session);
       });
 
       const session = await getStoredSession();
       if (session) {
-        try {
-          sessionStorage.removeItem(AUTH_RELOAD_KEY);
-        } catch (e) {
-          console.warn('[AuthGate] Could not clear auth reload marker:', e);
-        }
         onAuthenticated(session);
         return;
       }
@@ -351,7 +396,7 @@
     } catch (err) {
       console.warn('[AuthGate] Supabase boot failed:', err);
       showForm();
-      showError('Anmeldesystem konnte nicht geladen werden. Prüfe deine Verbindung und lade die Seite neu.');
+      showError((err && err.message) || 'Anmeldesystem konnte nicht geladen werden.');
       setBusy(false);
     }
   }
