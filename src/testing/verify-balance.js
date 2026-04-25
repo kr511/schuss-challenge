@@ -1,4 +1,4 @@
-import './battle-balance.js';
+import '../bot/battle-balance.js';
 
 const { BattleBalance } = globalThis;
 
