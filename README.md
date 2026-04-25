@@ -44,3 +44,36 @@ Die Foto- und OCR-Funktionen sollen ohne externe KI-API auskommen. Gemini/Google
 ## 🧑‍💻 Project Status
 
 This is an active learning and development project. Feedback, bug reports and improvement ideas are welcome.
+
+## 🧩 Supabase Social Schema (Single Source of Truth)
+
+Für Social/Friends/Challenges ist **`supabase/schema-social.sql`** das primäre, kanonische Schema.
+
+Das alte Root-Migrationsfile `migrations/0002_social.sql` ist absichtlich als **legacy/no-op** markiert und darf nicht mehr als aktive Social-Migration genutzt werden.
+
+## 🗂️ Supabase Social Migrationskette (from zero)
+
+Wenn du das Social-System **ab Null** in einer frischen Supabase-Datenbank aufsetzen willst, führe die SQL-Dateien **genau in dieser Reihenfolge** aus:
+
+1. `supabase/migrations/0001_social_tables.sql`
+2. `supabase/migrations/0002_social_indexes.sql`
+3. `supabase/migrations/0003_social_rls.sql`
+4. `supabase/migrations/0004_social_rpc.sql`
+
+Alternativ kannst du stattdessen das All-in-One-Schema `supabase/schema-social.sql` verwenden (enthält dieselben Bestandteile: Tabellen, Indizes, RLS-Policies, RPC-Funktionen).
+
+## 🔌 Frontend ↔ Schema Konsistenz
+
+Der Supabase-Adapter nutzt exakt die finalen Tabellennamen/Spalten aus dem Schema:
+
+- `profiles(id, username, display_name, avatar_url, updated_at)`
+- `friend_codes(user_id, code)`
+- `friend_requests(id, from_user_id, to_user_id, status, responded_at)`
+- `friends(user_id, friend_user_id, created_at)`
+- `online_status(user_id, online, last_seen, username)`
+- `async_challenges(creator_id, opponent_id, discipline, weapon, distance, difficulty, shots, burst)`
+
+RPC-Aufrufe im Frontend entsprechen ebenfalls dem finalen Contract:
+
+- `rpc('touch_my_profile', { next_username })`
+- `rpc('accept_friend_request', { request_id })`
