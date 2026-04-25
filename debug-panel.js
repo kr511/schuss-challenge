@@ -26,6 +26,28 @@
       window.SchussduellLocalPlay === true;
   }
 
+  function getSupabaseSocialStatus() {
+    if (!window.SupabaseSocial || typeof window.SupabaseSocial.getStatus !== 'function') {
+      return { available: false, detail: 'Adapter nicht geladen' };
+    }
+
+    try {
+      var status = window.SupabaseSocial.getStatus();
+      if (status.available) {
+        return {
+          available: true,
+          detail: 'bereit · Code: ' + (status.friendCode || 'wird erstellt') + ' · Freunde: ' + status.friendsCount
+        };
+      }
+      return {
+        available: false,
+        detail: 'nicht aktiv: ' + (status.reason || status.lastError || 'unbekannt')
+      };
+    } catch (e) {
+      return { available: false, detail: e.message || String(e) };
+    }
+  }
+
   function getStatusRows() {
     var supabaseSession = !!(window.SupabaseSession && window.SupabaseSession.access_token);
     var localMode = getLocalMode();
@@ -35,11 +57,13 @@
     var firebaseLoaded = !!window.firebase;
     var storageManager = !!window.StorageManager;
     var appReady = typeof window.openDuelSetup === 'function' || !!document.getElementById('screenSetup');
+    var supabaseSocial = getSupabaseSocialStatus();
 
     return [
       ['App sichtbar', appReady, appReady ? 'Setup/App-DOM gefunden' : 'Setup/App-DOM fehlt'],
       ['Local Mode', localMode, localMode ? 'Lokaler Modus aktiv' : 'Nicht aktiv'],
       ['Supabase Session', supabaseSession, supabaseSession ? 'Session vorhanden' : 'Keine Session'],
+      ['Supabase Social', supabaseSocial.available, supabaseSocial.detail],
       ['Auth Gate', !authGateVisible, authGateVisible ? 'Login-Overlay sichtbar' : 'Nicht sichtbar'],
       ['Firebase geladen', firebaseLoaded, firebaseLoaded ? 'window.firebase vorhanden' : 'Nicht geladen'],
       ['StorageManager', storageManager, storageManager ? 'Verfügbar' : 'Nicht verfügbar'],
@@ -49,11 +73,16 @@
   }
 
   function getVersionInfo() {
+    var supabaseSocial = window.SupabaseSocial && typeof window.SupabaseSocial.getStatus === 'function'
+      ? window.SupabaseSocial.getStatus()
+      : null;
+
     return {
       url: window.location.href,
       path: window.location.pathname,
       userAgent: navigator.userAgent,
       viewport: window.innerWidth + '×' + window.innerHeight,
+      supabaseSocial: supabaseSocial,
       localStorageKeys: Object.keys(localStorage).filter(function (key) {
         return key.indexOf('sd_') === 0 || key === 'username';
       }).sort()
@@ -103,6 +132,23 @@
     if (node) node.textContent = text || '';
   }
 
+  function refreshSupabaseSocial() {
+    if (!window.SupabaseSocial || typeof window.SupabaseSocial.refreshAll !== 'function') {
+      setPanelMessage('Supabase Social Adapter nicht geladen.');
+      updateRows();
+      return;
+    }
+
+    setPanelMessage('Supabase Social wird geprüft…');
+    window.SupabaseSocial.refreshAll().then(function () {
+      setPanelMessage('Supabase Social aktualisiert ✅');
+      updateRows();
+    }).catch(function (e) {
+      setPanelMessage('Supabase Social Fehler: ' + ((e && e.message) || e));
+      updateRows();
+    });
+  }
+
   function render() {
     if (!shouldOpen()) return;
     if (document.getElementById('sdDebugPanel')) return;
@@ -127,13 +173,14 @@
 
     var panel = document.createElement('div');
     panel.id = 'sdDebugPanel';
-    panel.innerHTML = '<header><h3>🛠️ Schussduell Debug</h3><button class="sdDbgGhost" id="sdDebugClose">Schließen</button></header><div class="sdDbgBody"><div id="sdDebugRows"></div><div class="sdDbgActions"><button class="sdDbgPrimary" id="sdDebugRefresh">Aktualisieren</button><button class="sdDbgGhost" id="sdDebugCopy">Debug kopieren</button><button class="sdDbgGhost" id="sdDebugClearLocal">Local Mode reset</button></div><div id="sdDebugMsg"></div></div>';
+    panel.innerHTML = '<header><h3>🛠️ Schussduell Debug</h3><button class="sdDbgGhost" id="sdDebugClose">Schließen</button></header><div class="sdDbgBody"><div id="sdDebugRows"></div><div class="sdDbgActions"><button class="sdDbgPrimary" id="sdDebugRefresh">Aktualisieren</button><button class="sdDbgGhost" id="sdDebugSupabaseSocial">Supabase Social prüfen</button><button class="sdDbgGhost" id="sdDebugCopy">Debug kopieren</button><button class="sdDbgGhost" id="sdDebugClearLocal">Local Mode reset</button></div><div id="sdDebugMsg"></div></div>';
     document.body.appendChild(panel);
 
     document.getElementById('sdDebugClose').addEventListener('click', function () {
       panel.remove();
     });
     document.getElementById('sdDebugRefresh').addEventListener('click', updateRows);
+    document.getElementById('sdDebugSupabaseSocial').addEventListener('click', refreshSupabaseSocial);
     document.getElementById('sdDebugCopy').addEventListener('click', copyDebugInfo);
     document.getElementById('sdDebugClearLocal').addEventListener('click', function () {
       localStorage.removeItem('sd_local_mode');
