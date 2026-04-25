@@ -25,8 +25,8 @@ const PerformanceConfig = (function() {
     
     const moduleMap = {
       'geminiAI': 'gemini-ai.js',
-      'contextualOCR': 'contextual-ocr.js',
-      'multiScore': 'multi-score-detection.js'
+      'contextualOCR': 'src/vision/contextual-ocr.js',
+      'multiScore': 'src/vision/multi-score-detection.js'
     };
 
     return new Promise((resolve, reject) => {
