@@ -1,22 +1,72 @@
 (function () {
   'use strict';
 
-  var FLAG = 'sd_local_mode';
+  var MODE_KEYS = ['sd_local_mode', 'sd_local_play'];
+  var observerStarted = false;
+
+  function hasLocalMode() {
+    return MODE_KEYS.some(function (key) { return localStorage.getItem(key) === '1'; });
+  }
+
+  function setLocalMode() {
+    MODE_KEYS.forEach(function (key) { localStorage.setItem(key, '1'); });
+  }
 
   function appUrl() {
     return window.location.origin + window.location.pathname;
   }
 
-  function enterLocal(reload) {
-    localStorage.setItem(FLAG, '1');
+  function prepareLocalState() {
+    setLocalMode();
     if (!localStorage.getItem('username')) localStorage.setItem('username', 'Gast');
     if (!localStorage.getItem('sd_username')) localStorage.setItem('sd_username', 'Gast');
+
     window.SchussduellLocalMode = true;
+    window.SchussduellLocalPlay = true;
     window.SupabaseSession = null;
     window.getAuthHeaders = function () { return {}; };
+  }
 
+  function removeAuthGate() {
     var gate = document.getElementById('authGate');
     if (gate && gate.parentElement) gate.remove();
+  }
+
+  function addEarlyHideStyle() {
+    if (document.getElementById('localEntryAuthHide')) return;
+    var style = document.createElement('style');
+    style.id = 'localEntryAuthHide';
+    style.textContent = '#authGate{display:none!important;visibility:hidden!important;pointer-events:none!important;}';
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function startGateObserver() {
+    if (observerStarted) return;
+    observerStarted = true;
+
+    if (!hasLocalMode()) return;
+    addEarlyHideStyle();
+    removeAuthGate();
+
+    var observer = new MutationObserver(function () {
+      if (hasLocalMode()) removeAuthGate();
+    });
+
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  function enterLocal(reload) {
+    prepareLocalState();
+    addEarlyHideStyle();
+    removeAuthGate();
+
+    try {
+      window.dispatchEvent(new CustomEvent('supabaseAuthReady', {
+        detail: { session: null, local: true }
+      }));
+    } catch (e) {
+      console.warn('[LocalEntry] Could not dispatch local auth event:', e);
+    }
 
     if (reload) {
       setTimeout(function () {
@@ -47,7 +97,12 @@
 
   function boot() {
     window.startSchussduellLocalMode = function () { enterLocal(true); };
-    if (localStorage.getItem(FLAG) === '1') enterLocal(false);
+
+    if (hasLocalMode()) {
+      enterLocal(false);
+      startGateObserver();
+      return;
+    }
 
     var tries = 0;
     var timer = setInterval(function () {
@@ -55,6 +110,13 @@
       if (addButton() || tries > 100) clearInterval(timer);
     }, 100);
   }
+
+  if (hasLocalMode()) {
+    prepareLocalState();
+    addEarlyHideStyle();
+  }
+
+  startGateObserver();
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot, { once: true });
