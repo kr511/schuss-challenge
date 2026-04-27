@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --env local --live-reload=false --persist-to ../.wrangler-schuss-challenge-state",
+    "dev": "wrangler dev",
     "check:js": "node --check auth-gate.js && node --check gemini-ai.js && node --check app.js && node --check src/features/async-challenge.js && node --check mobile-responsive.js && node --check performance-config.js && node --check src/bot/battle-balance.js && node --check duel-setup-runtime.js && node --check duel-scroll-lock.js && node --check src/game/duel-result-screen.js && node --check duel-distance-guard.js && node --check src/testing/qa-test-suite.js && node --check sw.js",
     "verify:balance": "node src/testing/verify-balance.js",
     "test": "npm run check:js && npm run verify:balance",

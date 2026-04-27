@@ -1,164 +1,82 @@
-/* Shared Supabase runtime for auth-gate, Worker API calls and social features. */
+/**
+ * Supabase Auth-Client für die Frontend-Integration.
+ * In index.html einbinden wenn User-scoped API-Calls (Sessions, Achievements,
+ * Streaks) aktiviert werden sollen.
+ *
+ * Einbinden: <script src="supabase-client.js?v=1.0"></script>
+ */
 (function () {
-  'use strict';
+  const SUPABASE_URL  = 'https://fknftkvozwfkcarldzms.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0.pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg';
 
-  var SUPABASE_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
-  var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0.pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg';
-  var WORKER_API_BASE = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname)
-    ? ''
-    : 'https://schuss-challenge.eliaskummel.workers.dev';
+  let _session = null;
 
-  var client = null;
-  var session = null;
-  var initPromise = null;
-
-  function waitForSupabase(timeout) {
-    timeout = timeout || 10000;
-    return new Promise(function (resolve, reject) {
-      var started = Date.now();
-      var timer = setInterval(function () {
-        if (window.supabase && typeof window.supabase.createClient === 'function') {
-          clearInterval(timer);
-          resolve();
-          return;
-        }
-        if (Date.now() - started >= timeout) {
-          clearInterval(timer);
-          reject(new Error('Supabase konnte nicht geladen werden.'));
-        }
-      }, 50);
-    });
-  }
-
-  async function ensureClient() {
-    if (client) return client;
-    if (initPromise) return initPromise;
-
-    initPromise = (async function () {
-      await waitForSupabase();
-      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true,
-          flowType: 'pkce'
-        }
-      });
-      window.SupabaseClient = client;
-      return client;
-    })().finally(function () {
-      initPromise = null;
-    });
-
-    return initPromise;
-  }
-
-  function setSession(nextSession, detail) {
-    session = nextSession || null;
-    window.SupabaseSession = session;
-    window.SupabaseClient = client || window.SupabaseClient || null;
-    window.SchussduellLocalMode = detail && detail.local === true;
-    window.SchussduellLocalPlay = detail && detail.local === true;
-
-    try {
-      window.dispatchEvent(new CustomEvent('supabaseSessionChanged', {
-        detail: {
-          session: session,
-          local: detail && detail.local === true
-        }
-      }));
-    } catch (e) {}
-  }
-
-  function clearSession(detail) {
-    setSession(null, detail || {});
-  }
-
-  function getClient() {
-    return client || window.SupabaseClient || null;
-  }
-
-  function getSession() {
-    return session || window.SupabaseSession || null;
-  }
-
-  function getUserId() {
-    var current = getSession();
-    return current && current.user ? current.user.id : '';
-  }
-
-  function getAccessToken() {
-    var current = getSession();
-    return current && current.access_token ? current.access_token : '';
-  }
-
-  function authHeaders(extra) {
-    var token = getAccessToken();
-    return Object.assign({}, extra || {}, token ? { Authorization: 'Bearer ' + token } : {});
-  }
-
-  async function apiFetch(path, opts) {
-    opts = opts || {};
-    var headers = Object.assign(
-      {},
-      opts.body !== undefined ? { 'Content-Type': 'application/json' } : {},
-      opts.headers || {},
-      authHeaders()
-    );
-    var url = /^https?:\/\//i.test(path) ? path : (path.indexOf('/api/') === 0 ? WORKER_API_BASE + path : path);
-    var res = await fetch(url, Object.assign({}, opts, { headers: headers }));
-    var contentType = res.headers.get('content-type') || '';
-    var data = contentType.includes('application/json') ? await res.json() : await res.text();
-    if (!res.ok) {
-      var message = data && typeof data === 'object' && data.message ? data.message : res.statusText;
-      throw Object.assign(new Error(message), {
-        status: res.status,
-        code: data && typeof data === 'object' ? data.code : undefined,
-        body: data
-      });
+  async function init() {
+    if (typeof window.supabase === 'undefined') {
+      console.warn('[SupabaseClient] supabase-js nicht geladen');
+      return;
     }
-    return data;
-  }
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-  function exposeCompatibility() {
-    window.getAuthHeaders = function () { return authHeaders(); };
-    window.SchussApi = window.SchussApi || {};
-    window.SchussApi.fetch = apiFetch;
+    // Bestehende Session prüfen
+    const { data } = await client.auth.getSession();
+    _session = data.session;
+
+    // Anonym einloggen wenn keine Session
+    if (!_session) {
+      const { data: anon } = await client.auth.signInAnonymously();
+      _session = anon.session;
+    }
+
+    // Session-Updates verfolgen
+    client.auth.onAuthStateChange((_event, session) => {
+      _session = session;
+    });
+
     window.SupabaseAuth = {
-      get client() { return getClient(); },
-      getSession: getSession,
-      getToken: getAccessToken,
-      authHeaders: authHeaders,
-      apiFetch: apiFetch,
-      signInWithGoogle: async function () {
-        var currentClient = await ensureClient();
-        return currentClient.auth.signInWithOAuth({
+      client,
+      getSession: () => _session,
+      getToken:   () => _session?.access_token ?? null,
+
+      /** Fügt Authorization-Header zu fetch-Optionen hinzu */
+      authHeaders() {
+        const token = this.getToken();
+        return token ? { Authorization: `Bearer ${token}` } : {};
+      },
+
+      /** Wrapper um fetch der automatisch den Bearer-Token anhängt */
+      async apiFetch(path, opts = {}) {
+        const token = this.getToken();
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(opts.headers || {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
+        return fetch(path, { ...opts, headers });
+      },
+
+      /** Google Sign-In (ersetzt Firebase Google Auth) */
+      async signInWithGoogle() {
+        return client.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: window.location.origin + window.location.pathname }
+          options: { redirectTo: window.location.origin },
         });
       },
-      signOut: async function () {
-        var currentClient = await ensureClient();
-        await currentClient.auth.signOut();
-        clearSession({ local: false });
-      }
+
+      async signOut() {
+        await client.auth.signOut();
+        _session = null;
+      },
     };
+
+    console.log('[SupabaseAuth] bereit, User:', _session?.user?.id?.slice(0, 8) + '…');
+    window.dispatchEvent(new CustomEvent('supabaseReady', { detail: { session: _session } }));
   }
 
-  window.SupabaseRuntime = {
-    url: SUPABASE_URL,
-    anonKey: SUPABASE_ANON,
-    apiBase: WORKER_API_BASE,
-    ensureClient: ensureClient,
-    getClient: getClient,
-    setSession: setSession,
-    clearSession: clearSession,
-    getSession: getSession,
-    getUserId: getUserId,
-    getAccessToken: getAccessToken,
-    authHeaders: authHeaders,
-    apiFetch: apiFetch
-  };
-
-  exposeCompatibility();
+  // Warten bis supabase-js geladen ist
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();

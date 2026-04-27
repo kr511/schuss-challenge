@@ -923,11 +923,6 @@ function stopBotStatusUpdates() {
   if (card) card.style.display = 'none';
 }
 window.signInWithGoogle = async function() {
-  if (window.SupabaseAuth && typeof window.SupabaseAuth.signInWithGoogle === 'function') {
-    await window.SupabaseAuth.signInWithGoogle();
-    return;
-  }
-
   if (!fbReady || !fbAuth) {
     alert('Firebase Auth ist noch nicht bereit. Bitte warte einen Moment.');
     return;
@@ -1038,12 +1033,6 @@ window.signOutGoogle = async function() {
   }
 
   try {
-    if (window.SupabaseAuth && typeof window.SupabaseAuth.signOut === 'function' && window.SupabaseRuntime?.getSession?.()) {
-      await window.SupabaseAuth.signOut();
-      alert('Von Supabase abgemeldet. Lokale Daten bleiben erhalten.');
-      return;
-    }
-
     await fbAuth.signOut();
     fbUser = null;
 
@@ -1069,19 +1058,6 @@ window.signOutGoogle = async function() {
    ═══════════════════════════════════════════════ */
 
 window.registerWithEmail = async function(email, password) {
-  if (window.SupabaseRuntime && typeof window.SupabaseRuntime.ensureClient === 'function') {
-    const client = await window.SupabaseRuntime.ensureClient();
-    const displayName = G.username || String(email || '').split('@')[0] || 'Spieler';
-    const res = await client.auth.signUp({
-      email,
-      password,
-      options: { data: { name: displayName, full_name: displayName } }
-    });
-    if (res.error) throw res.error;
-    if (res.data?.session) window.SupabaseRuntime.setSession(res.data.session, { local: false });
-    return res.data?.user || null;
-  }
-
   if (!fbReady || !fbAuth) {
     throw new Error('Firebase Auth ist noch nicht bereit.');
   }
@@ -1140,14 +1116,6 @@ window.registerWithEmail = async function(email, password) {
 };
 
 window.signInWithEmail = async function(email, password) {
-  if (window.SupabaseRuntime && typeof window.SupabaseRuntime.ensureClient === 'function') {
-    const client = await window.SupabaseRuntime.ensureClient();
-    const res = await client.auth.signInWithPassword({ email, password });
-    if (res.error) throw res.error;
-    if (res.data?.session) window.SupabaseRuntime.setSession(res.data.session, { local: false });
-    return res.data?.user || null;
-  }
-
   if (!fbReady || !fbAuth) {
     throw new Error('Firebase Auth ist noch nicht bereit.');
   }
@@ -1200,14 +1168,6 @@ window.signInWithEmail = async function(email, password) {
 };
 
 window.logoutEmail = async function() {
-  if (window.SupabaseAuth && typeof window.SupabaseAuth.signOut === 'function' && window.SupabaseRuntime?.getSession?.()) {
-    await window.SupabaseAuth.signOut();
-    updateAccountSyncStatus();
-    updateXPCorner();
-    updateProfileMenu();
-    return true;
-  }
-
   if (!fbAuth) {
     throw new Error('Firebase Auth ist nicht verfügbar.');
   }
@@ -1852,16 +1812,6 @@ function fbUpdateSubmitBtn() {
   }
 }
 
-function workerApiFetch(path, options) {
-  if (window.SchussApi && typeof window.SchussApi.fetch === 'function') {
-    return window.SchussApi.fetch(path, options);
-  }
-  const base = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname)
-    ? ''
-    : 'https://schuss-challenge.eliaskummel.workers.dev';
-  return fetch(base + path, options);
-}
-
 function fbSubmit() {
   if (fbRating === null) return;
   const comment = document.getElementById('fbComment').value || '';
@@ -1879,7 +1829,7 @@ function fbSubmit() {
   const resultTitle = duelResult.title || `${G.weapon || 'LG'} ${duelResult.result || 'Unbekannt'}`;
   const resultScore = duelResult.score || duelResult.myScore || 'N/A';
 
-  workerApiFetch('/api/feedback', {
+  fetch('https://schuss-challenge.eliaskummel.workers.dev/api/feedback', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -1921,7 +1871,7 @@ function submitSiteFeedback(rating) {
   const safeUsername = sanitizeUsername(G.username || 'Anonym');
   const userEmail = typeof StorageManager !== 'undefined' ? (StorageManager.getRaw('userEmail') || `${safeUsername}@schuss-challenge.local`) : `${safeUsername}@schuss-challenge.local`;
   
-  workerApiFetch('/api/feedback', {
+  fetch('https://schuss-challenge.eliaskummel.workers.dev/api/feedback', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

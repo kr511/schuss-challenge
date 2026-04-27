@@ -1,7 +1,8 @@
 /* Schussduell Supabase Social Adapter
  *
- * Supabase-backed friends, friend requests, presence and async challenges.
- * Firebase callers can still fall back when Supabase auth is unavailable.
+ * This prepares friends, friend requests, presence and async challenges for a
+ * future Supabase-only social layer. Firebase remains the active production
+ * path until this adapter is explicitly wired into the UI.
  */
 (function () {
   'use strict';
@@ -20,16 +21,10 @@
   };
 
   function getClient() {
-    if (window.SupabaseRuntime && typeof window.SupabaseRuntime.getClient === 'function') {
-      return window.SupabaseRuntime.getClient();
-    }
     return window.SupabaseClient || null;
   }
 
   function getSession() {
-    if (window.SupabaseRuntime && typeof window.SupabaseRuntime.getSession === 'function') {
-      return window.SupabaseRuntime.getSession();
-    }
     return window.SupabaseSession || null;
   }
 
@@ -283,16 +278,6 @@
     if (!target.data || !target.data.user_id) return { ok: false, reason: 'code-not-found' };
     if (target.data.user_id === user.id) return { ok: false, reason: 'self-code' };
 
-    var existingFriend = await client
-      .from('friends')
-      .select('friend_user_id')
-      .eq('user_id', user.id)
-      .eq('friend_user_id', target.data.user_id)
-      .maybeSingle();
-
-    if (existingFriend.error) throw existingFriend.error;
-    if (existingFriend.data) return { ok: false, reason: 'already-friend' };
-
     var request = await client
       .from('friend_requests')
       .upsert({
@@ -340,13 +325,6 @@
 
     var client = getClient();
     var user = getUser();
-
-    var rpcResult = await client.rpc('remove_friend', { target_user_id: friendUserId });
-    if (!rpcResult.error) {
-      await loadFriends();
-      return { ok: true };
-    }
-
     var result = await client
       .from('friends')
       .delete()
@@ -356,32 +334,6 @@
     if (result.error) throw result.error;
     await loadFriends();
     return { ok: true };
-  }
-
-  async function loadOnlineStatuses(userIds) {
-    if (!(await ensureReady())) return {};
-
-    var ids = Array.from(new Set((userIds || []).filter(Boolean)));
-    if (ids.length === 0) return {};
-
-    var client = getClient();
-    var rows = await client
-      .from('online_status')
-      .select('user_id, online, last_seen, username')
-      .in('user_id', ids);
-
-    if (rows.error) throw rows.error;
-
-    var byUserId = {};
-    (rows.data || []).forEach(function (row) {
-      byUserId[row.user_id] = {
-        online: row.online === true,
-        lastSeen: Date.parse(row.last_seen || '') || 0,
-        username: row.username || ''
-      };
-    });
-    state.onlineStatus = byUserId;
-    return byUserId;
   }
 
   async function updateOnlineStatus(online) {
@@ -465,21 +417,14 @@
   }
 
   function boot() {
-    function handleAuthReady(event) {
-      if (event && event.detail && event.detail.local) {
-        stopPresenceHeartbeat();
-        return;
-      }
+    window.addEventListener('supabaseAuthReady', function () {
       setTimeout(function () {
         refreshAll().catch(function (error) {
           state.lastError = error && error.message ? error.message : String(error);
           console.warn('[SupabaseSocial] refresh failed:', error);
         });
       }, 250);
-    }
-
-    window.addEventListener('supabaseAuthReady', handleAuthReady);
-    window.addEventListener('supabaseSessionChanged', handleAuthReady);
+    });
 
     if (isAuthenticated()) {
       refreshAll().catch(function (error) {
@@ -502,7 +447,6 @@
     loadFriends: loadFriends,
     loadIncomingRequests: loadIncomingRequests,
     loadOutgoingRequests: loadOutgoingRequests,
-    loadOnlineStatuses: loadOnlineStatuses,
     addFriendByCode: addFriendByCode,
     acceptRequest: acceptRequest,
     declineRequest: declineRequest,

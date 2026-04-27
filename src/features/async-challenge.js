@@ -26,13 +26,6 @@ const AsyncChallenge = (function() {
     return typeof fbReady !== 'undefined' && fbReady && typeof fbDb !== 'undefined' && fbDb;
   }
 
-  async function ensureSupabaseSocial() {
-    const social = window.SupabaseSocial;
-    if (!social || typeof social.ensureReady !== 'function') return null;
-    const ready = await social.ensureReady();
-    return ready ? social : null;
-  }
-
   function getCurrentUserId() {
     if (typeof getFirebaseOwnerId !== 'function') return null;
     return getFirebaseOwnerId();
@@ -64,13 +57,6 @@ const AsyncChallenge = (function() {
    * Initialisiert das Async-Challenge-System
    */
   async function init() {
-    const social = await ensureSupabaseSocial();
-    if (social) {
-      state.initialized = true;
-      console.log('Async Challenge-System bereit (Supabase)');
-      return;
-    }
-
     console.log('⚔️ Async Challenge-System initialisiert');
 
     if (!hasFirebase()) {
@@ -90,25 +76,6 @@ const AsyncChallenge = (function() {
    * Erstellt eine neue Challenge
    */
   async function createChallenge(friendId = null, friendUsername = null) {
-    const social = await ensureSupabaseSocial();
-    if (social && typeof social.createChallenge === 'function') {
-      try {
-        const result = await social.createChallenge(friendId, getCurrentGameSettings());
-        if (!result || !result.ok) {
-          showChallengeToast('Challenge konnte nicht erstellt werden', 'error');
-          return false;
-        }
-        state.myChallenges.push(result.challenge);
-        renderChallengesList();
-        showChallengeToast('Challenge erstellt!', 'success');
-        return true;
-      } catch (e) {
-        console.error('Supabase Fehler beim Erstellen:', e);
-        showChallengeToast('Fehler beim Erstellen', 'error');
-        return false;
-      }
-    }
-
     if (!hasFirebase()) {
       showChallengeToast('❌ Firebase nicht verfügbar', 'error');
       return false;

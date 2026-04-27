@@ -30,10 +30,7 @@ const FriendsSystem = (function() {
 
   function resolveCurrentUserId() {
     try {
-      const supabaseId = window.SupabaseRuntime && typeof window.SupabaseRuntime.getUserId === 'function'
-        ? window.SupabaseRuntime.getUserId()
-        : '';
-      return supabaseId || (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId') || '';
+      return (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId') || '';
     } catch (e) {
       console.warn('Freundes-System: User-ID konnte nicht aufgeloest werden:', e);
       return '';
@@ -42,20 +39,6 @@ const FriendsSystem = (function() {
 
   function isFirebaseAvailable() {
     return !!((typeof fbReady !== 'undefined' && fbReady) && (typeof fbDb !== 'undefined' && fbDb));
-  }
-
-  function getSupabaseSocial() {
-    const social = window.SupabaseSocial;
-    if (!social || typeof social.getStatus !== 'function') return null;
-    const status = social.getStatus();
-    return status && status.available ? social : null;
-  }
-
-  async function ensureSupabaseSocial() {
-    const social = window.SupabaseSocial;
-    if (!social || typeof social.ensureReady !== 'function') return null;
-    const ready = await social.ensureReady();
-    return ready ? social : null;
   }
 
   function scheduleBootstrapRetry() {
@@ -110,7 +93,7 @@ const FriendsSystem = (function() {
     updateOnlineStatus();
     await loadOnlineStatuses();
 
-    if (!isFirebaseAvailable() && !getSupabaseSocial()) {
+    if (!isFirebaseAvailable()) {
       scheduleBootstrapRetry();
     }
 
@@ -120,13 +103,6 @@ const FriendsSystem = (function() {
   }
 
   async function loadOrCreateUserCode() {
-    const social = await ensureSupabaseSocial();
-    if (social && typeof social.ensureFriendCode === 'function') {
-      state.userCode = await social.ensureFriendCode();
-      if (state.userCode) StorageManager.setRaw('friendCode', state.userCode);
-      return;
-    }
-
     const localCode = StorageManager.getRaw('friendCode');
     if (localCode) {
       state.userCode = localCode;
@@ -161,18 +137,6 @@ const FriendsSystem = (function() {
   }
 
   async function loadFriends() {
-    const social = await ensureSupabaseSocial();
-    if (social && typeof social.loadFriends === 'function') {
-      try {
-        state.friends = await social.loadFriends();
-        StorageManager.setRaw('friends', JSON.stringify(state.friends));
-        renderFriendsList();
-        return;
-      } catch (e) {
-        console.warn('Supabase Freunde-Laden fehlgeschlagen:', e);
-      }
-    }
-
     if (!isFirebaseAvailable()) {
       const localFriends = StorageManager.getRaw('friends');
       state.friends = localFriends ? JSON.parse(localFriends) : [];
@@ -201,32 +165,6 @@ const FriendsSystem = (function() {
   }
 
   async function loadPendingRequests() {
-    const social = await ensureSupabaseSocial();
-    if (social && typeof social.loadIncomingRequests === 'function' && typeof social.loadOutgoingRequests === 'function') {
-      try {
-        const incoming = await social.loadIncomingRequests();
-        const outgoing = await social.loadOutgoingRequests();
-        state.pendingRequests = (incoming || []).map(req => ({
-          fromUserId: req.fromUserId,
-          fromUsername: req.fromUsername || 'Unbekannt',
-          fromCode: '',
-          timestamp: Date.parse(req.createdAt || '') || Date.now(),
-          _supabaseRequestId: req.id,
-        }));
-        state.sentRequests = (outgoing || []).map(req => ({
-          userId: req.toUserId,
-          username: req.toUsername || 'Unbekannt',
-          code: '',
-          timestamp: Date.parse(req.createdAt || '') || Date.now(),
-          _supabaseRequestId: req.id,
-        }));
-        renderPendingRequests();
-        return;
-      } catch (e) {
-        console.warn('Supabase Requests-Laden fehlgeschlagen:', e);
-      }
-    }
-
     if (!isFirebaseAvailable()) {
       state.pendingRequests = [];
       state.sentRequests = [];
@@ -268,24 +206,6 @@ const FriendsSystem = (function() {
     if (alreadyFriend) {
       showFriendToast('ℹ️ Bereits dein Freund', 'info');
       return false;
-    }
-
-    const social = await ensureSupabaseSocial();
-    if (social && typeof social.addFriendByCode === 'function') {
-      try {
-        const result = await social.addFriendByCode(code);
-        if (!result || !result.ok) {
-          showFriendToast('Fehler: ' + (result?.reason || 'Anfrage konnte nicht gesendet werden'), 'error');
-          return false;
-        }
-        await loadPendingRequests();
-        showFriendToast('Anfrage gesendet!', 'success');
-        return true;
-      } catch (e) {
-        console.error('Supabase Fehler beim Hinzufuegen:', e);
-        showFriendToast('Fehler aufgetreten', 'error');
-        return false;
-      }
     }
 
     if (!isFirebaseAvailable()) {
@@ -358,22 +278,6 @@ const FriendsSystem = (function() {
   }
 
   async function acceptRequest(fromUserId) {
-    const social = await ensureSupabaseSocial();
-    if (social && typeof social.acceptRequest === 'function') {
-      try {
-        const request = state.pendingRequests.find(req => req.fromUserId === fromUserId || req._supabaseRequestId === fromUserId);
-        await social.acceptRequest(request?._supabaseRequestId || fromUserId);
-        await loadFriends();
-        await loadPendingRequests();
-        showFriendToast('Anfrage angenommen!', 'success');
-        return true;
-      } catch (e) {
-        console.error('Supabase Fehler beim Akzeptieren:', e);
-        showFriendToast('Fehler aufgetreten', 'error');
-        return false;
-      }
-    }
-
     if (!isFirebaseAvailable()) {
       showFriendToast('❌ Firebase nicht verfügbar', 'error');
       return false;
@@ -423,20 +327,6 @@ const FriendsSystem = (function() {
   }
 
   async function declineRequest(fromUserId) {
-    const social = await ensureSupabaseSocial();
-    if (social && typeof social.declineRequest === 'function') {
-      try {
-        const request = state.pendingRequests.find(req => req.fromUserId === fromUserId || req._supabaseRequestId === fromUserId);
-        await social.declineRequest(request?._supabaseRequestId || fromUserId);
-        await loadPendingRequests();
-        showFriendToast('Anfrage abgelehnt', 'info');
-        return true;
-      } catch (e) {
-        console.error('Supabase Fehler beim Ablehnen:', e);
-        return false;
-      }
-    }
-
     if (!isFirebaseAvailable()) return false;
 
     try {
@@ -453,24 +343,6 @@ const FriendsSystem = (function() {
   }
 
   async function removeFriend(friendId) {
-    const social = await ensureSupabaseSocial();
-    if (social && typeof social.removeFriend === 'function') {
-      const friend = state.friends.find(f => f.userId === friendId);
-      if (!confirm(`Moechtest du ${friend?.username || 'diesen Freund'} wirklich entfernen?`)) {
-        return false;
-      }
-      try {
-        await social.removeFriend(friendId);
-        await loadFriends();
-        showFriendToast(`${friend?.username || 'Freund'} entfernt`, 'info');
-        return true;
-      } catch (e) {
-        console.error('Supabase Fehler beim Entfernen:', e);
-        showFriendToast('Fehler aufgetreten', 'error');
-        return false;
-      }
-    }
-
     if (!isFirebaseAvailable()) return false;
 
     const friend = state.friends.find(f => f.userId === friendId);
@@ -494,20 +366,6 @@ const FriendsSystem = (function() {
   }
 
   function updateOnlineStatus() {
-    const social = getSupabaseSocial();
-    if (social && typeof social.updateOnlineStatus === 'function') {
-      if (state.statusHeartbeatId) {
-        clearInterval(state.statusHeartbeatId);
-        state.statusHeartbeatId = null;
-      }
-      const writeOnlineStatus = () => social.updateOnlineStatus(true).catch((e) => {
-        console.warn('Supabase Status fehlgeschlagen:', e);
-      });
-      writeOnlineStatus();
-      state.statusHeartbeatId = setInterval(writeOnlineStatus, 60000);
-      return;
-    }
-
     if (!isFirebaseAvailable() || !state.currentUserId) return;
 
     const refPath = `${FIREBASE_PATHS.onlineStatus}/${state.currentUserId}`;
@@ -538,17 +396,6 @@ const FriendsSystem = (function() {
   }
 
   async function loadOnlineStatuses() {
-    const social = await ensureSupabaseSocial();
-    if (social && typeof social.loadOnlineStatuses === 'function' && Array.isArray(state.friends) && state.friends.length > 0) {
-      try {
-        state.onlineStatusByUserId = await social.loadOnlineStatuses(state.friends.map(friend => friend.userId));
-        renderFriendsList();
-        return;
-      } catch (e) {
-        console.warn('Supabase Status-Laden fehlgeschlagen:', e);
-      }
-    }
-
     if (!isFirebaseAvailable() || !Array.isArray(state.friends) || state.friends.length === 0) {
       state.onlineStatusByUserId = {};
       renderFriendsList();

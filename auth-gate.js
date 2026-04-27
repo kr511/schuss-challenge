@@ -30,9 +30,6 @@
     window.SchussduellLocalPlay = true;
     window.SupabaseSession = null;
     window.getAuthHeaders = function () { return {}; };
-    if (window.SupabaseRuntime && typeof window.SupabaseRuntime.clearSession === 'function') {
-      window.SupabaseRuntime.clearSession({ local: true });
-    }
   }
 
   function appUrl() {
@@ -113,15 +110,10 @@
 
   function exposeSession(session) {
     LOCAL_KEYS.forEach(function (key) { localStorage.removeItem(key); });
+    window.SupabaseClient = client;
+    window.SupabaseSession = session;
     window.SchussduellLocalMode = false;
-    window.SchussduellLocalPlay = false;
-    if (window.SupabaseRuntime && typeof window.SupabaseRuntime.setSession === 'function') {
-      window.SupabaseRuntime.setSession(session, { local: false });
-    } else {
-      window.SupabaseClient = client;
-      window.SupabaseSession = session;
-      window.getAuthHeaders = function () { return { Authorization: 'Bearer ' + session.access_token }; };
-    }
+    window.getAuthHeaders = function () { return { Authorization: 'Bearer ' + session.access_token }; };
     try { window.dispatchEvent(new CustomEvent('supabaseAuthReady', { detail: { session: session } })); } catch (e) {}
     var meta = session.user && session.user.user_metadata ? session.user.user_metadata : {};
     var name = meta.full_name || meta.name;
@@ -158,17 +150,6 @@
     var res = await client.auth.getSession();
     if (res.error) throw res.error;
     return res.data && res.data.session ? res.data.session : null;
-  }
-
-  async function ensureSupabaseClient() {
-    if (window.SupabaseRuntime && typeof window.SupabaseRuntime.ensureClient === 'function') {
-      client = await window.SupabaseRuntime.ensureClient();
-      return client;
-    }
-    await waitForSupabase();
-    client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
-    window.SupabaseClient = client;
-    return client;
   }
 
   function getOAuthParams() {
@@ -254,14 +235,12 @@
     createGate();
     setBusy(true);
     try {
-      await ensureSupabaseClient();
+      await waitForSupabase();
+      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
       var oauthSession = await handleOAuthCallback();
       if (oauthSession) { onAuthenticated(oauthSession, true); return; }
       client.auth.onAuthStateChange(function (event, session) {
         if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) onAuthenticated(session, false);
-        if (event === 'SIGNED_OUT' && window.SupabaseRuntime && typeof window.SupabaseRuntime.clearSession === 'function') {
-          window.SupabaseRuntime.clearSession({ local: false });
-        }
       });
       var session = await getSession();
       if (session) { onAuthenticated(session, false); return; }

@@ -18,7 +18,6 @@
     "production": {
       "vars": {
         "SUPABASE_URL": "https://fknftkvozwfkcarldzms.supabase.co",
-        "ALLOW_INSECURE_DEV_AUTH": "false",
         "ADMIN_USER_IDS": ""
       }
       // Secrets (not committed): SUPABASE_SERVICE_KEY, SUPABASE_JWT_SECRET
