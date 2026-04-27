@@ -9,21 +9,59 @@
 
   var MODE_KEYS = ['sd_local_mode', 'sd_local_play'];
   var observerStarted = false;
+  var memoryStore = {};
 
   function isTruthy(value) {
     return value === '1' || value === 'true';
   }
 
+  function storageGet(key) {
+    try {
+      var value = window.localStorage && window.localStorage.getItem(key);
+      if (value !== null && value !== undefined) return value;
+    } catch (e) {}
+    try {
+      var sessionValue = window.sessionStorage && window.sessionStorage.getItem(key);
+      if (sessionValue !== null && sessionValue !== undefined) return sessionValue;
+    } catch (e) {}
+    return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : null;
+  }
+
+  function storageSet(key, value) {
+    var stored = false;
+    try {
+      if (window.localStorage) {
+        window.localStorage.setItem(key, value);
+        stored = true;
+      }
+    } catch (e) {}
+    if (!stored) {
+      try {
+        if (window.sessionStorage) {
+          window.sessionStorage.setItem(key, value);
+          stored = true;
+        }
+      } catch (e) {}
+    }
+    memoryStore[key] = String(value);
+  }
+
+  function storageRemove(key) {
+    try { if (window.localStorage) window.localStorage.removeItem(key); } catch (e) {}
+    try { if (window.sessionStorage) window.sessionStorage.removeItem(key); } catch (e) {}
+    delete memoryStore[key];
+  }
+
   function hasLocalMode() {
-    return MODE_KEYS.some(function (key) { return isTruthy(localStorage.getItem(key)); });
+    return MODE_KEYS.some(function (key) { return isTruthy(storageGet(key)); });
   }
 
   function setLocalMode() {
-    MODE_KEYS.forEach(function (key) { localStorage.setItem(key, '1'); });
+    MODE_KEYS.forEach(function (key) { storageSet(key, '1'); });
   }
 
   function clearLocalMode() {
-    MODE_KEYS.forEach(function (key) { localStorage.removeItem(key); });
+    MODE_KEYS.forEach(function (key) { storageRemove(key); });
     window.SchussduellLocalMode = false;
     window.SchussduellLocalPlay = false;
   }
@@ -36,8 +74,8 @@
 
   function prepareLocalState() {
     setLocalMode();
-    if (!localStorage.getItem('username')) localStorage.setItem('username', 'Gast');
-    if (!localStorage.getItem('sd_username')) localStorage.setItem('sd_username', 'Gast');
+    if (!storageGet('username')) storageSet('username', 'Gast');
+    if (!storageGet('sd_username')) storageSet('sd_username', 'Gast');
 
     window.SchussduellLocalMode = true;
     window.SchussduellLocalPlay = true;
@@ -119,7 +157,7 @@
     button.type = 'button';
     button.textContent = '👤 Ohne Anmeldung spielen';
     button.style.cssText = 'width:100%;padding:12px;margin-top:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:10px;color:#f3f4f6;font-size:14px;font-weight:800;cursor:pointer;';
-    button.addEventListener('click', function () { enter({ reload: true }); });
+    button.addEventListener('click', function () { enter({ reload: false }); });
 
     var hint = document.createElement('div');
     hint.textContent = 'Fortschritt wird lokal auf diesem Gerät gespeichert.';
@@ -131,9 +169,9 @@
   }
 
   function installGlobals() {
-    window.startSchussduellLocalMode = function () { enter({ reload: true }); };
+    window.startSchussduellLocalMode = function () { enter({ reload: false }); };
     window.exitSchussduellLocalMode = function () { exit({ reload: true }); };
-    window.__agLocal = function () { enter({ reload: true }); };
+    window.__agLocal = function () { enter({ reload: false }); };
   }
 
   function boot() {

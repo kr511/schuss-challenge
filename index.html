@@ -22,11 +22,12 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap"
     rel="stylesheet">
-  <!-- Supabase JS (muss vor auth-gate.js geladen sein) -->
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <script defer src="supabase-client.js?v=1.2"></script>
+  <!-- Supabase JS lädt asynchron; auth-gate.js zeigt die UI sofort und wartet bei Bedarf auf den Client. -->
+  <script async src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="src/storage/storage-manager.js?v=3.5"></script>
+  <script defer src="supabase-client.js?v=1.3"></script>
   <!-- Auth-Gate: zeigt Login-Screen bis User authentifiziert ist -->
-  <script defer src="auth-gate.js?v=1.2"></script>
+  <script defer src="auth-gate.js?v=1.3"></script>
 
   <!-- Firebase v9 Compat SDK (async – initFirebaseWithRetry wartet auf Laden) -->
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -47,7 +48,7 @@
   <script src="src/vision/image-compare.js?v=3.0" defer></script>
 
   <!-- NEUE FEATURES: Physics Engine, Adaptive Bot-KI und erweiterte OCR -->
-  <script src="feature-fallback.js?v=3.0" defer></script>
+  <script src="feature-fallback.js?v=3.1" defer></script>
   <!-- physics-engine.js — aktuell nicht aktiv genutzt -->
   <!-- <script src="physics-engine.js"></script> -->
   <script src="src/bot/adaptive-bot.js?v=3.0" defer></script>
@@ -56,7 +57,7 @@
 
   <!-- HAUPT-APP (MUSS VOR ALLEN ABHÄNGIGEN MODulen LADEN) -->
   <script type="module" src="src/main.js?v=1.0"></script>
-  <script src="app.js?v=3.4" defer></script>
+  <script src="app.js?v=3.5" defer></script>
   
   <!-- ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile -->
   <script src="src/game/daily-challenge.js?v=3.4" defer></script>
@@ -72,11 +73,10 @@
   <script src="friends.js?v=1.0" defer></script>
   <script src="src/features/async-challenge.js?v=1.0" defer></script>
   <script src="updates.js?v=1.0" defer></script>
-  <link rel="stylesheet" href="styles.css?v=3.0">
+  <link rel="stylesheet" href="styles.css?v=3.1">
   <link rel="stylesheet" href="modern-animations.css?v=1.0">
   <script src="modern-ux.js?v=1.0" defer></script>
   <script src="reward-system.js?v=1.0" defer></script>
-  <script src="src/storage/storage-manager.js?v=3.0"></script>
   <script src="performance-config.js"></script>
   <script src="src/bot/battle-balance.js" defer></script>
   <script src="src/testing/qa-test-suite.js" defer></script>

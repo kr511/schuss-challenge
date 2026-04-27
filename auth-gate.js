@@ -15,22 +15,104 @@
   var busy = false;
   var mode = 'signin';
   var finishing = false;
+  var memoryStore = {};
   var PKCE_RECOVERY_MESSAGE = 'Google-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut anmelden oder lokal spielen.';
+
+  function storageGet(key) {
+    try {
+      var value = window.localStorage && window.localStorage.getItem(key);
+      if (value !== null && value !== undefined) return value;
+    } catch (e) {}
+    try {
+      var sessionValue = window.sessionStorage && window.sessionStorage.getItem(key);
+      if (sessionValue !== null && sessionValue !== undefined) return sessionValue;
+    } catch (e) {}
+    return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : null;
+  }
+
+  function storageSet(key, value) {
+    var stored = false;
+    try {
+      if (window.localStorage) {
+        window.localStorage.setItem(key, value);
+        stored = true;
+      }
+    } catch (e) {}
+    if (!stored) {
+      try {
+        if (window.sessionStorage) {
+          window.sessionStorage.setItem(key, value);
+          stored = true;
+        }
+      } catch (e) {}
+    }
+    memoryStore[key] = String(value);
+  }
+
+  function storageRemove(key) {
+    try { if (window.localStorage) window.localStorage.removeItem(key); } catch (e) {}
+    try { if (window.sessionStorage) window.sessionStorage.removeItem(key); } catch (e) {}
+    delete memoryStore[key];
+  }
 
   function hasLocalMode() {
     return LOCAL_KEYS.some(function (key) {
-      return localStorage.getItem(key) === '1' || localStorage.getItem(key) === 'true';
+      var value = storageGet(key);
+      return value === '1' || value === 'true';
     });
   }
 
   function rememberLocalMode() {
-    LOCAL_KEYS.forEach(function (key) { localStorage.setItem(key, '1'); });
-    if (!localStorage.getItem('username')) localStorage.setItem('username', 'Gast');
-    if (!localStorage.getItem('sd_username')) localStorage.setItem('sd_username', 'Gast');
+    LOCAL_KEYS.forEach(function (key) { storageSet(key, '1'); });
+    if (!storageGet('username')) storageSet('username', 'Gast');
+    if (!storageGet('sd_username')) storageSet('sd_username', 'Gast');
     window.SchussduellLocalMode = true;
     window.SchussduellLocalPlay = true;
     window.SupabaseSession = null;
     window.getAuthHeaders = function () { return {}; };
+  }
+
+  function sanitizeProfileName(value) {
+    var name = String(value || '').trim();
+    if (!name) return '';
+    name = name.replace(/[.#$/\[\]<>]/g, '_').replace(/\s+/g, ' ');
+    return name.substring(0, 15);
+  }
+
+  function getSessionDisplayName(session) {
+    var user = session && session.user ? session.user : {};
+    var meta = user.user_metadata || {};
+    var candidates = [
+      meta.full_name,
+      meta.name,
+      meta.display_name,
+      meta.user_name,
+      user.email ? String(user.email).split('@')[0] : '',
+      'Spieler'
+    ];
+
+    for (var i = 0; i < candidates.length; i += 1) {
+      var name = sanitizeProfileName(candidates[i]);
+      if (name) return name;
+    }
+    return 'Spieler';
+  }
+
+  function syncProfileNameFromSession(session) {
+    var existing = storageGet('sd_username');
+    var isGeneric = !existing || /^(gast|spieler|schuetze)$/i.test(String(existing));
+    var name = isGeneric ? getSessionDisplayName(session) : existing;
+    if (!name) return;
+    if (isGeneric) storageSet('sd_username', name);
+    if (!storageGet('username') || isGeneric) storageSet('username', name);
+    storageSet('sd_auth_profile_seeded', '1');
+    try {
+      if (typeof window.refreshStateFromLocalStorage === 'function') {
+        window.refreshStateFromLocalStorage();
+      }
+    } catch (e) {
+      console.warn('[AuthGate] App-State konnte nicht aktualisiert werden:', e);
+    }
   }
 
   function appUrl() {
@@ -46,10 +128,30 @@
 
   function $(id) { return document.getElementById(id); }
 
+  function installClosedGateStyle() {
+    if ($('authGateClosedStyle')) return;
+    var style = document.createElement('style');
+    style.id = 'authGateClosedStyle';
+    style.textContent = '#authGate{display:none!important;visibility:hidden!important;pointer-events:none!important;}';
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function hideGateNode(node) {
+    if (!node) return;
+    node.setAttribute('aria-hidden', 'true');
+    node.style.setProperty('display', 'none', 'important');
+    node.style.setProperty('visibility', 'hidden', 'important');
+    node.style.setProperty('pointer-events', 'none', 'important');
+  }
+
   function removeGate() {
+    installClosedGateStyle();
+    hideGateNode(gateEl);
     if (gateEl && gateEl.parentElement) gateEl.remove();
     var existing = $('authGate');
+    hideGateNode(existing);
     if (existing && existing.parentElement) existing.remove();
+    gateEl = null;
   }
 
   function enterLocalMode(reload) {
@@ -135,15 +237,14 @@
   }
 
   function exposeSession(session) {
-    LOCAL_KEYS.forEach(function (key) { localStorage.removeItem(key); });
+    LOCAL_KEYS.forEach(function (key) { storageRemove(key); });
     window.SupabaseClient = client;
     window.SupabaseSession = session;
     window.SchussduellLocalMode = false;
+    window.SchussduellLocalPlay = false;
     window.getAuthHeaders = function () { return { Authorization: 'Bearer ' + session.access_token }; };
+    syncProfileNameFromSession(session);
     try { window.dispatchEvent(new CustomEvent('supabaseAuthReady', { detail: { session: session } })); } catch (e) {}
-    var meta = session.user && session.user.user_metadata ? session.user.user_metadata : {};
-    var name = meta.full_name || meta.name;
-    if (name && !localStorage.getItem('sd_username')) localStorage.setItem('sd_username', String(name).substring(0, 15));
   }
 
   function onAuthenticated(session, reload) {
@@ -225,7 +326,7 @@
     showInfo('');
   };
 
-  window.__agLocal = function () { enterLocalMode(true); };
+  window.__agLocal = function () { enterLocalMode(false); };
 
   window.__agSubmit = async function () {
     if (busy) return;

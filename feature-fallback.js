@@ -14,8 +14,8 @@
     (document.head || document.documentElement).appendChild(script);
   }
 
-  loadScriptOnce('local-entry.js?v=1.2');
-  loadScriptOnce('profile-scroll-fix.js?v=1.0');
+  loadScriptOnce('local-entry.js?v=1.3');
+  loadScriptOnce('profile-scroll-fix.js?v=1.1');
   loadScriptOnce('debug-panel.js?v=1.0');
   loadScriptOnce('supabase-social.js?v=0.1');
 })();

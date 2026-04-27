@@ -2,6 +2,10 @@
 (function () {
   'use strict';
 
+  var observerScheduled = false;
+  var wrapRetryCount = 0;
+  var wrapRetryTimer = null;
+
   function installStyle() {
     if (document.getElementById('profileScrollFixStyle')) return;
 
@@ -70,6 +74,12 @@
     unlock();
     wrapOpeners();
 
+    wrapRetryTimer = setInterval(function () {
+      wrapRetryCount += 1;
+      wrapOpeners();
+      if (wrapRetryCount >= 40) clearInterval(wrapRetryTimer);
+    }, 250);
+
     document.addEventListener('click', function (event) {
       var target = event.target;
       if (!target || !target.closest) return;
@@ -80,10 +90,15 @@
     }, true);
 
     var observer = new MutationObserver(function () {
-      wrapOpeners();
-      unlock();
+      if (observerScheduled) return;
+      observerScheduled = true;
+      setTimeout(function () {
+        observerScheduled = false;
+        wrapOpeners();
+        unlock();
+      }, 120);
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
