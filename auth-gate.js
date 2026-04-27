@@ -234,18 +234,31 @@
     injectStyles();
     createGate();
     setBusy(true);
+
+    // Safety-net: nach 8 Sekunden Login-Formular erzwingen falls alles hängt
+    var safetyTimer = setTimeout(function () {
+      safetyTimer = null;
+      showForm();
+      showError('Verbindung zu langsam. Bitte mit E-Mail anmelden oder lokal spielen.');
+    }, 8000);
+
     try {
-      await waitForSupabase();
+      await waitForSupabase(6000);
       client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
       var oauthSession = await handleOAuthCallback();
-      if (oauthSession) { onAuthenticated(oauthSession, true); return; }
+      if (oauthSession) { if (safetyTimer) clearTimeout(safetyTimer); onAuthenticated(oauthSession, true); return; }
       client.auth.onAuthStateChange(function (event, session) {
         if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) onAuthenticated(session, false);
       });
-      var session = await getSession();
+      var session = await Promise.race([
+        getSession(),
+        new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 5000); })
+      ]);
+      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
       if (session) { onAuthenticated(session, false); return; }
       showForm();
     } catch (err) {
+      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
       console.warn('[AuthGate] Boot failed:', err);
       showForm();
       showError((err && err.message) || 'Anmeldung konnte nicht geladen werden. Du kannst lokal spielen.');
