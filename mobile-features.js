@@ -393,12 +393,14 @@ const MobileFeatures = (function() {
     }
     
     const criticalAssets = [
-      '/',
-      '/index.html',
-      '/icon-192.png',
-      '/icon-512.png',
-      '/manifest.json'
-    ];
+      './',
+      'index.html',
+      'icon-192.png',
+      'icon-512.png',
+      'manifest.json'
+    ].map(function (path) {
+      return new URL(path, window.location.href).toString();
+    });
     
     caches.open('schussduell-critical-v1')
       .then(cache => {
