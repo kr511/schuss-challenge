@@ -367,6 +367,22 @@
     }
   };
 
+  function hasStoredSupabaseToken() {
+    try {
+      if (!window.localStorage) return false;
+      for (var i = 0; i < window.localStorage.length; i += 1) {
+        var key = window.localStorage.key(i);
+        if (key && key.indexOf('sb-') === 0 && key.indexOf('-auth-token') !== -1) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function hasOAuthCodeInUrl() {
+    var p = getOAuthParams();
+    return !!(p.code || p.error);
+  }
+
   async function init() {
     if (hasLocalMode()) { enterLocalMode(false); return; }
     injectStyles();
@@ -375,11 +391,22 @@
     // Formular sofort anzeigen — kein blockierender Spinner
     showForm();
 
-    // Session im Hintergrund prüfen (kein await der die UI blockiert)
+    // Wenn weder OAuth-Callback noch gespeicherter Token: keinen Session-Check fahren
+    // (vermeidet anonymous_provider_disabled 422-Fehler vom Supabase-SDK)
+    var needsSessionCheck = hasOAuthCodeInUrl() || hasStoredSupabaseToken();
+
     (async function checkSession() {
       try {
         await waitForSupabase(6000);
-        client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
+        // detectSessionInUrl: false — wir machen den PKCE-Callback manuell via handleOAuthCallback
+        client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce' } });
+        if (!needsSessionCheck) {
+          // Kein Token, kein Callback: nur auf zukünftige Sign-Ins lauschen
+          client.auth.onAuthStateChange(function (event, session) {
+            if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) onAuthenticated(session, false);
+          });
+          return;
+        }
         var oauthSession = await handleOAuthCallback();
         if (oauthSession) { onAuthenticated(oauthSession, true); return; }
         client.auth.onAuthStateChange(function (event, session) {
