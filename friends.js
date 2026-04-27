@@ -30,7 +30,10 @@ const FriendsSystem = (function() {
 
   function resolveCurrentUserId() {
     try {
-      return (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId') || '';
+      const supabaseId = window.SupabaseRuntime && typeof window.SupabaseRuntime.getUserId === 'function'
+        ? window.SupabaseRuntime.getUserId()
+        : '';
+      return supabaseId || (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId') || '';
     } catch (e) {
       console.warn('Freundes-System: User-ID konnte nicht aufgeloest werden:', e);
       return '';
@@ -39,6 +42,20 @@ const FriendsSystem = (function() {
 
   function isFirebaseAvailable() {
     return !!((typeof fbReady !== 'undefined' && fbReady) && (typeof fbDb !== 'undefined' && fbDb));
+  }
+
+  function getSupabaseSocial() {
+    const social = window.SupabaseSocial;
+    if (!social || typeof social.getStatus !== 'function') return null;
+    const status = social.getStatus();
+    return status && status.available ? social : null;
+  }
+
+  async function ensureSupabaseSocial() {
+    const social = window.SupabaseSocial;
+    if (!social || typeof social.ensureReady !== 'function') return null;
+    const ready = await social.ensureReady();
+    return ready ? social : null;
   }
 
   function scheduleBootstrapRetry() {
@@ -63,9 +80,6 @@ const FriendsSystem = (function() {
     };
   }
 
-  /**
-   * Generiert einen 6-stelligen Freundes-Code
-   */
   function generateUserCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
@@ -75,44 +89,6 @@ const FriendsSystem = (function() {
     return code;
   }
 
-  /**
-   * Initialisiert das Freundes-System
-   */
-  async function initLegacy() {
-    console.log('👥 Freundes-System initialisiert');
-
-    try {
-      // User-ID holen - sicher prüfen ob Funktion existiert
-      state.currentUserId = (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId');
-      
-      if (!state.currentUserId) {
-        console.warn('⚠️ Keine User-ID verfügbar, Freundes-System deaktiviert');
-        return;
-      }
-    } catch (e) {
-      console.warn('⚠️ Fehler beim Initialisieren:', e);
-      return;
-    }
-
-    // Benutzer-Code laden oder generieren
-    await loadOrCreateUserCode();
-
-    // Freunde laden
-    await loadFriends();
-
-    // Pending Requests laden
-    await loadPendingRequests();
-
-    // Online-Status aktualisieren
-    updateOnlineStatus();
-
-    state.initialized = true;
-    console.log('✅ Freundes-System bereit');
-  }
-
-  /**
-   * Lädt oder generiert User-Code
-   */
   async function init(force = false) {
     const resolvedUserId = resolveCurrentUserId();
     if (!resolvedUserId) {
@@ -134,7 +110,7 @@ const FriendsSystem = (function() {
     updateOnlineStatus();
     await loadOnlineStatuses();
 
-    if (!isFirebaseAvailable()) {
+    if (!isFirebaseAvailable() && !getSupabaseSocial()) {
       scheduleBootstrapRetry();
     }
 
@@ -144,14 +120,19 @@ const FriendsSystem = (function() {
   }
 
   async function loadOrCreateUserCode() {
-    // Local gespeichert?
+    const social = await ensureSupabaseSocial();
+    if (social && typeof social.ensureFriendCode === 'function') {
+      state.userCode = await social.ensureFriendCode();
+      if (state.userCode) StorageManager.setRaw('friendCode', state.userCode);
+      return;
+    }
+
     const localCode = StorageManager.getRaw('friendCode');
     if (localCode) {
       state.userCode = localCode;
       return;
     }
 
-    // Firebase check
     if (isFirebaseAvailable()) {
       try {
         const snapshot = await fbDb.ref(`${FIREBASE_PATHS.userCodes}/${state.currentUserId}`).once('value');
@@ -160,7 +141,6 @@ const FriendsSystem = (function() {
         if (data && data.code) {
           state.userCode = data.code;
         } else {
-          // Generieren und speichern
           state.userCode = generateUserCode();
           await fbDb.ref(`${FIREBASE_PATHS.userCodes}/${state.currentUserId}`).set({
             code: state.userCode,
@@ -171,23 +151,29 @@ const FriendsSystem = (function() {
         }
       } catch (e) {
         console.warn('Firebase Code-Laden fehlgeschlagen:', e);
-        // Local generieren
         state.userCode = generateUserCode();
       }
     } else {
       state.userCode = generateUserCode();
     }
 
-    // Local speichern
     StorageManager.setRaw('friendCode', state.userCode);
   }
 
-  /**
-   * Lädt die Freundesliste
-   */
   async function loadFriends() {
+    const social = await ensureSupabaseSocial();
+    if (social && typeof social.loadFriends === 'function') {
+      try {
+        state.friends = await social.loadFriends();
+        StorageManager.setRaw('friends', JSON.stringify(state.friends));
+        renderFriendsList();
+        return;
+      } catch (e) {
+        console.warn('Supabase Freunde-Laden fehlgeschlagen:', e);
+      }
+    }
+
     if (!isFirebaseAvailable()) {
-      // Local fallback
       const localFriends = StorageManager.getRaw('friends');
       state.friends = localFriends ? JSON.parse(localFriends) : [];
       state.onlineStatusByUserId = {};
@@ -214,10 +200,33 @@ const FriendsSystem = (function() {
     renderFriendsList();
   }
 
-  /**
-   * Lädt ausstehende Friend-Requests
-   */
   async function loadPendingRequests() {
+    const social = await ensureSupabaseSocial();
+    if (social && typeof social.loadIncomingRequests === 'function' && typeof social.loadOutgoingRequests === 'function') {
+      try {
+        const incoming = await social.loadIncomingRequests();
+        const outgoing = await social.loadOutgoingRequests();
+        state.pendingRequests = (incoming || []).map(req => ({
+          fromUserId: req.fromUserId,
+          fromUsername: req.fromUsername || 'Unbekannt',
+          fromCode: '',
+          timestamp: Date.parse(req.createdAt || '') || Date.now(),
+          _supabaseRequestId: req.id,
+        }));
+        state.sentRequests = (outgoing || []).map(req => ({
+          userId: req.toUserId,
+          username: req.toUsername || 'Unbekannt',
+          code: '',
+          timestamp: Date.parse(req.createdAt || '') || Date.now(),
+          _supabaseRequestId: req.id,
+        }));
+        renderPendingRequests();
+        return;
+      } catch (e) {
+        console.warn('Supabase Requests-Laden fehlgeschlagen:', e);
+      }
+    }
+
     if (!isFirebaseAvailable()) {
       state.pendingRequests = [];
       state.sentRequests = [];
@@ -228,14 +237,8 @@ const FriendsSystem = (function() {
     try {
       const snapshot = await fbDb.ref(`${FIREBASE_PATHS.friendRequests}/${state.currentUserId}/received`).once('value');
       const data = snapshot.val();
-      
-      if (data) {
-        state.pendingRequests = Object.values(data);
-      } else {
-        state.pendingRequests = [];
-      }
+      state.pendingRequests = data ? Object.values(data) : [];
 
-      // Sent requests
       const sentSnapshot = await fbDb.ref(`${FIREBASE_PATHS.friendRequests}/${state.currentUserId}/sent`).once('value');
       const sentData = sentSnapshot.val();
       state.sentRequests = sentData
@@ -250,9 +253,6 @@ const FriendsSystem = (function() {
     renderPendingRequests();
   }
 
-  /**
-   * Fügt einen Freund über Code hinzu
-   */
   async function addFriendByCode(code) {
     if (!code || code.length !== 6) {
       showFriendToast('❌ Ungültiger Code', 'error');
@@ -264,21 +264,36 @@ const FriendsSystem = (function() {
       return false;
     }
 
-    // Prüfe ob bereits Freund
     const alreadyFriend = state.friends.find(f => f.code === code.toUpperCase());
     if (alreadyFriend) {
       showFriendToast('ℹ️ Bereits dein Freund', 'info');
       return false;
     }
 
-    // User-Code in Firebase finden
+    const social = await ensureSupabaseSocial();
+    if (social && typeof social.addFriendByCode === 'function') {
+      try {
+        const result = await social.addFriendByCode(code);
+        if (!result || !result.ok) {
+          showFriendToast('Fehler: ' + (result?.reason || 'Anfrage konnte nicht gesendet werden'), 'error');
+          return false;
+        }
+        await loadPendingRequests();
+        showFriendToast('Anfrage gesendet!', 'success');
+        return true;
+      } catch (e) {
+        console.error('Supabase Fehler beim Hinzufuegen:', e);
+        showFriendToast('Fehler aufgetreten', 'error');
+        return false;
+      }
+    }
+
     if (!isFirebaseAvailable()) {
       showFriendToast('❌ Firebase nicht verfügbar', 'error');
       return false;
     }
 
     try {
-      // Suche nach User mit diesem Code
       const codeSnapshot = await fbDb.ref(FIREBASE_PATHS.userCodes).orderByChild('code').equalTo(code.toUpperCase()).once('value');
       
       if (!codeSnapshot.exists()) {
@@ -300,14 +315,12 @@ const FriendsSystem = (function() {
         return false;
       }
 
-      // Prüfe ob bereits Request gesendet
       const alreadySent = state.sentRequests.find(r => r.userId === targetUserId);
       if (alreadySent) {
         showFriendToast('ℹ️ Bereits Anfrage gesendet', 'info');
         return false;
       }
 
-      // Sende Friend-Request
       await fbDb.ref(`${FIREBASE_PATHS.friendRequests}/${targetUserId}/received/${state.currentUserId}`).set({
         fromUserId: state.currentUserId,
         fromUsername: G.username,
@@ -315,7 +328,6 @@ const FriendsSystem = (function() {
         timestamp: Date.now(),
       });
 
-      // Speichere als gesendet
       await fbDb.ref(`${FIREBASE_PATHS.friendRequests}/${state.currentUserId}/sent/${targetUserId}`).set({
         toUserId: targetUserId,
         toUsername: targetUsername,
@@ -345,17 +357,29 @@ const FriendsSystem = (function() {
     }
   }
 
-  /**
-   * Akzeptiert einen Friend-Request
-   */
   async function acceptRequest(fromUserId) {
+    const social = await ensureSupabaseSocial();
+    if (social && typeof social.acceptRequest === 'function') {
+      try {
+        const request = state.pendingRequests.find(req => req.fromUserId === fromUserId || req._supabaseRequestId === fromUserId);
+        await social.acceptRequest(request?._supabaseRequestId || fromUserId);
+        await loadFriends();
+        await loadPendingRequests();
+        showFriendToast('Anfrage angenommen!', 'success');
+        return true;
+      } catch (e) {
+        console.error('Supabase Fehler beim Akzeptieren:', e);
+        showFriendToast('Fehler aufgetreten', 'error');
+        return false;
+      }
+    }
+
     if (!isFirebaseAvailable()) {
       showFriendToast('❌ Firebase nicht verfügbar', 'error');
       return false;
     }
 
     try {
-      // Request-Daten holen
       const snapshot = await fbDb.ref(`${FIREBASE_PATHS.friendRequests}/${state.currentUserId}/received/${fromUserId}`).once('value');
       const requestData = snapshot.val();
 
@@ -364,7 +388,6 @@ const FriendsSystem = (function() {
         return false;
       }
 
-      // Füge zu Freunden hinzu (beidseitig)
       await fbDb.ref(`${FIREBASE_PATHS.friends}/${state.currentUserId}/${fromUserId}`).set({
         userId: fromUserId,
         username: requestData.fromUsername,
@@ -379,11 +402,9 @@ const FriendsSystem = (function() {
         addedAt: Date.now(),
       });
 
-      // Entferne Request
       await fbDb.ref(`${FIREBASE_PATHS.friendRequests}/${state.currentUserId}/received/${fromUserId}`).remove();
       await fbDb.ref(`${FIREBASE_PATHS.friendRequests}/${fromUserId}/sent/${state.currentUserId}`).remove();
 
-      // Local state aktualisieren
       await loadFriends();
       await loadPendingRequests();
 
@@ -401,10 +422,21 @@ const FriendsSystem = (function() {
     }
   }
 
-  /**
-   * Lehnt einen Friend-Request ab
-   */
   async function declineRequest(fromUserId) {
+    const social = await ensureSupabaseSocial();
+    if (social && typeof social.declineRequest === 'function') {
+      try {
+        const request = state.pendingRequests.find(req => req.fromUserId === fromUserId || req._supabaseRequestId === fromUserId);
+        await social.declineRequest(request?._supabaseRequestId || fromUserId);
+        await loadPendingRequests();
+        showFriendToast('Anfrage abgelehnt', 'info');
+        return true;
+      } catch (e) {
+        console.error('Supabase Fehler beim Ablehnen:', e);
+        return false;
+      }
+    }
+
     if (!isFirebaseAvailable()) return false;
 
     try {
@@ -420,10 +452,25 @@ const FriendsSystem = (function() {
     }
   }
 
-  /**
-   * Entfernt einen Freund
-   */
   async function removeFriend(friendId) {
+    const social = await ensureSupabaseSocial();
+    if (social && typeof social.removeFriend === 'function') {
+      const friend = state.friends.find(f => f.userId === friendId);
+      if (!confirm(`Moechtest du ${friend?.username || 'diesen Freund'} wirklich entfernen?`)) {
+        return false;
+      }
+      try {
+        await social.removeFriend(friendId);
+        await loadFriends();
+        showFriendToast(`${friend?.username || 'Freund'} entfernt`, 'info');
+        return true;
+      } catch (e) {
+        console.error('Supabase Fehler beim Entfernen:', e);
+        showFriendToast('Fehler aufgetreten', 'error');
+        return false;
+      }
+    }
+
     if (!isFirebaseAvailable()) return false;
 
     const friend = state.friends.find(f => f.userId === friendId);
@@ -446,10 +493,21 @@ const FriendsSystem = (function() {
     }
   }
 
-  /**
-   * Aktualisiert Online-Status
-   */
   function updateOnlineStatus() {
+    const social = getSupabaseSocial();
+    if (social && typeof social.updateOnlineStatus === 'function') {
+      if (state.statusHeartbeatId) {
+        clearInterval(state.statusHeartbeatId);
+        state.statusHeartbeatId = null;
+      }
+      const writeOnlineStatus = () => social.updateOnlineStatus(true).catch((e) => {
+        console.warn('Supabase Status fehlgeschlagen:', e);
+      });
+      writeOnlineStatus();
+      state.statusHeartbeatId = setInterval(writeOnlineStatus, 60000);
+      return;
+    }
+
     if (!isFirebaseAvailable() || !state.currentUserId) return;
 
     const refPath = `${FIREBASE_PATHS.onlineStatus}/${state.currentUserId}`;
@@ -480,6 +538,17 @@ const FriendsSystem = (function() {
   }
 
   async function loadOnlineStatuses() {
+    const social = await ensureSupabaseSocial();
+    if (social && typeof social.loadOnlineStatuses === 'function' && Array.isArray(state.friends) && state.friends.length > 0) {
+      try {
+        state.onlineStatusByUserId = await social.loadOnlineStatuses(state.friends.map(friend => friend.userId));
+        renderFriendsList();
+        return;
+      } catch (e) {
+        console.warn('Supabase Status-Laden fehlgeschlagen:', e);
+      }
+    }
+
     if (!isFirebaseAvailable() || !Array.isArray(state.friends) || state.friends.length === 0) {
       state.onlineStatusByUserId = {};
       renderFriendsList();
@@ -509,17 +578,12 @@ const FriendsSystem = (function() {
     renderFriendsList();
   }
 
-  /**
-   * Rendert die Freundesliste UI
-   */
   function renderFriendsList() {
     const container = document.getElementById('friendsListContainer');
     if (!container) return;
 
     const title = document.getElementById('friendsListTitle');
-    if (title) {
-      title.textContent = `Deine Freunde (${state.friends.length})`;
-    }
+    if (title) title.textContent = `Deine Freunde (${state.friends.length})`;
 
     if (state.friends.length === 0) {
       container.innerHTML = `
@@ -541,23 +605,15 @@ const FriendsSystem = (function() {
             <div class="friend-status">${getFriendStatus(friend)}</div>
           </div>
           <div class="friend-actions">
-            <button class="friend-btn challenge" onclick="FriendsSystem.challengeFriend('${friend.userId}')">
-              ⚔️ Duell
-            </button>
-            <button class="friend-btn remove" onclick="FriendsSystem.removeFriend('${friend.userId}')">
-              ✕
-            </button>
+            <button class="friend-btn challenge" onclick="FriendsSystem.challengeFriend('${friend.userId}')">⚔️ Duell</button>
+            <button class="friend-btn remove" onclick="FriendsSystem.removeFriend('${friend.userId}')">✕</button>
           </div>
         </div>
       `).join('')}
     `;
   }
 
-  /**
-   * Rendert ausstehende Requests
-   */
   function renderPendingRequests() {
-    // Received Requests
     const receivedContainer = document.getElementById('receivedRequestsContainer');
     const sentContainer = document.getElementById('sentRequestsContainer');
     if (!receivedContainer && !sentContainer) return;
@@ -575,12 +631,8 @@ const FriendsSystem = (function() {
                 <div class="request-time">${formatTime(req.timestamp)}</div>
               </div>
               <div class="request-actions">
-                <button class="request-btn accept" onclick="FriendsSystem.acceptRequest('${req.fromUserId}')">
-                  ✓
-                </button>
-                <button class="request-btn decline" onclick="FriendsSystem.declineRequest('${req.fromUserId}')">
-                  ✕
-                </button>
+                <button class="request-btn accept" onclick="FriendsSystem.acceptRequest('${req.fromUserId}')">✓</button>
+                <button class="request-btn decline" onclick="FriendsSystem.declineRequest('${req.fromUserId}')">✕</button>
               </div>
             </div>
           `).join('')}
@@ -588,7 +640,6 @@ const FriendsSystem = (function() {
       }
     }
 
-    // Sent Requests
     if (sentContainer) {
       if (state.sentRequests.length === 0) {
         sentContainer.innerHTML = '<div class="requests-empty">Keine gesendeten Anfragen</div>';
@@ -608,9 +659,6 @@ const FriendsSystem = (function() {
     }
   }
 
-  /**
-   * Fordert Freund zu Duell heraus
-   */
   function challengeFriend(friendId) {
     const friend = state.friends.find(f => f.userId === friendId);
     if (!friend) {
@@ -619,8 +667,6 @@ const FriendsSystem = (function() {
     }
 
     showFriendToast(`⚔️ Herausforderung an ${friend.username} gesendet!`, 'success');
-    
-    // TODO: Async Challenge erstellen
     if (typeof window.createAsyncChallenge === 'function') {
       window.createAsyncChallenge(friendId, friend.username);
     }
@@ -630,124 +676,39 @@ const FriendsSystem = (function() {
     }
   }
 
-  /**
-   * Zeigt Freundes-Overlay
-   */
   function showFriendsOverlay() {
-    let overlay = document.getElementById('friendsOverlay');
-    if (!overlay) {
-      overlay = createFriendsOverlay();
-    }
-
-    overlay.classList.add('active');
-    renderFriendCode();
-    renderFriendsList();
-    renderPendingRequests();
-
-    if (!state.initialized) {
-      init(true);
+    if (typeof window.openFriendshipsPage === 'function') {
+      window.openFriendshipsPage();
       return;
     }
 
-    if (isFirebaseAvailable()) {
-      loadFriends();
-      loadPendingRequests();
-      loadOnlineStatuses();
-    }
+    showFriendToast('👥 Freundschaften werden geladen...', 'info');
+    setTimeout(() => {
+      if (typeof window.openFriendshipsPage === 'function') {
+        window.openFriendshipsPage();
+      }
+    }, 600);
   }
 
-  /**
-   * Schließt Freundes-Overlay
-   */
   function closeFriendsOverlay() {
+    if (typeof window.closeFriendshipsPage === 'function') {
+      window.closeFriendshipsPage();
+      return;
+    }
     const overlay = document.getElementById('friendsOverlay');
     if (overlay) overlay.classList.remove('active');
   }
 
-  /**
-   * Erstellt Freundes-Overlay wenn nicht vorhanden
-   */
   function createFriendsOverlay() {
-    const overlay = document.createElement('div');
-    overlay.id = 'friendsOverlay';
-    overlay.className = 'friends-overlay';
-    overlay.innerHTML = `
-      <div class="friends-sheet">
-        <div class="friends-header">
-          <h3>👥 FREUNDE</h3>
-          <button class="friends-close" onclick="FriendsSystem.closeFriendsOverlay()">✕</button>
-        </div>
-        <div class="friends-body">
-          <!-- Code Section -->
-          <div class="friend-code-section">
-            <div class="friend-code-label">Dein Freundes-Code</div>
-            <div class="friend-code" id="friendCodeDisplay">------</div>
-            <button class="friend-code-copy" onclick="FriendsSystem.copyFriendCode()">
-              📋 Code kopieren
-            </button>
-          </div>
-
-          <!-- Freund hinzufügen -->
-          <div class="friend-add-section">
-            <input 
-              type="text" 
-              id="friendCodeInput" 
-              class="friend-code-input" 
-              placeholder="Code eines Freundes eingeben..."
-              maxlength="6"
-            />
-            <button class="friend-add-btn" onclick="FriendsSystem.addFriendFromInput()">
-              ➕ Freund hinzufügen
-            </button>
-          </div>
-
-          <!-- Pending Requests -->
-          <div class="friend-requests-section">
-            <h4>📨 Eingehende Anfragen</h4>
-            <div id="receivedRequestsContainer"></div>
-          </div>
-
-          <div class="friend-requests-section">
-            <h4>📤 Gesendete Anfragen</h4>
-            <div id="sentRequestsContainer"></div>
-          </div>
-
-          <!-- Friends List -->
-          <div class="friends-list-section">
-            <h4>👥 Deine Freunde (${state.friends.length})</h4>
-            <div id="friendsListContainer"></div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-    const listTitle = overlay.querySelector('.friends-list-section h4');
-    if (listTitle) listTitle.id = 'friendsListTitle';
-
-    // Click außerhalb schließt
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) {
-        closeFriendsOverlay();
-      }
-    });
-
-    return overlay;
+    showFriendsOverlay();
+    return document.getElementById('friendsOverlay') || document.createElement('div');
   }
 
-  /**
-   * Rendert den Freundes-Code
-   */
   function renderFriendCode() {
     const display = document.getElementById('friendCodeDisplay');
-    if (display) {
-      display.textContent = state.userCode || '------';
-    }
+    if (display) display.textContent = state.userCode || '------';
   }
 
-  /**
-   * Kopiert Freundes-Code
-   */
   function copyFriendCode() {
     if (!state.userCode) return;
 
@@ -756,7 +717,6 @@ const FriendsSystem = (function() {
         showFriendToast('📋 Code kopiert!', 'success');
       });
     } else {
-      // Fallback
       const textarea = document.createElement('textarea');
       textarea.value = state.userCode;
       document.body.appendChild(textarea);
@@ -767,28 +727,20 @@ const FriendsSystem = (function() {
     }
   }
 
-  /**
-   * Fügt Freund aus Input hinzu
-   */
   async function addFriendFromInput() {
-    const input = document.getElementById('friendCodeInput');
+    const input = document.getElementById('friendCodeInput') || document.getElementById('fpFriendCodeInput');
     if (!input) return;
 
     const code = input.value.trim().toUpperCase();
     const success = await addFriendByCode(code);
-
-    if (success) {
-      input.value = '';
-    }
+    if (success) input.value = '';
   }
 
-  /**
-   * Zeigt Toast-Nachricht
-   */
   function showFriendToast(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `friend-toast friend-toast-${type}`;
     toast.textContent = message;
+    toast.style.cssText = toast.style.cssText || '';
 
     document.body.appendChild(toast);
 
@@ -799,35 +751,18 @@ const FriendsSystem = (function() {
     }, 3000);
   }
 
-  /**
-   * Hilfsfunktion: Avatar-Emoji für Freund
-   */
   function getFriendAvatar(username) {
     if (!username) return '👤';
     const firstChar = username.charAt(0).toUpperCase();
     const emojis = {
-      'A': '🎯', 'B': '🔫', 'C': '⭐', 'D': '🏆',
-      'E': '💫', 'F': '🎖️', 'G': '🥇', 'H': '🎪',
-      'I': '🎨', 'J': '🎭', 'K': '🎬', 'L': '🎤',
-      'M': '🎧', 'N': '🎸', 'O': '🎺', 'P': '🎻',
-      'Q': '🎹', 'R': '🎲', 'S': '🎳', 'T': '🎯',
-      'U': '🎮', 'V': '🎰', 'W': '🎱', 'X': '🎴',
+      'A': '🎯', 'B': '🔫', 'C': '⭐', 'D': '🏆', 'E': '💫', 'F': '🎖️', 'G': '🥇', 'H': '🎪',
+      'I': '🎨', 'J': '🎭', 'K': '🎬', 'L': '🎤', 'M': '🎧', 'N': '🎸', 'O': '🎺', 'P': '🎻',
+      'Q': '🎹', 'R': '🎲', 'S': '🎳', 'T': '🎯', 'U': '🎮', 'V': '🎰', 'W': '🎱', 'X': '🎴',
       'Y': '🎵', 'Z': '🎶',
     };
     return emojis[firstChar] || '👤';
   }
 
-  /**
-   * Hilfsfunktion: Status-Text
-   */
-  function getFriendStatusLegacy(friend) {
-    // Hier könnte Online-Status aus Firebase gelesen werden
-    return '⚫ Offline';
-  }
-
-  /**
-   * Hilfsfunktion: Zeit formatieren
-   */
   function getFriendStatus(friend) {
     const presence = state.onlineStatusByUserId[friend && friend.userId];
     if (!presence || typeof presence !== 'object') return 'Offline';
@@ -835,14 +770,8 @@ const FriendsSystem = (function() {
     const lastSeen = Number(presence.lastSeen) || 0;
     const isFresh = lastSeen > 0 && (Date.now() - lastSeen) < 120000;
 
-    if (presence.online && isFresh) {
-      return 'Online jetzt';
-    }
-
-    if (lastSeen > 0) {
-      return `Zuletzt aktiv: ${formatTime(lastSeen)}`;
-    }
-
+    if (presence.online && isFresh) return 'Online jetzt';
+    if (lastSeen > 0) return `Zuletzt aktiv: ${formatTime(lastSeen)}`;
     return 'Offline';
   }
 
@@ -859,21 +788,13 @@ const FriendsSystem = (function() {
     return `vor ${days} Tagen`;
   }
 
-  /**
-   * Hilfsfunktion: HTML escapen
-   */
   function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
   }
 
-  /**
-   * Fügt Freunde-Button zum Header hinzu
-   * Button ist jetzt direkt in index.html definiert
-   */
   function addFriendsButton() {
-    // Button ist bereits im HTML, nichts zu tun
     if (document.getElementById('friendsButton')) {
       console.log('✅ Freunde-Button vorhanden');
     } else {
@@ -881,9 +802,6 @@ const FriendsSystem = (function() {
     }
   }
 
-  /**
-   * Exportiert öffentliche Funktionen
-   */
   return {
     init,
     addFriendByCode,
@@ -896,26 +814,21 @@ const FriendsSystem = (function() {
     copyFriendCode,
     addFriendFromInput,
     addFriendsButton,
-    // State (readonly)
     getState: () => ({ ...state }),
   };
 })();
 
-// Initialisierung
 if (typeof window !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      FriendsSystem.init().then(() => {
-        FriendsSystem.addFriendsButton();
-        // Global verfügbar machen
-        window.FriendsSystem = FriendsSystem;
-      });
-    });
-  } else {
+  const exposeAndInit = () => {
+    window.FriendsSystem = FriendsSystem;
     FriendsSystem.init().then(() => {
       FriendsSystem.addFriendsButton();
-      // Global verfügbar machen
-      window.FriendsSystem = FriendsSystem;
     });
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', exposeAndInit);
+  } else {
+    exposeAndInit();
   }
 }

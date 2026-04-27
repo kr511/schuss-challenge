@@ -1,0 +1,16 @@
+# Schussduell – Lokale Entwicklungs-Secrets
+#
+# Diese Datei als .dev.vars kopieren und ausfüllen:
+#   cp .dev.vars.example .dev.vars
+#
+# .dev.vars wird von "wrangler dev" automatisch geladen.
+# NIEMALS .dev.vars committen (steht in .gitignore)!
+#
+# Werte findest du im Supabase Dashboard unter:
+#   Settings → API → service_role key (SUPABASE_SERVICE_KEY)
+#   Settings → API → JWT Secret (SUPABASE_JWT_SECRET)
+
+SUPABASE_SERVICE_KEY=HIER_DEN_SERVICE_ROLE_KEY_EINTRAGEN
+SUPABASE_JWT_SECRET=HIER_DEN_JWT_SECRET_EINTRAGEN
+ALLOW_INSECURE_DEV_AUTH=true
+ADMIN_USER_IDS=local-admin

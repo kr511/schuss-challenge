@@ -3,18 +3,21 @@ import {
   getAchievements,
   getAllFeedback,
   getSessionsByUser,
+  getUserSessionStats,
   getStreakState,
   saveGameSession,
   unlockAchievement,
   updateStreak,
   saveFeedback,
+  getFeedbackById,
   updateFeedbackStatus,
   updateProfile,
   getProfile,
   setActivity,
   getLiveActivity,
+  getLeaderboard,
 } from "./db";
-import type { D1Database, Env, Feedback, FeedbackStatus, GameMode } from "./types";
+import type { Env, Feedback, FeedbackStatus, GameMode } from "./types";
 
 type ApiErrorShape = {
   error: true;
@@ -24,6 +27,7 @@ type ApiErrorShape = {
 
 const modeSchema = z.enum(["standard", "challenge", "bot_fight", "timed"]);
 const periodSchema = z.enum(["daily", "weekly", "monthly", "all"]);
+type Period = z.infer<typeof periodSchema>;
 
 const sessionInputSchema = z.object({
   mode: modeSchema,
@@ -55,6 +59,17 @@ const feedbackPatchSchema = z.object({
   status: feedbackStatusSchema,
 });
 
+const profileInputSchema = z.object({
+  displayName: z.string().trim().min(1).max(80),
+  privacySettings: z.enum(["public", "private"]).default("private"),
+  bestStats: z.record(z.unknown()).nullable().optional(),
+});
+
+const activityInputSchema = z.object({
+  discipline: z.string().trim().min(1).max(80),
+  difficulty: z.string().trim().min(1).max(80),
+});
+
 // UUID v4 shape used by crypto.randomUUID()
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -75,16 +90,24 @@ class ApiHttpError extends Error {
   }
 }
 
-const ALLOWED_ORIGINS: readonly string[] = [
+const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
   "https://schuss-challenge.eliaskummel.workers.dev",
+  "https://kr511.github.io",
   "http://localhost:8787",
   "http://127.0.0.1:8787",
 ];
 
+function getAllowedOrigins(env: Env): Set<string> {
+  const configured = env.ALLOWED_ORIGINS_CSV?.split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0) ?? [];
+  return new Set([...DEFAULT_ALLOWED_ORIGINS, ...configured]);
+}
+
 function pickAllowedOrigin(request: Request, env: Env): string {
   const origin = request.headers.get("Origin");
   if (!origin) return "";
-  if (ALLOWED_ORIGINS.includes(origin)) return origin;
+  if (getAllowedOrigins(env).has(origin)) return origin;
   // Allow any localhost origin while dev auth is enabled so `wrangler dev`
   // works from arbitrary ports without config churn.
   if (env.ALLOW_INSECURE_DEV_AUTH === "true" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
@@ -148,15 +171,81 @@ function serviceUnavailableError(message: string): Response {
   return json(payload, 503);
 }
 
-function hasDatabase(env: Env): env is Env & { DB: D1Database } {
-  return !!env.DB;
+function hasSupabaseConfig(env: Env): boolean {
+  return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY);
 }
 
 function isLocalDevelopmentRequest(url: URL): boolean {
   return ["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname);
 }
 
-function getAuthenticatedUserId(request: Request, env: Env, url: URL): string | null {
+function base64UrlToBytes(value: string): Uint8Array {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
+async function verifySupabaseJwt(token: string, secret: string): Promise<string | null> {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+
+  const [headerPart, payloadPart, signaturePart] = parts;
+  let header: { alg?: string };
+  let payload: { sub?: string; exp?: number; nbf?: number };
+
+  try {
+    header = JSON.parse(new TextDecoder().decode(base64UrlToBytes(headerPart)));
+    payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadPart)));
+  } catch {
+    return null;
+  }
+
+  if (header.alg !== "HS256" || !payload.sub) return null;
+
+  let expectedSignature: Uint8Array;
+  let signature: Uint8Array;
+  try {
+    expectedSignature = base64UrlToBytes(signaturePart);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    signature = new Uint8Array(await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(`${headerPart}.${payloadPart}`),
+    ));
+  } catch {
+    return null;
+  }
+
+  if (!bytesEqual(signature, expectedSignature)) return null;
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (typeof payload.exp === "number" && payload.exp <= nowSeconds) return null;
+  if (typeof payload.nbf === "number" && payload.nbf > nowSeconds) return null;
+
+  return payload.sub;
+}
+
+async function getAuthenticatedUserId(request: Request, env: Env, url: URL): Promise<string | null> {
   const devUserId = request.headers.get("x-dev-user-id")?.trim() ?? "";
 
   if (
@@ -165,6 +254,13 @@ function getAuthenticatedUserId(request: Request, env: Env, url: URL): string | 
     && devUserId.length > 0
   ) {
     return devUserId;
+  }
+
+  const auth = request.headers.get("authorization") ?? "";
+  const match = /^Bearer\s+(.+)$/i.exec(auth);
+  const secret = env.SUPABASE_JWT_SECRET?.trim() ?? "";
+  if (match && secret) {
+    return verifySupabaseJwt(match[1], secret);
   }
 
   return null;
@@ -277,17 +373,12 @@ async function handleGetSessions(url: URL, env: Env, userId: string): Promise<Re
 }
 
 async function handleGetStats(env: Env, userId: string): Promise<Response> {
-  const agg = await env.DB.prepare(
-    "SELECT COUNT(*) AS total_games, COALESCE(MAX(score), 0) AS best_score FROM game_sessions WHERE user_id = ?",
-  )
-    .bind(userId)
-    .first<{ total_games: number | string; best_score: number | string }>();
-
+  const stats = await getUserSessionStats(env, userId);
   const streak = await getStreakState(env, userId);
 
   return json({
-    totalGames: Number(agg?.total_games ?? 0),
-    bestScore: Number(agg?.best_score ?? 0),
+    totalGames: stats.totalGames,
+    bestScore: stats.bestScore,
     currentStreak: streak.current,
     longestStreak: streak.longest,
   });
@@ -305,46 +396,11 @@ async function handleGetAchievements(env: Env, userId: string): Promise<Response
 }
 
 async function handleGetLeaderboard(url: URL, env: Env): Promise<Response> {
-  const { mode, period } = parseQuery(url, leaderboardQuerySchema);
+  const query = parseQuery(url, leaderboardQuerySchema);
+  const mode: GameMode = query.mode ?? "standard";
+  const period: Period = query.period ?? "weekly";
   const start = getPeriodStartMillis(period);
-  const whereClauses = ["gs.mode = ?"];
-  const bindings: unknown[] = [mode];
-
-  if (start !== null) {
-    whereClauses.push("gs.played_at >= ?");
-    bindings.push(start);
-  }
-
-  const sql = [
-    "SELECT",
-    "  gs.user_id AS user_id,",
-    "  COALESCE(u.display_name, gs.user_id) AS display_name,",
-    "  MAX(gs.score) AS best_score,",
-    "  COUNT(*) AS games_played",
-    "FROM game_sessions gs",
-    "LEFT JOIN users u ON u.id = gs.user_id",
-    `WHERE ${whereClauses.join(" AND ")}`,
-    "GROUP BY gs.user_id, u.display_name",
-    "ORDER BY best_score DESC, games_played DESC",
-    "LIMIT 20",
-  ].join(" ");
-
-  const result = await env.DB.prepare(sql)
-    .bind(...bindings)
-    .all<{
-      user_id: string;
-      display_name: string;
-      best_score: number | string;
-      games_played: number | string;
-    }>();
-
-  const leaderboard = result.results.map((row, idx) => ({
-    rank: idx + 1,
-    userId: row.user_id,
-    displayName: row.display_name,
-    bestScore: Number(row.best_score),
-    gamesPlayed: Number(row.games_played),
-  }));
+  const leaderboard = await getLeaderboard(env, mode, start);
 
   return json({
     mode,
@@ -365,8 +421,6 @@ async function handlePostFeedback(request: Request, env: Env): Promise<Response>
     payload.message,
   );
 
-  // Feedback saved successfully
-  await updateFeedbackStatus(env, feedbackId, "pending");
   return json({
     ok: true,
     feedbackId,
@@ -390,11 +444,9 @@ async function handlePatchFeedback(request: Request, env: Env, feedbackId: strin
   const payload = await parseJson(request, feedbackPatchSchema);
   const status: FeedbackStatus = payload.status;
 
-  const existing = await env.DB.prepare(
-    "SELECT id FROM feedback WHERE id = ? LIMIT 1",
-  ).bind(feedbackId).first<{ id: string }>();
+  const existing = await getFeedbackById(env, feedbackId);
 
-  if (!existing?.id) {
+  if (!existing) {
     throw new ApiHttpError(404, "NOT_FOUND", "Feedback not found");
   }
 
@@ -415,13 +467,14 @@ async function handleGetProfile(url: URL, env: Env): Promise<Response> {
 }
 
 async function handlePostProfile(request: Request, env: Env, userId: string): Promise<Response> {
-  const payload = await request.json();
-  await updateProfile(env, userId, payload.displayName, payload.privacySettings, payload.bestStats);
+  const payload = await parseJson(request, profileInputSchema);
+  const bestStats = payload.bestStats == null ? null : JSON.stringify(payload.bestStats);
+  await updateProfile(env, userId, payload.displayName, payload.privacySettings, bestStats);
   return json({ ok: true });
 }
 
 async function handleSetActivity(request: Request, env: Env, userId: string): Promise<Response> {
-  const payload = await request.json();
+  const payload = await parseJson(request, activityInputSchema);
   await setActivity(env, userId, payload.discipline, payload.difficulty, 'active');
   return json({ ok: true });
 }
@@ -450,8 +503,8 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
   const path = url.pathname;
 
   try {
-    if (!hasDatabase(env)) {
-      return withCors(serviceUnavailableError('D1 binding "DB" is not configured for this worker'), origin);
+    if (!hasSupabaseConfig(env)) {
+      return withCors(serviceUnavailableError("Supabase configuration is incomplete for this worker"), origin);
     }
 
     if (path === "/api/leaderboard" && request.method === "GET") {
@@ -473,7 +526,7 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       return withCors(await handleGetProfile(url, env), origin);
     }
 
-    const userId = getAuthenticatedUserId(request, env, url);
+    const userId = await getAuthenticatedUserId(request, env, url);
     if (!userId) {
       return withCors(
         authError(

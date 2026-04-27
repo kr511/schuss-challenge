@@ -30,17 +30,6 @@ export interface StreakState {
   lastPlayedDate: string | null;
 }
 
-export interface D1PreparedStatement {
-  bind(...values: unknown[]): D1PreparedStatement;
-  first<T = Record<string, unknown>>(): Promise<T | null>;
-  run(): Promise<unknown>;
-  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
-}
-
-export interface D1Database {
-  prepare(query: string): D1PreparedStatement;
-}
-
 export type FeedbackType = 'bug' | 'feature_request' | 'general';
 export type FeedbackStatus = 'pending' | 'sent' | 'failed' | 'done' | 'archived';
 
@@ -56,8 +45,11 @@ export interface Feedback {
 }
 
 export interface Env {
-  DB?: D1Database;
+  SUPABASE_URL?: string;
+  SUPABASE_SERVICE_KEY?: string;
+  SUPABASE_JWT_SECRET?: string;
   ALLOW_INSECURE_DEV_AUTH?: string;
+  ALLOWED_ORIGINS_CSV?: string;
   SENDGRID_API_KEY?: string;
   ADMIN_EMAIL?: string;
   /** Comma-separated list of user IDs that are allowed to hit /api/admin/* routes. */

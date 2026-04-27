@@ -56,8 +56,9 @@ const ProfileView = (function () {
   async function renderLiveTicker() {
     const mount = document.getElementById('live-ticker-mount');
     try {
-      const response = await fetch('/api/activity/live');
-      const data = await response.json();
+      const data = window.SchussApi && typeof window.SchussApi.fetch === 'function'
+        ? await window.SchussApi.fetch('/api/activity/live')
+        : await fetch('/api/activity/live').then(response => response.json());
       
       if (!data.activity || data.activity.length === 0) {
         mount.innerHTML = '<p>Momentan keine Schützen online.</p>';

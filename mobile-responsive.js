@@ -54,7 +54,7 @@
         }
         // Padding erhöhen
         const currentPadding = window.getComputedStyle(btn).padding;
-        if (parseInt(currentPadding) < 12) {
+        if (parseInt(currentPadding, 10) < 12) {
           btn.style.padding = '12px 16px';
         }
       });
@@ -106,6 +106,10 @@
         this.state.isSwiping = false;
       }, { passive: true });
 
+      body.addEventListener('touchcancel', () => {
+        this.state.isSwiping = false;
+      }, { passive: true });
+
       console.log('✅ Swipe-Gesten eingerichtet');
     },
 
@@ -118,10 +122,13 @@
         return;
       }
       
-      const profileIcon = document.getElementById('profileIcon');
-      if (profileIcon) {
+      const profileTrigger = document.getElementById('pdProfileBtn') || document.getElementById('profileIcon');
+      if (profileTrigger) {
+        const style = window.getComputedStyle(profileTrigger);
+        if (style.visibility === 'hidden' || style.display === 'none' || style.pointerEvents === 'none') return;
+
         console.log('⬅️ Swipe Left -> Profil öffnen');
-        profileIcon.click();
+        profileTrigger.click();
         this.triggerHaptic('light');
       }
     },
@@ -135,10 +142,18 @@
         return;
       }
       
-      const duelSetupBtn = document.querySelector('.btn-fire') || document.querySelector('[onclick*="startBattle"]');
+      const duelSetupBtn = document.getElementById('btnOpenDuelSetup') ||
+        document.querySelector('[onclick*="openDuelSetup"]') ||
+        document.querySelector('.btn-fire') ||
+        document.querySelector('[onclick*="startBattle"]');
+
       if (duelSetupBtn) {
         console.log('➡️ Swipe Right -> Duell öffnen');
         duelSetupBtn.click();
+        this.triggerHaptic('light');
+      } else if (typeof window.openDuelSetup === 'function') {
+        console.log('➡️ Swipe Right -> Duell öffnen (Fallback-Funktion)');
+        window.openDuelSetup();
         this.triggerHaptic('light');
       }
     },
@@ -175,10 +190,26 @@
       let currentY = 0;
       let isDragging = false;
 
+      const getHandle = () => sheet.querySelector('.profile-sheet-handle, .sheet-handle, .pull-down-indicator') ||
+        sheet.firstElementChild;
+
+      const closeSheet = () => {
+        const overlay = sheet.closest('[id$="Overlay"]') || document.getElementById('duelSetupSheetOverlay');
+        sheet.classList.remove('active');
+        sheet.style.transform = '';
+        sheet.style.bottom = '';
+        if (overlay) {
+          overlay.style.opacity = '0';
+          overlay.style.display = 'none';
+        }
+        document.body.style.overflow = '';
+      };
+
       sheet.addEventListener('touchstart', (e) => {
         // Nur wenn am Handle gezogen wird
-        const handle = sheet.querySelector('.profile-sheet-handle, .sheet-handle');
-        if (handle && e.target.closest('.profile-sheet-handle, .sheet-handle')) {
+        const handle = getHandle();
+        const validHandle = handle && (e.target === handle || handle.contains(e.target));
+        if (validHandle) {
           startY = e.touches[0].clientY;
           isDragging = true;
           sheet.style.transition = 'none';
@@ -201,22 +232,26 @@
         
         const transform = sheet.style.transform;
         const match = transform.match(/translateY\((\d+)px\)/);
-        const draggedDistance = match ? parseInt(match[1]) : 0;
+        const draggedDistance = match ? parseInt(match[1], 10) : 0;
         
         sheet.style.transition = 'transform 0.3s ease';
         
         if (draggedDistance > 100) {
           // Sheet schließen
           sheet.style.transform = 'translateY(100%)';
-          setTimeout(() => {
-            sheet.classList.remove('active');
-            sheet.style.transform = '';
-          }, 300);
+          setTimeout(closeSheet, 300);
         } else {
           // Zurücksetzen
           sheet.style.transform = '';
         }
         
+        isDragging = false;
+      }, { passive: true });
+
+      sheet.addEventListener('touchcancel', () => {
+        if (!isDragging) return;
+        sheet.style.transform = '';
+        sheet.style.transition = 'transform 0.3s ease';
         isDragging = false;
       }, { passive: true });
     },
@@ -331,7 +366,7 @@
       const statsGrids = document.querySelectorAll('.ps-stats-grid, .sun-grid');
       statsGrids.forEach(grid => {
         const updateColumns = () => {
-          const width = grid.parentElement.clientWidth;
+          const width = grid.parentElement?.clientWidth || grid.clientWidth || window.innerWidth;
           if (width < 320) {
             grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
           } else if (width < 480) {
@@ -357,16 +392,37 @@
         'button, .btn-fire, .ps-tab, .sun-card, [onclick]'
       );
 
+      const resetTouchFeedback = (el) => {
+        el.style.opacity = el.dataset.mobileResponsivePrevOpacity || '';
+        el.style.transform = el.dataset.mobileResponsivePrevTransform || '';
+        delete el.dataset.mobileResponsivePrevOpacity;
+        delete el.dataset.mobileResponsivePrevTransform;
+        delete el.dataset.mobileResponsiveTouchActive;
+      };
+
       interactiveElements.forEach(el => {
         el.addEventListener('touchstart', () => {
+          if (el.dataset.mobileResponsiveTouchActive === '1') return;
+
+          const previousOpacity = el.style.opacity || '';
+          const previousTransform = el.style.transform || '';
+          el.dataset.mobileResponsivePrevOpacity = previousOpacity;
+          el.dataset.mobileResponsivePrevTransform = previousTransform;
+          el.dataset.mobileResponsiveTouchActive = '1';
+
           el.style.opacity = '0.7';
-          el.style.transform = 'scale(0.98)';
+          el.style.transform = previousTransform
+            ? `${previousTransform} scale(0.98)`
+            : 'scale(0.98)';
         }, { passive: true });
 
         el.addEventListener('touchend', () => {
-          el.style.opacity = '1';
-          el.style.transform = '';
+          resetTouchFeedback(el);
           this.triggerHaptic('light');
+        }, { passive: true });
+
+        el.addEventListener('touchcancel', () => {
+          resetTouchFeedback(el);
         }, { passive: true });
       });
 
