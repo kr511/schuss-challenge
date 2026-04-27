@@ -1,82 +1,96 @@
 /**
- * Supabase Auth-Client für die Frontend-Integration.
- * In index.html einbinden wenn User-scoped API-Calls (Sessions, Achievements,
- * Streaks) aktiviert werden sollen.
+ * Supabase Auth facade.
  *
- * Einbinden: <script src="supabase-client.js?v=1.0"></script>
+ * auth-gate.js owns sign-in, PKCE callback handling, and local-play mode.
+ * This file only exposes a small compatibility wrapper for code that still
+ * reads window.SupabaseAuth.
  */
 (function () {
-  const SUPABASE_URL  = 'https://fknftkvozwfkcarldzms.supabase.co';
+  const SUPABASE_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0.pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg';
 
-  let _session = null;
+  let fallbackClient = null;
+  let session = window.SupabaseSession || null;
 
-  async function init() {
-    if (typeof window.supabase === 'undefined') {
-      console.warn('[SupabaseClient] supabase-js nicht geladen');
-      return;
-    }
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-
-    // Bestehende Session prüfen
-    const { data } = await client.auth.getSession();
-    _session = data.session;
-
-    // Anonym einloggen wenn keine Session
-    if (!_session) {
-      const { data: anon } = await client.auth.signInAnonymously();
-      _session = anon.session;
+  function getClient() {
+    if (window.SupabaseClient) return window.SupabaseClient;
+    if (fallbackClient) return fallbackClient;
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+      console.warn('[SupabaseAuth] supabase-js nicht geladen');
+      return null;
     }
 
-    // Session-Updates verfolgen
-    client.auth.onAuthStateChange((_event, session) => {
-      _session = session;
+    fallbackClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        flowType: 'pkce',
+      },
     });
 
-    window.SupabaseAuth = {
-      client,
-      getSession: () => _session,
-      getToken:   () => _session?.access_token ?? null,
+    fallbackClient.auth.onAuthStateChange((_event, nextSession) => {
+      session = nextSession;
+      if (!window.SupabaseSession) window.SupabaseSession = nextSession;
+      window.dispatchEvent(new CustomEvent('supabaseReady', { detail: { session } }));
+    });
 
-      /** Fügt Authorization-Header zu fetch-Optionen hinzu */
-      authHeaders() {
-        const token = this.getToken();
-        return token ? { Authorization: `Bearer ${token}` } : {};
-      },
-
-      /** Wrapper um fetch der automatisch den Bearer-Token anhängt */
-      async apiFetch(path, opts = {}) {
-        const token = this.getToken();
-        const headers = {
-          'Content-Type': 'application/json',
-          ...(opts.headers || {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        };
-        return fetch(path, { ...opts, headers });
-      },
-
-      /** Google Sign-In (ersetzt Firebase Google Auth) */
-      async signInWithGoogle() {
-        return client.auth.signInWithOAuth({
-          provider: 'google',
-          options: { redirectTo: window.location.origin },
-        });
-      },
-
-      async signOut() {
-        await client.auth.signOut();
-        _session = null;
-      },
-    };
-
-    console.log('[SupabaseAuth] bereit, User:', _session?.user?.id?.slice(0, 8) + '…');
-    window.dispatchEvent(new CustomEvent('supabaseReady', { detail: { session: _session } }));
+    return fallbackClient;
   }
 
-  // Warten bis supabase-js geladen ist
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  function setSession(nextSession) {
+    session = nextSession || null;
+    window.dispatchEvent(new CustomEvent('supabaseReady', { detail: { session } }));
   }
+
+  window.SupabaseAuth = {
+    get client() {
+      return getClient();
+    },
+
+    getSession() {
+      return window.SupabaseSession || session;
+    },
+
+    getToken() {
+      return this.getSession()?.access_token ?? null;
+    },
+
+    authHeaders() {
+      const token = this.getToken();
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    },
+
+    async apiFetch(path, opts = {}) {
+      const token = this.getToken();
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(opts.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      return fetch(path, { ...opts, headers });
+    },
+
+    async signInWithGoogle() {
+      const client = getClient();
+      if (!client) throw new Error('Supabase konnte nicht geladen werden.');
+      return client.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + window.location.pathname },
+      });
+    },
+
+    async signOut() {
+      const client = getClient();
+      if (client) await client.auth.signOut();
+      session = null;
+      window.SupabaseSession = null;
+    },
+  };
+
+  window.addEventListener('supabaseAuthReady', (event) => {
+    setSession(event.detail && event.detail.session);
+  });
+
+  if (window.SupabaseSession) setSession(window.SupabaseSession);
 })();

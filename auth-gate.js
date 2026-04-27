@@ -228,7 +228,8 @@
   window.__agLocal = function () { enterLocalMode(true); };
 
   window.__agSubmit = async function () {
-    if (busy || !client) return;
+    if (busy) return;
+    if (!client) { showError('Anmeldung lädt noch. Bitte kurz warten oder lokal spielen.'); return; }
     var email = String(($('agEmail') && $('agEmail').value) || '').trim();
     var password = String(($('agPassword') && $('agPassword').value) || '');
     if (!email || !password) { showError('Bitte E-Mail und Passwort eingeben.'); return; }
@@ -252,7 +253,8 @@
   };
 
   window.__agGoogle = async function () {
-    if (busy || !client) return;
+    if (busy) return;
+    if (!client) { showError('Google-Anmeldung lädt noch. Bitte kurz warten oder lokal spielen.'); return; }
     setBusy(true);
     showInfo('Weiterleitung zu Google…');
     try {
@@ -284,11 +286,13 @@
         });
         var session = await Promise.race([
           getSession(),
-          new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 5000); })
+          new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 1200); })
         ]);
         if (session) { onAuthenticated(session, false); }
       } catch (err) {
         console.warn('[AuthGate] Session-Check fehlgeschlagen:', err);
+        showError(friendlyAuthError(err));
+        setBusy(false);
       }
     })();
   }
