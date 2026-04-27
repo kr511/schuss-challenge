@@ -15,6 +15,7 @@
   var busy = false;
   var mode = 'signin';
   var finishing = false;
+  var PKCE_RECOVERY_MESSAGE = 'Google-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut anmelden oder lokal spielen.';
 
   function hasLocalMode() {
     return LOCAL_KEYS.some(function (key) {
@@ -101,6 +102,31 @@
     if (error) error.style.display = 'none';
   }
 
+  function getErrorMessage(err) {
+    if (!err) return '';
+    if (typeof err === 'string') return err;
+    return String(err.message || err.error_description || err.error || err);
+  }
+
+  function isPkceVerifierError(err) {
+    var msg = getErrorMessage(err).toLowerCase();
+    return msg.indexOf('code verifier') !== -1 || msg.indexOf('pkce') !== -1;
+  }
+
+  function createPkceRecoveryError(original) {
+    if (original && original.recoverablePkce) return original;
+    var err = new Error(PKCE_RECOVERY_MESSAGE);
+    err.recoverablePkce = true;
+    err.originalError = original;
+    return err;
+  }
+
+  function friendlyAuthError(err, fallback) {
+    if (err && err.recoverablePkce) return PKCE_RECOVERY_MESSAGE;
+    if (isPkceVerifierError(err)) return PKCE_RECOVERY_MESSAGE;
+    return getErrorMessage(err) || fallback || 'Anmeldung konnte nicht geladen werden. Du kannst lokal spielen.';
+  }
+
   function setBusy(value) {
     busy = !!value;
     ['agSubmit', 'agGoogle', 'agLocal'].forEach(function (id) { var n = $(id); if (n) n.disabled = busy && id !== 'agLocal'; });
@@ -170,10 +196,19 @@
     var p = getOAuthParams();
     if (p.error) { cleanUrl(); throw new Error(decodeURIComponent(String(p.errorDescription || p.error).replace(/\+/g, ' '))); }
     if (p.code && client.auth.exchangeCodeForSession) {
-      var res = await client.auth.exchangeCodeForSession(p.code);
-      cleanUrl();
-      if (res.error) throw res.error;
-      return (res.data && res.data.session) || await getSession();
+      try {
+        var res = await client.auth.exchangeCodeForSession(p.code);
+        cleanUrl();
+        if (res.error) {
+          if (isPkceVerifierError(res.error)) throw createPkceRecoveryError(res.error);
+          throw res.error;
+        }
+        return (res.data && res.data.session) || await getSession();
+      } catch (err) {
+        cleanUrl();
+        if (isPkceVerifierError(err)) throw createPkceRecoveryError(err);
+        throw err;
+      }
     }
     return null;
   }
@@ -224,7 +259,7 @@
       var res = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: appUrl(), queryParams: { prompt: 'select_account' } } });
       if (res.error) throw res.error;
     } catch (err) {
-      showError((err && err.message) || 'Google-Anmeldung fehlgeschlagen.');
+      showError(friendlyAuthError(err, 'Google-Anmeldung fehlgeschlagen.'));
       setBusy(false);
     }
   };
@@ -233,37 +268,29 @@
     if (hasLocalMode()) { enterLocalMode(false); return; }
     injectStyles();
     createGate();
-    setBusy(true);
 
-    // Safety-net: nach 8 Sekunden Login-Formular erzwingen falls alles hängt
-    var safetyTimer = setTimeout(function () {
-      safetyTimer = null;
-      showForm();
-      showError('Verbindung zu langsam. Bitte mit E-Mail anmelden oder lokal spielen.');
-    }, 8000);
+    // Formular sofort anzeigen — kein blockierender Spinner
+    showForm();
 
-    try {
-      await waitForSupabase(6000);
-      client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
-      var oauthSession = await handleOAuthCallback();
-      if (oauthSession) { if (safetyTimer) clearTimeout(safetyTimer); onAuthenticated(oauthSession, true); return; }
-      client.auth.onAuthStateChange(function (event, session) {
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) onAuthenticated(session, false);
-      });
-      var session = await Promise.race([
-        getSession(),
-        new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 5000); })
-      ]);
-      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
-      if (session) { onAuthenticated(session, false); return; }
-      showForm();
-    } catch (err) {
-      if (safetyTimer) { clearTimeout(safetyTimer); safetyTimer = null; }
-      console.warn('[AuthGate] Boot failed:', err);
-      showForm();
-      showError((err && err.message) || 'Anmeldung konnte nicht geladen werden. Du kannst lokal spielen.');
-      setBusy(false);
-    }
+    // Session im Hintergrund prüfen (kein await der die UI blockiert)
+    (async function checkSession() {
+      try {
+        await waitForSupabase(6000);
+        client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' } });
+        var oauthSession = await handleOAuthCallback();
+        if (oauthSession) { onAuthenticated(oauthSession, true); return; }
+        client.auth.onAuthStateChange(function (event, session) {
+          if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) onAuthenticated(session, false);
+        });
+        var session = await Promise.race([
+          getSession(),
+          new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 5000); })
+        ]);
+        if (session) { onAuthenticated(session, false); }
+      } catch (err) {
+        console.warn('[AuthGate] Session-Check fehlgeschlagen:', err);
+      }
+    })();
   }
 
   ready(init);
