@@ -33,8 +33,6 @@
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <!-- Google Sign-In Provider -->
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js" data-provider="google"></script>
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
   <!-- Chart.js -->
@@ -57,7 +55,7 @@
 
   <!-- HAUPT-APP (MUSS VOR ALLEN ABHÄNGIGEN MODulen LADEN) -->
   <script type="module" src="src/main.js?v=1.0"></script>
-  <script src="app.js?v=3.5" defer></script>
+  <script src="app.js?v=3.6" defer></script>
   
   <!-- ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile -->
   <script src="src/game/daily-challenge.js?v=3.4" defer></script>
@@ -68,16 +66,16 @@
   <script src="src/game/training-modes.js?v=3.0" defer></script>
   <script src="mobile-features.js?v=3.1" defer></script>
   <script src="mobile-responsive.js?v=1.0" defer></script>
-  <script src="supabase-social.js?v=1.1" defer></script>
+  <script src="supabase-social.js?v=1.2" defer></script>
   <script src="backend-sync.js?v=1.0" defer></script>
-  <script src="friends.js?v=1.0" defer></script>
-  <script src="src/features/async-challenge.js?v=1.0" defer></script>
+  <script src="friends.js?v=1.1" defer></script>
+  <script src="src/features/async-challenge.js?v=1.1" defer></script>
   <script src="updates.js?v=1.0" defer></script>
   <link rel="stylesheet" href="styles.css?v=3.1">
   <link rel="stylesheet" href="modern-animations.css?v=1.0">
   <script src="modern-ux.js?v=1.0" defer></script>
   <script src="reward-system.js?v=1.0" defer></script>
-  <script src="performance-config.js"></script>
+  <script src="performance-config.js?v=1.1"></script>
   <script src="src/bot/battle-balance.js" defer></script>
   <script src="src/testing/qa-test-suite.js" defer></script>
 </head>
@@ -477,6 +475,7 @@
           <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
           <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
           <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
+          <div class="ps-tab" data-tab="settings" onclick="switchProfileTab('settings')">⚙️ Einstellungen</div>
         </div>
 
         <!-- Body -->
@@ -576,138 +575,10 @@
               </div>
             </div>
 
-            <!-- Profil bearbeiten -->
-            <div class="card" style="margin-top:16px;padding:14px;">
-              <div class="card-hd" style="margin-bottom:10px;">✏️ Profil bearbeiten</div>
-              <div style="display:flex;flex-direction:column;gap:10px;">
-                <!-- Name ändern -->
-                <div style="display:flex;gap:8px;align-items:center;">
-                  <span style="font-size:0.8rem;color:rgba(255,255,255,0.6);min-width:60px;">Name:</span>
-                  <input type="text" id="profileNameInput" class="score-inp" style="flex:1;padding:8px 12px;font-size:0.8rem;border-radius:8px;" placeholder="Dein Name..." maxlength="15">
-                  <button class="btn-sec" style="font-size:0.7rem;padding:6px 12px;white-space:nowrap;" onclick="changeProfileName()">Speichern</button>
-                </div>
-                <!-- Avatar Emoji -->
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                  <span style="font-size:0.8rem;color:rgba(255,255,255,0.6);min-width:60px;">Avatar:</span>
-                  <div id="avatarPicker" style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <span class="avatar-option" data-avatar="🎯" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎯</span>
-                    <span class="avatar-option" data-avatar="🔫" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🔫</span>
-                    <span class="avatar-option" data-avatar="⭐" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">⭐</span>
-                    <span class="avatar-option" data-avatar="🏆" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🏆</span>
-                    <span class="avatar-option" data-avatar="💫" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">💫</span>
-                    <span class="avatar-option" data-avatar="🔥" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🔥</span>
-                    <span class="avatar-option" data-avatar="🎮" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎮</span>
-                    <span class="avatar-option" data-avatar="🦅" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🦅</span>
-                    <span class="avatar-option" data-avatar="🐺" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🐺</span>
-                    <span class="avatar-option" data-avatar="🎖️" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎖️</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Einstellungen -->
-            <div style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-              <button class="btn-sec" id="soundToggleBtn" style="font-size:0.6rem;"
-                onclick="toggleSoundSetting(this)">🔊 &nbsp;Sound: AN</button>
-              <button class="btn-sec" style="font-size:0.6rem;"
-                onclick="if(typeof Tutorial!=='undefined'){Tutorial.reset();Tutorial.start();}">🎓
-                &nbsp;Tutorial</button>
-            </div>
-
-            <!-- Konto-Sync -->
-            <div class="card" style="margin-top:16px;padding:14px;">
-              <div class="card-hd" style="margin-bottom:10px;">☁️ Konto & Login</div>
-
-              <!-- Angemeldeter User Info (nach Login sichtbar) -->
-              <div id="emailAuthContainer" style="display:none;margin-bottom:14px;">
-                <div style="padding:12px;background:rgba(122,176,48,0.1);border:1px solid rgba(122,176,48,0.2);border-radius:12px;">
-                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-                    <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;color:#000;" id="authUserAvatar">A</div>
-                    <div style="flex:1;">
-                      <div style="font-size:0.85rem;font-weight:600;color:#fff;" id="authUserName">–</div>
-                      <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);" id="authUserEmail">–</div>
-                    </div>
-                    <div style="font-size:1.2rem;" title="Angemeldet">✅</div>
-                  </div>
-                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <button class="btn-sec" style="font-size:0.65rem;flex:1;padding:8px;" onclick="logoutEmail()">🚪 Abmelden</button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Login/Register Formular (vor Login sichtbar) -->
-              <div id="authFormContainer" style="margin-bottom:14px;">
-                <!-- Tab Switcher -->
-                <div style="display:flex;gap:4px;margin-bottom:12px;background:rgba(255,255,255,0.05);padding:4px;border-radius:10px;">
-                  <button id="authTabLogin" class="auth-tab-btn" style="flex:1;padding:8px;border:none;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:600;font-size:0.75rem;border-radius:8px;cursor:pointer;" onclick="switchAuthTab('login')">Anmelden</button>
-                  <button id="authTabRegister" class="auth-tab-btn" style="flex:1;padding:8px;border:none;background:transparent;color:rgba(255,255,255,0.5);font-weight:600;font-size:0.75rem;border-radius:8px;cursor:pointer;" onclick="switchAuthTab('register')">Registrieren</button>
-                </div>
-
-                <!-- Auth Message -->
-                <div id="authMessage" style="display:none;padding:8px 10px;border-radius:8px;font-size:0.7rem;margin-bottom:10px;"></div>
-
-                <!-- Login Form -->
-                <div id="authLoginForm" style="display:flex;flex-direction:column;gap:8px;">
-                  <input type="email" id="authLoginEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
-                  <input type="password" id="authLoginPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort" autocomplete="current-password">
-                  <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthLogin()" id="authLoginBtn">🚀 Anmelden</button>
-                </div>
-
-                <!-- Register Form -->
-                <div id="authRegisterForm" style="display:none;flex-direction:column;gap:8px;">
-                  <input type="email" id="authRegisterEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
-                  <input type="password" id="authRegisterPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="new-password">
-                  <input type="password" id="authRegisterPasswordConfirm" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort bestätigen" autocomplete="new-password">
-                  <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthRegister()" id="authRegisterBtn">✨ Konto erstellen</button>
-                </div>
-              </div>
-
-              <!-- Divider -->
-              <div style="display:flex;align-items:center;margin:12px 0;color:rgba(255,255,255,0.3);font-size:0.7rem;">
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
-                <div style="padding:0 10px;">oder</div>
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
-              </div>
-
-              <!-- Google Login Bereich -->
-              <div id="googleLoginSection" style="margin-bottom:14px;">
-                <div id="googleLoginInfo" style="display:none;margin-bottom:10px;padding:10px;background:rgba(122,176,48,0.1);border:1px solid rgba(122,176,48,0.2);border-radius:10px;">
-                  <div style="display:flex;align-items:center;gap:10px;">
-                    <img id="googleAvatar" src="" alt="" style="width:36px;height:36px;border-radius:50%;display:none;">
-                    <div style="flex:1;">
-                      <div style="font-size:0.8rem;font-weight:600;color:#fff;" id="googleUserName">–</div>
-                      <div style="font-size:0.65rem;color:rgba(255,255,255,0.5);" id="googleUserEmail">–</div>
-                    </div>
-                  </div>
-                </div>
-                <button id="googleLoginBtn" class="btn-sec" style="font-size:0.7rem;width:100%;padding:10px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="signInWithGoogle()">
-                  <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
-                  Mit Google anmelden
-                </button>
-                <button id="googleLogoutBtn" class="btn-sec" style="font-size:0.7rem;width:100%;padding:10px;display:none;" onclick="signOutGoogle()">
-                  🚪 Abmelden
-                </button>
-              </div>
-
-              <!-- Sync-Code Bereich -->
-              <div id="accountSyncStatus" style="font-size:.75rem;color:rgba(255,255,255,.72);margin-bottom:12px;line-height:1.4;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                  <span id="syncStatusIcon" style="font-size:1.2rem;">⏳</span>
-                  <span id="syncStatusText">Verbindung wird hergestellt...</span>
-                </div>
-              </div>
-              <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-                <button class="btn-sec" style="font-size:0.65rem;" onclick="showAccountSyncCode()">🔗 Sync-Code erzeugen</button>
-                <button class="btn-sec" style="font-size:0.65rem;" onclick="connectDeviceWithLinkCode()">📲 Gerät verbinden</button>
-                <button class="btn-sec" style="font-size:0.65rem;" onclick="forceCloudSync()">🔄 Jetzt synchronisieren</button>
-              </div>
-            </div>
-
-            <!-- Reset Button -->
-            <div style="margin-top:12px; text-align:center; padding-bottom:10px;">
-              <button class="btn-sec"
-                style="font-size:0.55rem; color:rgba(240,110,110,0.5); border-color:rgba(240,110,110,0.15);"
-                onclick="hardResetProgress()">✕ &nbsp;Alle Daten (Fortschritt & Erfolge) löschen</button>
+            <div class="card" style="margin-top:16px;padding:14px;text-align:center;">
+              <div class="card-hd" style="margin-bottom:10px;">⚙️ Einstellungen</div>
+              <div style="font-size:0.75rem;color:rgba(255,255,255,0.65);margin-bottom:12px;">Profil, Sound, Konto & Sync findest du jetzt im eigenen Tab.</div>
+              <button class="btn-sec" style="font-size:0.7rem;" onclick="switchProfileTab('settings')">Zum Einstellungsbereich</button>
             </div>
           </div>
 
@@ -753,6 +624,105 @@
           <div class="ps-panel" id="psPanel-debug" style="display:none;">
             <div id="psDebugMount">
               <div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>
+            </div>
+          </div>
+
+          <!-- ── SETTINGS PANEL ── -->
+          <div class="ps-panel" id="psPanel-settings">
+            <!-- Profil bearbeiten -->
+            <div class="card" style="margin-top:16px;padding:14px;">
+              <div class="card-hd" style="margin-bottom:10px;">✏️ Profil bearbeiten</div>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <span style="font-size:0.8rem;color:rgba(255,255,255,0.6);min-width:60px;">Name:</span>
+                  <input type="text" id="profileNameInput" class="score-inp" style="flex:1;padding:8px 12px;font-size:0.8rem;border-radius:8px;" placeholder="Dein Name..." maxlength="15">
+                  <button class="btn-sec" style="font-size:0.7rem;padding:6px 12px;white-space:nowrap;" onclick="changeProfileName()">Speichern</button>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <span style="font-size:0.8rem;color:rgba(255,255,255,0.6);min-width:60px;">Avatar:</span>
+                  <div id="avatarPicker" style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <span class="avatar-option" data-avatar="🎯" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎯</span>
+                    <span class="avatar-option" data-avatar="🔫" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🔫</span>
+                    <span class="avatar-option" data-avatar="⭐" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">⭐</span>
+                    <span class="avatar-option" data-avatar="🏆" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🏆</span>
+                    <span class="avatar-option" data-avatar="💫" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">💫</span>
+                    <span class="avatar-option" data-avatar="🔥" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🔥</span>
+                    <span class="avatar-option" data-avatar="🎮" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎮</span>
+                    <span class="avatar-option" data-avatar="🦅" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🦅</span>
+                    <span class="avatar-option" data-avatar="🐺" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🐺</span>
+                    <span class="avatar-option" data-avatar="🎖️" style="font-size:1.5rem;cursor:pointer;padding:4px 8px;border-radius:8px;border:2px solid transparent;transition:all 0.2s;">🎖️</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+              <button class="btn-sec" id="soundToggleBtn" style="font-size:0.6rem;" onclick="toggleSoundSetting(this)">🔊 &nbsp;Sound: AN</button>
+              <button class="btn-sec" style="font-size:0.6rem;" onclick="if(typeof Tutorial!=='undefined'){Tutorial.reset();Tutorial.start();}">🎓 &nbsp;Tutorial</button>
+            </div>
+
+            <div class="card" style="margin-top:16px;padding:14px;">
+              <div class="card-hd" style="margin-bottom:10px;">☁️ Konto & Login</div>
+              <div id="emailAuthContainer" style="display:none;margin-bottom:14px;">
+                <div style="padding:12px;background:rgba(122,176,48,0.1);border:1px solid rgba(122,176,48,0.2);border-radius:12px;">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                    <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;color:#000;" id="authUserAvatar">A</div>
+                    <div style="flex:1;">
+                      <div style="font-size:0.85rem;font-weight:600;color:#fff;" id="authUserName">–</div>
+                      <div style="font-size:0.7rem;color:rgba(255,255,255,0.5);" id="authUserEmail">–</div>
+                    </div>
+                    <div style="font-size:1.2rem;" title="Angemeldet">✅</div>
+                  </div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="btn-sec" style="font-size:0.65rem;flex:1;padding:8px;" onclick="logoutEmail()">🚪 Abmelden</button>
+                  </div>
+                </div>
+              </div>
+              <div id="authFormContainer" style="margin-bottom:14px;">
+                <div style="display:flex;gap:4px;margin-bottom:12px;background:rgba(255,255,255,0.05);padding:4px;border-radius:10px;">
+                  <button id="authTabLogin" class="auth-tab-btn" style="flex:1;padding:8px;border:none;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:600;font-size:0.75rem;border-radius:8px;cursor:pointer;" onclick="switchAuthTab('login')">Anmelden</button>
+                  <button id="authTabRegister" class="auth-tab-btn" style="flex:1;padding:8px;border:none;background:transparent;color:rgba(255,255,255,0.5);font-weight:600;font-size:0.75rem;border-radius:8px;cursor:pointer;" onclick="switchAuthTab('register')">Registrieren</button>
+                </div>
+                <div id="authMessage" style="display:none;padding:8px 10px;border-radius:8px;font-size:0.7rem;margin-bottom:10px;"></div>
+                <div id="authLoginForm" style="display:flex;flex-direction:column;gap:8px;">
+                  <input type="email" id="authLoginEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
+                  <input type="password" id="authLoginPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort" autocomplete="current-password">
+                  <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthLogin()" id="authLoginBtn">🚀 Anmelden</button>
+                </div>
+                <div id="authRegisterForm" style="display:none;flex-direction:column;gap:8px;">
+                  <input type="email" id="authRegisterEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
+                  <input type="password" id="authRegisterPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="new-password">
+                  <input type="password" id="authRegisterPasswordConfirm" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort bestätigen" autocomplete="new-password">
+                  <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthRegister()" id="authRegisterBtn">✨ Konto erstellen</button>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;margin:12px 0;color:rgba(255,255,255,0.3);font-size:0.7rem;">
+                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div><div style="padding:0 10px;">oder</div><div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
+              </div>
+              <div id="googleLoginSection" style="margin-bottom:14px;">
+                <div id="googleLoginInfo" style="display:none;margin-bottom:10px;padding:10px;background:rgba(122,176,48,0.1);border:1px solid rgba(122,176,48,0.2);border-radius:10px;">
+                  <div style="display:flex;align-items:center;gap:10px;">
+                    <img id="googleAvatar" src="" alt="" style="width:36px;height:36px;border-radius:50%;display:none;">
+                    <div style="flex:1;"><div style="font-size:0.8rem;font-weight:600;color:#fff;" id="googleUserName">–</div><div style="font-size:0.65rem;color:rgba(255,255,255,0.5);" id="googleUserEmail">–</div></div>
+                  </div>
+                </div>
+                <button id="googleLoginBtn" class="btn-sec" style="font-size:0.7rem;width:100%;padding:10px;display:flex;align-items:center;justify-content:center;gap:8px;" onclick="signInWithGoogle()">
+                  <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+                  Mit Google anmelden
+                </button>
+                <button id="googleLogoutBtn" class="btn-sec" style="font-size:0.7rem;width:100%;padding:10px;display:none;" onclick="signOutGoogle()">🚪 Abmelden</button>
+              </div>
+              <div id="accountSyncStatus" style="font-size:.75rem;color:rgba(255,255,255,.72);margin-bottom:12px;line-height:1.4;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span id="syncStatusIcon" style="font-size:1.2rem;">⏳</span><span id="syncStatusText">Verbindung wird hergestellt...</span></div>
+              </div>
+              <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+                <button class="btn-sec" style="font-size:0.65rem;" onclick="showAccountSyncCode()">🔗 Sync-Code erzeugen</button>
+                <button class="btn-sec" style="font-size:0.65rem;" onclick="connectDeviceWithLinkCode()">📲 Gerät verbinden</button>
+                <button class="btn-sec" style="font-size:0.65rem;" onclick="forceCloudSync()">🔄 Jetzt synchronisieren</button>
+              </div>
+            </div>
+            <div style="margin-top:12px; text-align:center; padding-bottom:10px;">
+              <button class="btn-sec" style="font-size:0.55rem; color:rgba(240,110,110,0.5); border-color:rgba(240,110,110,0.15);" onclick="hardResetProgress()">✕ &nbsp;Alle Daten (Fortschritt & Erfolge) löschen</button>
             </div>
           </div>
 
@@ -1329,24 +1299,7 @@
           </div>
         </div>
 
-        <!-- Live Scanner View (Hidden by default) -->
-        <div id="v2ScannerView"
-          style="display:none;position:relative;width:100%;border-radius:14px;overflow:hidden;background:#000;margin-bottom:15px;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-          <!-- Video Stream -->
-          <video id="v2ScannerVideo" playsinline autoplay muted style="width:100%;height:auto;display:block;"></video>
-          <!-- Canvas Overlay for YOLO Bounding Boxes -->
-          <canvas id="v2ScannerCanvas"
-            style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
-
-          <div style="position:absolute;bottom:10px;left:0;width:100%;text-align:center;">
-            <div
-              style="background:rgba(0,0,0,0.6);display:inline-block;padding:6px 12px;border-radius:20px;font-size:0.75rem;color:#7ab030;backdrop-filter:blur(4px);">
-              Halte den Score in das Bild...
-            </div>
-          </div>
-          <button id="btnStopLiveScan"
-            style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:1rem;line-height:32px;text-align:center;cursor:pointer;">✕</button>
-        </div>
+        <!-- Live scanner uses the single fullscreen #v2ScannerView near the app root. -->
 
         <!-- Classic Upload Zone (visible when file dropped/selected) -->
         <div class="ic-upload-zone" id="icUploadZone" style="display:none;">

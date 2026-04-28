@@ -720,10 +720,17 @@ function switchProfileTab(tab) {
   if (tab === 'lb') loadLeaderboard();
   if (tab === 'history') renderHistory();
   if (tab === 'debug') refreshDebugPanel();
+  if (tab === 'settings') refreshSettingsPanelUI();
   if (tab === 'stats') {
     requestAnimationFrame(() => renderPerformanceChart());
     if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.renderUI();
   }
+}
+
+function refreshSettingsPanelUI() {
+  initSoundToggleBtn();
+  updateAuthUI(typeof fbUser !== 'undefined' ? fbUser : null);
+  updateAccountSyncStatus();
 }
 
 function refreshProfileSheet() {
@@ -798,6 +805,7 @@ function refreshProfileSheet() {
     if (t === 'lb') loadLeaderboard(true);
     if (t === 'history') renderHistory();
     if (t === 'debug') renderDebugPanel();
+    if (t === 'settings') refreshSettingsPanelUI();
   }
 
   // Update Header Streak Badge
@@ -1526,12 +1534,12 @@ function setupGoogleAuthObserver() {
   fbAuth.onAuthStateChanged(user => {
     if (user) {
       fbUser = user;
-      updateGoogleLoginUI(user);
+      updateAuthUI(user);
       updateAccountSyncStatus();
       bootstrapCloudUser(user).catch(console.warn);
     } else {
       fbUser = null;
-      updateGoogleLoginUI(null);
+      updateAuthUI(null);
       updateAccountSyncStatus();
     }
   });
