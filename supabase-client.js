@@ -12,6 +12,20 @@
   let fallbackClient = null;
   let session = window.SupabaseSession || null;
 
+  function loadScriptOnce(src, id) {
+    if (document.getElementById(id)) return;
+    const script = document.createElement('script');
+    script.id = id;
+    script.src = src;
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
+  function loadProfileControls() {
+    loadScriptOnce('logout-control.js?v=1.0', 'schussLogoutControlScript');
+    loadScriptOnce('profile-settings.js?v=1.0', 'schussProfileSettingsScript');
+  }
+
   function getClient() {
     if (window.SupabaseClient) return window.SupabaseClient;
     if (fallbackClient) return fallbackClient;
@@ -91,6 +105,9 @@
   window.addEventListener('supabaseAuthReady', (event) => {
     setSession(event.detail && event.detail.session);
   });
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadProfileControls, { once: true });
+  else loadProfileControls();
 
   if (window.SupabaseSession) setSession(window.SupabaseSession);
 })();
