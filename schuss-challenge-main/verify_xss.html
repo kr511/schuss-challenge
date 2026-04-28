@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Schuss-Challenge · XSS-Verifikation (B5/B7/B8/escHtml)</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#111; color:#eee; margin:0; padding:24px; }
+  h1 { margin:0 0 8px; font-size:1.25rem; color:#7ab030; }
+  h2 { margin:24px 0 8px; font-size:1rem; color:#00c3ff; }
+  .case { border:1px solid #333; border-radius:6px; padding:10px 14px; margin:6px 0; background:#1a1a1a; }
+  .pass { border-left:4px solid #2ea043; }
+  .fail { border-left:4px solid #f85149; background:#2a1414; }
+  .badge { display:inline-block; font-size:0.7rem; padding:1px 6px; border-radius:3px; margin-right:8px; font-weight:700; }
+  .badge-pass { background:#2ea043; color:#fff; }
+  .badge-fail { background:#f85149; color:#fff; }
+  code, pre { font-family:'Consolas',monospace; font-size:0.85rem; background:#0d0d0d; padding:1px 6px; border-radius:3px; color:#ffd479; }
+  pre { padding:8px 10px; white-space:pre-wrap; word-break:break-all; }
+  .sandbox { display:none; }
+  .summary { font-size:1.1rem; padding:12px 16px; border-radius:6px; margin:16px 0; }
+  .summary.all-green { background:#0e2a14; border:1px solid #2ea043; }
+  .summary.some-red { background:#2a0e0e; border:1px solid #f85149; }
+  hr { border:none; border-top:1px solid #333; margin:18px 0; }
+</style>
+</head>
+<body>
+<h1>Schuss-Challenge · XSS-Verifikation</h1>
+<p style="color:#aaa">Öffnet die gefixten Code-Pfade mit bösartigen Inputs. Wenn eine Payload als Script läuft, erscheint ein <code>window.__xssFired</code>-Flag und der Test ist rot.</p>
+
+<div id="summary" class="summary">Running …</div>
+
+<div id="results"></div>
+
+<!-- Sandbox: hidden elements that mimic the real DOM for each test -->
+<div class="sandbox">
+  <h2 id="pdGreeting"></h2>
+  <div id="pdProfileInitial"></div>
+  <div id="badgesGrid"></div>
+  <div id="fbResultTitle"></div>
+</div>
+
+<script>
+// ───── Kopien der GEFIXTEN Funktionen aus app.js / index.html ─────
+// Identische Implementierungen wie im Prod-Code.
+
+// escHtml aus app.js:4904 (nach Fix: ` und / ergänzt)
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"'`/]/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;',
+    '"': '&quot;', "'": '&#39;', '`': '&#x60;', '/': '&#x2F;'
+  }[c]));
+}
+
+// pdGreeting-Fix aus index.html:342-356 (DOM-API statt innerHTML)
+function renderPdGreeting(greeting, name) {
+  const pdGreeting = document.getElementById('pdGreeting');
+  pdGreeting.textContent = '';
+  pdGreeting.textContent = greeting + ', ';
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'pd-name';
+  nameSpan.id = 'pdUserName';
+  nameSpan.style.color = '#7ab030';
+  nameSpan.textContent = name || 'Schütze';
+  pdGreeting.appendChild(nameSpan);
+  pdGreeting.appendChild(document.createTextNode('!'));
+}
+
+// Badge-Fix aus app.js:2687-2708 (escHtml auf Name/Icon/Xp)
+function renderBadges(displayBadges, unlockedAchievements) {
+  const badgeColors = {
+    consistency: { bg:'#222', border:'#333', top:'#444', text:'#aaa', glow:'transparent' },
+    locked: { bg:'#111', border:'#222', top:'#333', text:'#666', glow:'transparent' }
+  };
+  const grid = document.getElementById('badgesGrid');
+  grid.innerHTML = displayBadges.map(badge => {
+    const isUnlocked = unlockedAchievements.includes(badge);
+    const colors = badgeColors[badge.category] || badgeColors.locked;
+    const rawName = String(badge.name ?? '');
+    const nameParts = rawName.length > 12
+      ? [
+          rawName.substring(0, 12).split(' ').slice(0, -1).join(' '),
+          rawName.substring(12).split(' ').slice(1).join(' '),
+        ]
+      : rawName.split(' ');
+    const nameLines = nameParts.map(p => escHtml(p)).join('<br>');
+    const progressText = isUnlocked ? 'Freigeschaltet' : '+' + escHtml(badge.xp) + ' XP';
+    return '<div data-badge>'
+      + '<div data-icon>' + escHtml(badge.icon) + '</div>'
+      + '<div data-name>' + nameLines + '</div>'
+      + '<div data-progress>' + progressText + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+// fbSetDuel-Title-Fix aus app.js:1689 (escHtml auf name)
+function renderFbTitle(data) {
+  const meta = { color:'#7ab030', text:'Sieg' }; // hardcoded, wie im Prod-Code
+  const titleEl = document.getElementById('fbResultTitle');
+  const name = data.opponent || data.discipline;
+  titleEl.innerHTML = escHtml(name) + ' — <span style="color:' + meta.color + '">' + meta.text + '</span>';
+}
+
+// ───── Test-Runner ─────
+const results = [];
+window.__xssFired = false;
+// Globale XSS-Sentinels — falls eine injected Payload sie aufruft, fällt der Test durch.
+window.__xssProbe = () => { window.__xssFired = true; };
+
+function runCase(id, name, fn) {
+  window.__xssFired = false;
+  let error = null;
+  try { fn(); } catch (e) { error = e; }
+  const fired = window.__xssFired;
+  const pass = !fired && !error;
+  results.push({ id, name, pass, fired, error });
+}
+
+const PAYLOADS = [
+  { label:'<img onerror>', raw:'<img src=x onerror="window.__xssProbe()">' },
+  { label:'<script>', raw:'<script>window.__xssProbe()<\/script>' },
+  { label:'<svg onload>', raw:'<svg onload="window.__xssProbe()">' },
+  { label:'quote-break', raw:'"><img src=x onerror="window.__xssProbe()">' },
+  { label:'backtick+template', raw:'`${window.__xssProbe()}`' },
+  { label:'closing tag injection', raw:'</span><img src=x onerror="window.__xssProbe()">' },
+];
+
+// ─── B5: pdGreeting ───
+PAYLOADS.forEach((p, i) => {
+  runCase('B5-' + i, 'B5 pdGreeting · ' + p.label, () => {
+    renderPdGreeting('Guten Tag', p.raw);
+    // Nach DOM-Render: Payload muss als Text, nicht als Element, anwesend sein.
+    const g = document.getElementById('pdGreeting');
+    // Wenn Markup injected wurde, wäre <img> oder <svg> usw. Kind-Element; wir erwarten nur 2 Kinder: span + text.
+    const hasInjectedTag = g.querySelector('img, svg, script');
+    if (hasInjectedTag) throw new Error('Injected element found in DOM');
+  });
+});
+
+// ─── B7: Badge-Grid ───
+PAYLOADS.forEach((p, i) => {
+  runCase('B7-' + i, 'B7 Badge name · ' + p.label, () => {
+    const badge = { name:p.raw, icon:'🎯', xp:50, category:'consistency' };
+    renderBadges([badge], [badge]);
+    const grid = document.getElementById('badgesGrid');
+    const hasInjectedTag = grid.querySelector('img, svg, script');
+    if (hasInjectedTag) throw new Error('Injected element in badge grid');
+  });
+});
+
+PAYLOADS.forEach((p, i) => {
+  runCase('B7-icon-' + i, 'B7 Badge icon · ' + p.label, () => {
+    const badge = { name:'Test', icon:p.raw, xp:50, category:'consistency' };
+    renderBadges([badge], [badge]);
+    const grid = document.getElementById('badgesGrid');
+    const hasInjectedTag = grid.querySelector('img, svg, script');
+    if (hasInjectedTag) throw new Error('Injected element via icon');
+  });
+});
+
+// ─── B8: fbResultTitle ───
+PAYLOADS.forEach((p, i) => {
+  runCase('B8-' + i, 'B8 fbResultTitle · ' + p.label, () => {
+    renderFbTitle({ opponent:p.raw, discipline:'LG', result:'win', score:'350' });
+    const el = document.getElementById('fbResultTitle');
+    const hasInjectedTag = el.querySelector('img, svg, script');
+    if (hasInjectedTag) throw new Error('Injected element in fb title');
+  });
+});
+
+// ─── escHtml-Spezifika ───
+runCase('esc-1', 'escHtml · ampersand', () => {
+  const out = escHtml('A & B');
+  if (out !== 'A &amp; B') throw new Error('got: ' + out);
+});
+runCase('esc-2', 'escHtml · tags', () => {
+  const out = escHtml('<img src=x>');
+  if (out !== '&lt;img src=x&gt;') throw new Error('got: ' + out);
+});
+runCase('esc-3', 'escHtml · backtick (neu)', () => {
+  const out = escHtml('`${alert(1)}`');
+  if (out.includes('`')) throw new Error('backtick not escaped: ' + out);
+});
+runCase('esc-4', 'escHtml · forward slash (neu)', () => {
+  const out = escHtml('</script>');
+  if (out.includes('/')) throw new Error('slash not escaped: ' + out);
+});
+runCase('esc-5', 'escHtml · null/undefined', () => {
+  if (escHtml(null) !== '') throw new Error('null → not empty');
+  if (escHtml(undefined) !== '') throw new Error('undefined → not empty');
+});
+runCase('esc-6', 'escHtml · single+double quotes', () => {
+  const out = escHtml(`"'`);
+  if (out !== '&quot;&#39;') throw new Error('got: ' + out);
+});
+runCase('esc-7', 'escHtml · idempotent? (für entities ok, sollte &amp; nicht doppelt escapen → tut sie doch, aber ungefährlich)', () => {
+  // Dokumentations-Test: escHtml('&amp;') → '&amp;amp;' — das ist beabsichtigt und sicher.
+  const out = escHtml('&amp;');
+  if (out !== '&amp;amp;') throw new Error('unexpected: ' + out);
+});
+
+// ─── Report rendern ───
+function report() {
+  const list = document.getElementById('results');
+  let groupTitle = '';
+  results.forEach(r => {
+    const group = r.id.split('-')[0];
+    if (group !== groupTitle) {
+      const h = document.createElement('h2');
+      h.textContent = {
+        B5: 'B5 — pdGreeting (index.html, DOM-API)',
+        B7: 'B7 — Badge-Grid (app.js:2687, escHtml auf name/icon)',
+        B8: 'B8 — fbResultTitle (app.js:1689, escHtml auf name)',
+        esc: 'escHtml-Regression (app.js:4904, ` und / neu)'
+      }[group] || group;
+      list.appendChild(h);
+      groupTitle = group;
+    }
+    const row = document.createElement('div');
+    row.className = 'case ' + (r.pass ? 'pass' : 'fail');
+    const b = document.createElement('span');
+    b.className = 'badge ' + (r.pass ? 'badge-pass' : 'badge-fail');
+    b.textContent = r.pass ? 'PASS' : 'FAIL';
+    row.appendChild(b);
+    row.appendChild(document.createTextNode(r.name));
+    if (!r.pass) {
+      const pre = document.createElement('pre');
+      pre.textContent = (r.fired ? '→ XSS-Payload ist ausgelöst worden (window.__xssProbe called)\n' : '')
+                     + (r.error ? '→ ' + r.error.message : '');
+      row.appendChild(pre);
+    }
+    list.appendChild(row);
+  });
+  const passed = results.filter(r => r.pass).length;
+  const total = results.length;
+  const sum = document.getElementById('summary');
+  sum.className = 'summary ' + (passed === total ? 'all-green' : 'some-red');
+  sum.textContent = passed + ' / ' + total + ' Tests bestanden'
+                  + (passed === total ? '  ✅  Alle XSS-Fixes halten.' : '  ❌  Siehe rote Zeilen unten.');
+}
+report();
+</script>
+</body>
+</html>

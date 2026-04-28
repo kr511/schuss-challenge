@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Schussduell - Login Vorschau</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Outfit', -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0f1218 0%, #1a1d25 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .login-card {
+      background: linear-gradient(145deg, rgba(40,45,50,0.5) 0%, rgba(15,18,20,0.85) 100%);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-top: 1px solid rgba(255,255,255,0.15);
+      border-radius: 24px;
+      padding: 35px 30px;
+      box-shadow: 0 15px 50px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.05);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .login-icon {
+      font-size: 4rem;
+      margin-bottom: 15px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    .login-title {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+    }
+
+    .login-subtitle {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.5;
+    }
+
+    .tab-switcher {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 25px;
+      background: rgba(255,255,255,0.05);
+      padding: 5px;
+      border-radius: 12px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.5);
+      font-weight: 600;
+      font-size: 0.9rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, #00c3ff 0%, #7ab030 100%);
+      color: #000;
+      box-shadow: 0 4px 15px rgba(122,176,48,0.3);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.6);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: all 0.3s;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #7ab030;
+      background: rgba(122,176,48,0.08);
+      box-shadow: 0 0 0 3px rgba(122,176,48,0.15);
+    }
+
+    .form-input::placeholder {
+      color: rgba(255,255,255,0.25);
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #00c3ff 0%, #7ab030 100%);
+      border: none;
+      border-radius: 12px;
+      color: #000;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      box-shadow: 0 6px 25px rgba(122,176,48,0.35);
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(122,176,48,0.45);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 25px 0;
+      color: rgba(255,255,255,0.3);
+      font-size: 0.75rem;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.1);
+    }
+
+    .divider::before { margin-right: 15px; }
+    .divider::after { margin-left: 15px; }
+
+    .btn-google {
+      width: 100%;
+      padding: 14px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      color: #fff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-google:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.25);
+    }
+
+    .message {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      margin-bottom: 15px;
+      display: none;
+    }
+
+    .message.success {
+      background: rgba(122,176,48,0.15);
+      border: 1px solid rgba(122,176,48,0.3);
+      color: #7ab030;
+      display: block;
+    }
+
+    .message.error {
+      background: rgba(240,96,80,0.15);
+      border: 1px solid rgba(240,96,80,0.3);
+      color: #f06050;
+      display: block;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .user-info {
+      background: rgba(122,176,48,0.1);
+      border: 1px solid rgba(122,176,48,0.2);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .user-info.show {
+      display: block;
+    }
+
+    .user-info-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00c3ff 0%, #7ab030 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #000;
+    }
+
+    .user-details {
+      flex: 1;
+    }
+
+    .user-email {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 3px;
+    }
+
+    .user-status {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.5);
+    }
+
+    .btn-logout {
+      width: 100%;
+      padding: 12px;
+      background: rgba(240,96,80,0.15);
+      border: 1px solid rgba(240,96,80,0.3);
+      border-radius: 10px;
+      color: #f06050;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 15px;
+    }
+
+    .btn-logout:hover {
+      background: rgba(240,96,80,0.25);
+    }
+
+    .sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: rgba(0,195,255,0.1);
+      border: 1px solid rgba(0,195,255,0.2);
+      border-radius: 20px;
+      font-size: 0.7rem;
+      color: #00c3ff;
+      margin-top: 10px;
+    }
+
+    /* Responsive */
+    @media (max-width: 480px) {
+      .login-card {
+        padding: 25px 20px;
+      }
+      .login-title {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-icon">🎯</div>
+        <div class="login-title">Schussduell</div>
+        <div class="login-subtitle">
+          Melde dich an, um geräteübergreifend<br>
+          mit demselben Account zu spielen
+        </div>
+      </div>
+
+      <!-- User Info (nach Login sichtbar) -->
+      <div class="user-info" id="userInfo">
+        <div class="user-info-row">
+          <div class="user-avatar" id="userAvatar">A</div>
+          <div class="user-details">
+            <div class="user-email" id="userEmail">user@example.com</div>
+            <div class="user-status">✅ Angemeldet · Sync aktiv</div>
+          </div>
+        </div>
+        <div class="sync-badge">
+          <span>☁️</span>
+          <span>Daten werden synchronisiert</span>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()">🚪 Abmelden</button>
+      </div>
+
+      <!-- Login/Register Form -->
+      <div id="authForm">
+        <!-- Tab Switcher -->
+        <div class="tab-switcher">
+          <button class="tab-btn active" onclick="switchTab('login')">Anmelden</button>
+          <button class="tab-btn" onclick="switchTab('register')">Registrieren</button>
+        </div>
+
+        <!-- Messages -->
+        <div class="message" id="message"></div>
+
+        <!-- Login Form -->
+        <div id="loginForm">
+          <div class="form-group">
+            <label class="form-label">E-Mail Adresse</label>
+            <input 
+              type="email" 
+              class="form-input" 
+              id="loginEmail" 
+              placeholder="deine@email.de"
+              autocomplete="email"
+            >
+          </div>
+          <div class="form-group">
+            <label class="form-label">Passwort</label>
+            <input 
+              type="password" 
+              class="form-input" 
+              id="loginPassword" 
+              placeholder="••••••••"
+              autocomplete="current-password"
+            >
+          </div>
+          <button class="btn-primary" onclick="handleLogin()" id="loginBtn">
+            🚀 Anmelden
+          </button>
+        </div>
+
+        <!-- Register Form -->
+        <div id="registerForm" style="display:none;">
+          <div class="form-group">
+            <label class="form-label">E-Mail Adresse</label>
+            <input 
+              type="email" 
+              class="form-input" 
+              id="registerEmail" 
+              placeholder="deine@email.de"
+              autocomplete="email"
+            >
+          </div>
+          <div class="form-group">
+            <label class="form-label">Passwort (mind. 6 Zeichen)</label>
+            <input 
+              type="password" 
+              class="form-input" 
+              id="registerPassword" 
+              placeholder="••••••••"
+              autocomplete="new-password"
+            >
+          </div>
+          <div class="form-group">
+            <label class="form-label">Passwort bestätigen</label>
+            <input 
+              type="password" 
+              class="form-input" 
+              id="registerPasswordConfirm" 
+              placeholder="••••••••"
+              autocomplete="new-password"
+            >
+          </div>
+          <button class="btn-primary" onclick="handleRegister()" id="registerBtn">
+            ✨ Konto erstellen
+          </button>
+        </div>
+
+        <!-- Divider -->
+        <div class="divider">oder</div>
+
+        <!-- Google Login -->
+        <button class="btn-google" onclick="handleGoogleLogin()">
+          <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+            <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.951 11.951 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.578 16.227 44 24 44z"/>
+            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+          </svg>
+          Mit Google anmelden
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ═══════════════════════════════════════════════
+       LOGIN PREVIEW - ECHTE IMPLEMENTIERUNG
+       Diese Datei nutzt die Firebase Auth aus app.js
+       ═══════════════════════════════════════════════ */
+
+    // Tab Switching
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      if (tab === 'login') {
+        document.getElementById('loginForm').style.display = 'block';
+        document.getElementById('registerForm').style.display = 'none';
+      } else {
+        document.getElementById('loginForm').style.display = 'none';
+        document.getElementById('registerForm').style.display = 'block';
+      }
+      hideMessage();
+    }
+
+    // Message Display
+    function showMessage(text, type = 'error') {
+      const msg = document.getElementById('message');
+      msg.textContent = text;
+      msg.className = `message ${type}`;
+    }
+
+    function hideMessage() {
+      document.getElementById('message').className = 'message';
+    }
+
+    // Show Loading State
+    function setLoading(btnId, loading) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      
+      if (loading) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading-spinner"></span> Wird verarbeitet...';
+      } else {
+        btn.disabled = false;
+        if (btnId === 'loginBtn') {
+          btn.textContent = '🚀 Anmelden';
+        } else {
+          btn.textContent = '✨ Konto erstellen';
+        }
+      }
+    }
+
+    // Login Handler - NUTZT ECHTE APP.JS FUNKTIONEN
+    async function handleLogin() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      if (!email || !password) {
+        return showMessage('❌ Bitte E-Mail und Passwort ausfüllen.');
+      }
+
+      setLoading('loginBtn', true);
+      hideMessage();
+
+      try {
+        // Nutzt die echte signInWithEmail Funktion aus app.js
+        if (typeof window.signInWithEmail === 'function') {
+          const user = await window.signInWithEmail(email, password);
+          showMessage('✅ Erfolgreich angemeldet!', 'success');
+          showUserInfo(user.email, user.displayName);
+        } else {
+          // Fallback für Preview-Modus (ohne app.js)
+          console.warn('app.js nicht geladen - Preview Modus');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          showMessage('⚠️ App muss im Browser geladen werden', 'error');
+        }
+      } catch (error) {
+        showMessage(error.message || 'Anmeldung fehlgeschlagen.');
+      } finally {
+        setLoading('loginBtn', false);
+      }
+    }
+
+    // Register Handler - NUTZT ECHTE APP.JS FUNKTIONEN
+    async function handleRegister() {
+      const email = document.getElementById('registerEmail').value.trim();
+      const password = document.getElementById('registerPassword').value;
+      const passwordConfirm = document.getElementById('registerPasswordConfirm').value;
+
+      if (!email || !password || !passwordConfirm) {
+        return showMessage('❌ Bitte alle Felder ausfüllen.');
+      }
+
+      if (password !== passwordConfirm) {
+        return showMessage('❌ Passwörter stimmen nicht überein.');
+      }
+
+      if (password.length < 6) {
+        return showMessage('❌ Passwort muss mindestens 6 Zeichen haben.');
+      }
+
+      setLoading('registerBtn', true);
+      hideMessage();
+
+      try {
+        // Nutzt die echte registerWithEmail Funktion aus app.js
+        if (typeof window.registerWithEmail === 'function') {
+          const user = await window.registerWithEmail(email, password);
+          showMessage('✅ Konto erstellt! Deine Daten werden synchronisiert.', 'success');
+          showUserInfo(user.email, user.displayName);
+        } else {
+          // Fallback für Preview-Modus
+          console.warn('app.js nicht geladen - Preview Modus');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          showMessage('⚠️ App muss im Browser geladen werden', 'error');
+        }
+      } catch (error) {
+        showMessage(error.message || 'Registrierung fehlgeschlagen.');
+      } finally {
+        setLoading('registerBtn', false);
+      }
+    }
+
+    // Google Login Handler
+    async function handleGoogleLogin() {
+      hideMessage();
+      
+      try {
+        if (typeof window.signInWithGoogle === 'function') {
+          await window.signInWithGoogle();
+          showMessage('✅ Mit Google angemeldet!', 'success');
+        } else {
+          console.warn('app.js nicht geladen - Preview Modus');
+          showMessage('⚠️ App muss im Browser geladen werden', 'error');
+        }
+      } catch (error) {
+        showMessage(error.message || 'Google Login fehlgeschlagen.');
+      }
+    }
+
+    // Logout Handler
+    async function handleLogout() {
+      try {
+        if (typeof window.logoutEmail === 'function') {
+          await window.logoutEmail();
+          document.getElementById('userInfo').classList.remove('show');
+          document.getElementById('authForm').style.display = 'block';
+          hideMessage();
+        }
+      } catch (error) {
+        showMessage(error.message || 'Fehler beim Abmelden.');
+      }
+    }
+
+    // Show User Info
+    function showUserInfo(email, displayName = null) {
+      const initial = (displayName || email).charAt(0).toUpperCase();
+      document.getElementById('userAvatar').textContent = initial;
+      document.getElementById('userEmail').textContent = email;
+      document.getElementById('userInfo').classList.add('show');
+      document.getElementById('authForm').style.display = 'none';
+    }
+
+    // Enter-Taste Unterstützung
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('loginPassword')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleLogin();
+      });
+      
+      document.getElementById('registerPasswordConfirm')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleRegister();
+      });
+    });
+  </script>
+</body>
+</html>

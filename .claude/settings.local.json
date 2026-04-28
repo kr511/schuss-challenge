@@ -5,7 +5,26 @@
       "Bash(git add:*)",
       "Bash(git restore:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Read(//c/Users/elias/AppData/Local/Temp/claude/**)",
+      "WebFetch(domain:kr511.github.io)",
+      "Bash(curl -sS -L --max-time 15 https://kr511.github.io/schuss-challenge/ -o /tmp/index_live.html)",
+      "Bash(curl -sS -L --max-time 10 -o /dev/null -w 'HTTP %{http_code}  size=%{size_download}\\\\n' https://kr511.github.io/schuss-challenge/__TRACKED_VAR__)",
+      "Bash(curl -sS -L --max-time 10 -I \"https://kr511.github.io/schuss-challenge/auth-gate.js?v=1.2\")",
+      "mcp__claude_ai_Supabase__list_projects",
+      "mcp__claude_ai_Supabase__get_advisors",
+      "mcp__claude_ai_Supabase__get_logs",
+      "Bash(npx tsx *)",
+      "mcp__claude_ai_Supabase__list_migrations",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "mcp__claude_ai_Supabase__list_tables",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8787/)",
+      "Bash(curl -s -o /dev/null -w \"GET /              %{http_code}\\\\n\" http://localhost:8787/)",
+      "Bash(curl -s -o /dev/null -w \"GET /index.html     %{http_code}\\\\n\" http://localhost:8787/index.html)",
+      "Bash(curl -s -o /dev/null -w \"GET /api/leaderboard %{http_code}\\\\n\" http://localhost:8787/api/leaderboard)"
     ]
   }
 }
