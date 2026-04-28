@@ -210,6 +210,59 @@
     return String(err.message || err.error_description || err.error || err);
   }
 
+  function normalizeAuthMessage(message) {
+    return String(message || '')
+      .toLowerCase()
+      .replace(/[_.-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function friendlyAuthError(err, fallback) {
+    var raw = getErrorMessage(err);
+    var msg = normalizeAuthMessage(raw);
+
+    if (err && err.recoverablePkce) return PKCE_RECOVERY_MESSAGE;
+    if (isPkceVerifierError(err)) return PKCE_RECOVERY_MESSAGE;
+    if (!raw) return fallback || 'Anmeldung konnte nicht geladen werden. Du kannst lokal spielen.';
+
+    if (msg.indexOf('invalid login credentials') !== -1 || msg.indexOf('invalid credentials') !== -1) {
+      return 'E-Mail oder Passwort ist falsch.';
+    }
+    if (msg.indexOf('email not confirmed') !== -1 || msg.indexOf('email not verified') !== -1) {
+      return 'Bitte bestätige zuerst deine E-Mail-Adresse.';
+    }
+    if (msg.indexOf('user already registered') !== -1 || msg.indexOf('already registered') !== -1 || msg.indexOf('already exists') !== -1) {
+      return 'Für diese E-Mail gibt es schon ein Konto. Wechsle oben auf „Anmelden“.';
+    }
+    if (msg.indexOf('password') !== -1 && (msg.indexOf('weak') !== -1 || msg.indexOf('short') !== -1 || msg.indexOf('6 characters') !== -1)) {
+      return 'Dein Passwort ist zu schwach. Nutze mindestens 6 Zeichen.';
+    }
+    if (msg.indexOf('invalid email') !== -1 || msg.indexOf('email address is invalid') !== -1) {
+      return 'Bitte gib eine gültige E-Mail-Adresse ein.';
+    }
+    if (msg.indexOf('signup disabled') !== -1 || msg.indexOf('signups not allowed') !== -1) {
+      return 'Registrierung ist gerade deaktiviert. Bitte melde dich mit einem bestehenden Konto an.';
+    }
+    if (msg.indexOf('rate limit') !== -1 || msg.indexOf('too many requests') !== -1 || msg.indexOf('over email send rate limit') !== -1) {
+      return 'Zu viele Versuche. Bitte warte kurz und probiere es dann erneut.';
+    }
+    if (msg.indexOf('network') !== -1 || msg.indexOf('failed to fetch') !== -1 || msg.indexOf('fetch failed') !== -1) {
+      return 'Netzwerkfehler. Prüfe deine Verbindung und versuche es erneut.';
+    }
+    if (msg.indexOf('popup closed') !== -1 || msg.indexOf('cancelled') !== -1 || msg.indexOf('canceled') !== -1 || msg.indexOf('access denied') !== -1) {
+      return 'Anmeldung wurde abgebrochen. Starte sie einfach erneut.';
+    }
+    if (msg.indexOf('provider') !== -1 && msg.indexOf('not enabled') !== -1) {
+      return 'Google-Anmeldung ist noch nicht richtig aktiviert.';
+    }
+    if (msg.indexOf('supabase konnte nicht geladen werden') !== -1) {
+      return 'Login-Dienst konnte nicht geladen werden. Prüfe deine Verbindung oder spiele lokal weiter.';
+    }
+
+    return fallback || raw || 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.';
+  }
+
   function isPkceVerifierError(err) {
     var msg = getErrorMessage(err).toLowerCase();
     return msg.indexOf('code verifier') !== -1 || msg.indexOf('pkce') !== -1;
@@ -221,12 +274,6 @@
     err.recoverablePkce = true;
     err.originalError = original;
     return err;
-  }
-
-  function friendlyAuthError(err, fallback) {
-    if (err && err.recoverablePkce) return PKCE_RECOVERY_MESSAGE;
-    if (isPkceVerifierError(err)) return PKCE_RECOVERY_MESSAGE;
-    return getErrorMessage(err) || fallback || 'Anmeldung konnte nicht geladen werden. Du kannst lokal spielen.';
   }
 
   function setBusy(value) {
@@ -344,10 +391,7 @@
       if (session) onAuthenticated(session, true);
       else { showInfo('✅ Bestätigungs-E-Mail gesendet! Bitte überprüfe deinen Posteingang.'); setBusy(false); }
     } catch (err) {
-      var msg = err && err.message ? err.message : 'Unbekannter Fehler';
-      if (msg.includes('Invalid login credentials')) msg = 'E-Mail oder Passwort falsch.';
-      if (msg.includes('Email not confirmed')) msg = 'Bitte bestätige zuerst deine E-Mail-Adresse.';
-      showError(msg);
+      showError(friendlyAuthError(err, mode === 'signup' ? 'Registrierung fehlgeschlagen. Bitte erneut versuchen.' : 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.'));
       setBusy(false);
       finishing = false;
     }
@@ -362,7 +406,7 @@
       var res = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: appUrl(), queryParams: { prompt: 'select_account' } } });
       if (res.error) throw res.error;
     } catch (err) {
-      showError(friendlyAuthError(err, 'Google-Anmeldung fehlgeschlagen.'));
+      showError(friendlyAuthError(err, 'Google-Anmeldung fehlgeschlagen. Bitte erneut versuchen.'));
       setBusy(false);
     }
   };
