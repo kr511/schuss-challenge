@@ -16,6 +16,34 @@ const PerformanceConfig = (function() {
   // Asset cache with timestamps
   const assetCache = new Map();
   const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+  const STORAGE_CACHE_PREFIX = 'perf_cache_';
+
+  function getPersistentCacheKey(key) {
+    return STORAGE_CACHE_PREFIX + String(key);
+  }
+
+  function canUseStorageManager() {
+    return typeof StorageManager !== 'undefined' &&
+      StorageManager &&
+      typeof StorageManager.get === 'function' &&
+      typeof StorageManager.set === 'function' &&
+      typeof StorageManager.remove === 'function';
+  }
+
+  function writePersistentCache(key, entry) {
+    if (!canUseStorageManager()) return false;
+    return StorageManager.set(getPersistentCacheKey(key), entry);
+  }
+
+  function readPersistentCache(key) {
+    if (!canUseStorageManager()) return null;
+    return StorageManager.get(getPersistentCacheKey(key), null);
+  }
+
+  function removePersistentCache(key) {
+    if (!canUseStorageManager()) return false;
+    return StorageManager.remove(getPersistentCacheKey(key));
+  }
 
   /**
    * Load module on demand with error handling
@@ -81,7 +109,6 @@ const PerformanceConfig = (function() {
   function preloadCriticalAssets() {
     // Preload critical images
     const criticalImages = [
-      'gold_toolbox.png',
       'icon-192.png',
       'icon-512.png'
     ];
@@ -102,16 +129,16 @@ const PerformanceConfig = (function() {
    */
   async function cacheAsset(key, data) {
     try {
-      assetCache.set(key, {
+      const entry = {
         data,
         timestamp: Date.now()
-      });
-      // Optional: also cache to localStorage for small data
+      };
+
+      assetCache.set(key, entry);
+
+      // Optional: also cache to StorageManager for small data
       if (typeof data === 'string' && data.length < 50000) {
-        localStorage.setItem(`cache_${key}`, JSON.stringify({
-          data,
-          timestamp: Date.now()
-        }));
+        writePersistentCache(key, entry);
       }
     } catch (e) {
       console.warn('Cache failed:', e);
@@ -130,15 +157,12 @@ const PerformanceConfig = (function() {
     }
 
     try {
-      const raw = localStorage.getItem(`cache_${key}`);
-      if (!raw) return null;
-
-      const stored = JSON.parse(raw);
+      const stored = readPersistentCache(key);
       if (!stored || typeof stored.timestamp !== 'number') return null;
 
       const age = Date.now() - stored.timestamp;
       if (age > CACHE_DURATION) {
-        localStorage.removeItem(`cache_${key}`);
+        removePersistentCache(key);
         return null;
       }
 

@@ -26,7 +26,28 @@ const AsyncChallenge = (function() {
     return typeof fbReady !== 'undefined' && fbReady && typeof fbDb !== 'undefined' && fbDb;
   }
 
+  function isLocalMode() {
+    try {
+      return window.SchussduellLocalMode === true ||
+        window.SchussduellLocalPlay === true ||
+        localStorage.getItem('sd_local_mode') === '1' ||
+        localStorage.getItem('sd_local_play') === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function hasSupabaseSocial() {
+    return !!(
+      window.SupabaseSocial &&
+      window.SupabaseSession &&
+      window.SupabaseSession.user &&
+      !isLocalMode()
+    );
+  }
+
   function getCurrentUserId() {
+    if (window.SupabaseSession && window.SupabaseSession.user) return window.SupabaseSession.user.id;
     if (typeof getFirebaseOwnerId !== 'function') return null;
     return getFirebaseOwnerId();
   }
@@ -53,11 +74,49 @@ const AsyncChallenge = (function() {
     };
   }
 
+  function parseRemoteTime(value) {
+    if (!value) return Date.now();
+    if (typeof value === 'number') return value;
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : Date.now();
+  }
+
+  function mapSupabaseChallenge(row, kind) {
+    return {
+      id: row.id,
+      challengeId: row.id,
+      creatorId: row.creator_id,
+      creatorUsername: row.creator_username || getCurrentGameSettings().username,
+      friendId: row.opponent_id || null,
+      friendUsername: row.opponent_username || 'Öffentlich',
+      fromUsername: row.creator_username || 'Spieler',
+      discipline: row.discipline || 'lg40',
+      weapon: row.weapon || null,
+      distance: row.distance || null,
+      difficulty: row.difficulty || null,
+      shots: Number(row.shots) || 40,
+      burst: Boolean(row.burst),
+      createdAt: parseRemoteTime(row.created_at),
+      acceptedAt: parseRemoteTime(row.accepted_at),
+      expiresAt: parseRemoteTime(row.expires_at),
+      status: row.status || (kind === 'available' ? 'pending' : 'pending'),
+    };
+  }
+
   /**
    * Initialisiert das Async-Challenge-System
    */
   async function init() {
     console.log('⚔️ Async Challenge-System initialisiert');
+
+    if (hasSupabaseSocial()) {
+      await loadMyChallenges();
+      await loadAvailableChallenges();
+      state.acceptedChallenges = [];
+      state.initialized = true;
+      console.log('✅ Async Challenge-System bereit (Supabase)');
+      return;
+    }
 
     if (!hasFirebase()) {
       console.warn('⚠️ Firebase nicht verfügbar, Async Challenges deaktiviert');
@@ -76,6 +135,32 @@ const AsyncChallenge = (function() {
    * Erstellt eine neue Challenge
    */
   async function createChallenge(friendId = null, friendUsername = null) {
+    if (hasSupabaseSocial() && typeof window.SupabaseSocial.createChallenge === 'function') {
+      const settings = getCurrentGameSettings();
+
+      try {
+        const result = await window.SupabaseSocial.createChallenge(friendId, settings);
+        if (!result || !result.ok || !result.challenge) {
+          showChallengeToast('❌ Fehler beim Erstellen', 'error');
+          return false;
+        }
+
+        const challengeData = mapSupabaseChallenge(Object.assign({}, result.challenge, {
+          opponent_username: friendUsername || ''
+        }), 'created');
+        state.myChallenges.unshift(challengeData);
+        renderChallengesList();
+
+        console.log('✅ Supabase Challenge erstellt:', challengeData.id);
+        showChallengeToast('⚔️ Challenge erstellt!', 'success');
+        return true;
+      } catch (e) {
+        console.error('Supabase Fehler beim Erstellen:', e);
+        showChallengeToast('❌ Fehler beim Erstellen', 'error');
+        return false;
+      }
+    }
+
     if (!hasFirebase()) {
       showChallengeToast('❌ Firebase nicht verfügbar', 'error');
       return false;
@@ -141,7 +226,19 @@ const AsyncChallenge = (function() {
    */
   async function loadMyChallenges() {
     const userId = getCurrentUserId();
-    if (!userId || !hasFirebase()) return;
+    if (!userId) return;
+
+    if (hasSupabaseSocial() && typeof window.SupabaseSocial.loadCreatedChallenges === 'function') {
+      try {
+        const rows = await window.SupabaseSocial.loadCreatedChallenges();
+        state.myChallenges = (rows || []).map(row => mapSupabaseChallenge(row, 'created'));
+      } catch (e) {
+        console.warn('Supabase Fehler beim Laden meiner Challenges:', e);
+      }
+      return;
+    }
+
+    if (!hasFirebase()) return;
 
     try {
       const snapshot = await fbDb.ref(FIREBASE_PATHS.challenges)
@@ -165,7 +262,19 @@ const AsyncChallenge = (function() {
    */
   async function loadAvailableChallenges() {
     const userId = getCurrentUserId();
-    if (!userId || !hasFirebase()) return;
+    if (!userId) return;
+
+    if (hasSupabaseSocial() && typeof window.SupabaseSocial.loadAvailableChallenges === 'function') {
+      try {
+        const rows = await window.SupabaseSocial.loadAvailableChallenges();
+        state.availableChallenges = (rows || []).map(row => mapSupabaseChallenge(row, 'available'));
+      } catch (e) {
+        console.warn('Supabase Fehler beim Laden verfügbarer Challenges:', e);
+      }
+      return;
+    }
+
+    if (!hasFirebase()) return;
 
     try {
       const snapshot = await fbDb.ref(`${FIREBASE_PATHS.activeChallenges}/${userId}`).once('value');
@@ -209,6 +318,26 @@ const AsyncChallenge = (function() {
    * Nimmt eine Challenge an
    */
   async function acceptChallenge(challengeId) {
+    if (hasSupabaseSocial() && typeof window.SupabaseSocial.acceptChallenge === 'function') {
+      try {
+        const result = await window.SupabaseSocial.acceptChallenge(challengeId);
+        if (!result || !result.ok) {
+          showChallengeToast('❌ Challenge nicht gefunden', 'error');
+          return false;
+        }
+
+        const challenge = mapSupabaseChallenge(result.challenge, 'available');
+        state.currentChallenge = challenge;
+        startChallengeDuel(challenge);
+        showChallengeToast(`⚔️ Challenge von ${challenge.creatorUsername || 'Spieler'} angenommen!`, 'success');
+        return true;
+      } catch (e) {
+        console.error('Supabase Fehler beim Annehmen:', e);
+        showChallengeToast('❌ Fehler beim Annehmen', 'error');
+        return false;
+      }
+    }
+
     if (!hasFirebase()) return false;
 
     const userId = getCurrentUserId();

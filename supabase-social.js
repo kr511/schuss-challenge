@@ -1,8 +1,7 @@
 /* Schussduell Supabase Social Adapter
  *
  * This prepares friends, friend requests, presence and async challenges for a
- * future Supabase-only social layer. Firebase remains the active production
- * path until this adapter is explicitly wired into the UI.
+ * Supabase-backed social layer for the active friends UI.
  */
 (function () {
   'use strict';
@@ -258,6 +257,40 @@
     return state.outgoingRequests;
   }
 
+  async function loadOnlineStatuses() {
+    if (!(await ensureReady())) return {};
+
+    if (!Array.isArray(state.friends) || state.friends.length === 0) {
+      state.onlineStatus = {};
+      return state.onlineStatus;
+    }
+
+    var client = getClient();
+    var ids = state.friends.map(function (friend) { return friend.userId; }).filter(Boolean);
+    if (!client || ids.length === 0) {
+      state.onlineStatus = {};
+      return state.onlineStatus;
+    }
+
+    var result = await client
+      .from('online_status')
+      .select('user_id, online, last_seen, username')
+      .in('user_id', ids);
+
+    if (result.error) throw result.error;
+
+    var nextStatus = {};
+    (result.data || []).forEach(function (row) {
+      nextStatus[row.user_id] = {
+        online: row.online === true,
+        username: row.username || '',
+        lastSeen: row.last_seen ? Date.parse(row.last_seen) : 0
+      };
+    });
+    state.onlineStatus = nextStatus;
+    return state.onlineStatus;
+  }
+
   async function addFriendByCode(code) {
     if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
 
@@ -277,6 +310,33 @@
     if (target.error) throw target.error;
     if (!target.data || !target.data.user_id) return { ok: false, reason: 'code-not-found' };
     if (target.data.user_id === user.id) return { ok: false, reason: 'self-code' };
+
+    var existingFriend = await client
+      .from('friends')
+      .select('friend_user_id')
+      .eq('user_id', user.id)
+      .eq('friend_user_id', target.data.user_id)
+      .maybeSingle();
+
+    if (existingFriend.error) throw existingFriend.error;
+    if (existingFriend.data && existingFriend.data.friend_user_id) {
+      await loadFriends();
+      return { ok: false, reason: 'already-friend' };
+    }
+
+    var existingRequest = await client
+      .from('friend_requests')
+      .select('id, status')
+      .eq('from_user_id', user.id)
+      .eq('to_user_id', target.data.user_id)
+      .eq('status', 'pending')
+      .maybeSingle();
+
+    if (existingRequest.error) throw existingRequest.error;
+    if (existingRequest.data && existingRequest.data.id) {
+      await loadOutgoingRequests();
+      return { ok: false, reason: 'already-sent' };
+    }
 
     var request = await client
       .from('friend_requests')
@@ -324,12 +384,7 @@
     if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
 
     var client = getClient();
-    var user = getUser();
-    var result = await client
-      .from('friends')
-      .delete()
-      .eq('user_id', user.id)
-      .eq('friend_user_id', friendUserId);
+    var result = await client.rpc('remove_friend', { target_user_id: friendUserId });
 
     if (result.error) throw result.error;
     await loadFriends();
@@ -396,6 +451,68 @@
     return { ok: true, challenge: result.data };
   }
 
+  async function loadCreatedChallenges() {
+    if (!(await ensureReady())) return [];
+
+    var client = getClient();
+    var user = getUser();
+    var rows = await client
+      .from('async_challenges')
+      .select('*')
+      .eq('creator_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (rows.error) throw rows.error;
+
+    var profileMap = await loadProfiles((rows.data || []).map(function (row) { return row.opponent_id; }));
+    return (rows.data || []).map(function (row) {
+      var profile = profileMap[row.opponent_id] || {};
+      return Object.assign({}, row, {
+        opponent_username: profile.display_name || profile.username || ''
+      });
+    });
+  }
+
+  async function loadAvailableChallenges() {
+    if (!(await ensureReady())) return [];
+
+    var client = getClient();
+    var user = getUser();
+    var rows = await client
+      .from('async_challenges')
+      .select('*')
+      .eq('opponent_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (rows.error) throw rows.error;
+
+    var profileMap = await loadProfiles((rows.data || []).map(function (row) { return row.creator_id; }));
+    return (rows.data || []).map(function (row) {
+      var profile = profileMap[row.creator_id] || {};
+      return Object.assign({}, row, {
+        creator_username: profile.display_name || profile.username || 'Spieler'
+      });
+    });
+  }
+
+  async function acceptChallenge(challengeId) {
+    if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
+
+    var client = getClient();
+    var user = getUser();
+    var result = await client
+      .from('async_challenges')
+      .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+      .eq('id', challengeId)
+      .eq('opponent_id', user.id)
+      .select('*')
+      .single();
+
+    if (result.error) throw result.error;
+    return { ok: true, challenge: result.data };
+  }
+
   function getStatus() {
     return {
       available: isAuthenticated(),
@@ -411,7 +528,8 @@
 
   async function refreshAll() {
     if (!(await ensureReady())) return getStatus();
-    await Promise.all([loadFriends(), loadIncomingRequests(), loadOutgoingRequests()]);
+    await loadFriends();
+    await Promise.all([loadIncomingRequests(), loadOutgoingRequests(), loadOnlineStatuses()]);
     startPresenceHeartbeat();
     return getStatus();
   }
@@ -447,12 +565,16 @@
     loadFriends: loadFriends,
     loadIncomingRequests: loadIncomingRequests,
     loadOutgoingRequests: loadOutgoingRequests,
+    loadOnlineStatuses: loadOnlineStatuses,
     addFriendByCode: addFriendByCode,
     acceptRequest: acceptRequest,
     declineRequest: declineRequest,
     removeFriend: removeFriend,
     updateOnlineStatus: updateOnlineStatus,
     createChallenge: createChallenge,
+    loadCreatedChallenges: loadCreatedChallenges,
+    loadAvailableChallenges: loadAvailableChallenges,
+    acceptChallenge: acceptChallenge,
     getStatus: getStatus,
     getState: function () { return Object.assign({}, state); }
   };
