@@ -9,6 +9,8 @@
     "verify:balance": "node src/testing/verify-balance.js",
     "test:supabase": "npx tsx test_api_direct.mjs && node test_supabase_social_direct.mjs",
     "test": "npm run check:js && npm run check:html && node test_auth_gate_pkce.mjs && node test_friends_supabase_bridge.mjs && node test_async_supabase_bridge.mjs && npm run verify:balance",
+    "supabase:bundle": "node scripts/build-supabase-sql-bundle.mjs",
+    "supabase:apply": "node scripts/apply-supabase-migrations.mjs",
     "d1:migrate:local": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql --local",
     "d1:migrate:remote": "wrangler d1 execute schuss_challenge --file=./migrations/0001_initial.sql"
   },

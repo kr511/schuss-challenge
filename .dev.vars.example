@@ -12,5 +12,11 @@
 
 SUPABASE_SERVICE_KEY=HIER_DEN_SERVICE_ROLE_KEY_EINTRAGEN
 SUPABASE_JWT_SECRET=HIER_DEN_JWT_SECRET_EINTRAGEN
+
+# Optional: nur fuer "npm.cmd run supabase:apply".
+# Erstellen in Supabase Dashboard -> Account -> Access Tokens.
+# Niemals einen echten Token committen.
+SUPABASE_ACCESS_TOKEN=HIER_DEN_SUPABASE_ACCESS_TOKEN_EINTRAGEN
+
 ALLOW_INSECURE_DEV_AUTH=true
 ADMIN_USER_IDS=local-admin
