@@ -1,16 +1,13 @@
-/* Schussduell – Backend Sync
- *
- * Verbindet das Frontend nach einem Spiel mit dem Cloudflare Worker API.
- * Fire-and-forget: Fehler blockieren nie den Game-Loop.
- *
- * Exponiert: window.SupabaseBackendSync
- */
+/* Schussduell – Backend Sync */
 (function () {
   'use strict';
 
   var WORKER_BASE = ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname)
     ? ''
     : 'https://schuss-challenge.eliaskummel.workers.dev';
+
+  var workerAuthBlocked = false;
+  var authWarningShown = false;
 
   function isLocalMode() {
     return window.SchussduellLocalMode === true ||
@@ -20,21 +17,24 @@
   }
 
   function getToken() {
-    if (window.SupabaseRuntime && typeof window.SupabaseRuntime.getAccessToken === 'function') {
-      return window.SupabaseRuntime.getAccessToken() || '';
-    }
     var session = window.SupabaseSession;
     return (session && session.access_token) ? session.access_token : '';
   }
 
   function isReady() {
-    return !isLocalMode() && Boolean(getToken());
+    return !workerAuthBlocked && !isLocalMode() && Boolean(getToken());
+  }
+
+  function disableWorkerSync(status) {
+    workerAuthBlocked = true;
+    if (!authWarningShown) {
+      authWarningShown = true;
+      console.warn('[BackendSync] Worker Sync pausiert: API antwortet mit HTTP ' + status + '. Supabase-Freunde laufen weiter.');
+    }
   }
 
   function apiFetch(path, opts) {
-    if (window.SchussApi && typeof window.SchussApi.fetch === 'function') {
-      return window.SchussApi.fetch(path, opts);
-    }
+    if (!isReady()) return Promise.resolve(null);
     var url = /^https?:\/\//i.test(path) ? path : WORKER_BASE + path;
     var token = getToken();
     var headers = Object.assign(
@@ -43,29 +43,30 @@
     );
     return fetch(url, Object.assign({}, opts, { headers: headers }))
       .then(function (res) {
+        if (res.status === 401 || res.status === 403) {
+          disableWorkerSync(res.status);
+          return null;
+        }
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
       });
   }
 
-  // ── Spielsitzung speichern ───────────────────────────────────────────────
   function syncGameSession(data) {
     if (!isReady()) return;
-    var payload = {
-      mode: data.mode || 'bot_fight',
-      score: Number(data.score) || 0,
-      shotsFired: Math.max(1, Number(data.shotsFired) || 1),
-      durationSeconds: Math.max(0, Number(data.durationSeconds) || 0)
-    };
     apiFetch('/api/sessions', {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify({
+        mode: data.mode || 'bot_fight',
+        score: Number(data.score) || 0,
+        shotsFired: Math.max(1, Number(data.shotsFired) || 1),
+        durationSeconds: Math.max(0, Number(data.durationSeconds) || 0)
+      })
     }).catch(function (err) {
       console.warn('[BackendSync] session sync failed:', err && err.message ? err.message : err);
     });
   }
 
-  // ── Achievement speichern ────────────────────────────────────────────────
   function syncAchievement(type) {
     if (!isReady() || !type) return;
     apiFetch('/api/achievements', {
@@ -76,21 +77,16 @@
     });
   }
 
-  // ── Live-Aktivität setzen ────────────────────────────────────────────────
   function syncActivity(discipline, difficulty) {
     if (!isReady() || !discipline || !difficulty) return;
     apiFetch('/api/activity/start', {
       method: 'POST',
-      body: JSON.stringify({
-        discipline: String(discipline),
-        difficulty: String(difficulty)
-      })
+      body: JSON.stringify({ discipline: String(discipline), difficulty: String(difficulty) })
     }).catch(function (err) {
       console.warn('[BackendSync] activity sync failed:', err && err.message ? err.message : err);
     });
   }
 
-  // ── Profil-Namen synchronisieren ────────────────────────────────────────
   function syncProfile(displayName) {
     if (!isReady() || !displayName) return;
     apiFetch('/api/profile', {
@@ -104,7 +100,6 @@
     });
   }
 
-  // ── Initiale Profilsynchronisation nach Auth ─────────────────────────────
   function onAuthReady(event) {
     if (!event || (event.detail && event.detail.local)) return;
     var name = localStorage.getItem('sd_username') || localStorage.getItem('username') || '';
@@ -113,16 +108,19 @@
 
   window.addEventListener('supabaseAuthReady', onAuthReady);
   window.addEventListener('supabaseSessionChanged', function (event) {
-    if (event && event.detail && !event.detail.local && event.detail.session) {
-      onAuthReady(event);
-    }
+    if (event && event.detail && !event.detail.local && event.detail.session) onAuthReady(event);
   });
+
+  if (window.SupabaseSession && !isLocalMode()) {
+    setTimeout(function () { onAuthReady({ detail: { session: window.SupabaseSession } }); }, 300);
+  }
 
   window.SupabaseBackendSync = {
     syncGameSession: syncGameSession,
     syncAchievement: syncAchievement,
     syncActivity: syncActivity,
     syncProfile: syncProfile,
-    isReady: isReady
+    isReady: isReady,
+    isWorkerAuthBlocked: function () { return workerAuthBlocked; }
   };
 })();
