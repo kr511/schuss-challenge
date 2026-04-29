@@ -11,7 +11,7 @@ No extra hardware. No subscriptions. Just your browser and a target.
 - **Photo scoring support** — Upload or capture photos of your shot targets and use assisted scoring workflows
 - **Offline-first PWA** — Installable on phone/home screen and usable for many local training functions after first load
 - **Local progress tracking** — Stats, XP, achievements, best groups and training history can be stored in the browser
-- **Optional online account features** — Login, leaderboard and sync features use online services
+- **Optional online account features** — Login, leaderboard and sync features use Supabase
 - **Advanced Target Preprocessing** — Built-in Moiré-reduction, adaptive thresholding and correction helpers for target/display images
 - **Adaptive Training Bot** — Difficulty and target size adjust automatically based on your performance
 - **Multiple Training Modes** — Standard groups, timed challenges, training drills and duel modes
@@ -25,7 +25,8 @@ Schuss Challenge ist **offline-first** und speichert viele Trainingsdaten lokal 
 Einige Funktionen benötigen Internet:
 
 - **Login und Account-Funktionen** über Supabase
-- **Ranglisten / Sync** über Firebase
+- **Ranglisten / Sync** über Supabase
+- **Freunde / Challenges / Trainingsergebnisse** über Supabase
 
 Die Foto- und OCR-Funktionen sollen ohne externe KI-API auskommen. Gemini/Google-KI ist nicht Bestandteil der aktuellen App-Konfiguration.
 
@@ -59,8 +60,9 @@ Wenn du das Social-System **ab Null** in einer frischen Supabase-Datenbank aufse
 2. `supabase/migrations/0002_social_indexes.sql`
 3. `supabase/migrations/0003_social_rls.sql`
 4. `supabase/migrations/0004_social_rpc.sql`
+5. `supabase/migrations/0005_training_leaderboard.sql`
 
-Alternativ kannst du stattdessen das All-in-One-Schema `supabase/schema-social.sql` verwenden (enthält dieselben Bestandteile: Tabellen, Indizes, RLS-Policies, RPC-Funktionen).
+Alternativ kannst du stattdessen das All-in-One-Schema `supabase/schema-social.sql` verwenden (enthält dieselben Bestandteile: Tabellen, Indizes, RLS-Policies, RPC-Funktionen). Für Training, Leaderboard und spätere Vereinsfunktionen ist zusätzlich die Migration `0005_training_leaderboard.sql` vorgesehen.
 
 ## 🔌 Frontend ↔ Schema Konsistenz
 
@@ -72,6 +74,9 @@ Der Supabase-Adapter nutzt exakt die finalen Tabellennamen/Spalten aus dem Schem
 - `friends(user_id, friend_user_id, created_at)`
 - `online_status(user_id, online, last_seen, username)`
 - `async_challenges(creator_id, opponent_id, discipline, weapon, distance, difficulty, shots, burst)`
+- `training_sessions(user_id, discipline, weapon, distance, shots, focus, mode, started_at, completed_at)`
+- `training_results(session_id, user_id, score, average, best_series, worst_series, group_size, trend, analysis_confidence, manual_corrected, photo_used)`
+- `leaderboard_entries(user_id, username, score, xp, weapon, discipline, shots, source)`
 
 RPC-Aufrufe im Frontend entsprechen ebenfalls dem finalen Contract:
 
