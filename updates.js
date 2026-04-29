@@ -27,12 +27,6 @@
 const UpdatesSystem = (function() {
   'use strict';
 
-  // Firebase-Pfade
-  const FIREBASE_PATHS = {
-    updates: 'app_updates_v1',
-    userRead: 'user_read_updates_v1',
-  };
-
   // State
   const state = {
     updates: [],
@@ -41,7 +35,7 @@ const UpdatesSystem = (function() {
     closeHandlersInstalled: false,
   };
 
-  // Demo-Updates (wenn Firebase nicht verfügbar)
+  // Demo-/Fallback-Updates, wenn noch kein Backend Eintraege liefert.
   const demoUpdates = [
     {
       id: 'demo_1',
@@ -84,54 +78,52 @@ const UpdatesSystem = (function() {
   }
 
   /**
-   * Lädt Updates aus Firebase oder Demo
+   * Laedt Updates aus Supabase, LocalStorage oder Demo.
    */
   async function loadUpdates() {
-    // Zuerst LocalStorage prüfen (Admin kann dort gespeichert haben)
-    const localUpdates = JSON.parse(localStorage.getItem('app_updates') || '[]');
-
-    // Prüfe ob Firebase verfügbar ist
-    const firebaseAvailable = (typeof fbReady !== 'undefined' && fbReady) && (typeof fbDb !== 'undefined' && fbDb);
-
-    if (firebaseAvailable) {
-      try {
-        const snapshot = await fbDb.ref(FIREBASE_PATHS.updates).once('value');
-
-        if (snapshot.exists()) {
-          state.updates = [];
-          snapshot.forEach(child => {
-            state.updates.push(child.val());
-          });
-
-          // Nach Datum sortieren (neueste zuerst)
-          state.updates.sort((a, b) => (b.date || 0) - (a.date || 0));
-        } else if (localUpdates.length > 0) {
-          // Keine Firebase-Daten, aber LocalStorage vorhanden
-          state.updates = localUpdates;
-          console.log('✅ Updates aus LocalStorage geladen (Admin-Fallback)');
-        }
-      } catch (e) {
-        console.warn('Firebase Updates-Laden fehlgeschlagen, verwende LocalStorage:', e);
-        // Fallback: LocalStorage + Demo
-        state.updates = localUpdates.length > 0 ? localUpdates : demoUpdates;
-      }
-    } else if (localUpdates.length > 0) {
-      // Kein Firebase, aber LocalStorage vorhanden
-      state.updates = localUpdates;
-      console.log('✅ Updates aus LocalStorage geladen');
-    } else {
-      state.updates = demoUpdates;
-    }
-
-    // Lese welche Updates gelesen wurden
+    const localUpdates = readLocalUpdates();
+    const remoteUpdates = await loadSupabaseUpdates();
+    state.updates = (remoteUpdates.length ? remoteUpdates : (localUpdates.length ? localUpdates : demoUpdates))
+      .slice()
+      .sort((a, b) => (b.date || 0) - (a.date || 0));
     await loadReadStatus();
+  }
+
+  function readLocalUpdates() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('app_updates') || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.warn('[Updates] LocalStorage konnte nicht gelesen werden:', e);
+      return [];
+    }
+  }
+
+  async function loadSupabaseUpdates() {
+    try {
+      const client = window.SupabaseClient || window.SupabaseAuth?.client;
+      if (!client || typeof client.from !== 'function') return [];
+      const result = await client.from('app_updates').select('*').order('date', { ascending: false }).limit(50);
+      if (result.error) throw result.error;
+      return (result.data || []).map((row) => ({
+        id: row.id,
+        title: row.title,
+        message: row.message,
+        date: Number(row.date || Date.parse(row.created_at || '')) || Date.now(),
+        priority: row.priority || 'medium',
+        icon: row.icon || '📢',
+      }));
+    } catch (e) {
+      console.warn('[Updates] Supabase Updates nicht verfuegbar, nutze lokalen Fallback:', e?.message || e);
+      return [];
+    }
   }
 
   /**
    * Lädt den Lese-Status
    */
   async function loadReadStatus() {
-    const userId = (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId');
+    const userId = getCurrentUserKey();
     if (!userId) return;
 
     const readKey = `updates_read_${userId}`;
@@ -145,7 +137,7 @@ const UpdatesSystem = (function() {
    * Markiert alle als gelesen
    */
   function markAllAsRead() {
-    const userId = (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || StorageManager.getRaw('userId');
+    const userId = getCurrentUserKey();
     if (!userId) return;
 
     const readKey = `updates_read_${userId}`;
@@ -232,7 +224,7 @@ const UpdatesSystem = (function() {
     }
 
     const isVisible = isDropdownVisible(dropdown);
-    
+
     if (isVisible) {
       hideUpdates();
     } else {
@@ -261,7 +253,7 @@ const UpdatesSystem = (function() {
       dropdown.style.width = 'auto';
       dropdown.style.maxWidth = 'none';
     }
-    
+
     // Animation
     requestAnimationFrame(() => {
       dropdown.style.opacity = '1';
@@ -283,7 +275,7 @@ const UpdatesSystem = (function() {
 
     dropdown.style.opacity = '0';
     dropdown.style.transform = 'translateY(-10px)';
-    
+
     setTimeout(() => {
       dropdown.style.display = 'none';
       // Mobile Fix zurücksetzen
@@ -402,7 +394,7 @@ const UpdatesSystem = (function() {
    */
   function formatTime(timestamp) {
     if (!timestamp) return '';
-    
+
     const diff = Date.now() - timestamp;
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
@@ -412,7 +404,7 @@ const UpdatesSystem = (function() {
     if (minutes < 60) return `vor ${minutes} Min`;
     if (hours < 24) return `vor ${hours} Std`;
     if (days < 7) return `vor ${days} Tagen`;
-    
+
     // Datum formatieren
     const date = new Date(timestamp);
     return date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -428,6 +420,11 @@ const UpdatesSystem = (function() {
     return div.innerHTML;
   }
 
+
+  function getCurrentUserKey() {
+    return window.SupabaseSession?.user?.id || StorageManager.getRaw('userId') || StorageManager.getRaw('local_user_id') || 'local';
+  }
+
   /**
    * Admin-Funktion: Neues Update erstellen (nur für Admin)
    */
@@ -439,21 +436,23 @@ const UpdatesSystem = (function() {
       date: Date.now(),
       priority: options.priority || 'medium',
       icon: options.icon || '📢',
-      createdBy: (typeof getFirebaseOwnerId === 'function' ? getFirebaseOwnerId() : null) || 'admin',
+      createdBy: getCurrentUserKey() || 'admin',
     };
 
-    if (typeof fbReady !== 'undefined' && fbReady && typeof fbDb !== 'undefined' && fbDb) {
-      try {
-        await fbDb.ref(`${FIREBASE_PATHS.updates}/${updateData.id}`).set(updateData);
-        console.log('✅ Update erstellt:', updateData.id);
-      } catch (e) {
-        console.error('Fehler beim Erstellen:', e);
+    const localUpdates = readLocalUpdates();
+    localUpdates.unshift(updateData);
+    localStorage.setItem('app_updates', JSON.stringify(localUpdates.slice(0, 100)));
+
+    try {
+      const client = window.SupabaseClient || window.SupabaseAuth?.client;
+      if (client && typeof client.from === 'function') {
+        const result = await client.from('app_updates').insert(updateData);
+        if (result.error) throw result.error;
       }
-    } else {
-      console.warn('Firebase nicht verfügbar, Update nicht gespeichert');
+    } catch (e) {
+      console.warn('[Updates] Remote-Speichern nicht verfuegbar, Update bleibt lokal:', e?.message || e);
     }
 
-    // Local neu laden
     await loadUpdates();
     updateUnreadBadge();
   }

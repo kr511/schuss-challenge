@@ -245,7 +245,7 @@ async function verifySupabaseJwt(token: string, secret: string): Promise<string 
   return payload.sub;
 }
 
-async function getAuthenticatedUserId(request: Request, env: Env, url: URL): Promise<string | null> {
+async function resolveAuthenticatedUserId(request: Request, env: Env, url: URL): Promise<string | null> {
   const devUserId = request.headers.get("x-dev-user-id")?.trim() ?? "";
 
   if (
@@ -526,7 +526,7 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       return withCors(await handleGetProfile(url, env), origin);
     }
 
-    const userId = await getAuthenticatedUserId(request, env, url);
+    const userId = await resolveAuthenticatedUserId(request, env, url);
     if (!userId) {
       return withCors(
         authError(

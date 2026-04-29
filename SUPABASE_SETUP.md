@@ -159,21 +159,21 @@ Sicherstellen vor Deployment:
 
 ---
 
-## 8. Firebase – Status und Abhängigkeiten
+## 8. Backend-Status und Abhängigkeiten
 
-Firebase bleibt für bestimmte Features bestehen:
+Supabase-only. Lokaler Gastmodus als Fallback.
 
 | Feature | Status | Grund |
 |---------|--------|-------|
-| **User Auth** | ✅ Supabase | `auth-gate.js` ersetzt Firebase Auth vollständig |
+| **User Auth** | ✅ Supabase | `auth-gate.js` verwaltet Login, Register und OAuth |
 | **Google Sign-In** | ✅ Supabase OAuth | In `auth-gate.js` via `supabase.auth.signInWithOAuth` |
-| **Friends / Requests** | ✅ Supabase primär | `supabase-social.js` → Fallback auf Firebase wenn kein JWT |
-| **Online-Präsenz** | ✅ Supabase primär | `supabase-social.js` → Firebase als Fallback |
+| **Friends / Requests** | ✅ Supabase | `supabase-social.js` mit lokalem Gastmodus |
+| **Online-Präsenz** | ✅ Supabase | `supabase-social.js` / `updateOnlineStatus` |
 | **Spieldaten sync** | ✅ Supabase | `backend-sync.js` → Worker API → Supabase DB |
-| **Friend-Challenges** | ⚠️ Firebase | `friend-challenges.js` nutzt Firebase Realtime DB |
-| **Async Challenges** | ⚠️ Firebase primär | `async-challenge.js` + `src/features/async-challenge.js` |
+| **Friend-Challenges** | ✅ Supabase | `friend-challenges.js` ruft `SupabaseSocial` auf |
+| **Async Challenges** | ✅ Supabase | `src/features/async-challenge.js` ruft `SupabaseSocial` auf |
 
-`friend-challenges.js` und `async-challenge.js` verwenden noch Firebase für Echtzeit-Challenges. Die Supabase-Infrastruktur dafür existiert bereits (`async_challenges`, `async_results` Tabellen in Supabase). Eine vollständige Firebase-Migration dieser Features ist als optionaler Folgeschritt möglich.
+Runtime-Code darf nur Supabase oder lokale Gastdaten verwenden. Wenn Supabase nicht verfügbar ist, bleibt die App lokal nutzbar und synchronisiert nicht in ein zweites Backend.
 
 ---
 

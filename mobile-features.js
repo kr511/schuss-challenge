@@ -201,7 +201,7 @@ const MobileFeatures = (function() {
       return;
     }
     
-    // Dies würde normalerweise mit einem Push-Service wie Firebase oder einem eigenen Server gemacht werden
+    // Dies würde normalerweise mit Supabase Realtime oder einem eigenen Server gemacht werden
     // Für Demo-Zwecke simulieren wir Push-Notifications lokal
     console.log('🔔 Push-Notifications abonniert (lokal)');
   }

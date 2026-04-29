@@ -69,7 +69,7 @@
     window.SchussduellLocalMode = true;
     window.SchussduellLocalPlay = true;
     window.SupabaseSession = null;
-    window.getAuthHeaders = function () { return {}; };
+    window.getSupabaseHeaders = function () { return {}; };
   }
 
   function sanitizeProfileName(value) {
@@ -289,7 +289,7 @@
     window.SupabaseSession = session;
     window.SchussduellLocalMode = false;
     window.SchussduellLocalPlay = false;
-    window.getAuthHeaders = function () { return { Authorization: 'Bearer ' + session.access_token }; };
+    window.getSupabaseHeaders = function () { return { Authorization: 'Bearer ' + session.access_token }; };
     syncProfileNameFromSession(session);
     try { window.dispatchEvent(new CustomEvent('supabaseAuthReady', { detail: { session: session } })); } catch (e) {}
   }

@@ -558,8 +558,7 @@ function awardXP(diff) {
     if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.xp(), 500);
   }
 
-  // Auto-sync zu Firebase (mit null-check)
-  if (fbReady && fbDb) pushProfileToFirebase();
+  scheduleCloudSync('profile_changed');
   return gained;
 }
 
@@ -587,8 +586,7 @@ function awardFlatXP(amount) {
     setTimeout(() => Sounds.xp(), 300);
   }
 
-  // Auto-sync zu Firebase (mit null-check)
-  if (fbReady && fbDb) pushProfileToFirebase();
+  scheduleCloudSync('profile_changed');
   return gained;
 }
 
@@ -654,7 +652,7 @@ function toggleProfileMenu() {
   const ov = DOM.profileOverlay || document.getElementById('profileOverlay');
   const icon = DOM.profileIcon || document.getElementById('profileIcon');
   if (!ov) return;
-  
+
   // Premium Blur Elements
   const dash = document.getElementById('premiumDashboard');
   const hdrLogo = document.querySelector('.hdr-top .logo');
@@ -729,7 +727,7 @@ function switchProfileTab(tab) {
 
 function refreshSettingsPanelUI() {
   initSoundToggleBtn();
-  updateAuthUI(typeof fbUser !== 'undefined' ? fbUser : null);
+  updateAuthUI(getSupabaseUserSafe());
   updateAccountSyncStatus();
 }
 
@@ -930,619 +928,277 @@ function stopBotStatusUpdates() {
   const card = document.getElementById('botStatusCard');
   if (card) card.style.display = 'none';
 }
-window.signInWithGoogle = async function() {
-  if (!fbReady || !fbAuth) {
-    alert('Firebase Auth ist noch nicht bereit. Bitte warte einen Moment.');
-    return;
-  }
 
-  const btn = document.getElementById('googleLoginBtn');
-  if (btn) {
-    btn.textContent = '⏳ Anmeldung läuft...';
-    btn.disabled = true;
-  }
-
+function getSupabaseSessionSafe() {
   try {
-    // Prüfen ob bereits ein Google-Nutzer angemeldet ist
-    const currentUser = fbAuth.currentUser;
-    if (currentUser && currentUser.providerData.some(p => p.providerId === 'google.com')) {
-      alert('Du bist bereits mit Google angemeldet.');
-      updateGoogleLoginUI(currentUser);
-      return;
+    if (window.SupabaseAuth && typeof window.SupabaseAuth.getSession === 'function') {
+      return window.SupabaseAuth.getSession() || window.SupabaseSession || null;
     }
-
-    // GoogleAuthProvider erstellen
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-
-    let result;
-    // Auf Mobile besser: signInWithPopup, auf Desktop auch
-    try {
-      result = await fbAuth.signInWithPopup(provider);
-    } catch (popupError) {
-      // Fallback: Redirect für Mobile/WebView
-      console.warn('Popup failed, trying redirect:', popupError);
-      await fbAuth.signInWithRedirect(provider);
-      return; // Redirect passiert, Seite wird neu geladen
-    }
-
-    const user = result.user;
-    const credential = firebase.auth.GoogleAuthProvider.credentialFromResult(result);
-
-    // Falls vorher anonym → Daten migrieren
-    const wasAnonymous = currentUser && currentUser.isAnonymous;
-    if (wasAnonymous) {
-      // Anonymen Account mit Google verknüpfen
-      try {
-        await currentUser.linkWithCredential(credential);
-        console.log('✅ Anonymen Account mit Google verknüpft');
-      } catch (linkError) {
-        // Wenn Verknüpfung fehlschlägt (z.B. Google existiert bereits)
-        if (linkError.code === 'auth/credential-already-in-use') {
-          // Bestehenden Google-Account nehmen und Daten übertragen
-          console.warn('Google Account existiert bereits, wechsle dazu');
-          await fbAuth.signInWithCredential(credential);
-        } else {
-          console.error('Account link error:', linkError);
-        }
-      }
-    }
-
-    // Username vom Google-Profil übernehmen falls noch nicht gesetzt
-    const displayName = user.displayName;
-    if (displayName && (!G.username || G.username === 'Schütze')) {
-      G.username = displayName.substring(0, 15);
-      StorageManager.setRaw('username', G.username);
-    }
-
-    // Google-Profil-Bild als Avatar speichern falls vorhanden
-    if (user.photoURL) {
-      StorageManager.setRaw('googlePhotoURL', user.photoURL);
-    }
-
-    updateGoogleLoginUI(user);
-    updateAccountSyncStatus();
-
-    // Daten zu Firebase syncen
-    pushProfileToFirebase();
-
-    // Erfolg-Feedback
-    if (btn) {
-      btn.textContent = '✅ Angemeldet!';
-      setTimeout(() => {
-        btn.style.display = 'none';
-        document.getElementById('googleLogoutBtn').style.display = 'block';
-      }, 1500);
-    }
-
-    alert(`✅ Willkommen, ${displayName || G.username}!\n\nDein Konto ist jetzt mit Google verknüpft.\nDeine bisherigen Daten wurden übernommen.`);
-
   } catch (error) {
-    console.error('Google Sign-In Error:', error);
-    const errorMsg = error.code === 'auth/popup-closed-by-user'
-      ? 'Anmeldung abgebrochen.'
-      : error.code === 'auth/popup-blocked'
-        ? 'Pop-up wurde blockiert. Bitte erlaube Pop-ups für diese Seite.'
-        : `Anmeldung fehlgeschlagen: ${error.message}`;
-    alert(errorMsg);
-
-    if (btn) {
-      btn.innerHTML = `
-        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
-        Mit Google anmelden`;
-      btn.disabled = false;
-    }
+    console.warn('[SupabaseSync] Session konnte nicht gelesen werden:', error?.message || error);
   }
+  return window.SupabaseSession || null;
+}
+
+function getSupabaseUserSafe() {
+  const session = getSupabaseSessionSafe();
+  return session && session.user ? session.user : null;
+}
+
+function getSupabaseClientSafe() {
+  if (window.SupabaseClient) return window.SupabaseClient;
+  if (window.SupabaseAuth && window.SupabaseAuth.client) return window.SupabaseAuth.client;
+  return null;
+}
+
+function getSupabaseDisplayName(user) {
+  const meta = (user && user.user_metadata) || {};
+  return meta.full_name || meta.name || meta.display_name || meta.user_name || (user && user.email ? String(user.email).split('@')[0] : '') || G.username || 'Spieler';
+}
+
+function updateSessionFromAuthResult(result) {
+  const session = result && result.data && result.data.session ? result.data.session : null;
+  if (session) {
+    window.SupabaseSession = session;
+    window.dispatchEvent(new CustomEvent('supabaseAuthReady', { detail: { session: session } }));
+  }
+  return session;
+}
+
+window.signInWithGoogle = async function() {
+  if (typeof window.__agGoogle === 'function') return window.__agGoogle();
+  if (window.SupabaseAuth && typeof window.SupabaseAuth.signInWithGoogle === 'function') return window.SupabaseAuth.signInWithGoogle();
+  alert('Supabase Login ist noch nicht bereit. Bitte lade die Seite neu oder spiele lokal weiter.');
 };
 
 window.signOutGoogle = async function() {
-  if (!confirm('Möchtest du dich wirklich von Google abmelden?\n\nDeine Daten bleiben erhalten, aber der Sync läuft nur noch über den Sync-Code.')) {
-    return;
-  }
-
-  try {
-    await fbAuth.signOut();
-    fbUser = null;
-
-    // UI zurücksetzen
-    document.getElementById('googleLoginBtn').style.display = 'flex';
-    document.getElementById('googleLogoutBtn').style.display = 'none';
-    document.getElementById('googleLoginInfo').style.display = 'none';
-
-    // Zurück zu anonym
-    const user = await ensureFirebaseAnonymousAuth();
-    fbUser = user;
-    updateAccountSyncStatus();
-
-    alert('✅ Von Google abgemeldet. Anonymer Modus aktiv.');
-  } catch (error) {
-    console.error('Sign-Out Error:', error);
-    alert('Abmeldung fehlgeschlagen: ' + error.message);
-  }
+  return window.logoutEmail();
 };
 
-/* ═══════════════════════════════════════════════
-   EMAIL/PASSWORT AUTHENTIFIZIERUNG
-   ═══════════════════════════════════════════════ */
-
 window.registerWithEmail = async function(email, password) {
-  if (!fbReady || !fbAuth) {
-    throw new Error('Firebase Auth ist noch nicht bereit.');
-  }
-
-  if (!email || !password) {
-    throw new Error('Bitte E-Mail und Passwort ausfüllen.');
-  }
-
-  if (password.length < 6) {
-    throw new Error('Passwort muss mindestens 6 Zeichen haben.');
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    throw new Error('Bitte eine gültige E-Mail-Adresse eingeben.');
-  }
-
+  const client = getSupabaseClientSafe();
+  if (!client || !client.auth || typeof client.auth.signUp !== 'function') throw new Error('Supabase Auth ist noch nicht bereit.');
+  if (!email || !password) throw new Error('Bitte E-Mail und Passwort ausfuellen.');
+  if (password.length < 6) throw new Error('Passwort muss mindestens 6 Zeichen haben.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Bitte eine gueltige E-Mail-Adresse eingeben.');
   try {
-    const userCredential = await fbAuth.createUserWithEmailAndPassword(email, password);
-    const user = userCredential.user;
-
-    // Display Name setzen (aus vorhandenem Username oder E-Mail)
-    const displayName = G.username || email.split('@')[0];
-    if (displayName) {
-      await user.updateProfile({ displayName: displayName.substring(0, 15) });
+    const result = await client.auth.signUp({ email: email, password: password, options: { data: { display_name: G.username || email.split('@')[0] } } });
+    if (result.error) throw result.error;
+    const session = updateSessionFromAuthResult(result);
+    const user = result.data && result.data.user ? result.data.user : (session && session.user ? session.user : null);
+    if (user && !G.username) {
+      G.username = sanitizeUsername(getSupabaseDisplayName(user));
+      StorageManager.setRaw('username', G.username);
     }
-
-    // Bestehende lokale Daten mit neuem Konto verknüpfen
-    await linkLocalDataToFirebase(user);
-
-    console.log('✅ Neues Konto erstellt:', user.email);
+    syncProfileWithBackend(null, { reason: 'register' });
+    updateAuthUI(user);
+    updateAccountSyncStatus();
     return user;
   } catch (error) {
-    console.error('Registration Error:', error);
-    let message = 'Registrierung fehlgeschlagen.';
-    
-    switch (error.code) {
-      case 'auth/email-already-in-use':
-        message = 'Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich stattdessen an.';
-        break;
-      case 'auth/invalid-email':
-        message = 'Die E-Mail-Adresse ist ungültig.';
-        break;
-      case 'auth/weak-password':
-        message = 'Das Passwort ist zu schwach (mind. 6 Zeichen).';
-        break;
-      case 'auth/network-request-failed':
-        message = 'Netzwerkfehler. Bitte überprüfe deine Internetverbindung.';
-        break;
-      default:
-        message = error.message;
-    }
-    
-    throw new Error(message);
+    console.error('[SupabaseSync] Registrierung fehlgeschlagen:', error);
+    throw new Error(error?.message || 'Registrierung fehlgeschlagen.');
   }
 };
 
 window.signInWithEmail = async function(email, password) {
-  if (!fbReady || !fbAuth) {
-    throw new Error('Firebase Auth ist noch nicht bereit.');
-  }
-
-  if (!email || !password) {
-    throw new Error('Bitte E-Mail und Passwort ausfüllen.');
-  }
-
+  const client = getSupabaseClientSafe();
+  if (!client || !client.auth || typeof client.auth.signInWithPassword !== 'function') throw new Error('Supabase Auth ist noch nicht bereit.');
+  if (!email || !password) throw new Error('Bitte E-Mail und Passwort ausfuellen.');
   try {
-    const userCredential = await fbAuth.signInWithEmailAndPassword(email, password);
-    const user = userCredential.user;
-
-    // Username vom Firebase-Profil übernehmen falls noch nicht gesetzt
-    if (user.displayName && (!G.username || G.username === 'Schütze')) {
-      G.username = user.displayName.substring(0, 15);
+    const result = await client.auth.signInWithPassword({ email: email, password: password });
+    if (result.error) throw result.error;
+    const session = updateSessionFromAuthResult(result);
+    const user = session && session.user ? session.user : null;
+    const displayName = sanitizeUsername(getSupabaseDisplayName(user));
+    if (displayName && (!G.username || G.username === 'Schuetze')) {
+      G.username = displayName;
       StorageManager.setRaw('username', G.username);
     }
-
-    // Bestehende lokale Daten mit Konto verknüpfen
-    await linkLocalDataToFirebase(user);
-
-    console.log('✅ Angemeldet:', user.email);
+    syncProfileWithBackend(null, { reason: 'login' });
+    updateAuthUI(user);
+    updateAccountSyncStatus();
     return user;
   } catch (error) {
-    console.error('Login Error:', error);
-    let message = 'Anmeldung fehlgeschlagen.';
-    
-    switch (error.code) {
-      case 'auth/user-not-found':
-        message = 'Kein Konto mit dieser E-Mail-Adresse gefunden. Bitte registriere dich zuerst.';
-        break;
-      case 'auth/wrong-password':
-        message = 'Falsches Passwort. Bitte überprüfe deine Eingabe.';
-        break;
-      case 'auth/invalid-email':
-        message = 'Die E-Mail-Adresse ist ungültig.';
-        break;
-      case 'auth/too-many-requests':
-        message = 'Zu viele fehlgeschlagene Anmeldeversuche. Bitte versuche es später erneut.';
-        break;
-      case 'auth/network-request-failed':
-        message = 'Netzwerkfehler. Bitte überprüfe deine Internetverbindung.';
-        break;
-      default:
-        message = error.message;
-    }
-    
-    throw new Error(message);
+    console.error('[SupabaseSync] Anmeldung fehlgeschlagen:', error);
+    throw new Error(error?.message || 'Anmeldung fehlgeschlagen.');
   }
 };
 
 window.logoutEmail = async function() {
-  if (!fbAuth) {
-    throw new Error('Firebase Auth ist nicht verfügbar.');
-  }
-
-  if (!confirm('Möchtest du dich wirklich abmelden?\n\nDeine Daten bleiben erhalten und werden beim nächsten Anmelden synchronisiert.')) {
-    return;
-  }
-
+  if (!confirm('Moechtest du dich wirklich abmelden? Deine lokalen Daten bleiben auf diesem Geraet erhalten.')) return false;
   try {
-    // Lokale Daten vor dem Logout speichern
-    const localData = {
-      username: G.username,
-      xp: G.xp,
-      streak: G.streak,
-      weapon: G.weapon,
-      discipline: G.discipline
-    };
+    const localData = { username: G.username, xp: G.xp, streak: G.streak, weapon: G.weapon, discipline: G.discipline };
     StorageManager.setRaw('pre_logout_data', JSON.stringify(localData));
-
-    await fbAuth.signOut();
-    fbUser = null;
-    fbAccountId = '';
-
-    // UI zurücksetzen
+    const client = getSupabaseClientSafe();
+    if (client && client.auth && typeof client.auth.signOut === 'function') await client.auth.signOut();
+    else if (window.SupabaseAuth && typeof window.SupabaseAuth.signOut === 'function') await window.SupabaseAuth.signOut();
+    window.SupabaseSession = null;
     updateAuthUI(null);
-
-    // Zurück zu anonymous auth
-    const user = await ensureFirebaseAnonymousAuth();
-    fbUser = user;
     updateAccountSyncStatus();
     updateXPCorner();
     updateProfileMenu();
-
-    console.log('✅ Abgemeldet');
+    console.log('[SupabaseSync] Abgemeldet');
     return true;
   } catch (error) {
-    console.error('Logout Error:', error);
-    throw new Error('Abmeldung fehlgeschlagen: ' + error.message);
+    console.error('[SupabaseSync] Logout fehlgeschlagen:', error);
+    throw new Error('Abmeldung fehlgeschlagen: ' + (error?.message || error));
   }
 };
 
-// Lokale Daten mit Firebase-Konto verknüpfen
-async function linkLocalDataToFirebase(user) {
-  if (!user || !fbDb) return;
-
-  try {
-    // Account-ID auflösen
-    await resolveFirebaseAccountId(user);
-
-    // Cloud-User bootstrappen
-    await bootstrapCloudUser(user, { force: false });
-
-    // Bestehende lokale Daten zu Firebase syncen
-    await pushProfileToFirebase();
-
-    // UI aktualisieren
-    fbUser = user;
-    updateAuthUI(user);
-    updateAccountSyncStatus();
-    updateSchuetzenpass();
-
-    // Profil-Bild speichern falls vorhanden
-    if (user.photoURL) {
-      StorageManager.setRaw('profilePhotoURL', user.photoURL);
-    }
-
-    console.log('✅ Lokale Daten mit Firebase-Konto verknüpft:', user.email || user.displayName);
-  } catch (error) {
-    console.warn('Data linking warning:', error?.code || error?.message || error);
-    // Nicht kritisch - Login funktioniert trotzdem
-  }
-}
-
-// Zentrale UI-Aktualisierung für Auth-State
-function updateAuthUI(user) {
-  // Google UI
+function updateAuthUI(user = getSupabaseUserSafe()) {
   updateGoogleLoginUI(user);
-  
-  // Email Auth UI
   const emailAuthContainer = document.getElementById('emailAuthContainer');
   const authFormContainer = document.getElementById('authFormContainer');
-  
+  const authenticated = !!user && window.SchussduellLocalMode !== true && window.SchussduellLocalPlay !== true;
   if (emailAuthContainer && authFormContainer) {
-    if (user && !user.isAnonymous) {
-      // User ist angemeldet
+    if (authenticated) {
       emailAuthContainer.style.display = 'block';
       authFormContainer.style.display = 'none';
-      
-      // User Info aktualisieren
-      const initial = (user.displayName || user.email || 'A').charAt(0).toUpperCase();
-      document.getElementById('authUserAvatar').textContent = initial;
-      document.getElementById('authUserName').textContent = user.displayName || 'Nutzer';
-      document.getElementById('authUserEmail').textContent = user.email || '';
-      
-      // Sync-Status aktualisieren
-      const syncStatusText = document.getElementById('syncStatusText');
-      if (syncStatusText) {
-        syncStatusText.innerHTML = `
-          <div style="font-weight:600;margin-bottom:2px;">Angemeldet als ${user.email || user.displayName}</div>
-          <div style="opacity:0.7;">☁️ Cloud-Sync aktiv</div>
-        `;
-      }
-      
+      const displayName = getSupabaseDisplayName(user);
+      const avatar = document.getElementById('authUserAvatar');
+      const name = document.getElementById('authUserName');
+      const emailNode = document.getElementById('authUserEmail');
+      if (avatar) avatar.textContent = (displayName || 'S').charAt(0).toUpperCase();
+      if (name) name.textContent = displayName || 'Supabase Nutzer';
+      if (emailNode) emailNode.textContent = user.email || '';
     } else {
-      // User ist nicht angemeldet (anonym)
       emailAuthContainer.style.display = 'none';
       authFormContainer.style.display = 'block';
-      
-      const syncStatusText = document.getElementById('syncStatusText');
-      if (syncStatusText) {
-        syncStatusText.innerHTML = 'Lokaler Modus · Melde dich an für Sync';
-      }
     }
   }
-
-  // Profil-Icon aktualisieren
   const profileIcon = document.getElementById('profileIcon');
   if (profileIcon) {
-    if (user && !user.isAnonymous) {
-      profileIcon.style.visibility = 'visible';
-      profileIcon.style.background = 'linear-gradient(135deg, #00c3ff 0%, #7ab030 100%)';
-      profileIcon.style.color = '#000';
-    } else {
-      profileIcon.style.visibility = 'hidden';
-      profileIcon.style.background = '';
-      profileIcon.style.color = '';
-    }
+    profileIcon.style.visibility = authenticated || G.username ? 'visible' : 'hidden';
+    profileIcon.style.background = authenticated ? 'linear-gradient(135deg, #00c3ff 0%, #7ab030 100%)' : '';
+    profileIcon.style.color = authenticated ? '#000' : '';
   }
-
-  // Dashboard greeting aktualisieren
-  if (typeof updatePDGreeting === 'function') {
-    setTimeout(updatePDGreeting, 200);
-  }
+  if (typeof updatePDGreeting === 'function') setTimeout(updatePDGreeting, 200);
 }
-
-/* ═══════════════════════════════════════════════
-   AUTH UI HANDLER (Email/Passwort)
-   ═══════════════════════════════════════════════ */
 
 window.switchAuthTab = function(tab) {
   const loginTab = document.getElementById('authTabLogin');
   const registerTab = document.getElementById('authTabRegister');
   const loginForm = document.getElementById('authLoginForm');
   const registerForm = document.getElementById('authRegisterForm');
-  
   if (!loginTab || !registerTab || !loginForm || !registerForm) return;
-  
   hideAuthMessage();
-  
-  if (tab === 'login') {
-    loginTab.style.background = 'linear-gradient(135deg,#00c3ff 0%,#7ab030 100%)';
-    loginTab.style.color = '#000';
-    registerTab.style.background = 'transparent';
-    registerTab.style.color = 'rgba(255,255,255,0.5)';
-    loginForm.style.display = 'flex';
-    registerForm.style.display = 'none';
-  } else {
-    registerTab.style.background = 'linear-gradient(135deg,#00c3ff 0%,#7ab030 100%)';
-    registerTab.style.color = '#000';
-    loginTab.style.background = 'transparent';
-    loginTab.style.color = 'rgba(255,255,255,0.5)';
-    registerForm.style.display = 'flex';
-    loginForm.style.display = 'none';
-  }
+  const isLogin = tab === 'login';
+  loginTab.style.background = isLogin ? 'linear-gradient(135deg,#00c3ff 0%,#7ab030 100%)' : 'transparent';
+  loginTab.style.color = isLogin ? '#000' : 'rgba(255,255,255,0.5)';
+  registerTab.style.background = !isLogin ? 'linear-gradient(135deg,#00c3ff 0%,#7ab030 100%)' : 'transparent';
+  registerTab.style.color = !isLogin ? '#000' : 'rgba(255,255,255,0.5)';
+  loginForm.style.display = isLogin ? 'flex' : 'none';
+  registerForm.style.display = isLogin ? 'none' : 'flex';
 };
 
 window.showAuthMessage = function(text, type = 'error') {
   const msg = document.getElementById('authMessage');
   if (!msg) return;
-  
   msg.textContent = text;
   msg.style.display = 'block';
-  
-  if (type === 'error') {
-    msg.style.background = 'rgba(240,96,80,0.15)';
-    msg.style.border = '1px solid rgba(240,96,80,0.3)';
-    msg.style.color = '#f06050';
-  } else {
-    msg.style.background = 'rgba(122,176,48,0.15)';
-    msg.style.border = '1px solid rgba(122,176,48,0.3)';
-    msg.style.color = '#7ab030';
-  }
+  msg.style.background = type === 'error' ? 'rgba(240,96,80,0.15)' : 'rgba(122,176,48,0.15)';
+  msg.style.border = type === 'error' ? '1px solid rgba(240,96,80,0.3)' : '1px solid rgba(122,176,48,0.3)';
+  msg.style.color = type === 'error' ? '#f06050' : '#7ab030';
 };
 
-window.hideAuthMessage = function() {
-  const msg = document.getElementById('authMessage');
-  if (msg) msg.style.display = 'none';
-};
+window.hideAuthMessage = function() { const msg = document.getElementById('authMessage'); if (msg) msg.style.display = 'none'; };
 
 window.setAuthLoading = function(loading, btnId = 'authLoginBtn') {
   const btn = document.getElementById(btnId);
   if (!btn) return;
-  
-  if (loading) {
-    btn.disabled = true;
-    btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,0.2);border-top-color:#000;border-radius:50%;animation:spin 0.6s linear infinite;"></span> Wird verarbeitet...';
-  } else {
-    btn.disabled = false;
-    if (btnId === 'authLoginBtn') {
-      btn.textContent = '🚀 Anmelden';
-    } else {
-      btn.textContent = '✨ Konto erstellen';
-    }
-  }
+  btn.disabled = !!loading;
+  if (loading) btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,0.2);border-top-color:#000;border-radius:50%;animation:spin 0.6s linear infinite;"></span> Wird verarbeitet...';
+  else btn.textContent = btnId === 'authLoginBtn' ? 'Anmelden' : 'Konto erstellen';
 };
 
 window.handleAuthLogin = async function() {
-  const email = document.getElementById('authLoginEmail').value.trim();
-  const password = document.getElementById('authLoginPassword').value;
-  
+  const email = document.getElementById('authLoginEmail')?.value.trim() || '';
+  const password = document.getElementById('authLoginPassword')?.value || '';
   hideAuthMessage();
-  
-  if (!email || !password) {
-    return showAuthMessage('❌ Bitte E-Mail und Passwort ausfüllen.');
-  }
-  
+  if (!email || !password) return showAuthMessage('Bitte E-Mail und Passwort ausfuellen.');
   setAuthLoading(true, 'authLoginBtn');
-  
   try {
-    const user = await signInWithEmail(email, password);
-    showAuthMessage('✅ Erfolgreich angemeldet!', 'success');
-    
-    // Formular zurücksetzen
-    document.getElementById('authLoginEmail').value = '';
-    document.getElementById('authLoginPassword').value = '';
-    
-    // Erfolg-Feedback
-    setTimeout(() => {
-      hideAuthMessage();
-    }, 2000);
-    
-  } catch (error) {
-    showAuthMessage(error.message);
-  } finally {
-    setAuthLoading(false, 'authLoginBtn');
-  }
+    await signInWithEmail(email, password);
+    showAuthMessage('Erfolgreich angemeldet!', 'success');
+    const emailInput = document.getElementById('authLoginEmail');
+    const passwordInput = document.getElementById('authLoginPassword');
+    if (emailInput) emailInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+    setTimeout(() => hideAuthMessage(), 2000);
+  } catch (error) { showAuthMessage(error.message); }
+  finally { setAuthLoading(false, 'authLoginBtn'); }
 };
 
 window.handleAuthRegister = async function() {
-  const email = document.getElementById('authRegisterEmail').value.trim();
-  const password = document.getElementById('authRegisterPassword').value;
-  const passwordConfirm = document.getElementById('authRegisterPasswordConfirm').value;
-  
+  const email = document.getElementById('authRegisterEmail')?.value.trim() || '';
+  const password = document.getElementById('authRegisterPassword')?.value || '';
+  const passwordConfirm = document.getElementById('authRegisterPasswordConfirm')?.value || '';
   hideAuthMessage();
-  
-  if (!email || !password || !passwordConfirm) {
-    return showAuthMessage('❌ Bitte alle Felder ausfüllen.');
-  }
-  
-  if (password !== passwordConfirm) {
-    return showAuthMessage('❌ Passwörter stimmen nicht überein.');
-  }
-  
-  if (password.length < 6) {
-    return showAuthMessage('❌ Passwort muss mindestens 6 Zeichen haben.');
-  }
-  
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return showAuthMessage('❌ Bitte eine gültige E-Mail-Adresse eingeben.');
-  }
-  
+  if (!email || !password || !passwordConfirm) return showAuthMessage('Bitte alle Felder ausfuellen.');
+  if (password !== passwordConfirm) return showAuthMessage('Passwoerter stimmen nicht ueberein.');
   setAuthLoading(true, 'authRegisterBtn');
-  
   try {
-    const user = await registerWithEmail(email, password);
-    showAuthMessage('✅ Konto erstellt! Deine Daten werden synchronisiert.', 'success');
-    
-    // Formular zurücksetzen
-    document.getElementById('authRegisterEmail').value = '';
-    document.getElementById('authRegisterPassword').value = '';
-    document.getElementById('authRegisterPasswordConfirm').value = '';
-    
-    // Erfolg-Feedback
-    setTimeout(() => {
-      hideAuthMessage();
-    }, 2000);
-    
-  } catch (error) {
-    showAuthMessage(error.message);
-  } finally {
-    setAuthLoading(false, 'authRegisterBtn');
-  }
+    await registerWithEmail(email, password);
+    showAuthMessage('Konto erstellt. Deine Daten werden synchronisiert.', 'success');
+    ['authRegisterEmail', 'authRegisterPassword', 'authRegisterPasswordConfirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    setTimeout(() => hideAuthMessage(), 2000);
+  } catch (error) { showAuthMessage(error.message); }
+  finally { setAuthLoading(false, 'authRegisterBtn'); }
 };
 
-// Enter-Taste Unterstützung für Login-Formular
 function initAuthFormListeners() {
   const loginPassword = document.getElementById('authLoginPassword');
   const registerPasswordConfirm = document.getElementById('authRegisterPasswordConfirm');
-  
-  if (loginPassword) {
-    loginPassword.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleAuthLogin();
-    });
-  }
-  
-  if (registerPasswordConfirm) {
-    registerPasswordConfirm.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleAuthRegister();
-    });
-  }
+  if (loginPassword) loginPassword.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAuthLogin(); });
+  if (registerPasswordConfirm) registerPasswordConfirm.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAuthRegister(); });
 }
 
-// Spinner Animation CSS
 function injectAuthSpinnerCSS() {
   if (document.getElementById('auth-spinner-style')) return;
-  
   const style = document.createElement('style');
   style.id = 'auth-spinner-style';
-  style.textContent = `
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-  `;
+  style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
   document.head.appendChild(style);
 }
 
-function updateGoogleLoginUI(user) {
+function updateGoogleLoginUI(user = getSupabaseUserSafe()) {
   const loginBtn = document.getElementById('googleLoginBtn');
   const logoutBtn = document.getElementById('googleLogoutBtn');
   const loginInfo = document.getElementById('googleLoginInfo');
   const userName = document.getElementById('googleUserName');
   const userEmail = document.getElementById('googleUserEmail');
   const avatar = document.getElementById('googleAvatar');
-
-  // Wenn kein user oder kein Google Provider
-  const isGoogleUser = user && user.providerData && user.providerData.some(p => p.providerId === 'google.com');
-
+  const provider = user && (user.app_metadata?.provider || (Array.isArray(user.identities) && user.identities[0]?.provider));
+  const isGoogleUser = !!user && provider === 'google';
   if (!isGoogleUser) {
-    // Nicht mit Google angemeldet
     if (loginBtn) loginBtn.style.display = 'flex';
-    if (logoutBtn) logoutBtn.style.display = 'none';
-    if (loginInfo) loginInfo.style.display = 'none';
-    return;
+    if (logoutBtn) logoutBtn.style.display = user ? 'block' : 'none';
+    if (loginInfo) loginInfo.style.display = user ? 'block' : 'none';
+  } else {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'block';
+    if (loginInfo) loginInfo.style.display = 'block';
   }
-
-  // Mit Google angemeldet
-  if (loginBtn) loginBtn.style.display = 'none';
-  if (logoutBtn) logoutBtn.style.display = 'block';
-  if (loginInfo) loginInfo.style.display = 'block';
-
-  if (userName) userName.textContent = user.displayName || 'Google Nutzer';
-  if (userEmail) userEmail.textContent = user.email || '';
-
-  if (avatar && user.photoURL) {
-    avatar.src = user.photoURL;
+  if (userName && user) userName.textContent = getSupabaseDisplayName(user);
+  if (userEmail && user) userEmail.textContent = user.email || '';
+  const picture = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || '';
+  if (avatar && picture) {
+    avatar.src = picture;
     avatar.style.display = 'block';
-    StorageManager.setRaw('googlePhotoURL', user.photoURL);
+    StorageManager.setRaw('profilePhotoURL', picture);
   }
 }
 
-// Auth-State Observer einrichten
 function setupGoogleAuthObserver() {
-  if (!fbAuth) return;
-
-  fbAuth.onAuthStateChanged(user => {
-    if (user) {
-      fbUser = user;
-      updateAuthUI(user);
-      updateAccountSyncStatus();
-      bootstrapCloudUser(user).catch(console.warn);
-    } else {
-      fbUser = null;
-      updateAuthUI(null);
-      updateAccountSyncStatus();
-    }
-  });
+  const refresh = (event) => {
+    const session = event?.detail?.session || getSupabaseSessionSafe();
+    updateAuthUI(session?.user || null);
+    updateAccountSyncStatus();
+    if (session?.user) syncProfileWithBackend(null, { reason: 'session_changed' });
+  };
+  window.addEventListener('supabaseAuthReady', refresh);
+  window.addEventListener('supabaseSessionChanged', refresh);
+  refresh();
 }
 
 /* ─── PROFIL BEARBEITEN (Name + Avatar) ─────────── */
@@ -1602,10 +1258,7 @@ window.changeProfileName = function() {
   const pdProfileInitial = document.getElementById('pdProfileInitial');
   if (pdProfileInitial) pdProfileInitial.textContent = newName.charAt(0).toUpperCase();
 
-  // Firebase sync
-  if (fbReady && fbDb) {
-    pushProfileToFirebase();
-  }
+  syncProfileWithBackend(null, { reason: 'profile_name_changed' });
 
   triggerHaptic();
   alert(`Name von "${oldName}" zu "${newName}" geändert.`);
@@ -1878,7 +1531,7 @@ function submitSiteFeedback(rating) {
   // Sende Feedback an Worker API (für Admin-Dashboard)
   const safeUsername = sanitizeUsername(G.username || 'Anonym');
   const userEmail = typeof StorageManager !== 'undefined' ? (StorageManager.getRaw('userEmail') || `${safeUsername}@schuss-challenge.local`) : `${safeUsername}@schuss-challenge.local`;
-  
+
   fetch('https://schuss-challenge.eliaskummel.workers.dev/api/feedback', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1923,16 +1576,15 @@ function submitSiteFeedback(rating) {
         diff: G.diff || 'unknown',
         username: safeUsername,
         userHash,
-        uid: getFirebaseOwnerId(),
-        authUid: fbUser?.uid || '',
-        accountId: getFirebaseOwnerId(),
+        uid: getCurrentAccountId(),
+        accountId: getCurrentAccountId(),
         ts: Date.now(),
         date: new Date().toLocaleDateString('de-DE', {
           day: '2-digit', month: '2-digit', year: 'numeric',
           hour: '2-digit', minute: '2-digit'
         })
       };
-      entry.key = `${entry.ts}_${getFirebaseOwnerId() || userHash}`;
+      entry.key = String(entry.ts) + '_' + (getCurrentAccountId() || userHash);
       queueFeedbackEntry(entry);
     }
 
@@ -2437,19 +2089,16 @@ function recordGameResult(result, diff, weapon, playerPts, botPts) {
     }
   }
 
-  // Auto-Sync zu Firebase nach jedem Spiel (Streak + Stats aktuell halten)
-  // Kleines Delay damit updateWinStreak() zuerst den Cache aktualisiert
-  setTimeout(() => pushProfileToFirebase(), 300);
+  // Profil nach jedem Spiel aktualisieren (Streak + Stats aktuell halten)
+  setTimeout(() => syncProfileWithBackend(null, { reason: 'battle_finished' }), 300);
 
   // Supabase Worker API: Spielsitzung persistieren (fire-and-forget)
-  if (typeof SupabaseBackendSync !== 'undefined' && typeof SupabaseBackendSync.syncGameSession === 'function') {
-    SupabaseBackendSync.syncGameSession({
+  syncGameSessionWithBackend({
       mode: (G.friendChallenge ? 'challenge' : 'bot_fight'),
       score: playerPts,
       shotsFired: Math.max(1, (G.playerShots && G.playerShots.length) || G.shots || 0),
       durationSeconds: Math.max(0, Math.floor((Date.now() - (G._gameStartTime || Date.now())) / 1000))
     });
-  }
 }
 
 function calculateGrouping(shots) {
@@ -2673,7 +2322,7 @@ function refreshPremiumDashboard() {
     // Fallback für alte Einträge: Nur bei Sieg XP geben
     const isWin = g.result === 'win' || g.result === 'Sieg';
     if (!isWin) return sum; // Niederlage = 0 XP
-    
+
     // Schwierigkeit auslesen (verschiedene Feldnamen beachten)
     const diff = g.difficulty || g.diff;
     // Nur XP geben wenn Schwierigkeit bekannt ist, sonst 0
@@ -2858,7 +2507,7 @@ function refreshPremiumDashboard() {
       const color = isWin ? '#7ab030' : '#f06050';
       const label = isWin ? '✓ Sieg' : '✗ Niederlage';
       const diff = game.difficulty || 'Mittel';
-      
+
       // Disziplin-Name korrekt auflösen: "LG 40", "LG 60", "KK 50m", "KK 100m", "KK 3×20"
       let displayDisc = '';
       if (game.discipline && DISC[game.discipline]) {
@@ -2870,13 +2519,13 @@ function refreshPremiumDashboard() {
         const weapon = (game.weapon || 'lg').toLowerCase();
         const shotsCount = game.shotsCount || 40;
         let discKey = `${weapon}${shotsCount}`;
-        
+
         // Spezielle Fälle für KK
         if (weapon === 'kk' && shotsCount === 60) {
           // Standard ist KK 50m, aber wir prüfen auch auf 100m
           discKey = 'kk50';
         }
-        
+
         if (DISC[discKey]) {
           displayDisc = DISC[discKey].name;
         } else {
@@ -2991,7 +2640,7 @@ function refreshPremiumDashboard() {
     const recentGames = historyV2.slice(Math.max(historyV2.length - 2, 0)).reverse();
     recentGames.forEach(game => {
       const diff = game.difficulty || 'Mittel';
-      
+
       // Disziplin-Name korrekt auflösen (gleiche Logik wie oben)
       let displayDisc = '';
       if (game.discipline && DISC[game.discipline]) {
@@ -3267,9 +2916,7 @@ function checkSunAchievements() {
       newEarned = true;
       showSunPop(a);
       // Supabase Worker API: Achievement persistieren (fire-and-forget)
-      if (typeof SupabaseBackendSync !== 'undefined' && typeof SupabaseBackendSync.syncAchievement === 'function') {
-        SupabaseBackendSync.syncAchievement(a.id);
-      }
+      syncAchievementWithBackend(a.id);
     }
   });
   if (newEarned) saveSunEarned(earned);
@@ -3352,1871 +2999,123 @@ function updateProfileMenu() {
   if (DOM.pmStreak) DOM.pmStreak.textContent = bestStreak > 0 ? '🔥 ' + bestStreak : '–';
 }
 
-/* ─── FIREBASE ───────────────────────────────────────────────────────
-   SICHERHEITSHINWEIS: Der API-Key ist für Web-Apps öffentlich sichtbar.
-   Schutz erfolgt ausschließlich über Firebase Security Rules (nicht über
-   den Key selbst). Stelle sicher, dass in der Firebase Console folgende
-   Realtime Database Rules gesetzt sind:
 
-   {
-     "rules": {
-       "leaderboard_v2": {
-         ".read": true,
-         ".write": "newData.child('username').isString()"
-       },
-       "$other": {
-         ".read": false,
-         ".write": false
-       }
-     }
-   }
-
-   Außerdem: In der Firebase Console → Authentication → Settings →
-   "Authorized domains" nur deine eigene Domain eintragen (kein localhost
-   in Produktion). Das verhindert Missbrauch des Keys von fremden Domains.
-─────────────────────────────────────────────────────────────────────── */
-const FB_CONFIG = {
-  apiKey: "AIzaSyDiwpW30GJW8da04A8ga9zOlj72PLXrUUk",
-  authDomain: "burnished-block-402111.firebaseapp.com",
-  databaseURL: "https://burnished-block-402111-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "burnished-block-402111",
-  storageBucket: "burnished-block-402111.firebasestorage.app",
-  messagingSenderId: "884784314045",
-  appId: "1:884784314045:web:03c1af3dd3d91bfb2569d4"
-};
-
-let fbApp = null, fbDb = null, fbAuth = null, fbUser = null, fbReady = false;
-let fbAccountId = '';
-let fbAuthListenerBound = false;
-let fbCloudBootstrapUid = '';
-let fbCloudProfileCache = null;
-let fbCloudSyncTimer = null;
-let fbCloudFlushPromise = null;
-let debugRemoteState = null;
-let debugRemoteFetchInFlight = false;
-let debugFeedbackState = null;
-let debugFeedbackFetchInFlight = false;
+/* --- SUPABASE / LOCAL SYNC ------------------------------------------------ */
 const LEADERBOARD_CACHE_KEY = 'sd_lb_cache_v1';
-const CLOUD_SYNC_SCHEMA_VERSION = 1;
-const CLOUD_SYNC_DEBOUNCE_CRITICAL = 500;
+const CLOUD_SYNC_SCHEMA_VERSION = 2;
 const CLOUD_SYNC_META_KEY = 'cloud_sync_meta_v1';
-const CLOUD_SYNC_QUEUE_KEY = 'cloud_sync_queue_v1';
-const CLOUD_SYNC_KEYS = [
-  'username',
-  'xp',
-  'gamestats',
-  'history',
-  'feedback_meta',
-  'lg_streak',
-  'lg_best',
-  'kk_streak',
-  'kk_best',
-  'wstats_lg',
-  'wstats_kk',
-  'rookie_plan_v1',
-  'healthy_engagement_v1',
-  'adaptive_data',
-  'daily_challenge',
-  'tutorial_done',
-  'sound',
-  'lb_scope',
-  'lb_period',
-  'enhanced_analytics',
-  'enhanced_achievements',
-  'sun'
-];
+const CLOUD_SYNC_KEYS = ['username','xp','gamestats','history','feedback_meta','lg_streak','lg_best','kk_streak','kk_best','wstats_lg','wstats_kk','rookie_plan_v1','healthy_engagement_v1','adaptive_data','daily_challenge','tutorial_done','sound','lb_scope','lb_period','enhanced_analytics','enhanced_achievements','sun'];
+let supabaseSyncTimer = null;
+let supabaseSyncWarned = false;
+let debugRemoteState = null;
+let debugFeedbackState = null;
 
 function sanitizeUsername(rawName) {
   const fallbackName = String(rawName ?? '').trim() || 'Anonym';
-  return fallbackName.substring(0, 15).replace(/[.#$/\[\]]/g, '_');
+  return fallbackName.substring(0, 15).replace(/[.#$/\[\]<>]/g, '_');
 }
 
-function getFirebaseProfileKey(username) {
-  return sanitizeUsername(username);
-}
-
-function getFirebaseOwnerId() {
-  return fbAccountId || fbUser?.uid || '';
-}
-
-function getFirebaseOwnerPath(suffix = '') {
-  const ownerId = getFirebaseOwnerId();
-  if (!ownerId) return '';
-  return suffix ? `users/${ownerId}/${suffix}` : `users/${ownerId}`;
-}
-
-function getFirebaseOwnerDedupe(prefix = 'owner') {
-  const ownerId = getFirebaseOwnerId();
-  return ownerId ? `${prefix}:${ownerId}` : '';
-}
-
-function getLeaderboardCacheKey(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
-  return `${LEADERBOARD_CACHE_KEY}_${normalizeLeaderboardPeriod(period)}_${normalizeLeaderboardScope(scope)}`;
-}
-
-function getCachedLeaderboardEntries(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
+function isLocalPlayMode() {
   try {
-    const cached = JSON.parse(localStorage.getItem(getLeaderboardCacheKey(scope, period)) || '[]');
-    return Array.isArray(cached) ? cached.filter(entry => entry && typeof entry === 'object') : [];
+    return window.SchussduellLocalMode === true || window.SchussduellLocalPlay === true || localStorage.getItem('sd_local_mode') === '1' || localStorage.getItem('sd_local_play') === '1';
   } catch (error) {
-    console.warn('Leaderboard cache read failed:', error);
-    return [];
-  }
-}
-
-function getShortOwnerId(value) {
-  const text = String(value || '');
-  return text ? `${text.slice(0, 6)}...${text.slice(-4)}` : '–';
-}
-
-function updateAccountSyncStatus() {
-  const node = document.getElementById('accountSyncStatus');
-  const iconEl = document.getElementById('syncStatusIcon');
-  const textEl = document.getElementById('syncStatusText');
-  if (!node) return;
-
-  if (!fbReady) {
-    if (iconEl) iconEl.textContent = '⚠️';
-    if (textEl) textEl.textContent = 'Firebase ist aktuell nicht aktiv. Sync ist nicht möglich.';
-    return;
-  }
-
-  const ownerId = getFirebaseOwnerId();
-  const authUid = fbUser?.uid || '';
-  const meta = loadCloudSyncMeta();
-  const queue = loadCloudSyncQueue();
-  const isLinked = !!ownerId && !!authUid && ownerId !== authUid;
-  const backoffUntil = Number(meta.queueBackoffUntil) || 0;
-  const retryText = backoffUntil > Date.now()
-    ? ` · Retry ${new Date(backoffUntil).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-    : '';
-
-  if (!authUid) {
-    if (iconEl) iconEl.textContent = '🔄';
-    if (textEl) textEl.textContent = 'Firebase Authentifizierung läuft...';
-    return;
-  }
-
-  const modeText = isLinked ? 'mit anderem Gerät verknüpft' : 'lokales Hauptkonto';
-  const syncStatus = queue.length > 0 ? `${queue.length} Änderungen in Warteschlange` : 'Alle Daten synchron';
-  const syncIcon = queue.length > 0 ? '📤' : '✅';
-
-  if (iconEl) iconEl.textContent = syncIcon;
-  if (textEl) {
-    textEl.innerHTML = `
-      <div style="font-weight:600;margin-bottom:2px;">Konto ${getShortOwnerId(ownerId || authUid)}</div>
-      <div style="opacity:0.7;">${modeText}</div>
-      <div style="opacity:0.6;font-size:0.7rem;margin-top:2px;">${syncStatus}${retryText}</div>
-    `;
-  }
-}
-
-// Cloud-Sync manuell anstoßen
-window.forceCloudSync = async function() {
-  if (!fbReady || !fbDb) {
-    alert('Firebase ist aktuell nicht aktiv.');
-    return;
-  }
-
-  const btn = event?.target;
-  if (btn) {
-    btn.textContent = '⏳ Sync läuft...';
-    btn.disabled = true;
-  }
-
-  try {
-    await pushProfileToFirebase();
-    await flushFirebaseSyncQueue();
-
-    updateAccountSyncStatus();
-
-    if (btn) {
-      btn.textContent = '✅ Synchronisiert!';
-      setTimeout(() => { btn.textContent = '🔄 Jetzt synchronisieren'; btn.disabled = false; }, 2000);
-    }
-  } catch (error) {
-    console.error('Force sync failed:', error);
-    if (btn) {
-      btn.textContent = '❌ Fehlgeschlagen';
-      setTimeout(() => { btn.textContent = '🔄 Jetzt synchronisieren'; btn.disabled = false; }, 2000);
-    }
-    alert('Synchronisierung fehlgeschlagen: ' + (error?.message || 'Unbekannter Fehler'));
-  }
-};
-
-function isDebugToolsEnabled() {
-  try {
-    const params = new URLSearchParams(window.location.search || '');
-    if (params.get('debug') === '1' || params.get('debug') === 'true') return true;
-  } catch (error) {
-    console.warn('Debug query read failed:', error);
-  }
-  return StorageManager.getRaw('debug_tools_v1', '0') === '1';
-}
-
-function refreshDebugToolsVisibility() {
-  const enabled = isDebugToolsEnabled();
-  const debugTab = document.querySelector('.ps-tab[data-tab="debug"]');
-  const debugPanel = document.getElementById('psPanel-debug');
-  if (debugTab) debugTab.style.display = enabled ? '' : 'none';
-  if (debugPanel) debugPanel.style.display = enabled ? '' : 'none';
-
-  if (!enabled) {
-    const activeDebugTab = document.querySelector('.ps-tab.active[data-tab="debug"]');
-    if (activeDebugTab) switchProfileTab('stats');
-  }
-}
-
-function setDebugToolsEnabled(enabled) {
-  StorageManager.setRaw('debug_tools_v1', enabled ? '1' : '0');
-  refreshDebugToolsVisibility();
-  if (enabled) {
-    refreshDebugPanel();
-    switchProfileTab('debug');
-  }
-}
-
-function enableDebugTools() {
-  setDebugToolsEnabled(true);
-}
-
-function disableDebugTools() {
-  setDebugToolsEnabled(false);
-}
-
-function cacheLeaderboardEntries(entries, scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
-  try {
-    localStorage.setItem(getLeaderboardCacheKey(scope, period), JSON.stringify(Array.isArray(entries) ? entries.slice(0, 50) : []));
-  } catch (error) {
-    console.warn('Leaderboard cache write failed:', error);
-  }
-}
-
-function renderCachedLeaderboard(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
-  const cachedEntries = getCachedLeaderboardEntries(scope, period);
-  if (!cachedEntries.length) return false;
-  renderLeaderboard(cachedEntries, scope, period);
-  return true;
-}
-
-function getLeaderboardPath(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
-  const normalizedScope = normalizeLeaderboardScope(scope);
-  const normalizedPeriod = normalizeLeaderboardPeriod(period);
-  if (normalizedPeriod === 'season') {
-    const seasonId = getCurrentSeasonId();
-    return normalizedScope === 'global'
-      ? `${SEASON_ROOT}/${seasonId}/leaderboard_v1`
-      : `${SEASON_ROOT}/${seasonId}/disciplines/${normalizedScope}`;
-  }
-  return normalizedScope === 'global'
-    ? 'leaderboard_v2'
-    : `${LEADERBOARD_DISCIPLINE_ROOT}/${normalizedScope}`;
-}
-
-function formatLeaderboardScore(value, discipline = null) {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) return '0';
-  if (discipline === 'kk3x20') return `${Math.round(numericValue)}`;
-  return numericValue.toFixed(1);
-}
-
-function getDisciplineGames(discipline) {
-  if (!discipline) return [];
-  try {
-    const raw = JSON.parse(localStorage.getItem('sd_enhanced_analytics') || '{}');
-    const games = Array.isArray(raw?.games) ? raw.games : [];
-    return games.filter((game) => (
-      game &&
-      game.discipline === discipline &&
-      Number.isFinite(Number(game.playerScore))
-    ));
-  } catch (error) {
-    console.warn('Enhanced analytics read failed:', error);
-    return [];
-  }
-}
-
-function buildDisciplineLeaderboardEntry(discipline) {
-  const key = Object.prototype.hasOwnProperty.call(DISC, discipline) ? discipline : null;
-  if (!key || !G.username) return null;
-
-  const games = getDisciplineGames(key);
-  if (!games.length) return null;
-
-  const scores = games
-    .map((game) => Number(game.playerScore))
-    .filter((score) => Number.isFinite(score));
-
-  if (!scores.length) return null;
-
-  const wins = games.filter((game) => game.result === 'win' || game.playerWon === true).length;
-  const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-  const bestScore = Math.max(...scores);
-  const { rank } = getRank(G.xp);
-
-  return {
-    uid: getFirebaseOwnerId(),
-    authUid: fbUser?.uid || '',
-    name: sanitizeUsername(G.username || 'Anonym'),
-    username: sanitizeUsername(G.username || 'Anonym'),
-    discipline: key,
-    disciplineName: DISC[key].name,
-    rank: rank.name,
-    rankIcon: rank.icon,
-    weapon: DISC[key].weapon,
-    totalGames: scores.length,
-    wins,
-    winRate: scores.length ? wins / scores.length : 0,
-    averageScore,
-    bestScore,
-    score: bestScore,
-    date: new Date().toLocaleDateString('de-DE')
-  };
-}
-
-function buildStructuredMatchHistory() {
-  try {
-    const hist = StorageManager.get('history', []);
-    if (!Array.isArray(hist) || !hist.length) return {};
-
-    const matches = {};
-    hist.slice(0, 30).forEach((entry, index) => {
-      if (!entry || typeof entry !== 'object') return;
-
-      const timestamp = Number(entry.timestamp) || 0;
-      const discipline = typeof entry.discipline === 'string' ? entry.discipline : 'unknown';
-      const fallbackKey = `${timestamp || Date.now()}_${discipline}_${index}`;
-      const key = String(entry.id || fallbackKey).replace(/[.#$/\[\]]/g, '_');
-
-      matches[key] = {
-        id: key,
-        timestamp: timestamp || Date.now(),
-        result: typeof entry.result === 'string' ? entry.result : 'unknown',
-        diff: typeof entry.diff === 'string' ? entry.diff : 'unknown',
-        weapon: entry.weapon === 'kk' ? 'kk' : 'lg',
-        discipline,
-        disciplineName: typeof entry.disciplineName === 'string' ? entry.disciplineName : (DISC[discipline]?.name || discipline),
-        playerPts: Number(entry.playerPts) || 0,
-        botPts: Number(entry.botPts) || 0,
-        diffName: typeof entry.diffName === 'string' ? entry.diffName : entry.diff,
-        weaponName: typeof entry.weaponName === 'string' ? entry.weaponName : entry.weapon,
-        date: typeof entry.date === 'string' ? entry.date : ''
-      };
-    });
-
-    return matches;
-  } catch (error) {
-    console.warn('History snapshot build failed:', error);
-    return {};
-  }
-}
-
-function getStructuredHistoryList() {
-  const matches = buildStructuredMatchHistory();
-  return Object.values(matches).filter(Boolean).sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
-}
-
-function buildSeasonLeaderboardEntry(discipline = null) {
-  const seasonInfo = getCurrentSeasonInfo();
-  const matches = getStructuredHistoryList().filter((entry) => {
-    const timestamp = Number(entry.timestamp) || 0;
-    if (timestamp < seasonInfo.startAt || timestamp > seasonInfo.endAt) return false;
-    if (discipline) return entry.discipline === discipline;
-    return true;
-  });
-
-  if (!matches.length || !G.username) return null;
-
-  const wins = matches.filter((entry) => entry.result === 'win').length;
-  const draws = matches.filter((entry) => entry.result === 'draw').length;
-  const losses = matches.filter((entry) => entry.result === 'lose').length;
-  const scores = matches.map((entry) => Number(entry.playerPts) || 0);
-  const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-  const bestScore = Math.max(...scores);
-  const seasonPoints = wins * 3 + draws;
-  const sortScore = seasonPoints * 100000 + Math.round(averageScore * 10);
-  const { rank } = getRank(G.xp);
-
-  return {
-    uid: getFirebaseOwnerId(),
-    name: sanitizeUsername(G.username || 'Anonym'),
-    username: sanitizeUsername(G.username || 'Anonym'),
-    seasonId: seasonInfo.id,
-    seasonLabel: seasonInfo.label,
-    discipline: discipline || 'global',
-    disciplineName: discipline ? (DISC[discipline]?.name || discipline) : 'Global',
-    rank: rank.name,
-    rankIcon: rank.icon,
-    weapon: discipline ? (DISC[discipline]?.weapon || G.weapon) : G.weapon,
-    totalGames: matches.length,
-    wins,
-    draws,
-    losses,
-    seasonPoints,
-    averageScore,
-    bestScore,
-    score: sortScore,
-    date: new Date().toLocaleDateString('de-DE')
-  };
-}
-
-function queueSeasonLeaderboardEntries(reason = 'season_sync') {
-  const ownerId = getFirebaseOwnerId();
-  if (!ownerId || !G.username) return false;
-
-  const seasonInfo = getCurrentSeasonInfo();
-  enqueueFirebaseSet(
-    `${SEASON_ROOT}/${seasonInfo.id}/meta`,
-    seasonInfo,
-    `season-meta:${seasonInfo.id}`,
-    { requiresAuth: false }
-  );
-
-  let wroteAnyEntry = false;
-  const globalEntry = buildSeasonLeaderboardEntry(null);
-  enqueueFirebaseSet(
-    `${SEASON_ROOT}/${seasonInfo.id}/leaderboard_v1/${ownerId}`,
-    globalEntry,
-    `season:${seasonInfo.id}:global:${ownerId}`,
-    { requiresAuth: !!fbUser }
-  );
-  if (globalEntry) wroteAnyEntry = true;
-
-  Object.keys(DISC).forEach((discipline) => {
-    const entry = buildSeasonLeaderboardEntry(discipline);
-    enqueueFirebaseSet(
-      `${SEASON_ROOT}/${seasonInfo.id}/disciplines/${discipline}/${ownerId}`,
-      entry,
-      `season:${seasonInfo.id}:${discipline}:${ownerId}`,
-      { requiresAuth: !!fbUser }
-    );
-    if (entry) wroteAnyEntry = true;
-  });
-
-  return wroteAnyEntry;
-}
-
-function queueDisciplineLeaderboardEntries(reason = 'discipline_leaderboard_sync') {
-  if (!G.username) return false;
-
-  let wroteAnyEntry = false;
-  const leaderboardKey = getFirebaseOwnerId() || getFirebaseProfileKey(G.username);
-  Object.keys(DISC).forEach((discipline) => {
-    const entry = buildDisciplineLeaderboardEntry(discipline);
-    enqueueFirebaseSet(
-      `${LEADERBOARD_DISCIPLINE_ROOT}/${discipline}/${leaderboardKey}`,
-      entry,
-      `leaderboard:${discipline}:${leaderboardKey}`,
-      { requiresAuth: !!fbUser }
-    );
-    if (entry) wroteAnyEntry = true;
-  });
-
-  return wroteAnyEntry;
-}
-
-function queueStructuredMatchHistory(reason = 'matches_sync') {
-  const ownerPath = getFirebaseOwnerPath('matches');
-  const ownerId = getFirebaseOwnerId();
-  if (!fbUser || !ownerPath || !ownerId) return false;
-  enqueueFirebaseSet(
-    ownerPath,
-    buildStructuredMatchHistory(),
-    `matches:${ownerId}`,
-    { requiresAuth: true }
-  );
-  return true;
-}
-
-function updateLeaderboardScopeControl() {
-  const select = document.getElementById('lbScopeSelect');
-  const periodSelect = document.getElementById('lbPeriodSelect');
-  if (!select && !periodSelect) return;
-
-  if (select && !select.options.length) {
-    select.innerHTML = [
-      '<option value="global">Global</option>',
-      ...Object.entries(DISC).map(([key, cfg]) => `<option value="${key}">${cfg.name}</option>`)
-    ].join('');
-  }
-
-  const scope = getActiveLeaderboardScope();
-  const period = getActiveLeaderboardPeriod();
-  if (select) select.value = scope;
-  if (periodSelect) {
-    periodSelect.innerHTML = [
-      '<option value="alltime">All-Time</option>',
-      `<option value="season">Saison ${getCurrentSeasonInfo().label}</option>`
-    ].join('');
-  }
-  if (periodSelect) periodSelect.value = period;
-
-  const label = document.getElementById('lbScopeLabel');
-  if (label) {
-    const periodText = period === 'season' ? ` · ${getCurrentSeasonInfo().label}` : '';
-    label.textContent = `${getLeaderboardScopeLabel(scope)}${periodText}`;
-  }
-
-  const hint = document.getElementById('lbScopeHint');
-  const title = document.getElementById('lbCardTitle');
-  if (title) {
-    title.textContent = period === 'season'
-      ? `Rangliste · Saison ${getCurrentSeasonInfo().label}`
-      : 'Rangliste · Score = XP + Streak×5';
-  }
-  if (hint) {
-    if (period === 'season') {
-      hint.textContent = scope === 'global'
-        ? `Saisonwertung ${getCurrentSeasonInfo().label}: Punkte = Siege x 3 + Unentschieden.`
-        : `${getLeaderboardScopeLabel(scope)} in ${getCurrentSeasonInfo().label}: Saisonpunkte mit Best- und Durchschnittswert.`;
-    } else {
-      hint.textContent = scope === 'global'
-        ? 'Global nutzt Score = XP + Streak x 5.'
-        : `${getLeaderboardScopeLabel(scope)} nutzt die persoenliche Bestleistung als Sortierung.`;
-    }
-  }
-}
-
-function setLeaderboardScope(scope, options = {}) {
-  const normalizedScope = normalizeLeaderboardScope(scope);
-  G.lbScope = normalizedScope;
-  StorageManager.setRaw('lb_scope', normalizedScope);
-  updateLeaderboardScopeControl();
-  if (options.reload === false) return normalizedScope;
-  loadLeaderboard(true);
-  return normalizedScope;
-}
-
-function setLeaderboardPeriod(period, options = {}) {
-  const normalizedPeriod = normalizeLeaderboardPeriod(period);
-  G.lbPeriod = normalizedPeriod;
-  StorageManager.setRaw('lb_period', normalizedPeriod);
-  updateLeaderboardScopeControl();
-  if (options.reload === false) return normalizedPeriod;
-  loadLeaderboard(true);
-  return normalizedPeriod;
-}
-
-function normalizePairCode(code) {
-  return String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
-}
-
-function generatePairCode() {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return code;
-}
-
-function getAccountLinkMapPath(uid) {
-  return `${ACCOUNT_LINK_ROOT}/by_uid/${uid}`;
-}
-
-function getAccountPairCodePath(code) {
-  return `${ACCOUNT_LINK_ROOT}/pair_codes/${normalizePairCode(code)}`;
-}
-
-async function resolveFirebaseAccountId(user, options = {}) {
-  if (!user || !fbDb) return '';
-  const authUid = user.uid;
-  const force = options.force === true;
-  if (fbAccountId && !force) return fbAccountId;
-
-  try {
-    const mappingSnap = await fbDb.ref(getAccountLinkMapPath(authUid)).once('value');
-    const existing = mappingSnap.val();
-    const mappedAccountId = typeof existing?.accountId === 'string' && existing.accountId ? existing.accountId : '';
-    if (mappedAccountId) {
-      fbAccountId = mappedAccountId;
-      return mappedAccountId;
-    }
-
-    fbAccountId = authUid;
-    await fbDb.ref(getAccountLinkMapPath(authUid)).set({
-      accountId: authUid,
-      authUid,
-      linkedAt: Date.now(),
-      source: 'self',
-      pairCode: '',
-      createdByUid: ''
-    });
-    return fbAccountId;
-  } catch (error) {
-    console.warn('Account resolution failed:', error?.code || error?.message || error);
-    fbAccountId = authUid;
-    return fbAccountId;
-  }
-}
-
-async function generateAccountLinkCode() {
-  if (!fbReady) return null;
-  const user = fbUser || await ensureFirebaseAnonymousAuth();
-  if (!user || !fbDb) return null;
-
-  const accountId = await resolveFirebaseAccountId(user);
-  if (!accountId) return null;
-
-  let code = generatePairCode();
-  let attempts = 0;
-  while (attempts < 5) {
-    const existing = await fbDb.ref(getAccountPairCodePath(code)).once('value');
-    if (!existing.exists()) break;
-    code = generatePairCode();
-    attempts += 1;
-  }
-
-  const payload = {
-    accountId,
-    authUid: user.uid,
-    username: sanitizeUsername(G.username || 'Anonym'),
-    createdAt: Date.now(),
-    expiresAt: Date.now() + (15 * 60 * 1000)
-  };
-
-  await fbDb.ref(getAccountPairCodePath(code)).set(payload);
-  return { code, expiresAt: payload.expiresAt, accountId };
-}
-
-async function connectDeviceWithLinkCode(rawCode) {
-  const code = normalizePairCode(rawCode || prompt('Sync-Code eingeben (6-8 Zeichen):'));
-  if (!code || code.length < 4) {
-    if (code) alert('Der Code muss mindestens 4 Zeichen haben.');
-    return false;
-  }
-
-  if (!fbReady) {
-    alert('Firebase ist aktuell nicht aktiv. Bitte warte einen Moment oder lade die Seite neu.');
-    return false;
-  }
-
-  const user = fbUser || await ensureFirebaseAnonymousAuth();
-  if (!user || !fbDb) {
-    alert('Firebase-Authentifizierung fehlgeschlagen. Bitte versuche es erneut.');
-    return false;
-  }
-
-  try {
-    const linkSnap = await fbDb.ref(getAccountPairCodePath(code)).once('value');
-    const link = linkSnap.val();
-    if (!link || !link.accountId) {
-      alert('❌ Sync-Code nicht gefunden.\n\nBitte überprüfe den Code und versuche es erneut.');
-      return false;
-    }
-    if (Number(link.expiresAt) < Date.now()) {
-      await fbDb.ref(getAccountPairCodePath(code)).remove().catch(() => { });
-      alert('❌ Sync-Code ist abgelaufen (15 Min).\n\nBitte erzeugen einen neuen Code auf dem Hauptgerät.');
-      return false;
-    }
-
-    await fbDb.ref(getAccountLinkMapPath(user.uid)).set({
-      accountId: link.accountId,
-      authUid: user.uid,
-      linkedAt: Date.now(),
-      source: 'pair_code',
-      pairCode: code,
-      createdByUid: link.authUid || ''
-    });
-    await fbDb.ref(getAccountPairCodePath(code)).remove().catch(() => { });
-
-    fbAccountId = link.accountId;
-    fbCloudBootstrapUid = '';
-    await bootstrapCloudUser(user, { force: true });
-    updateAccountSyncStatus();
-    refreshDebugPanel();
-
-    // Erfolg-Meldung mit Details
-    alert(`✅ Gerät erfolgreich verbunden!\n\nKonto: ${link.username || getShortOwnerId(link.accountId)}\nSync läuft jetzt automatisch.`);
-    return true;
-  } catch (error) {
-    console.error('Device connection error:', error);
-    alert(`❌ Verbindung fehlgeschlagen.\n\nFehler: ${error?.message || 'Unbekannter Fehler'}\nBitte versuche es erneut.`);
     return false;
   }
 }
 
-async function showAccountSyncCode() {
-  if (!fbReady) {
-    alert('Firebase ist noch nicht bereit. Bitte warte einen Moment.');
-    return;
+function getCurrentAccountId() {
+  const user = getSupabaseUserSafe();
+  if (user && user.id) return user.id;
+  let localId = StorageManager.getRaw('local_user_id', '');
+  if (!localId) {
+    localId = 'local_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    StorageManager.setRaw('local_user_id', localId);
   }
+  return localId;
+}
 
-  try {
-    const data = await generateAccountLinkCode();
-    if (!data) {
-      alert('Sync-Code konnte nicht erzeugt werden.\n\nBitte versuche es erneut.');
-      return;
-    }
+function getWorkerBaseUrl() {
+  return ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname) ? '' : 'https://schuss-challenge.eliaskummel.workers.dev';
+}
 
-    // In die Zwischenablage kopieren
-    let clipboardSuccess = false;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(data.code);
-        clipboardSuccess = true;
-      }
-    } catch (error) {
-      console.warn('Clipboard write failed:', error);
-    }
+function isSupabaseBackendAvailable(methodName) {
+  return !!(window.SupabaseBackendSync && typeof window.SupabaseBackendSync[methodName] === 'function');
+}
 
-    const expiresAt = new Date(data.expiresAt);
-    const expiresTime = expiresAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-
-    // Schönes Modal/Overlay statt alert
-    const overlay = document.createElement('div');
-    overlay.id = 'syncCodeOverlay';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:100000;display:flex;align-items:center;justify-content:center;';
-    overlay.innerHTML = `
-      <div style="background:linear-gradient(145deg, rgba(30,35,40,0.95) 0%, rgba(15,18,20,0.98) 100%);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:24px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
-        <div style="text-align:center;margin-bottom:20px;">
-          <div style="font-size:2.5rem;margin-bottom:10px;">🔗</div>
-          <div style="font-size:1.1rem;font-weight:700;color:#fff;margin-bottom:5px;">Sync-Code erzeugt</div>
-          <div style="font-size:0.75rem;color:rgba(255,255,255,0.5);">Gültig bis ${expiresTime} Uhr</div>
-        </div>
-
-        <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(122,176,48,0.3);border-radius:12px;padding:16px;text-align:center;margin-bottom:16px;">
-          <div style="font-size:1.8rem;font-weight:800;color:#7ab030;letter-spacing:0.15em;font-family:'DM Mono',monospace;" id="syncCodeDisplay">${data.code}</div>
-        </div>
-
-        <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);margin-bottom:16px;line-height:1.4;">
-          ${clipboardSuccess ? '✅ Code wurde in die Zwischenablage kopiert!' : '⚠️ Code manuell kopieren und auf dem anderen Gerät eingeben.'}
-        </div>
-
-        <div style="display:flex;gap:8px;">
-          <button onclick="document.getElementById('syncCodeOverlay')?.remove()" style="flex:1;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-weight:600;font-size:0.85rem;cursor:pointer;">
-            Schließen
-          </button>
-          <button onclick="navigator.clipboard?.writeText('${data.code}');this.textContent='✅ Kopiert!';setTimeout(()=>this.textContent='Kopieren',1500)" style="flex:1;padding:12px;background:linear-gradient(135deg,#00c3ff,#7ab030);border:none;border-radius:10px;color:#000;font-weight:700;font-size:0.85rem;cursor:pointer;">
-            📋 Kopieren
-          </button>
-        </div>
-      </div>
-    `;
-    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-    document.body.appendChild(overlay);
-
-  } catch (error) {
-    console.warn('Sync code generation failed:', error);
-    alert('Sync-Code konnte nicht erzeugt werden.\n\nFehler: ' + (error?.message || 'Unbekannt'));
-  }
+function warnSupabaseSyncUnavailable(reason) {
+  if (supabaseSyncWarned) return;
+  supabaseSyncWarned = true;
+  console.warn('[SupabaseSync] Backend-Sync nicht verfuegbar (' + reason + '). Lokale Daten bleiben gespeichert.');
 }
 
 function loadCloudSyncMeta() {
   const raw = StorageManager.get(CLOUD_SYNC_META_KEY, {});
   return {
     lastLocalChangeAt: Number(raw.lastLocalChangeAt) || 0,
-    lastAppliedAt: Number(raw.lastAppliedAt) || 0,
     lastQueuedAt: Number(raw.lastQueuedAt) || 0,
-    lastQueueFlushAt: Number(raw.lastQueueFlushAt) || 0,
-    lastQueueErrorAt: Number(raw.lastQueueErrorAt) || 0,
-    lastQueueErrorCode: typeof raw.lastQueueErrorCode === 'string' ? raw.lastQueueErrorCode : '',
-    queueBackoffUntil: Number(raw.queueBackoffUntil) || 0,
-    lastLocalReason: typeof raw.lastLocalReason === 'string' ? raw.lastLocalReason : '',
+    lastSyncAttemptAt: Number(raw.lastSyncAttemptAt) || 0,
+    lastSyncOkAt: Number(raw.lastSyncOkAt) || 0,
+    lastSyncReason: typeof raw.lastSyncReason === 'string' ? raw.lastSyncReason : '',
     schemaVersion: CLOUD_SYNC_SCHEMA_VERSION
   };
 }
 
 function saveCloudSyncMeta(meta) {
-  StorageManager.set(CLOUD_SYNC_META_KEY, {
-    ...loadCloudSyncMeta(),
-    ...(meta || {}),
-    schemaVersion: CLOUD_SYNC_SCHEMA_VERSION
-  });
+  StorageManager.set(CLOUD_SYNC_META_KEY, { ...loadCloudSyncMeta(), ...(meta || {}), schemaVersion: CLOUD_SYNC_SCHEMA_VERSION });
 }
 
-function loadCloudSyncQueue() {
-  const queue = StorageManager.get(CLOUD_SYNC_QUEUE_KEY, []);
-  return Array.isArray(queue)
-    ? queue
-      .filter(item => item && typeof item === 'object' && typeof item.path === 'string')
-      .map(item => ({
-        ...item,
-        attempts: Number(item.attempts) || 0,
-        nextAttemptAt: Number(item.nextAttemptAt) || 0,
-        lastErrorAt: Number(item.lastErrorAt) || 0,
-        lastErrorCode: typeof item.lastErrorCode === 'string' ? item.lastErrorCode : ''
-      }))
-    : [];
-}
-
-function saveCloudSyncQueue(queue) {
-  StorageManager.set(CLOUD_SYNC_QUEUE_KEY, Array.isArray(queue) ? queue : []);
-}
-
-function markCloudStateDirty(reason = 'local_change') {
-  saveCloudSyncMeta({
-    lastLocalChangeAt: Date.now(),
-    lastLocalReason: reason
-  });
-}
-
-function collectCloudSnapshot() {
-  const values = {};
-  CLOUD_SYNC_KEYS.forEach((key) => {
-    const rawValue = localStorage.getItem(StorageManager.PREFIX + key);
-    values[key] = rawValue === null ? null : rawValue;
-  });
-
-  return {
-    schemaVersion: CLOUD_SYNC_SCHEMA_VERSION,
-    updatedAt: Date.now(),
-    username: sanitizeUsername(StorageManager.getRaw('username', G.username || 'Anonym')),
-    values
-  };
-}
-
-function applyCloudSnapshot(snapshot) {
-  if (!snapshot || typeof snapshot !== 'object' || !snapshot.values || typeof snapshot.values !== 'object') return false;
-
-  let changed = false;
-  CLOUD_SYNC_KEYS.forEach((key) => {
-    if (!Object.prototype.hasOwnProperty.call(snapshot.values, key)) return;
-
-    const nextValue = snapshot.values[key];
-    const storageKey = StorageManager.PREFIX + key;
-    const currentValue = localStorage.getItem(storageKey);
-
-    if (nextValue === null) {
-      if (currentValue !== null) {
-        localStorage.removeItem(storageKey);
-        changed = true;
-      }
-      return;
-    }
-
-    const normalizedValue = String(nextValue);
-    if (currentValue !== normalizedValue) {
-      localStorage.setItem(storageKey, normalizedValue);
-      changed = true;
-    }
-  });
-
-  return changed;
-}
-
-function buildCloudProfile() {
-  const { rank } = getRank(G.xp);
-  const gameStats = loadGameStats();
-  const lgStats = loadWeaponStats('lg');
-  const kkStats = loadWeaponStats('kk');
-  const ownerId = getFirebaseOwnerId();
-
-  return {
-    uid: ownerId,
-    authUid: fbUser?.uid || '',
-    username: sanitizeUsername(G.username || StorageManager.getRaw('username', 'Anonym')),
-    createdAt: Number(fbCloudProfileCache?.createdAt) || Date.now(),
-    updatedAt: Date.now(),
-    lastSeenAt: Date.now(),
-    favoriteDiscipline: G.discipline || 'lg40',
-    preferredWeapon: G.weapon || 'lg',
-    rankSnapshot: {
-      xp: Number(G.xp) || 0,
-      rank: rank.name,
-      rankIcon: rank.icon
-    },
-    statsSummary: {
-      totalDuels: getTotalDuels(gameStats),
-      wins: Number(gameStats.wins || 0),
-      losses: Number(gameStats.losses || 0),
-      draws: Number(gameStats.draws || 0),
-      lgGames: Number((lgStats.wins || 0) + (lgStats.losses || 0) + (lgStats.draws || 0)),
-      kkGames: Number((kkStats.wins || 0) + (kkStats.losses || 0) + (kkStats.draws || 0))
-    }
-  };
-}
-
-function refreshStateFromLocalStorage() {
-  const savedName = StorageManager.getRaw('username', '');
-  G.username = savedName ? sanitizeUsername(savedName) : '';
-  loadXP();
-  loadAllStreaks();
-  updateSchuetzenpass();
-  updateProfileMenu();
-
-  if (DOM.psUsername) DOM.psUsername.textContent = G.username || 'Anonym';
-  if (DOM.profileOverlay?.classList.contains('active')) refreshProfileSheet();
-  updateLeaderboardScopeControl();
-  refreshDebugToolsVisibility();
-
-  if (DOM.diffInfoTxt && typeof AdaptiveBotSystem !== 'undefined' && typeof AdaptiveBotSystem.getCurrentDifficulty === 'function') {
-    const syncedDiff = AdaptiveBotSystem.getCurrentDifficulty(G.discipline);
-    if (syncedDiff && DIFF[syncedDiff]) setDifficulty(syncedDiff, { persist: false });
-  }
-
-  const welcomeOverlay = document.getElementById('welcomeOverlay');
-  if (welcomeOverlay && G.username) welcomeOverlay.classList.remove('active');
-
-  if (typeof RookiePlan !== 'undefined') {
-    RookiePlan.evaluateAndRender(true);
-    RookiePlan.showIntroIfNeeded(false);
-  }
-}
-
-window.addEventListener('supabaseAuthReady', () => {
-  setTimeout(() => {
-    refreshStateFromLocalStorage();
-    const welcomeOverlay = document.getElementById('welcomeOverlay');
-    if (welcomeOverlay && StorageManager.getRaw('username', '')) {
-      welcomeOverlay.classList.remove('active');
-    }
-  }, 0);
-});
-
-function enqueueFirebaseSet(path, value, dedupeKey = null, options = {}) {
-  const queue = loadCloudSyncQueue();
-  const task = {
-    type: 'set',
-    path,
-    value,
-    dedupeKey: dedupeKey || '',
-    requiresAuth: options.requiresAuth !== false,
-    queuedAt: Date.now(),
-    attempts: Number(options.attempts) || 0,
-    nextAttemptAt: Number(options.nextAttemptAt) || 0,
-    lastErrorAt: Number(options.lastErrorAt) || 0,
-    lastErrorCode: typeof options.lastErrorCode === 'string' ? options.lastErrorCode : ''
-  };
-
-  if (task.dedupeKey) {
-    const existingIndex = queue.findIndex(item => item && item.dedupeKey === task.dedupeKey);
-    if (existingIndex >= 0) queue.splice(existingIndex, 1, task);
-    else queue.push(task);
-  } else {
-    queue.push(task);
-  }
-
-  saveCloudSyncQueue(queue);
-  saveCloudSyncMeta({ lastQueuedAt: Date.now() });
-}
-
-async function flushFirebaseSyncQueue() {
-  if (fbCloudFlushPromise) return fbCloudFlushPromise;
-  if (!fbReady || !fbDb) return false;
-
-  fbCloudFlushPromise = (async () => {
-    const queue = loadCloudSyncQueue();
-    if (!queue.length) return true;
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
-
-    const pending = [];
-    const now = Date.now();
-    let queueErrorCode = '';
-    let queueBackoffUntil = 0;
-    for (const task of queue) {
-      if (!task || task.type !== 'set' || typeof task.path !== 'string') continue;
-      if (Number(task.nextAttemptAt) > now) {
-        pending.push(task);
-        queueBackoffUntil = Math.max(queueBackoffUntil, Number(task.nextAttemptAt) || 0);
-        continue;
-      }
-      if (task.requiresAuth && !fbUser) {
-        pending.push(task);
-        continue;
-      }
-
-      try {
-        await fbDb.ref(task.path).set(task.value);
-      } catch (error) {
-        console.warn('Firebase queue write failed:', task.path, error?.code || error?.message || error);
-        const attempts = (Number(task.attempts) || 0) + 1;
-        const backoffMs = Math.min(60000, 1000 * Math.pow(2, Math.min(attempts, 6)));
-        const nextAttemptAt = Date.now() + backoffMs;
-        queueErrorCode = error?.code || error?.message || 'queue_write_failed';
-        queueBackoffUntil = Math.max(queueBackoffUntil, nextAttemptAt);
-        pending.push({
-          ...task,
-          attempts,
-          nextAttemptAt,
-          lastErrorAt: Date.now(),
-          lastErrorCode: queueErrorCode
-        });
-      }
-    }
-
-    saveCloudSyncQueue(pending);
-    saveCloudSyncMeta({
-      lastQueueFlushAt: Date.now(),
-      lastQueueErrorAt: queueErrorCode ? Date.now() : 0,
-      lastQueueErrorCode: queueErrorCode,
-      queueBackoffUntil
-    });
-    if (queueBackoffUntil > Date.now()) scheduleFirebaseQueueFlush(Math.max(1500, queueBackoffUntil - Date.now()));
-    return pending.length === 0;
-  })().finally(() => {
-    fbCloudFlushPromise = null;
-  });
-
-  return fbCloudFlushPromise;
-}
-
-function scheduleFirebaseQueueFlush(delay = 600) {
-  if (fbCloudSyncTimer) clearTimeout(fbCloudSyncTimer);
-  fbCloudSyncTimer = setTimeout(() => {
-    fbCloudSyncTimer = null;
-    flushFirebaseSyncQueue();
-  }, delay);
-}
-
-function queueCloudSnapshot(reason = 'cloud_snapshot') {
-  const ownerPath = getFirebaseOwnerPath('cloud');
-  const ownerId = getFirebaseOwnerId();
-  if (!fbUser || !ownerPath || !ownerId) return false;
-  enqueueFirebaseSet(
-    ownerPath,
-    collectCloudSnapshot(),
-    `cloud:${ownerId}`,
-    { requiresAuth: true }
-  );
-  return true;
-}
-
-function queueCloudProfile(reason = 'profile_sync') {
-  const ownerPath = getFirebaseOwnerPath('profile');
-  const ownerId = getFirebaseOwnerId();
-  if (!fbUser || !ownerPath || !ownerId) return false;
-  const profile = buildCloudProfile();
-  fbCloudProfileCache = profile;
-  enqueueFirebaseSet(
-    ownerPath,
-    profile,
-    `profile:${ownerId}`,
-    { requiresAuth: true }
-  );
-  return true;
-}
-
-function queueLeaderboardEntry(reason = 'leaderboard_sync') {
-  if (!G.username) return false;
-
-  const entry = buildFirebaseEntry();
-  entry.name = sanitizeUsername(entry.name);
-  entry.username = sanitizeUsername(entry.username);
-  entry.uid = getFirebaseOwnerId();
-  entry.authUid = fbUser?.uid || '';
-
-  const leaderboardKey = getFirebaseOwnerId() || getFirebaseProfileKey(entry.username);
-  enqueueFirebaseSet(
-    `leaderboard_v2/${leaderboardKey}`,
-    entry,
-    `leaderboard:${leaderboardKey}`,
-    { requiresAuth: !!fbUser }
-  );
-  return true;
-}
-
-function scheduleCloudSync(reason = 'local_change', options = {}) {
-  markCloudStateDirty(reason);
-
-  const isCritical = options.critical ||
-    reason.includes('xp') ||
-    reason.includes('battle') ||
-    reason.includes('streak');
-  const _syncDelay = isCritical ? CLOUD_SYNC_DEBOUNCE_CRITICAL : (options.delay ?? 800);
-
-  if (fbUser) {
-    queueCloudSnapshot(reason);
-    queueCloudProfile(reason);
-    queueStructuredMatchHistory(reason);
-    if (G.username) queueLeaderboardEntry(reason);
-    if (G.username) queueDisciplineLeaderboardEntries(reason);
-    if (G.username) queueSeasonLeaderboardEntries(reason);
-  } else if (fbReady) {
-    ensureFirebaseAnonymousAuth().then((user) => {
-      if (!user) return;
-      fbUser = user;
-      resolveFirebaseAccountId(user)
-        .then(() => {
-          queueCloudSnapshot(reason);
-          queueCloudProfile(reason);
-          queueStructuredMatchHistory(reason);
-          if (G.username) queueLeaderboardEntry(reason);
-          if (G.username) queueDisciplineLeaderboardEntries(reason);
-          if (G.username) queueSeasonLeaderboardEntries(reason);
-          if (options.immediate) flushFirebaseSyncQueue();
-          else scheduleFirebaseQueueFlush(_syncDelay);
-        });
-    });
-  }
-
-  if (options.immediate) return flushFirebaseSyncQueue();
-
-  scheduleFirebaseQueueFlush(_syncDelay);
-  return Promise.resolve(true);
-}
-
-function queueFeedbackEntry(entry) {
-  if (!entry || typeof entry !== 'object') return;
-  const ownerId = getFirebaseOwnerId();
-  const key = entry.key || `${entry.ts || Date.now()}_${ownerId || entry.userHash || 'anon'}`;
-  const payload = {
-    ...entry,
-    uid: ownerId || entry.uid || '',
-    authUid: fbUser?.uid || entry.authUid || '',
-    username: sanitizeUsername(entry.username || G.username || 'Anonym'),
-    accountId: ownerId || entry.accountId || ''
-  };
-  delete payload.key;
-
-  enqueueFirebaseSet(`feedback_v1/${key}`, payload, null, { requiresAuth: false });
-  scheduleFirebaseQueueFlush(400);
-}
-
-function formatDebugTimestamp(ts) {
-  const value = Number(ts);
-  if (!Number.isFinite(value) || value <= 0) return '–';
-  return new Date(value).toLocaleString('de-DE');
-}
-
-function summarizeFeedbackEntries(entries) {
-  const safeEntries = Array.isArray(entries) ? entries.filter(entry => entry && typeof entry === 'object') : [];
-  const total = safeEntries.length;
-  const avgScore = total
-    ? (safeEntries.reduce((sum, entry) => sum + (Number(entry.score) || 0), 0) / total)
-    : 0;
-
-  const byDiscipline = {};
-  safeEntries.forEach((entry) => {
-    const key = typeof entry.discipline === 'string' && entry.discipline ? entry.discipline : 'unknown';
-    if (!byDiscipline[key]) byDiscipline[key] = { count: 0, avg: 0, sum: 0 };
-    byDiscipline[key].count += 1;
-    byDiscipline[key].sum += Number(entry.score) || 0;
-  });
-
-  const disciplineRows = Object.entries(byDiscipline)
-    .map(([discipline, value]) => ({
-      discipline,
-      label: DISC[discipline]?.name || discipline,
-      count: value.count,
-      avg: value.count ? value.sum / value.count : 0
-    }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 3);
-
-  const latest = safeEntries
-    .slice()
-    .sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0))
-    .slice(0, 5);
-
-  return {
-    total,
-    avgScore,
-    latest,
-    disciplineRows,
-    lastTs: latest.length ? Number(latest[0].ts) || 0 : 0
-  };
-}
-
-function renderDebugFeedbackSection() {
-  if (!debugFeedbackState) {
-    return '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Feedback</div><div class="phi-meta">Noch nicht geladen.</div></div></div>';
-  }
-
-  const state = debugFeedbackState;
-  const summary = summarizeFeedbackEntries(state.entries);
-  const summaryLine = state.error
-    ? `Feedback-Read fehlgeschlagen: ${state.error}`
-    : state.mode === 'remote'
-      ? `Remote-Feedback: ${summary.total} Einträge · Ø ${summary.avgScore.toFixed(2)} · Letztes ${formatDebugTimestamp(summary.lastTs)}`
-      : state.mode === 'restricted'
-        ? 'Remote-Feedback ist nur für Admin-Konten lesbar.'
-        : `Lokale Vorschau: ${summary.total} Einträge · Ø ${summary.avgScore.toFixed(2)}`;
-
-  const disciplineHtml = summary.disciplineRows.length
-    ? summary.disciplineRows.map((row) => `
-            <div class="ps-history-item">
-              <div class="phi-info">
-                <div class="phi-title">${escHtml(row.label)}</div>
-                <div class="phi-meta">${row.count} Feedbacks · Ø ${row.avg.toFixed(2)}</div>
-              </div>
-            </div>
-          `).join('')
-    : '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Disziplinen</div><div class="phi-meta">Noch keine Daten.</div></div></div>';
-
-  const latestHtml = summary.latest.length
-    ? summary.latest.map((entry) => {
-      const score = Number(entry.score) || 0;
-      const username = entry.username || 'Anonym';
-      const disciplineLabel = DISC[entry.discipline]?.name || entry.discipline || 'unknown';
-      const detail = [
-        `${score}/5`,
-        disciplineLabel,
-        entry.diff || 'n/a',
-        formatDebugTimestamp(entry.ts)
-      ].join(' · ');
-      return `
-              <div class="ps-history-item">
-                <div class="phi-info">
-                  <div class="phi-title">${escHtml(username)}</div>
-                  <div class="phi-meta">${escHtml(detail)}</div>
-                </div>
-              </div>
-            `;
-    }).join('')
-    : '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Letzte Einträge</div><div class="phi-meta">Noch keine Daten.</div></div></div>';
-
-  return `
-        <div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Feedback-Dashboard</div>
-        <div class="ps-history-item">
-          <div class="phi-info">
-            <div class="phi-title">Status</div>
-            <div class="phi-meta">${escHtml(summaryLine)}</div>
-          </div>
-        </div>
-        ${disciplineHtml}
-        ${latestHtml}
-      `;
-}
-
-function renderDebugPanel() {
-  const mount = document.getElementById('psDebugMount');
-  if (!mount) return;
-
-  if (!isDebugToolsEnabled()) {
-    mount.innerHTML = '<div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>';
-    return;
-  }
-
-  const meta = loadCloudSyncMeta();
-  const queue = loadCloudSyncQueue();
-  const history = StorageManager.get('history', []);
-  const feedbackEntries = StorageManager.get('feedback_entries', []);
-  const analyticsRaw = StorageManager.get('enhanced_analytics', {});
-  const analyticsGames = Array.isArray(analyticsRaw?.games) ? analyticsRaw.games : [];
-  const scope = getActiveLeaderboardScope();
-  const period = getActiveLeaderboardPeriod();
-  const ownerId = getFirebaseOwnerId();
-  const authUid = fbUser?.uid || '';
-  const remote = debugRemoteState;
-  const currentDisciplineEntry = Object.prototype.hasOwnProperty.call(DISC, G.discipline)
-    ? buildDisciplineLeaderboardEntry(G.discipline)
-    : null;
-  const seasonInfo = getCurrentSeasonInfo();
-  const backoffUntil = Number(meta.queueBackoffUntil) || 0;
-  const currentScopeLabel = `${getLeaderboardScopeLabel(scope)} · ${period === 'season' ? seasonInfo.label : 'All-Time'}`;
-
-  mount.innerHTML = `
-        <div class="ps-stats-grid">
-          <div class="ps-stat-card">
-            <div class="ps-sc-label">Firebase</div>
-            <div class="ps-sc-val">${fbReady ? 'AN' : 'AUS'}</div>
-            <div class="ps-sc-sub">${fbUser ? 'Auth aktiv' : 'keine Auth'}</div>
-          </div>
-          <div class="ps-stat-card">
-            <div class="ps-sc-label">Queue</div>
-            <div class="ps-sc-val">${queue.length}</div>
-            <div class="ps-sc-sub">ausstehende Writes</div>
-          </div>
-          <div class="ps-stat-card">
-            <div class="ps-sc-label">Matches</div>
-            <div class="ps-sc-val">${Array.isArray(history) ? history.length : 0}</div>
-            <div class="ps-sc-sub">lokal gespeichert</div>
-          </div>
-          <div class="ps-stat-card">
-            <div class="ps-sc-label">Analytics</div>
-            <div class="ps-sc-val">${analyticsGames.length}</div>
-            <div class="ps-sc-sub">Spiele im Analytics-Speicher</div>
-          </div>
-          <div class="ps-stat-card">
-            <div class="ps-sc-label">Feedback</div>
-            <div class="ps-sc-val">${debugFeedbackState ? summarizeFeedbackEntries(debugFeedbackState.entries).total : feedbackEntries.length}</div>
-            <div class="ps-sc-sub">${debugFeedbackState?.mode === 'remote' ? 'remote gelesen' : 'lokale Vorschau'}</div>
-          </div>
-        </div>
-
-        <div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Sync-Status</div>
-        <div class="ps-history-item">
-          <div class="phi-info">
-            <div class="phi-title">User</div>
-            <div class="phi-meta">Username: ${escHtml(G.username || '–')} · Konto: ${escHtml(ownerId || '–')} · Auth: ${escHtml(authUid || '–')}</div>
-          </div>
-        </div>
-        <div class="ps-history-item">
-          <div class="phi-info">
-            <div class="phi-title">Laufzeit</div>
-            <div class="phi-meta">Disziplin: ${escHtml(G.discipline)} · Schwierigkeit: ${escHtml(G.diff)} · Leaderboard: ${escHtml(currentScopeLabel)}</div>
-          </div>
-        </div>
-        <div class="ps-history-item">
-          <div class="phi-info">
-            <div class="phi-title">Queue-Meta</div>
-            <div class="phi-meta">Letzte lokale Änderung: ${escHtml(formatDebugTimestamp(meta.lastLocalChangeAt))} · Letzter Flush: ${escHtml(formatDebugTimestamp(meta.lastQueueFlushAt))} · Backoff bis: ${escHtml(formatDebugTimestamp(backoffUntil))}</div>
-          </div>
-        </div>
-        <div class="ps-history-item">
-          <div class="phi-info">
-            <div class="phi-title">Pfade</div>
-            <div class="phi-meta">/users/${escHtml(ownerId || '<accountId>')}/profile · /cloud · /matches · /leaderboard_v2/${escHtml(ownerId || '<accountId>')}</div>
-          </div>
-        </div>
-        <div class="ps-history-item">
-          <div class="phi-info">
-            <div class="phi-title">Aktuelle Disziplin-Leistung</div>
-            <div class="phi-meta">${currentDisciplineEntry ? `Best ${formatLeaderboardScore(currentDisciplineEntry.bestScore, G.discipline)} · Ø ${formatLeaderboardScore(currentDisciplineEntry.averageScore, G.discipline)} · ${currentDisciplineEntry.totalGames} Spiele` : 'Noch keine Daten fuer diese Disziplin.'}</div>
-          </div>
-        </div>
-        <div class="ps-history-item">
-          <div class="phi-info">
-            <div class="phi-title">Remote-Status</div>
-            <div class="phi-meta">${remote ? escHtml(remote.summary) : 'Noch nicht geladen.'}</div>
-          </div>
-        </div>
-        <div class="ps-history-item">
-          <div class="phi-info">
-            <div class="phi-title">Lokale Puffer</div>
-            <div class="phi-meta">Feedback lokal: ${Array.isArray(feedbackEntries) ? feedbackEntries.length : 0} · Rookie-Plan: ${StorageManager.get('rookie_plan_v1', {}).introSeen ? 'gesehen' : 'offen'}</div>
-          </div>
-        </div>
-        ${renderDebugFeedbackSection()}
-
-        <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-          <button class="btn-sec" style="font-size:0.6rem;" onclick="debugSyncNow()">Sync jetzt</button>
-          <button class="btn-sec" style="font-size:0.6rem;" onclick="refreshDebugPanel()">Neu laden</button>
-          <button class="btn-sec" style="font-size:0.6rem;" onclick="disableDebugTools()">Debug aus</button>
-        </div>
-      `;
-}
-
-function refreshDebugPanel() {
-  if (!debugFeedbackState) {
-    debugFeedbackState = {
-      mode: 'local',
-      entries: StorageManager.get('feedback_entries', [])
-    };
-  }
-  renderDebugPanel();
-  if (!isDebugToolsEnabled() || debugRemoteFetchInFlight || !fbReady || !fbDb || !fbUser) return;
-
-  debugRemoteFetchInFlight = true;
-  const ownerId = getFirebaseOwnerId() || fbUser.uid;
-  const scope = getActiveLeaderboardScope();
-  const period = getActiveLeaderboardPeriod();
-  const scopePath = getLeaderboardPath(scope, period);
-  const seasonId = getCurrentSeasonId();
-
-  Promise.all([
-    fbDb.ref(`users/${ownerId}/profile`).once('value'),
-    fbDb.ref(`users/${ownerId}/cloud`).once('value'),
-    fbDb.ref(`users/${ownerId}/matches`).once('value'),
-    fbDb.ref(`leaderboard_v2/${ownerId}`).once('value'),
-    fbDb.ref(`${SEASON_ROOT}/${seasonId}/leaderboard_v1/${ownerId}`).once('value'),
-    (period === 'alltime' && scope === 'global') ? Promise.resolve(null) : fbDb.ref(`${scopePath}/${ownerId}`).once('value'),
-    fbDb.ref(`${ADMIN_ACCOUNTS_ROOT}/${ownerId}`).once('value')
-  ])
-    .then(async ([profileSnap, cloudSnap, matchesSnap, globalLbSnap, seasonLbSnap, scopedLbSnap, adminSnap]) => {
-      const matchCount = matchesSnap?.numChildren ? matchesSnap.numChildren() : Object.keys(matchesSnap?.val() || {}).length;
-      const scopedExists = scopedLbSnap?.exists?.() ? 'ja' : ((period === 'alltime' && scope === 'global') ? 'n/a' : 'nein');
-      const isAdmin = adminSnap?.val() === true;
-      debugRemoteState = {
-        summary: `Profil: ${profileSnap?.exists?.() ? 'ja' : 'nein'} · Cloud: ${cloudSnap?.exists?.() ? 'ja' : 'nein'} · Matches: ${matchCount} · Global LB: ${globalLbSnap?.exists?.() ? 'ja' : 'nein'} · Saison LB: ${seasonLbSnap?.exists?.() ? 'ja' : 'nein'} · Scope LB: ${scopedExists} · Admin: ${isAdmin ? 'ja' : 'nein'}`
-      };
-
-      if (isAdmin && !debugFeedbackFetchInFlight) {
-        debugFeedbackFetchInFlight = true;
-        try {
-          const feedbackSnap = await fbDb.ref('feedback_v1').orderByChild('ts').limitToLast(50).once('value');
-          const entries = [];
-          feedbackSnap.forEach((child) => {
-            const value = child.val();
-            if (value && typeof value === 'object') entries.push(value);
-          });
-          entries.sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
-          debugFeedbackState = { mode: 'remote', entries };
-        } catch (error) {
-          debugFeedbackState = {
-            mode: 'remote',
-            entries: [],
-            error: error?.code || error?.message || 'feedback-read-failed'
-          };
-        } finally {
-          debugFeedbackFetchInFlight = false;
-        }
-      } else if (!isAdmin) {
-        debugFeedbackState = {
-          mode: 'restricted',
-          entries: StorageManager.get('feedback_entries', [])
-        };
-      }
-      renderDebugPanel();
-    })
-    .catch((error) => {
-      debugRemoteState = {
-        summary: `Remote-Fehler: ${error?.code || error?.message || 'unbekannt'}`
-      };
-      debugFeedbackState = {
-        mode: 'local',
-        entries: StorageManager.get('feedback_entries', [])
-      };
-      renderDebugPanel();
-    })
-    .finally(() => {
-      debugRemoteFetchInFlight = false;
-    });
-}
-
-function debugSyncNow() {
-  scheduleCloudSync('debug_manual_sync', { immediate: true });
-  refreshDebugPanel();
-}
-
-async function bootstrapCloudUser(user, options = {}) {
-  if (!user || !fbDb) return;
-
-  const accountId = await resolveFirebaseAccountId(user, options);
-  if (!accountId) return;
-
-  if (fbCloudBootstrapUid === accountId && !options.force) {
-    scheduleFirebaseQueueFlush(200);
-    return;
-  }
-
-  fbCloudBootstrapUid = accountId;
-
-  try {
-    const [profileSnap, cloudSnap] = await Promise.all([
-      fbDb.ref(`users/${accountId}/profile`).once('value'),
-      fbDb.ref(`users/${accountId}/cloud`).once('value')
-    ]);
-
-    const remoteProfile = profileSnap.val() || null;
-    const remoteCloud = cloudSnap.val() || null;
-    const meta = loadCloudSyncMeta();
-    const remoteUpdatedAt = Number(remoteCloud?.updatedAt || remoteProfile?.updatedAt || 0);
-    const localUpdatedAt = Number(meta.lastLocalChangeAt || 0);
-
-    fbCloudProfileCache = remoteProfile;
-
-    if (remoteCloud && remoteUpdatedAt > localUpdatedAt) {
-      const changed = applyCloudSnapshot(remoteCloud);
-      saveCloudSyncMeta({
-        lastAppliedAt: remoteUpdatedAt,
-        lastLocalChangeAt: remoteUpdatedAt
-      });
-      if (changed) refreshStateFromLocalStorage();
-    } else if (remoteProfile && remoteProfile.username && !StorageManager.getRaw('username')) {
-      StorageManager.setRaw('username', sanitizeUsername(remoteProfile.username));
-      refreshStateFromLocalStorage();
-    }
-
-    if (G.username) {
-      queueCloudSnapshot('cloud_bootstrap');
-      queueCloudProfile('cloud_bootstrap');
-      queueStructuredMatchHistory('cloud_bootstrap');
-      queueLeaderboardEntry('cloud_bootstrap');
-      queueDisciplineLeaderboardEntries('cloud_bootstrap');
-      queueSeasonLeaderboardEntries('cloud_bootstrap');
-      scheduleFirebaseQueueFlush(200);
-    }
-    updateAccountSyncStatus();
-    refreshDebugPanel();
-  } catch (error) {
-    console.warn('Cloud bootstrap failed:', error?.code || error?.message || error);
-    updateAccountSyncStatus();
-  }
-}
-
-function ensureFirebaseAnonymousAuth() {
-  if (!fbReady || !fbApp || !firebase || typeof firebase.auth !== 'function') {
-    return Promise.resolve(null);
-  }
-
-  if (!fbAuth) fbAuth = firebase.auth(fbApp);
-  if (fbAuth.currentUser) return Promise.resolve(fbAuth.currentUser);
-
-  return fbAuth.signInAnonymously()
-    .then(result => result?.user || fbAuth.currentUser || null)
-    .catch((error) => {
-      console.warn('Firebase anonymous auth failed:', error?.code || error?.message || error);
-      return null;
-    });
-}
-
-function bindFirebaseAuth() {
-  if (!fbReady || fbAuthListenerBound || !firebase || typeof firebase.auth !== 'function') return;
-
-  fbAuth = firebase.auth(fbApp);
-  fbAuthListenerBound = true;
-  fbAuth.onAuthStateChanged((user) => {
-    fbUser = user || null;
-    if (!fbUser) {
-      fbAccountId = '';
-      updateAccountSyncStatus();
-      updateGoogleLoginUI(null);
-      ensureFirebaseAnonymousAuth();
-      return;
-    }
-    updateAccountSyncStatus();
-    updateGoogleLoginUI(user);
-    bootstrapCloudUser(fbUser);
-  });
-
-  ensureFirebaseAnonymousAuth();
-}
-
-function initFirebase() {
-  try {
-    if (!firebase || !firebase.apps) return;
-    if (firebase.apps.length === 0) {
-      fbApp = firebase.initializeApp(FB_CONFIG);
-    } else {
-      fbApp = firebase.apps[0];
-    }
-    fbDb = firebase.database(fbApp);
-    fbReady = true;
-    bindFirebaseAuth();
-    scheduleFirebaseQueueFlush(1200);
-  } catch (e) { console.warn('Firebase init failed:', e); fbReady = false; }
-}
-
-function getLeaderboardLists() {
-  const mountedLists = Array.from(document.querySelectorAll('[data-lb-list]'));
-  if (mountedLists.length) return mountedLists;
-  const legacyList = document.getElementById('lbList');
-  return legacyList ? [legacyList] : [];
-}
-
-function setLeaderboardMarkup(markup) {
-  getLeaderboardLists().forEach(list => {
-    list.innerHTML = markup;
-  });
-}
-
-function setLeaderboardLoadingState(isLoading) {
-  getLeaderboardLists().forEach(list => {
-    if (isLoading) list.dataset.loading = 'true';
-    else delete list.dataset.loading;
-  });
-}
-
-function loadLeaderboard(force = false) {
-  const lists = getLeaderboardLists();
-  if (!lists.length) return;
-
-  const isLoading = lists.some(list => list.dataset.loading === 'true');
-  const hasRows = lists.some(list => !!list.querySelector('.lb-row'));
-  if (!force && (hasRows || isLoading)) return;
-
-  setLeaderboardLoadingState(true);
-  setLeaderboardMarkup('<div class="lb-loading">⏳</div>');
-
-  // Status-Badge (falls vorhanden)
-  updateLbStatusBadge();
-
-  const finishLoad = (markup) => {
-    setLeaderboardLoadingState(false);
-    setLeaderboardMarkup(markup);
-  };
-
-  // Warte bis Firebase bereit
-  const tryLoad = (attempts) => {
-    if (!fbReady) {
-      if (attempts > 0) { setTimeout(() => tryLoad(attempts - 1), 800); return; }
-      finishLoad('<div class="lb-empty">🔌 Offline – Bestenliste nicht verfügbar.</div>');
-      return;
-    }
-
-    // Lade Top 50 nach Score sortiert
-    fbDb.ref('leaderboard_v2').orderByChild('score').limitToLast(50).once('value')
-      .then(snap => {
-        const entries = [];
-        snap.forEach(child => { entries.push(child.val()); });
-        entries.reverse(); // Höchster Score zuerst
-        renderLeaderboard(entries);
-      })
-      .catch(err => {
-        console.error('Leaderboard load error:', err?.code, err?.message);
-        finishLoad('<div class="lb-empty">⚠️ Fehler beim Laden.</div>');
-      });
-  };
-  tryLoad(15);
-}
-
-function renderLeaderboard(entries, scope = getActiveLeaderboardScope()) {
-  const lists = getLeaderboardLists();
-  if (!lists.length) return;
-
-  setLeaderboardLoadingState(false);
-  updateLeaderboardScopeControl();
-  if (!entries.length) {
-    const emptyText = scope === 'global'
-      ? 'Noch keine Eintraege. Sei der Erste! 🏆'
-      : `Noch keine Eintraege fuer ${getLeaderboardScopeLabel(scope)}.`;
-    setLeaderboardMarkup('<div class="lb-empty">Noch keine Einträge. Sei der Erste! 🏆</div>');
-    return;
-  }
-
-  const markup = entries.map((e, i) => {
-    const displayName = e.name || e.username || 'Anonym';
-    const isMe = (getFirebaseOwnerId() && e.uid === getFirebaseOwnerId()) || (G.username && (e.name === G.username || e.username === G.username));
-    const weaponIcon = e.weapon === 'kk' ? '🎯' : '🌬️';
-    const score = Number(e.score ?? e.xp ?? 0) || 0;
-    const xp = Number(e.xp ?? 0) || 0;
-    const streak = Number(e.streak ?? 0) || 0;
-    const entryDiscipline = e.discipline || (scope === 'global' ? null : scope);
-    const isDisciplineScope = scope !== 'global';
-    const headlineValue = isDisciplineScope
-      ? `${formatLeaderboardScore(e.bestScore ?? score, entryDiscipline)} Best`
-      : `${score} Score`;
-    const detailValue = isDisciplineScope
-      ? `Ø ${formatLeaderboardScore(e.averageScore, entryDiscipline)} · ${Number(e.totalGames || 0)} Spiele`
-      : `${xp} XP · 🔥 ${streak}`;
-    const subline = isDisciplineScope
-      ? `${weaponIcon} ${e.rank || 'Schuetze'} · ${Math.round((Number(e.winRate) || 0) * 100)}% Siege`
-      : `${weaponIcon} ${e.rank || 'Schuetze'}`;
-    return `
-          <div class="lb-row ${isMe ? 'me' : ''}">
-            <div class="lb-rank-num">${i + 1}</div>
-            <div class="lb-avatar">${e.rankIcon || '👤'}</div>
-            <div class="lb-info">
-              <div class="lb-name">${escHtml(displayName)}${isMe ? ' (Du)' : ''}</div>
-              <div class="lb-sub">${weaponIcon} ${e.rank || 'Schütze'}</div>
-            </div>
-            <div class="lb-stats">
-              <div class="lb-xp">${score} Score</div>
-              <div class="lb-streak">${xp} XP · 🔥 ${streak}</div>
-            </div>
-          </div>
-        `;
-  }).join('');
-
-  setLeaderboardMarkup(markup);
-}
-
-function escHtml(s) { return String(s ?? '').replace(/[&<>"'`\/]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#x60;', '/': '&#x2F;' }[c])); }
-
-/* ─── FIREBASE SYNC (zentral) ────────────── */
-function buildFirebaseEntry() {
-  const bestLG = parseInt(localStorage.getItem('sd_lg_best') || '0') || 0;
-  const bestKK = parseInt(localStorage.getItem('sd_kk_best') || '0') || 0;
-  const bestW = bestLG >= bestKK ? 'lg' : 'kk';
-  const bestStreak = Math.max(bestLG, bestKK);
-  const curStreak = STREAK_CACHE[G.weapon]?.streak || 0;
-  const { rank } = getRank(G.xp);
-  // Score = XP + Streak-Bonus (jeder Best-Streak-Punkt = 5 Bonus-Punkte)
-  const score = G.xp + bestStreak * 5;
-  return {
-    uid: getFirebaseOwnerId(),
-    authUid: fbUser?.uid || '',
-    name: G.username || 'Anonym',
-    username: G.username || 'Anonym',
-    xp: G.xp,
-    rank: rank.name,
-    rankIcon: rank.icon,
-    streak: bestStreak,
-    currentStreak: curStreak,
-    score,
-    weapon: bestW,
-    date: new Date().toLocaleDateString('de-DE')
-  };
-}
-
-function pushProfileToFirebase(onDone) {
-  if (!fbReady || !G.username) { if (onDone) onDone(false); return; }
-  const entry = buildFirebaseEntry();
-  fbDb.ref('leaderboard_v2/' + G.username).set(entry)
-    .then(() => {
-      updateLbStatusBadge();
-      if (onDone) onDone(true);
-    })
-    .catch(() => { if (onDone) onDone(false); });
-}
-
-function updateLbStatusBadge() {
-  const el = document.getElementById('lbStatusBadge');
-  if (!el || !G.username) return;
-  const ownerId = getFirebaseOwnerId();
-  const syncSuffix = ownerId && fbUser?.uid && ownerId !== fbUser.uid ? ' · Sync aktiv' : '';
-  el.textContent = `✓ Eingetragen als "${G.username}"${syncSuffix}`;
-  el.style.color = 'rgba(140,200,60,.8)';
-}
-
-// Legacy: wird noch vom HTML-Button aufgerufen → jetzt nur noch Sync
-function submitToLeaderboard() {
-  if (!G.username) {
-    document.getElementById('welcomeOverlay').classList.add('active');
-    setTimeout(() => document.getElementById('welcomeNameInp')?.focus(), 300);
-    return;
-  }
-  pushProfileToFirebase(ok => {
-    if (ok) loadLeaderboard(true);
-    else alert('Offline – Eintrag konnte nicht gespeichert werden.');
-  });
-}
-renderLeaderboard = function renderLeaderboardPatched(entries, scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) {
-  const lists = getLeaderboardLists();
-  if (!lists.length) return;
-
-  setLeaderboardLoadingState(false);
-  updateLeaderboardScopeControl();
-  const normalizedPeriod = normalizeLeaderboardPeriod(period);
-  const isSeason = normalizedPeriod === 'season';
-  const seasonLabel = getCurrentSeasonInfo().label;
-
-  if (!entries.length) {
-    const emptyText = isSeason
-      ? (scope === 'global'
-        ? `Noch keine Saison-Eintraege fuer ${seasonLabel}.`
-        : `Noch keine Saison-Eintraege fuer ${getLeaderboardScopeLabel(scope)} in ${seasonLabel}.`)
-      : (scope === 'global'
-        ? 'Noch keine Eintraege. Sei der Erste! 🏆'
-        : `Noch keine Eintraege fuer ${getLeaderboardScopeLabel(scope)}.`);
-    setLeaderboardMarkup(`<div class="lb-empty">${emptyText}</div>`);
-    return;
-  }
-
-  const markup = entries.map((entry, index) => {
-    const displayName = entry.name || entry.username || 'Anonym';
-    const isMe = (getFirebaseOwnerId() && entry.uid === getFirebaseOwnerId()) || (G.username && (entry.name === G.username || entry.username === G.username));
-    const weaponIcon = entry.weapon === 'kk' ? '🎯' : '🌬️';
-    const numericScore = Number(entry.score ?? entry.xp ?? 0) || 0;
-    const numericXp = Number(entry.xp ?? 0) || 0;
-    const numericStreak = Number(entry.streak ?? 0) || 0;
-    const entryDiscipline = entry.discipline || (scope === 'global' ? null : scope);
-    const isDisciplineScope = scope !== 'global';
-    const topLine = isSeason
-      ? `${Number(entry.seasonPoints || 0)} Saison-Pkt`
-      : (isDisciplineScope
-        ? `${formatLeaderboardScore(entry.bestScore ?? numericScore, entryDiscipline)} Best`
-        : `${numericScore} Score`);
-    const bottomLine = isSeason
-      ? (isDisciplineScope
-        ? `Ø ${formatLeaderboardScore(entry.averageScore, entryDiscipline)} · ${formatLeaderboardScore(entry.bestScore, entryDiscipline)} Best · ${Number(entry.totalGames || 0)} Spiele`
-        : `${Number(entry.wins || 0)} Siege · ${Number(entry.draws || 0)} U · ${Number(entry.totalGames || 0)} Spiele`)
-      : (isDisciplineScope
-        ? `Ø ${formatLeaderboardScore(entry.averageScore, entryDiscipline)} · ${Number(entry.totalGames || 0)} Spiele`
-        : `${numericXp} XP · 🔥 ${numericStreak}`);
-    const subline = isSeason
-      ? `${weaponIcon} ${entry.rank || 'Schuetze'} · ${seasonLabel}`
-      : (isDisciplineScope
-        ? `${weaponIcon} ${entry.rank || 'Schuetze'} · ${Math.round((Number(entry.winRate) || 0) * 100)}% Siege`
-        : `${weaponIcon} ${entry.rank || 'Schuetze'}`);
-
-    return `
-          <div class="lb-row ${isMe ? 'me' : ''}">
-            <div class="lb-rank-num">${index + 1}</div>
-            <div class="lb-avatar">${entry.rankIcon || '👤'}</div>
-            <div class="lb-info">
-              <div class="lb-name">${escHtml(displayName)}${isMe ? ' (Du)' : ''}</div>
-              <div class="lb-sub">${subline}</div>
-            </div>
-            <div class="lb-stats">
-              <div class="lb-xp">${topLine}</div>
-              <div class="lb-streak">${bottomLine}</div>
-            </div>
-          </div>
-        `;
-  }).join('');
-
-  setLeaderboardMarkup(markup);
-};
-
-loadLeaderboard = function loadLeaderboardPatched(force = false) {
-  const lists = getLeaderboardLists();
-  if (!lists.length) return;
-
-  const isLoading = lists.some(list => list.dataset.loading === 'true');
-  const hasRows = lists.some(list => !!list.querySelector('.lb-row'));
-  if (!force && (hasRows || isLoading)) return;
-
-  setLeaderboardLoadingState(true);
-  setLeaderboardMarkup('<div class="lb-loading">...</div>');
-  updateLeaderboardScopeControl();
-  updateLbStatusBadge();
-
-  const scope = getActiveLeaderboardScope();
-  const period = getActiveLeaderboardPeriod();
-  const path = getLeaderboardPath(scope, period);
-
-  const finishLoad = (markup) => {
-    setLeaderboardLoadingState(false);
-    setLeaderboardMarkup(markup);
-  };
-
-  const tryLoad = (attempts) => {
-    if (!fbReady) {
-      if (attempts > 0) {
-        setTimeout(() => tryLoad(attempts - 1), 800);
-        return;
-      }
-      if (renderCachedLeaderboard(scope, period)) return;
-      finishLoad('<div class="lb-empty">Offline - Bestenliste nicht verfuegbar.</div>');
-      return;
-    }
-
-    fbDb.ref(path).orderByChild('score').limitToLast(50).once('value')
-      .then(snap => {
-        const entries = [];
-        snap.forEach(child => {
-          const value = child.val();
-          if (value && typeof value === 'object') {
-            entries.push({ ...value, username: value.username || child.key });
-          }
-        });
-        entries.sort((a, b) => (Number(b.score ?? b.xp ?? 0) || 0) - (Number(a.score ?? a.xp ?? 0) || 0));
-        cacheLeaderboardEntries(entries, scope, period);
-        renderLeaderboard(entries, scope, period);
-      })
-      .catch(err => {
-        console.error('Leaderboard load error:', err?.code, err?.message);
-        if (renderCachedLeaderboard(scope, period)) return;
-        finishLoad('<div class="lb-empty">Fehler beim Laden.</div>');
-      });
-  };
-
-  tryLoad(15);
-};
-
-pushProfileToFirebase = function pushProfileToFirebasePatched(onDone) {
-  if (!G.username) { if (onDone) onDone(false); return; }
-
-  const finish = (ok) => {
-    if (ok) updateLbStatusBadge();
-    if (onDone) onDone(ok);
-  };
-
-  const syncNow = () => {
-    queueCloudSnapshot('profile_push');
-    queueCloudProfile('profile_push');
-    queueStructuredMatchHistory('profile_push');
-    queueLeaderboardEntry('profile_push');
-    queueDisciplineLeaderboardEntries('profile_push');
-    queueSeasonLeaderboardEntries('profile_push');
-    return flushFirebaseSyncQueue()
-      .then(() => finish(true))
-      .catch((err) => {
-        console.error('Leaderboard push error:', err?.code, err?.message);
-        finish(false);
-      });
-  };
-
-  scheduleCloudSync('profile_push');
-
-  if (!fbReady || !fbDb) {
-    finish(true);
-    return;
-  }
-
-  if (fbUser) {
-    syncNow();
-    return;
-  }
-
-  ensureFirebaseAnonymousAuth()
-    .then((user) => {
-      if (!user) {
-        finish(false);
-        return;
-      }
-      fbUser = user;
-      syncNow();
-    })
-    .catch((err) => {
-      console.error('Firebase auth sync error:', err?.code, err?.message);
-      finish(false);
-    });
-};
-
+function loadCloudSyncQueue() { return []; }
+function markCloudStateDirty(reason = 'local_change') { saveCloudSyncMeta({ lastLocalChangeAt: Date.now(), lastSyncReason: reason }); }
+function collectCloudSnapshot() { const values = {}; CLOUD_SYNC_KEYS.forEach((key) => { const rawValue = localStorage.getItem(StorageManager.PREFIX + key); values[key] = rawValue === null ? null : rawValue; }); return { schemaVersion: CLOUD_SYNC_SCHEMA_VERSION, updatedAt: Date.now(), username: sanitizeUsername(StorageManager.getRaw('username', G.username || 'Anonym')), values }; }
+function getLeaderboardCacheKey(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { return LEADERBOARD_CACHE_KEY + '_' + normalizeLeaderboardPeriod(period) + '_' + normalizeLeaderboardScope(scope); }
+function getCachedLeaderboardEntries(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { try { const cached = JSON.parse(localStorage.getItem(getLeaderboardCacheKey(scope, period)) || '[]'); return Array.isArray(cached) ? normalizeLeaderboardEntries(cached) : []; } catch (error) { console.warn('Leaderboard cache read failed:', error); return []; } }
+function cacheLeaderboardEntries(entries, scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { try { localStorage.setItem(getLeaderboardCacheKey(scope, period), JSON.stringify(Array.isArray(entries) ? entries.slice(0, 50) : [])); } catch (error) { console.warn('Leaderboard cache write failed:', error); } }
+function renderCachedLeaderboard(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { const cachedEntries = getCachedLeaderboardEntries(scope, period); if (!cachedEntries.length) return false; renderLeaderboard(cachedEntries, scope, period); return true; }
+function formatLeaderboardScore(value, discipline = null) { const numericValue = Number(value); if (!Number.isFinite(numericValue)) return '0'; if (discipline === 'kk3x20') return String(Math.round(numericValue)); return numericValue.toFixed(1); }
+function getDisciplineGames(discipline) { if (!discipline) return []; try { const raw = JSON.parse(localStorage.getItem('sd_enhanced_analytics') || '{}'); const games = Array.isArray(raw?.games) ? raw.games : []; return games.filter((game) => game && game.discipline === discipline && Number.isFinite(Number(game.playerScore))); } catch (error) { console.warn('Enhanced analytics read failed:', error); return []; } }
+function buildDisciplineLeaderboardEntry(discipline) { const key = Object.prototype.hasOwnProperty.call(DISC, discipline) ? discipline : null; if (!key || !G.username) return null; const games = getDisciplineGames(key); if (!games.length) return null; const scores = games.map((game) => Number(game.playerScore)).filter((score) => Number.isFinite(score)); if (!scores.length) return null; const wins = games.filter((game) => game.result === 'win' || game.playerWon === true).length; const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length; const bestScore = Math.max(...scores); const rankData = getRank(G.xp).rank; return { uid: getCurrentAccountId(), name: sanitizeUsername(G.username || 'Anonym'), username: sanitizeUsername(G.username || 'Anonym'), discipline: key, disciplineName: DISC[key].name, rank: rankData.name, rankIcon: rankData.icon, weapon: DISC[key].weapon, totalGames: scores.length, wins, winRate: scores.length ? wins / scores.length : 0, averageScore, bestScore, score: bestScore, date: new Date().toLocaleDateString('de-DE') }; }
+function buildStructuredMatchHistory() { try { const hist = StorageManager.get('history', []); if (!Array.isArray(hist) || !hist.length) return {}; const matches = {}; hist.slice(0, 30).forEach((entry, index) => { if (!entry || typeof entry !== 'object') return; const timestamp = Number(entry.timestamp) || 0; const discipline = typeof entry.discipline === 'string' ? entry.discipline : 'unknown'; const fallbackKey = String((timestamp || Date.now()) + '_' + discipline + '_' + index); const key = String(entry.id || fallbackKey).replace(/[.#$/\[\]]/g, '_'); matches[key] = { id: key, timestamp: timestamp || Date.now(), result: typeof entry.result === 'string' ? entry.result : 'unknown', diff: typeof entry.diff === 'string' ? entry.diff : 'unknown', weapon: entry.weapon === 'kk' ? 'kk' : 'lg', discipline, disciplineName: typeof entry.disciplineName === 'string' ? entry.disciplineName : (DISC[discipline]?.name || discipline), playerPts: Number(entry.playerPts) || 0, botPts: Number(entry.botPts) || 0, diffName: typeof entry.diffName === 'string' ? entry.diffName : entry.diff, weaponName: typeof entry.weaponName === 'string' ? entry.weaponName : entry.weapon, date: typeof entry.date === 'string' ? entry.date : '' }; }); return matches; } catch (error) { console.warn('History snapshot build failed:', error); return {}; } }
+function getStructuredHistoryList() { const matches = buildStructuredMatchHistory(); return Object.values(matches).filter(Boolean).sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0)); }
+function buildSeasonLeaderboardEntry(discipline = null) { const seasonInfo = getCurrentSeasonInfo(); const matches = getStructuredHistoryList().filter((entry) => { const timestamp = Number(entry.timestamp) || 0; if (timestamp < seasonInfo.startAt || timestamp > seasonInfo.endAt) return false; return discipline ? entry.discipline === discipline : true; }); if (!matches.length || !G.username) return null; const wins = matches.filter((entry) => entry.result === 'win').length; const draws = matches.filter((entry) => entry.result === 'draw').length; const losses = matches.filter((entry) => entry.result === 'lose').length; const scores = matches.map((entry) => Number(entry.playerPts) || 0); const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length; const bestScore = Math.max(...scores); const seasonPoints = wins * 3 + draws; const rankData = getRank(G.xp).rank; return { uid: getCurrentAccountId(), name: sanitizeUsername(G.username || 'Anonym'), username: sanitizeUsername(G.username || 'Anonym'), seasonId: seasonInfo.id, seasonLabel: seasonInfo.label, discipline: discipline || 'global', disciplineName: discipline ? (DISC[discipline]?.name || discipline) : 'Global', rank: rankData.name, rankIcon: rankData.icon, weapon: discipline ? (DISC[discipline]?.weapon || G.weapon) : G.weapon, totalGames: matches.length, wins, draws, losses, seasonPoints, averageScore, bestScore, score: seasonPoints * 100000 + Math.round(averageScore * 10), date: new Date().toLocaleDateString('de-DE') }; }
+function normalizeLeaderboardEntries(entries) { return (Array.isArray(entries) ? entries : []).filter((entry) => entry && typeof entry === 'object').map((entry, index) => { const score = Number(entry.score ?? entry.playerScore ?? entry.xp ?? 0) || 0; return { id: entry.id || entry.user_id || entry.uid || 'entry_' + index, uid: entry.user_id || entry.uid || entry.id || '', name: entry.name || entry.username || entry.display_name || entry.playerName || 'Anonym', username: entry.username || entry.name || entry.display_name || entry.playerName || 'Anonym', weapon: entry.weapon || '', score, xp: Number(entry.xp ?? score) || 0, wins: Number(entry.wins ?? 0) || 0, losses: Number(entry.losses ?? 0) || 0, draws: Number(entry.draws ?? 0) || 0, streak: Number(entry.streak ?? 0) || 0, currentStreak: Number(entry.currentStreak ?? entry.streak ?? 0) || 0, rankIcon: entry.rankIcon || entry.rank_icon || '👤', rank: entry.rank || 'Schuetze', discipline: entry.discipline || null, averageScore: Number(entry.averageScore ?? entry.average_score ?? 0) || 0, bestScore: Number(entry.bestScore ?? entry.best_score ?? score) || score, totalGames: Number(entry.totalGames ?? entry.total_games ?? 0) || 0, winRate: Number(entry.winRate ?? entry.win_rate ?? 0) || 0, seasonPoints: Number(entry.seasonPoints ?? entry.season_points ?? 0) || 0, timestamp: Number(entry.timestamp || Date.parse(entry.created_at || '') || Date.now()) || Date.now() }; }).sort((a, b) => Number(b.score || 0) - Number(a.score || 0)); }
+function buildLeaderboardEntry() { const bestLG = parseInt(localStorage.getItem('sd_lg_best') || '0', 10) || 0; const bestKK = parseInt(localStorage.getItem('sd_kk_best') || '0', 10) || 0; const bestW = bestLG >= bestKK ? 'lg' : 'kk'; const bestStreak = Math.max(bestLG, bestKK); const curStreak = STREAK_CACHE[G.weapon]?.streak || 0; const rankData = getRank(G.xp).rank; const score = G.xp + bestStreak * 5; return { uid: getCurrentAccountId(), name: sanitizeUsername(G.username || 'Anonym'), username: sanitizeUsername(G.username || 'Anonym'), xp: G.xp, rank: rankData.name, rankIcon: rankData.icon, streak: bestStreak, currentStreak: curStreak, score, weapon: bestW, date: new Date().toLocaleDateString('de-DE'), timestamp: Date.now() }; }
+function persistLocalLeaderboardEntry(entry) { if (!entry || !entry.username) return []; try { const parsed = JSON.parse(localStorage.getItem('sd_player_highscores') || '[]'); const list = Array.isArray(parsed) ? parsed : []; const key = entry.uid || entry.username; const next = list.filter((item) => item && (item.uid || item.username || item.name) !== key && item.username !== entry.username && item.name !== entry.username); next.unshift(entry); const normalized = normalizeLeaderboardEntries(next).slice(0, 100); localStorage.setItem('sd_player_highscores', JSON.stringify(normalized)); cacheLeaderboardEntries(normalized); return normalized; } catch (error) { console.warn('[SupabaseSync] Lokaler Leaderboard-Fallback fehlgeschlagen:', error?.message || error); return []; } }
+function syncProfileWithBackend(onDone, options = {}) { if (!G.username) { if (onDone) onDone(false); return Promise.resolve(false); } const entry = buildLeaderboardEntry(); persistLocalLeaderboardEntry(entry); saveCloudSyncMeta({ lastSyncAttemptAt: Date.now(), lastSyncReason: options.reason || 'profile_sync' }); if (!isSupabaseBackendAvailable('syncProfile')) { warnSupabaseSyncUnavailable('syncProfile'); if (onDone) onDone(true); return Promise.resolve(true); } try { window.SupabaseBackendSync.syncProfile(entry.username); saveCloudSyncMeta({ lastSyncOkAt: Date.now() }); updateLbStatusBadge(); if (onDone) onDone(true); return Promise.resolve(true); } catch (error) { console.warn('[SupabaseSync] Profil-Sync fehlgeschlagen:', error?.message || error); if (onDone) onDone(true); return Promise.resolve(true); } }
+function syncGameSessionWithBackend(data) { if (!isSupabaseBackendAvailable('syncGameSession')) { warnSupabaseSyncUnavailable('syncGameSession'); return; } try { window.SupabaseBackendSync.syncGameSession(data || {}); } catch (error) { console.warn('[SupabaseSync] Session-Sync fehlgeschlagen:', error?.message || error); } }
+function syncAchievementWithBackend(type) { if (!type) return; if (!isSupabaseBackendAvailable('syncAchievement')) { warnSupabaseSyncUnavailable('syncAchievement'); return; } try { window.SupabaseBackendSync.syncAchievement(type); } catch (error) { console.warn('[SupabaseSync] Achievement-Sync fehlgeschlagen:', error?.message || error); } }
+function scheduleCloudSync(reason = 'local_change', options = {}) { markCloudStateDirty(reason); const delay = options.immediate ? 0 : (options.delay ?? 800); if (supabaseSyncTimer) clearTimeout(supabaseSyncTimer); const run = () => { supabaseSyncTimer = null; syncProfileWithBackend(null, { reason }); }; if (delay <= 0) { run(); return Promise.resolve(true); } supabaseSyncTimer = setTimeout(run, delay); return Promise.resolve(true); }
+function queueFeedbackEntry(entry) { if (!entry || typeof entry !== 'object') return; const ownerId = getCurrentAccountId(); const payload = { ...entry, uid: ownerId || entry.uid || '', username: sanitizeUsername(entry.username || G.username || 'Anonym'), accountId: ownerId || entry.accountId || '' }; try { const entries = StorageManager.get('feedback_entries', []); const list = Array.isArray(entries) ? entries : []; list.unshift(payload); StorageManager.set('feedback_entries', list.slice(0, 100)); } catch (error) { console.warn('[SupabaseSync] Feedback lokal konnte nicht gespeichert werden:', error?.message || error); } }
+function updateAccountSyncStatus() { const node = document.getElementById('accountSyncStatus'); const iconEl = document.getElementById('syncStatusIcon'); const textEl = document.getElementById('syncStatusText'); if (!node) return; const user = getSupabaseUserSafe(); const localMode = isLocalPlayMode(); const backendReady = isSupabaseBackendAvailable('syncProfile') && (!window.SupabaseBackendSync.isReady || window.SupabaseBackendSync.isReady()); if (iconEl) iconEl.textContent = backendReady ? '✅' : (localMode ? '👤' : '☁️'); if (textEl) { if (backendReady && user) textEl.innerHTML = '<div style="font-weight:600;margin-bottom:2px;">Supabase Sync aktiv</div><div style="opacity:0.7;">Angemeldet als ' + escHtml(user.email || getSupabaseDisplayName(user)) + '</div>'; else if (localMode) textEl.textContent = 'Lokaler Gastmodus. Deine Daten bleiben auf diesem Geraet.'; else textEl.textContent = 'Supabase Login aktiv. Backend-Sync wird lokal gepuffert, falls die API nicht erreichbar ist.'; } }
+window.forceCloudSync = async function() { const btn = event?.target; if (btn) { btn.textContent = 'Sync laeuft...'; btn.disabled = true; } try { await syncProfileWithBackend(null, { reason: 'manual_sync' }); updateAccountSyncStatus(); if (btn) { btn.textContent = 'Synchronisiert'; setTimeout(() => { btn.textContent = 'Jetzt synchronisieren'; btn.disabled = false; }, 1600); } } catch (error) { console.warn('[SupabaseSync] Manueller Sync fehlgeschlagen:', error?.message || error); if (btn) { btn.textContent = 'Lokal gespeichert'; setTimeout(() => { btn.textContent = 'Jetzt synchronisieren'; btn.disabled = false; }, 1600); } } };
+function showAccountSyncCode() { alert('Supabase-only: Geraete-Sync laeuft ueber dein Supabase-Konto. Melde dich auf dem zweiten Geraet mit demselben Login an. Im Gastmodus bleiben Daten lokal.'); }
+function connectDeviceWithLinkCode() { alert('Supabase-only: Ein separater Sync-Code wird nicht mehr verwendet. Nutze auf beiden Geraeten dasselbe Supabase-Konto.'); return false; }
+function isDebugToolsEnabled() { try { const params = new URLSearchParams(window.location.search || ''); if (params.get('debug') === '1' || params.get('debug') === 'true') return true; } catch (error) { console.warn('Debug query read failed:', error); } return StorageManager.getRaw('debug_tools_v1', '0') === '1'; }
+function refreshDebugToolsVisibility() { const enabled = isDebugToolsEnabled(); const debugTab = document.querySelector('.ps-tab[data-tab="debug"]'); const debugPanel = document.getElementById('psPanel-debug'); if (debugTab) debugTab.style.display = enabled ? '' : 'none'; if (debugPanel) debugPanel.style.display = enabled ? '' : 'none'; if (!enabled) { const activeDebugTab = document.querySelector('.ps-tab.active[data-tab="debug"]'); if (activeDebugTab) switchProfileTab('stats'); } }
+function setDebugToolsEnabled(enabled) { StorageManager.setRaw('debug_tools_v1', enabled ? '1' : '0'); refreshDebugToolsVisibility(); if (enabled) { refreshDebugPanel(); switchProfileTab('debug'); } }
+function enableDebugTools() { setDebugToolsEnabled(true); }
+function disableDebugTools() { setDebugToolsEnabled(false); }
+function updateLeaderboardScopeControl() { const select = document.getElementById('lbScopeSelect'); const periodSelect = document.getElementById('lbPeriodSelect'); if (!select && !periodSelect) return; if (select && !select.options.length) select.innerHTML = ['<option value="global">Global</option>'].concat(Object.entries(DISC).map(([key, cfg]) => '<option value="' + key + '">' + cfg.name + '</option>')).join(''); const scope = getActiveLeaderboardScope(); const period = getActiveLeaderboardPeriod(); if (select) select.value = scope; if (periodSelect) { periodSelect.innerHTML = ['<option value="alltime">All-Time</option>', '<option value="season">Saison ' + getCurrentSeasonInfo().label + '</option>'].join(''); periodSelect.value = period; } const label = document.getElementById('lbScopeLabel'); if (label) label.textContent = getLeaderboardScopeLabel(scope) + (period === 'season' ? ' · ' + getCurrentSeasonInfo().label : ''); const hint = document.getElementById('lbScopeHint'); const title = document.getElementById('lbCardTitle'); if (title) title.textContent = period === 'season' ? 'Rangliste · Saison ' + getCurrentSeasonInfo().label : 'Rangliste · Score = XP + Streak×5'; if (hint) hint.textContent = scope === 'global' ? 'Supabase/Backend, sonst lokaler Fallback.' : getLeaderboardScopeLabel(scope) + ' nutzt lokale Bestleistungen als Fallback.'; }
+function setLeaderboardScope(scope, options = {}) { const normalizedScope = normalizeLeaderboardScope(scope); G.lbScope = normalizedScope; StorageManager.setRaw('lb_scope', normalizedScope); updateLeaderboardScopeControl(); if (options.reload === false) return normalizedScope; loadLeaderboard(true); return normalizedScope; }
+function setLeaderboardPeriod(period, options = {}) { const normalizedPeriod = normalizeLeaderboardPeriod(period); G.lbPeriod = normalizedPeriod; StorageManager.setRaw('lb_period', normalizedPeriod); updateLeaderboardScopeControl(); if (options.reload === false) return normalizedPeriod; loadLeaderboard(true); return normalizedPeriod; }
+async function loadBackendLeaderboard(scope, period) { if (typeof fetch !== 'function') return []; try { const result = await fetch(getWorkerBaseUrl() + '/api/leaderboard?period=' + encodeURIComponent(period === 'season' ? 'monthly' : 'weekly')); if (!result.ok) throw new Error('HTTP ' + result.status); const payload = await result.json(); return normalizeLeaderboardEntries(payload.leaderboard || payload.entries || payload); } catch (error) { console.warn('[SupabaseSync] Backend-Leaderboard nicht verfuegbar:', error?.message || error); return []; } }
+async function loadSupabaseLeaderboard() { const client = getSupabaseClientSafe(); if (!client || typeof client.from !== 'function') return []; try { const result = await client.from('leaderboard_entries').select('*').order('score', { ascending: false }).limit(100); if (result.error) throw result.error; return normalizeLeaderboardEntries(result.data || []); } catch (error) { console.warn('[SupabaseSync] Supabase-Leaderboard nicht verfuegbar:', error?.message || error); return []; } }
+function loadLocalLeaderboardEntries(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { try { const parsed = JSON.parse(localStorage.getItem('sd_player_highscores') || '[]'); const entries = normalizeLeaderboardEntries(Array.isArray(parsed) ? parsed : []); return entries.length ? entries : getCachedLeaderboardEntries(scope, period); } catch (error) { console.warn('[SupabaseSync] Lokaler Leaderboard-Fallback fehlgeschlagen:', error?.message || error); return getCachedLeaderboardEntries(scope, period); } }
+function getLeaderboardLists() { const mountedLists = Array.from(document.querySelectorAll('[data-lb-list]')); if (mountedLists.length) return mountedLists; const legacyList = document.getElementById('lbList'); return legacyList ? [legacyList] : []; }
+function setLeaderboardMarkup(markup) { getLeaderboardLists().forEach(list => { list.innerHTML = markup; }); }
+function setLeaderboardLoadingState(isLoading) { getLeaderboardLists().forEach(list => { if (isLoading) list.dataset.loading = 'true'; else delete list.dataset.loading; }); }
+async function loadLeaderboard(force = false) { const lists = getLeaderboardLists(); if (!lists.length) return; const isLoading = lists.some(list => list.dataset.loading === 'true'); const hasRows = lists.some(list => !!list.querySelector('.lb-row, .lb-modern-card')); if (!force && (hasRows || isLoading)) return; const scope = getActiveLeaderboardScope(); const period = getActiveLeaderboardPeriod(); updateLeaderboardScopeControl(); updateLbStatusBadge(); if (window.LeaderboardModern && typeof window.LeaderboardModern.load === 'function') { window.LeaderboardModern.load(scope, period); return; } setLeaderboardLoadingState(true); setLeaderboardMarkup('<div class="lb-loading">...</div>'); const backendEntries = await loadBackendLeaderboard(scope, period); let entries = backendEntries; if (!entries.length) entries = await loadSupabaseLeaderboard(); if (!entries.length) entries = loadLocalLeaderboardEntries(scope, period); if (entries.length) cacheLeaderboardEntries(entries, scope, period); renderLeaderboard(entries, scope, period); }
+function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(new RegExp(String.fromCharCode(96), 'g'), '&#x60;').replace(new RegExp('/', 'g'), '&#x2F;'); }
+function renderLeaderboard(entries, scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { const lists = getLeaderboardLists(); if (!lists.length) return; setLeaderboardLoadingState(false); updateLeaderboardScopeControl(); const normalizedEntries = normalizeLeaderboardEntries(entries); const normalizedPeriod = normalizeLeaderboardPeriod(period); const isSeason = normalizedPeriod === 'season'; const seasonLabel = getCurrentSeasonInfo().label; if (!normalizedEntries.length) { const emptyText = isSeason ? (scope === 'global' ? 'Noch keine Saison-Eintraege fuer ' + seasonLabel + '.' : 'Noch keine Saison-Eintraege fuer ' + getLeaderboardScopeLabel(scope) + ' in ' + seasonLabel + '.') : (scope === 'global' ? 'Noch keine Eintraege. Sei der Erste!' : 'Noch keine Eintraege fuer ' + getLeaderboardScopeLabel(scope) + '.'); setLeaderboardMarkup('<div class="lb-empty">' + escHtml(emptyText) + '</div>'); return; } const currentId = getCurrentAccountId(); const markup = normalizedEntries.map((entry, index) => { const displayName = entry.name || entry.username || 'Anonym'; const isMe = (currentId && entry.uid === currentId) || (G.username && (entry.name === G.username || entry.username === G.username)); const weaponIcon = entry.weapon === 'kk' ? '🎯' : '🌬️'; const numericScore = Number(entry.score ?? entry.xp ?? 0) || 0; const numericXp = Number(entry.xp ?? 0) || 0; const numericStreak = Number(entry.streak ?? 0) || 0; const entryDiscipline = entry.discipline || (scope === 'global' ? null : scope); const isDisciplineScope = scope !== 'global'; const topLine = isSeason ? String(Number(entry.seasonPoints || 0)) + ' Saison-Pkt' : (isDisciplineScope ? formatLeaderboardScore(entry.bestScore ?? numericScore, entryDiscipline) + ' Best' : String(numericScore) + ' Score'); const bottomLine = isSeason ? (isDisciplineScope ? 'Ø ' + formatLeaderboardScore(entry.averageScore, entryDiscipline) + ' · ' + formatLeaderboardScore(entry.bestScore, entryDiscipline) + ' Best · ' + Number(entry.totalGames || 0) + ' Spiele' : Number(entry.wins || 0) + ' Siege · ' + Number(entry.draws || 0) + ' U · ' + Number(entry.totalGames || 0) + ' Spiele') : (isDisciplineScope ? 'Ø ' + formatLeaderboardScore(entry.averageScore, entryDiscipline) + ' · ' + Number(entry.totalGames || 0) + ' Spiele' : String(numericXp) + ' XP · 🔥 ' + numericStreak); const subline = isSeason ? weaponIcon + ' ' + (entry.rank || 'Schuetze') + ' · ' + seasonLabel : (isDisciplineScope ? weaponIcon + ' ' + (entry.rank || 'Schuetze') + ' · ' + Math.round((Number(entry.winRate) || 0) * 100) + '% Siege' : weaponIcon + ' ' + (entry.rank || 'Schuetze')); return ['<div class="lb-row ' + (isMe ? 'me' : '') + '">','<div class="lb-rank-num">' + (index + 1) + '</div>','<div class="lb-avatar">' + escHtml(entry.rankIcon || '👤') + '</div>','<div class="lb-info"><div class="lb-name">' + escHtml(displayName) + (isMe ? ' (Du)' : '') + '</div><div class="lb-sub">' + escHtml(subline) + '</div></div>','<div class="lb-stats"><div class="lb-xp">' + escHtml(topLine) + '</div><div class="lb-streak">' + escHtml(bottomLine) + '</div></div>','</div>'].join(''); }).join(''); setLeaderboardMarkup(markup); }
+function updateLbStatusBadge() { const el = document.getElementById('lbStatusBadge'); if (!el || !G.username) return; const user = getSupabaseUserSafe(); el.textContent = user ? '✓ Supabase Sync als "' + G.username + '"' : '✓ Lokal gespeichert als "' + G.username + '"'; el.style.color = 'rgba(140,200,60,.8)'; }
+function submitToLeaderboard() { if (!G.username) { document.getElementById('welcomeOverlay').classList.add('active'); setTimeout(() => document.getElementById('welcomeNameInp')?.focus(), 300); return; } syncProfileWithBackend(() => loadLeaderboard(true), { reason: 'leaderboard_submit' }); }
+function formatDebugTimestamp(ts) { const value = Number(ts); if (!Number.isFinite(value) || value <= 0) return '–'; return new Date(value).toLocaleString('de-DE'); }
+function summarizeFeedbackEntries(entries) { const safeEntries = Array.isArray(entries) ? entries.filter(entry => entry && typeof entry === 'object') : []; const total = safeEntries.length; const avgScore = total ? (safeEntries.reduce((sum, entry) => sum + (Number(entry.score) || 0), 0) / total) : 0; return { total, avgScore, latest: safeEntries.slice(0, 5), lastTs: safeEntries[0] ? Number(safeEntries[0].ts) || 0 : 0 }; }
+function renderDebugFeedbackSection() { const state = debugFeedbackState || { mode: 'local', entries: StorageManager.get('feedback_entries', []) }; const summary = summarizeFeedbackEntries(state.entries); const latestHtml = summary.latest.length ? summary.latest.map((entry) => '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">' + escHtml(entry.username || 'Anonym') + '</div><div class="phi-meta">' + escHtml((Number(entry.score) || 0) + '/5 · ' + (entry.discipline || 'unknown') + ' · ' + formatDebugTimestamp(entry.ts)) + '</div></div></div>').join('') : '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Letzte Eintraege</div><div class="phi-meta">Noch keine Daten.</div></div></div>'; return '<div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Feedback-Dashboard</div><div class="ps-history-item"><div class="phi-info"><div class="phi-title">Status</div><div class="phi-meta">Lokale Vorschau: ' + summary.total + ' Eintraege · Ø ' + summary.avgScore.toFixed(2) + '</div></div></div>' + latestHtml; }
+function renderDebugPanel() { const mount = document.getElementById('psDebugMount'); if (!mount) return; if (!isDebugToolsEnabled()) { mount.innerHTML = '<div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>'; return; } const meta = loadCloudSyncMeta(); const history = StorageManager.get('history', []); const feedbackEntries = StorageManager.get('feedback_entries', []); const analyticsRaw = StorageManager.get('enhanced_analytics', {}); const analyticsGames = Array.isArray(analyticsRaw?.games) ? analyticsRaw.games : []; const scope = getActiveLeaderboardScope(); const period = getActiveLeaderboardPeriod(); const accountId = getCurrentAccountId(); const user = getSupabaseUserSafe(); const currentDisciplineEntry = Object.prototype.hasOwnProperty.call(DISC, G.discipline) ? buildDisciplineLeaderboardEntry(G.discipline) : null; const currentScopeLabel = getLeaderboardScopeLabel(scope) + ' · ' + (period === 'season' ? getCurrentSeasonInfo().label : 'All-Time'); const backendReady = isSupabaseBackendAvailable('syncProfile') && (!window.SupabaseBackendSync.isReady || window.SupabaseBackendSync.isReady()); debugRemoteState = { summary: backendReady ? 'Supabase Backend bereit' : 'Lokaler Fallback aktiv' }; mount.innerHTML = ['<div class="ps-stats-grid">','<div class="ps-stat-card"><div class="ps-sc-label">Supabase</div><div class="ps-sc-val">' + (user ? 'AN' : 'LOKAL') + '</div><div class="ps-sc-sub">' + (backendReady ? 'Backend aktiv' : 'Fallback') + '</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Queue</div><div class="ps-sc-val">0</div><div class="ps-sc-sub">keine Remote-Warteschlange</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Matches</div><div class="ps-sc-val">' + (Array.isArray(history) ? history.length : 0) + '</div><div class="ps-sc-sub">lokal gespeichert</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Analytics</div><div class="ps-sc-val">' + analyticsGames.length + '</div><div class="ps-sc-sub">Spiele im Analytics-Speicher</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Feedback</div><div class="ps-sc-val">' + (Array.isArray(feedbackEntries) ? feedbackEntries.length : 0) + '</div><div class="ps-sc-sub">lokale Vorschau</div></div>','</div>','<div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Sync-Status</div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">User</div><div class="phi-meta">Username: ' + escHtml(G.username || '–') + ' · Konto: ' + escHtml(accountId || '–') + ' · Login: ' + escHtml(user?.email || 'lokal') + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Laufzeit</div><div class="phi-meta">Disziplin: ' + escHtml(G.discipline) + ' · Schwierigkeit: ' + escHtml(G.diff) + ' · Leaderboard: ' + escHtml(currentScopeLabel) + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Sync-Meta</div><div class="phi-meta">Letzte lokale Aenderung: ' + escHtml(formatDebugTimestamp(meta.lastLocalChangeAt)) + ' · Letzter Sync: ' + escHtml(formatDebugTimestamp(meta.lastSyncOkAt)) + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Aktuelle Disziplin-Leistung</div><div class="phi-meta">' + (currentDisciplineEntry ? 'Best ' + formatLeaderboardScore(currentDisciplineEntry.bestScore, G.discipline) + ' · Ø ' + formatLeaderboardScore(currentDisciplineEntry.averageScore, G.discipline) + ' · ' + currentDisciplineEntry.totalGames + ' Spiele' : 'Noch keine Daten fuer diese Disziplin.') + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Remote-Status</div><div class="phi-meta">' + escHtml(debugRemoteState.summary) + '</div></div></div>',renderDebugFeedbackSection(),'<div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;"><button class="btn-sec" style="font-size:0.6rem;" onclick="debugSyncNow()">Sync jetzt</button><button class="btn-sec" style="font-size:0.6rem;" onclick="refreshDebugPanel()">Neu laden</button><button class="btn-sec" style="font-size:0.6rem;" onclick="disableDebugTools()">Debug aus</button></div>'].join(''); }
+function refreshDebugPanel() { debugFeedbackState = { mode: 'local', entries: StorageManager.get('feedback_entries', []) }; renderDebugPanel(); }
+function debugSyncNow() { scheduleCloudSync('debug_manual_sync', { immediate: true }); refreshDebugPanel(); }
+function refreshStateFromLocalStorage() { const savedName = StorageManager.getRaw('username', ''); G.username = savedName ? sanitizeUsername(savedName) : ''; loadXP(); loadAllStreaks(); updateSchuetzenpass(); updateProfileMenu(); if (DOM.psUsername) DOM.psUsername.textContent = G.username || 'Anonym'; if (DOM.profileOverlay?.classList.contains('active')) refreshProfileSheet(); updateLeaderboardScopeControl(); refreshDebugToolsVisibility(); updateAccountSyncStatus(); if (DOM.diffInfoTxt && typeof AdaptiveBotSystem !== 'undefined' && typeof AdaptiveBotSystem.getCurrentDifficulty === 'function') { const syncedDiff = AdaptiveBotSystem.getCurrentDifficulty(G.discipline); if (syncedDiff && DIFF[syncedDiff]) setDifficulty(syncedDiff, { persist: false }); } const welcomeOverlay = document.getElementById('welcomeOverlay'); if (welcomeOverlay && G.username) welcomeOverlay.classList.remove('active'); if (typeof RookiePlan !== 'undefined') { RookiePlan.evaluateAndRender(true); RookiePlan.showIntroIfNeeded(false); } }
+window.addEventListener('supabaseAuthReady', () => { setTimeout(() => { refreshStateFromLocalStorage(); const welcomeOverlay = document.getElementById('welcomeOverlay'); if (welcomeOverlay && StorageManager.getRaw('username', '')) welcomeOverlay.classList.remove('active'); syncProfileWithBackend(null, { reason: 'auth_ready' }); }, 0); });
 const DOM = {};
 function initDOMCache() {
   const ids = [
@@ -7654,7 +5553,6 @@ if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.init();
 updateLeaderboardScopeControl();
 refreshDebugToolsVisibility();
 
-// Firebase Init: nur über _tryInitFb() am Ende der Datei
 checkSunAchievements(); // Check on load in case new achievements unlocked
 
 // NEU: Fallback-System zuerst initialisieren
@@ -7713,7 +5611,7 @@ function checkFirstVisit() {
     }
     G.username = savedName;
     // Bekannter User: Profil im Hintergrund synchronisieren
-    setTimeout(() => pushProfileToFirebase(), 1500);
+    setTimeout(() => syncProfileWithBackend(null, { reason: 'known_user' }), 1500);
     RookiePlan.evaluateAndRender(true);
   }
 }
@@ -7741,8 +5639,6 @@ function saveWelcomeName() {
   document.getElementById('welcomeOverlay').classList.remove('active');
 
   scheduleCloudSync('username_changed', { immediate: true });
-  // Sofort in Firebase registrieren (Erstanmeldung)
-  pushProfileToFirebase();
 
   // Premium Dashboard sofort mit neuem Namen aktualisieren
   if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
@@ -7821,19 +5717,6 @@ selDisc('lg40'); // sets dist, shots, hides/shows cards
 loadAllStreaks();
 ensureFeedbackSchedule();
 
-// Firebase initialisieren (Weltrangliste + Profil-Sync)
-// Retry-Logik: Firebase-SDK wird async geladen (über defer-Scripts)
-let _fbRetry = 0;
-const _tryInitFb = () => {
-  if (typeof firebase !== 'undefined' && firebase.apps !== undefined) {
-    initFirebase();
-  } else if (_fbRetry < 15) {
-    _fbRetry++;
-    setTimeout(_tryInitFb, 400);
-  }
-};
-_tryInitFb();
-
 window.addEventListener('online', () => {
   scheduleCloudSync('went_online', { immediate: true });
 });
@@ -7841,7 +5724,6 @@ window.addEventListener('online', () => {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     scheduleCloudSync('page_hidden');
-    flushFirebaseSyncQueue();
   }
 });
 
@@ -7880,7 +5762,7 @@ if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js?v=3.5').then(registration => {
       console.log('✅ Service Worker registriert');
-      
+
       // Prüfe auf Updates
       registration.addEventListener('updatefound', () => {
         const newWorker = registration.installing;
@@ -7896,7 +5778,7 @@ if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
       });
     }).catch(() => { });
   });
-  
+
   // Höre auf Nachrichten vom Service Worker
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data && event.data.type === 'SW_UPDATED') {
@@ -7943,7 +5825,7 @@ function startStreakCountdown() {
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(startStreakCountdown, 1000);
-    
+
     // Auth Form Listener initialisieren
     setTimeout(() => {
       initAuthFormListeners();

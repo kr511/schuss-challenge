@@ -6,7 +6,7 @@
 --   * supabase/migrations/0003_social_rls.sql
 --   * supabase/migrations/0004_social_rpc.sql
 --
--- This file originally created an older Firebase-era model with incompatible
+-- This file originally created an older legacy social model with incompatible
 -- columns (for example profiles.user_id/public_id), which no longer matches
 -- the frontend Supabase adapter.
 

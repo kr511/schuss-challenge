@@ -179,26 +179,21 @@ const DailyChallenge = (function () {
   }
 
   /**
-   * Holt die User-ID für personalisierte Challenges
-   * Reihenfolge: getFirebaseOwnerId() > StorageManager > G.username > Stable Anonymous ID
+   * Holt die User-ID für personalisierte Challenges.
+   * Reihenfolge: Supabase Session > StorageManager > G.username > stabile lokale ID.
    */
   function getUserId() {
     try {
-      // Priorität 1: Firebase User ID
-      if (typeof getFirebaseOwnerId === 'function') {
-        const fbId = getFirebaseOwnerId();
-        if (fbId) return fbId;
+      if (window.SupabaseSession && window.SupabaseSession.user && window.SupabaseSession.user.id) {
+        return window.SupabaseSession.user.id;
       }
-      // Priorität 2: LocalStorage User ID
       if (typeof StorageManager !== 'undefined' && StorageManager.getRaw) {
         const storedId = StorageManager.getRaw('userId');
         if (storedId) return storedId;
       }
-      // Priorität 3: Username
       if (typeof G !== 'undefined' && G.username) {
         return G.username;
       }
-      // Priorität 4: Stable anonyme ID (einmalig generiert, bleibt gleich)
       let anonId = localStorage.getItem('sd_anonymous_id');
       if (!anonId) {
         anonId = 'anon_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
