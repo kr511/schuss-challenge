@@ -726,6 +726,9 @@ function switchProfileTab(tab) {
 }
 
 function refreshSettingsPanelUI() {
+  if (window.ProfileSettings && typeof window.ProfileSettings.refresh === 'function') {
+    window.ProfileSettings.refresh();
+  }
   initSoundToggleBtn();
   updateAuthUI(getSupabaseUserSafe());
   updateAccountSyncStatus();
@@ -1234,34 +1237,44 @@ function initAvatarPicker(currentAvatar) {
   });
 }
 
-window.changeProfileName = function() {
-  const nameInput = document.getElementById('profileNameInput');
-  if (!nameInput) return;
-
-  const newName = nameInput.value.trim().substring(0, 15);
-  if (!newName) {
-    alert('Bitte gib einen Namen ein.');
-    return;
+function applyProfileNameChange(newName, options = {}) {
+  const notify = options.notify !== false;
+  const cleanName = String(newName || '').trim().substring(0, 15);
+  if (!cleanName) {
+    if (notify) alert('Bitte gib einen Namen ein.');
+    return false;
   }
 
   const oldName = G.username;
-  G.username = newName;
-  StorageManager.setRaw('username', newName);
+  G.username = cleanName;
+  StorageManager.setRaw('username', cleanName);
 
   // UI überall aktualisieren
   const psUsername = document.getElementById('psUsername');
-  if (psUsername) psUsername.textContent = newName;
+  if (psUsername) psUsername.textContent = cleanName;
 
   const pdUserName = document.getElementById('pdUserName');
-  if (pdUserName) pdUserName.textContent = newName;
+  if (pdUserName) pdUserName.textContent = cleanName;
 
   const pdProfileInitial = document.getElementById('pdProfileInitial');
-  if (pdProfileInitial) pdProfileInitial.textContent = newName.charAt(0).toUpperCase();
+  if (pdProfileInitial) pdProfileInitial.textContent = cleanName.charAt(0).toUpperCase();
+
+  const profileNameInput = document.getElementById('profileNameInput');
+  if (profileNameInput && profileNameInput.value !== cleanName) profileNameInput.value = cleanName;
 
   syncProfileWithBackend(null, { reason: 'profile_name_changed' });
 
   triggerHaptic();
-  alert(`Name von "${oldName}" zu "${newName}" geändert.`);
+  if (notify) alert(`Name von "${oldName}" zu "${cleanName}" geändert.`);
+  return true;
+}
+
+window.applyProfileNameChange = applyProfileNameChange;
+
+window.changeProfileName = function() {
+  const nameInput = document.getElementById('profileNameInput');
+  if (!nameInput) return;
+  applyProfileNameChange(nameInput.value, { notify: true });
 };
 
 function spawnConfetti() {
