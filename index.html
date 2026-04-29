@@ -26,6 +26,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <!-- Auth-Gate: zeigt Login-Screen bis User authentifiziert ist -->
   <script src="auth-gate.js?v=1.0"></script>
+  <script src="supabase-client.js?v=1.0" defer></script>
+  <script src="backend-sync.js?v=1.0" defer></script>
+  <script src="supabase-social.js?v=1.0" defer></script>
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
   <!-- Chart.js -->
@@ -49,6 +52,7 @@
   <!-- HAUPT-APP (MUSS VOR ALLEN ABHÄNGIGEN MODulen LADEN) -->
   <script type="module" src="src/main.js?v=1.0"></script>
   <script src="app.js?v=3.4" defer></script>
+  <script src="leaderboard-modern.js?v=1.0" defer></script>
   
   <!-- ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile -->
   <script src="src/game/daily-challenge.js?v=3.4" defer></script>
@@ -357,11 +361,11 @@
       </div>
 
       <!-- ══ V2 Scanner View ══ -->
-      <div id="v2ScannerView"
+      <div id="legacyV2ScannerView"
         style="display:none;position:fixed;top:0;left:0;width:100%;height:100vh;z-index:99999;background:#000;">
-        <video id="v2ScannerVideo" playsinline autoplay muted
+        <video id="legacyV2ScannerVideo" playsinline autoplay muted
           style="width:100%;height:100%;object-fit:cover;display:block;"></video>
-        <canvas id="v2ScannerCanvas"
+        <canvas id="legacyV2ScannerCanvas"
           style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
         <div style="position:absolute;bottom:40px;left:0;width:100%;text-align:center;">
           <div
@@ -369,7 +373,7 @@
             Halte den Score in das Bild...
           </div>
         </div>
-        <button id="btnStopLiveScan"
+        <button id="legacyBtnStopLiveScan"
           style="position:absolute;top:50px;right:20px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;line-height:40px;text-align:center;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
       </div>
 
@@ -466,6 +470,7 @@
           <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
           <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
           <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
+          <div class="ps-tab" data-tab="settings" onclick="switchProfileTab('settings')">⚙ Einstellungen</div>
           <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
         </div>
 
@@ -737,6 +742,13 @@
             <div id="psHistoryList">
               <div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu
                 sehen!</div>
+            </div>
+          </div>
+
+          <div class="ps-panel" id="psPanel-settings">
+            <div class="ps-history-empty" style="display:flex;flex-direction:column;gap:12px;align-items:center;">
+              <div>Profil, Login und Sync findest du weiter oben im Statistikbereich.</div>
+              <button class="btn-sec" onclick="if(window.ProfileSettings){ProfileSettings.open();}">Profil-Einstellungen</button>
             </div>
           </div>
 

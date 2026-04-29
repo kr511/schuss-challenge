@@ -6,13 +6,6 @@
 const AsyncChallenge = (function() {
   'use strict';
 
-  // Firebase-Pfade
-  const FIREBASE_PATHS = {
-    challenges: 'async_challenges_v1',
-    results: 'async_results_v1',
-    activeChallenges: 'active_challenges_v1',
-  };
-
   // State
   const state = {
     myChallenges: [], // Von mir erstellte Challenges
@@ -21,10 +14,6 @@ const AsyncChallenge = (function() {
     currentChallenge: null, // Aktuell laufende Challenge
     initialized: false,
   };
-
-  function hasFirebase() {
-    return typeof fbReady !== 'undefined' && fbReady && typeof fbDb !== 'undefined' && fbDb;
-  }
 
   function isLocalMode() {
     try {
@@ -48,8 +37,7 @@ const AsyncChallenge = (function() {
 
   function getCurrentUserId() {
     if (window.SupabaseSession && window.SupabaseSession.user) return window.SupabaseSession.user.id;
-    if (typeof getFirebaseOwnerId !== 'function') return null;
-    return getFirebaseOwnerId();
+    return null;
   }
 
   function escapeHtml(value) {
@@ -109,114 +97,47 @@ const AsyncChallenge = (function() {
   async function init() {
     console.log('⚔️ Async Challenge-System initialisiert');
 
-    if (hasSupabaseSocial()) {
-      await loadMyChallenges();
-      await loadAvailableChallenges();
+    if (!hasSupabaseSocial()) {
+      state.myChallenges = [];
+      state.availableChallenges = [];
       state.acceptedChallenges = [];
       state.initialized = true;
-      console.log('✅ Async Challenge-System bereit (Supabase)');
-      return;
-    }
-
-    if (!hasFirebase()) {
-      console.warn('⚠️ Firebase nicht verfügbar, Async Challenges deaktiviert');
+      console.warn('[SupabaseSocial] Async Challenges laufen nur mit Supabase Login. Lokaler Gastmodus zeigt keine Remote-Challenges.');
       return;
     }
 
     await loadMyChallenges();
     await loadAvailableChallenges();
-    await loadAcceptedChallenges();
-
+    state.acceptedChallenges = [];
     state.initialized = true;
-    console.log('✅ Async Challenge-System bereit');
+    console.log('✅ Async Challenge-System bereit (Supabase)');
   }
 
   /**
    * Erstellt eine neue Challenge
    */
   async function createChallenge(friendId = null, friendUsername = null) {
-    if (hasSupabaseSocial() && typeof window.SupabaseSocial.createChallenge === 'function') {
-      const settings = getCurrentGameSettings();
-
-      try {
-        const result = await window.SupabaseSocial.createChallenge(friendId, settings);
-        if (!result || !result.ok || !result.challenge) {
-          showChallengeToast('❌ Fehler beim Erstellen', 'error');
-          return false;
-        }
-
-        const challengeData = mapSupabaseChallenge(Object.assign({}, result.challenge, {
-          opponent_username: friendUsername || ''
-        }), 'created');
-        state.myChallenges.unshift(challengeData);
-        renderChallengesList();
-
-        console.log('✅ Supabase Challenge erstellt:', challengeData.id);
-        showChallengeToast('⚔️ Challenge erstellt!', 'success');
-        return true;
-      } catch (e) {
-        console.error('Supabase Fehler beim Erstellen:', e);
-        showChallengeToast('❌ Fehler beim Erstellen', 'error');
-        return false;
-      }
-    }
-
-    if (!hasFirebase()) {
-      showChallengeToast('❌ Firebase nicht verfügbar', 'error');
-      return false;
-    }
-
-    const userId = getCurrentUserId();
-    if (!userId) {
-      console.error('❌ Keine User-ID verfügbar');
+    if (!hasSupabaseSocial() || typeof window.SupabaseSocial.createChallenge !== 'function') {
+      showChallengeToast('Supabase Login erforderlich', 'error');
       return false;
     }
 
     const settings = getCurrentGameSettings();
-
-    // Challenge-Daten
-    const challengeData = {
-      id: generateChallengeId(),
-      creatorId: userId,
-      creatorUsername: settings.username,
-      friendId: friendId,
-      friendUsername: friendUsername,
-      discipline: settings.discipline,
-      weapon: settings.weapon,
-      distance: settings.distance,
-      difficulty: settings.difficulty,
-      shots: settings.shots,
-      burst: settings.burst,
-      createdAt: Date.now(),
-      status: 'pending', // pending, accepted, completed, expired
-      expiresAt: Date.now() + (7 * 24 * 60 * 60 * 1000), // 7 Tage gültig
-    };
-
     try {
-      // In Firebase speichern
-      await fbDb.ref(`${FIREBASE_PATHS.challenges}/${challengeData.id}`).set(challengeData);
-
-      // Wenn Freund ausgewählt, in dessen verfügbare Challenges
-      if (friendId) {
-        await fbDb.ref(`${FIREBASE_PATHS.activeChallenges}/${friendId}/${challengeData.id}`).set({
-          challengeId: challengeData.id,
-          fromUsername: settings.username,
-          discipline: settings.discipline,
-          difficulty: settings.difficulty,
-          createdAt: Date.now(),
-          expiresAt: challengeData.expiresAt,
-        });
+      const result = await window.SupabaseSocial.createChallenge(friendId, settings);
+      if (!result || !result.ok || !result.challenge) {
+        showChallengeToast('Fehler beim Erstellen', 'error');
+        return false;
       }
-
-      state.myChallenges.push(challengeData);
+      const challengeData = mapSupabaseChallenge(Object.assign({}, result.challenge, { opponent_username: friendUsername || '' }), 'created');
+      state.myChallenges.unshift(challengeData);
       renderChallengesList();
-
-      console.log('✅ Challenge erstellt:', challengeData.id);
+      console.log('✅ Supabase Challenge erstellt:', challengeData.id);
       showChallengeToast('⚔️ Challenge erstellt!', 'success');
       return true;
     } catch (e) {
-      console.error('Fehler beim Erstellen:', e);
-      showChallengeToast('❌ Fehler beim Erstellen', 'error');
+      console.error('Supabase Fehler beim Erstellen:', e);
+      showChallengeToast('Fehler beim Erstellen', 'error');
       return false;
     }
   }
@@ -225,35 +146,17 @@ const AsyncChallenge = (function() {
    * Lädt meine erstellten Challenges
    */
   async function loadMyChallenges() {
-    const userId = getCurrentUserId();
-    if (!userId) return;
-
-    if (hasSupabaseSocial() && typeof window.SupabaseSocial.loadCreatedChallenges === 'function') {
-      try {
-        const rows = await window.SupabaseSocial.loadCreatedChallenges();
-        state.myChallenges = (rows || []).map(row => mapSupabaseChallenge(row, 'created'));
-      } catch (e) {
-        console.warn('Supabase Fehler beim Laden meiner Challenges:', e);
-      }
+    if (!getCurrentUserId()) return;
+    if (!hasSupabaseSocial() || typeof window.SupabaseSocial.loadCreatedChallenges !== 'function') {
+      state.myChallenges = [];
       return;
     }
-
-    if (!hasFirebase()) return;
-
     try {
-      const snapshot = await fbDb.ref(FIREBASE_PATHS.challenges)
-        .orderByChild('creatorId')
-        .equalTo(userId)
-        .once('value');
-
-      state.myChallenges = [];
-      if (snapshot.exists()) {
-        snapshot.forEach(child => {
-          state.myChallenges.push(child.val());
-        });
-      }
+      const rows = await window.SupabaseSocial.loadCreatedChallenges();
+      state.myChallenges = (rows || []).map(row => mapSupabaseChallenge(row, 'created'));
     } catch (e) {
-      console.warn('Fehler beim Laden meiner Challenges:', e);
+      console.warn('Supabase Fehler beim Laden meiner Challenges:', e);
+      state.myChallenges = [];
     }
   }
 
@@ -261,32 +164,17 @@ const AsyncChallenge = (function() {
    * Lädt verfügbare Challenges für mich
    */
   async function loadAvailableChallenges() {
-    const userId = getCurrentUserId();
-    if (!userId) return;
-
-    if (hasSupabaseSocial() && typeof window.SupabaseSocial.loadAvailableChallenges === 'function') {
-      try {
-        const rows = await window.SupabaseSocial.loadAvailableChallenges();
-        state.availableChallenges = (rows || []).map(row => mapSupabaseChallenge(row, 'available'));
-      } catch (e) {
-        console.warn('Supabase Fehler beim Laden verfügbarer Challenges:', e);
-      }
+    if (!getCurrentUserId()) return;
+    if (!hasSupabaseSocial() || typeof window.SupabaseSocial.loadAvailableChallenges !== 'function') {
+      state.availableChallenges = [];
       return;
     }
-
-    if (!hasFirebase()) return;
-
     try {
-      const snapshot = await fbDb.ref(`${FIREBASE_PATHS.activeChallenges}/${userId}`).once('value');
-
-      state.availableChallenges = [];
-      if (snapshot.exists()) {
-        snapshot.forEach(child => {
-          state.availableChallenges.push(child.val());
-        });
-      }
+      const rows = await window.SupabaseSocial.loadAvailableChallenges();
+      state.availableChallenges = (rows || []).map(row => mapSupabaseChallenge(row, 'available'));
     } catch (e) {
-      console.warn('Fehler beim Laden verfügbarer Challenges:', e);
+      console.warn('Supabase Fehler beim Laden verfuegbarer Challenges:', e);
+      state.availableChallenges = [];
     }
   }
 
@@ -294,93 +182,33 @@ const AsyncChallenge = (function() {
    * Lädt angenommene Challenges
    */
   async function loadAcceptedChallenges() {
-    const userId = getCurrentUserId();
-    if (!userId || !hasFirebase()) return;
-
-    try {
-      const snapshot = await fbDb.ref(FIREBASE_PATHS.results)
-        .orderByChild('challengerId')
-        .equalTo(userId)
-        .once('value');
-
-      state.acceptedChallenges = [];
-      if (snapshot.exists()) {
-        snapshot.forEach(child => {
-          state.acceptedChallenges.push(child.val());
-        });
-      }
-    } catch (e) {
-      console.warn('Fehler beim Laden angenommener Challenges:', e);
-    }
+    state.acceptedChallenges = [];
   }
 
   /**
    * Nimmt eine Challenge an
    */
   async function acceptChallenge(challengeId) {
-    if (hasSupabaseSocial() && typeof window.SupabaseSocial.acceptChallenge === 'function') {
-      try {
-        const result = await window.SupabaseSocial.acceptChallenge(challengeId);
-        if (!result || !result.ok) {
-          showChallengeToast('❌ Challenge nicht gefunden', 'error');
-          return false;
-        }
-
-        const challenge = mapSupabaseChallenge(result.challenge, 'available');
-        state.currentChallenge = challenge;
-        startChallengeDuel(challenge);
-        showChallengeToast(`⚔️ Challenge von ${challenge.creatorUsername || 'Spieler'} angenommen!`, 'success');
-        return true;
-      } catch (e) {
-        console.error('Supabase Fehler beim Annehmen:', e);
-        showChallengeToast('❌ Fehler beim Annehmen', 'error');
-        return false;
-      }
+    if (!hasSupabaseSocial() || typeof window.SupabaseSocial.acceptChallenge !== 'function') {
+      showChallengeToast('Supabase Login erforderlich', 'error');
+      return false;
     }
 
-    if (!hasFirebase()) return false;
-
-    const userId = getCurrentUserId();
-    if (!userId) return false;
-
     try {
-      // Challenge-Daten holen
-      const snapshot = await fbDb.ref(`${FIREBASE_PATHS.challenges}/${challengeId}`).once('value');
-      const challenge = snapshot.val();
-
-      if (!challenge) {
-        showChallengeToast('❌ Challenge nicht gefunden', 'error');
+      const result = await window.SupabaseSocial.acceptChallenge(challengeId);
+      if (!result || !result.ok) {
+        showChallengeToast('Challenge nicht gefunden', 'error');
         return false;
       }
-
-      if (challenge.status !== 'pending') {
-        showChallengeToast('❌ Challenge nicht mehr verfügbar', 'error');
-        return false;
-      }
-
-      // Challenge als angenommen markieren
-      await fbDb.ref(`${FIREBASE_PATHS.challenges}/${challengeId}`).update({
-        status: 'accepted',
-        acceptedBy: userId,
-        acceptedAt: Date.now(),
-      });
-
-      // Zu meinen Challenges hinzufügen
+      const challenge = mapSupabaseChallenge(result.challenge, 'available');
       state.currentChallenge = challenge;
-
-      // Duell starten mit Challenge-Einstellungen
       startChallengeDuel(challenge);
-
-      showChallengeToast(`⚔️ Challenge von ${challenge.creatorUsername || 'Spieler'} angenommen!`, 'success');
-
-      if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) {
-        MobileFeatures.triggerHaptic('strong');
-      }
-
+      showChallengeToast('⚔️ Challenge von ' + (challenge.creatorUsername || 'Spieler') + ' angenommen!', 'success');
+      if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) MobileFeatures.triggerHaptic('strong');
       return true;
     } catch (e) {
-      console.error('Fehler beim Annehmen:', e);
-      showChallengeToast('❌ Fehler beim Annehmen', 'error');
+      console.error('Supabase Fehler beim Annehmen:', e);
+      showChallengeToast('Fehler beim Annehmen', 'error');
       return false;
     }
   }
@@ -434,9 +262,8 @@ const AsyncChallenge = (function() {
    * Sendet das Duell-Ergebnis
    */
   async function submitResult(score, shots = []) {
-    if (!state.currentChallenge || !hasFirebase()) return false;
-
-    const userId = getCurrentUserId();
+    if (!state.currentChallenge) return false;
+    const userId = getCurrentUserId() || 'local';
     const settings = getCurrentGameSettings();
     const resultData = {
       challengeId: state.currentChallenge.id,
@@ -451,23 +278,16 @@ const AsyncChallenge = (function() {
     };
 
     try {
-      // Ergebnis in Firebase speichern
-      await fbDb.ref(`${FIREBASE_PATHS.results}/${state.currentChallenge.id}/${userId}`).set(resultData);
-
-      // Challenge-Status aktualisieren
-      await fbDb.ref(`${FIREBASE_PATHS.challenges}/${state.currentChallenge.id}`).update({
-        status: 'completed',
-        completedAt: Date.now(),
-      });
-
-      // Gegnerisches Ergebnis laden und vergleichen
-      await compareResults(state.currentChallenge.id, score);
-
-      showChallengeToast('📊 Ergebnis übermittelt!', 'success');
+      const raw = localStorage.getItem('sd_async_results') || '[]';
+      const results = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+      results.unshift(resultData);
+      localStorage.setItem('sd_async_results', JSON.stringify(results.slice(0, 50)));
+      state.currentChallenge.status = 'completed';
+      showChallengeToast('📊 Ergebnis lokal gespeichert', 'success');
       return true;
     } catch (e) {
-      console.error('Fehler beim Übermitteln:', e);
-      showChallengeToast('❌ Fehler beim Übermitteln', 'error');
+      console.error('Fehler beim Speichern:', e);
+      showChallengeToast('Fehler beim Speichern', 'error');
       return false;
     }
   }
@@ -476,48 +296,21 @@ const AsyncChallenge = (function() {
    * Vergleicht die Ergebnisse
    */
   async function compareResults(challengeId, myScore) {
-    try {
-      const snapshot = await fbDb.ref(`${FIREBASE_PATHS.results}/${challengeId}`).once('value');
-      
-      if (!snapshot.exists()) return;
-
-      const results = snapshot.val();
-      const resultEntries = Object.values(results);
-
-      if (resultEntries.length < 2) return; // Noch nicht alle Ergebnisse da
-
-      const currentUserId = getCurrentUserId();
-
-      // Ergebnisse vergleichen
-      const myResult = resultEntries.find(r => r.challengerId === currentUserId);
-      const opponentResult = resultEntries.find(r => r.challengerId !== currentUserId);
-
-      if (!myResult || !opponentResult) return;
-
-      const myFinalScore = Number(myResult.score) || Number(myScore) || 0;
-      const opponentFinalScore = Number(opponentResult.score) || 0;
-
-      let result = '';
-      if (myFinalScore > opponentFinalScore) {
-        result = 'win';
-      } else if (myFinalScore < opponentFinalScore) {
-        result = 'lose';
-      } else {
-        result = 'draw';
-      }
-
-      // Ergebnis-Overlay anzeigen
-      showAsyncResult(myFinalScore, opponentFinalScore, opponentResult.challengerUsername, result);
-
-      // XP vergeben
-      if (result === 'win' && typeof awardXP === 'function') {
-        awardXP(state.currentChallenge.difficulty);
-      }
-
-      state.currentChallenge = null;
-    } catch (e) {
-      console.error('Fehler beim Vergleichen:', e);
-    }
+    const raw = localStorage.getItem('sd_async_results') || '[]';
+    let results = [];
+    try { results = JSON.parse(raw); } catch (e) { results = []; }
+    const resultEntries = Array.isArray(results) ? results.filter(r => r.challengeId === challengeId) : [];
+    if (resultEntries.length < 2) return;
+    const currentUserId = getCurrentUserId();
+    const myResult = resultEntries.find(r => r.challengerId === currentUserId) || resultEntries[0];
+    const opponentResult = resultEntries.find(r => r.challengerId !== myResult.challengerId);
+    if (!opponentResult) return;
+    const myFinalScore = Number(myResult.score) || Number(myScore) || 0;
+    const opponentFinalScore = Number(opponentResult.score) || 0;
+    const result = myFinalScore > opponentFinalScore ? 'win' : (myFinalScore < opponentFinalScore ? 'lose' : 'draw');
+    showAsyncResult(myFinalScore, opponentFinalScore, opponentResult.challengerUsername, result);
+    if (result === 'win' && typeof awardXP === 'function') awardXP(state.currentChallenge.difficulty);
+    state.currentChallenge = null;
   }
 
   /**

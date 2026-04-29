@@ -1,7 +1,7 @@
 /**
  * Freundesliste System (Supabase-only)
  * Freunde hinzufügen, Friend-Requests, Online-Status
- * KEIN Firebase – nur Supabase + lokaler Read-only Fallback für Gäste
+ * Nur Supabase + lokaler Read-only Fallback für Gäste
  */
 
 const FriendsSystem = (function() {

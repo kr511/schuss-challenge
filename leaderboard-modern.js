@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════
    MODERNES LEADERBOARD: Weltrangliste mit Glassmorphism
-   - Firebase-frei: nutzt Supabase, Backend API oder lokalen Fallback
+   - Nutzt Supabase, Backend API oder lokalen Fallback
    - Erweiterte Statistiken
    - Suchfunktion
    - Filter nach Waffe/Disziplin

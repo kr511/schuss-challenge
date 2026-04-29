@@ -41,7 +41,7 @@
     window.SupabaseSession = null;
     window.SchussduellLocalMode = false;
     window.SchussduellLocalPlay = false;
-    window.getAuthHeaders = function () { return {}; };
+    window.getSupabaseHeaders = function () { return {}; };
   }
 
   async function logout() {

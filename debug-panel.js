@@ -54,7 +54,6 @@
     var authGateVisible = !!document.getElementById('authGate');
     var profileScrollFix = !!document.getElementById('profileScrollFixStyle');
     var featureFallback = !!window.FeatureFallback;
-    var firebaseLoaded = !!window.firebase;
     var storageManager = !!window.StorageManager;
     var appReady = typeof window.openDuelSetup === 'function' || !!document.getElementById('screenSetup');
     var supabaseSocial = getSupabaseSocialStatus();
@@ -65,7 +64,6 @@
       ['Supabase Session', supabaseSession, supabaseSession ? 'Session vorhanden' : 'Keine Session'],
       ['Supabase Social', supabaseSocial.available, supabaseSocial.detail],
       ['Auth Gate', !authGateVisible, authGateVisible ? 'Login-Overlay sichtbar' : 'Nicht sichtbar'],
-      ['Firebase geladen', firebaseLoaded, firebaseLoaded ? 'window.firebase vorhanden' : 'Nicht geladen'],
       ['StorageManager', storageManager, storageManager ? 'Verfügbar' : 'Nicht verfügbar'],
       ['FeatureFallback', featureFallback, featureFallback ? 'Verfügbar' : 'Nicht verfügbar'],
       ['Profil-Scroll-Fix', profileScrollFix, profileScrollFix ? 'CSS aktiv' : 'Noch nicht aktiv']

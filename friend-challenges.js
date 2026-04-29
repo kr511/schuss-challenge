@@ -1,634 +1,176 @@
-/* ═══════════════════════════════════════════════════════
-   FRIEND CHALLENGES: Duell-System für Freunde
-   - Challenge erstellen (Disziplin + Schwierigkeit)
-   - Challenge annehmen/ablehnen
-   - Asynchrones Duell (Challenger schießt zuerst)
-   - Ergebnis speichern und vergleichen
-   ═══════════════════════════════════════════════════════ */
+/* Schussduell FriendChallenges: SupabaseSocial wrapper */
+(function () {
+  'use strict';
 
-// Helper-Funktion für Benachrichtigungen
-function showNotification(message, type = 'info') {
-  // Versuche existierende Notification-Systeme zu verwenden
-  if (typeof sendNotification === 'function') {
-    sendNotification(message, { type });
-    return;
+  function notify(message, type) {
+    if (typeof sendNotification === 'function') {
+      sendNotification(message, { type: type || 'info' });
+      return;
+    }
+    console.log('[FriendChallenges]', message);
   }
 
-  // Fallback: Einfache Toast-Benachrichtigung erstellen
-  const existingToast = document.querySelector('.toast-notification');
-  if (existingToast) {
-    existingToast.remove();
+  function socialReady() {
+    return !!(
+      window.SupabaseSocial &&
+      window.SupabaseSession &&
+      window.SupabaseSession.user &&
+      typeof window.SupabaseSocial.createChallenge === 'function'
+    );
   }
 
-  const toast = document.createElement('div');
-  toast.className = 'toast-notification';
-  toast.textContent = message;
-  toast.style.cssText = `
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 12px 24px;
-    border-radius: 8px;
-    background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
-    color: white;
-    font-size: 14px;
-    font-weight: 500;
-    z-index: 10000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    animation: slideDown 0.3s ease-out;
-  `;
+  function currentSettings(discipline, difficulty) {
+    var game = window.G || {};
+    return {
+      discipline: discipline || game.discipline || 'lg40',
+      difficulty: difficulty || game.diff || 'real',
+      weapon: game.weapon || 'lg',
+      distance: game.dist || '10',
+      shots: Number(game.shots || 40),
+      burst: Boolean(game.burst)
+    };
+  }
 
-  document.body.appendChild(toast);
+  var FriendChallenges = {
+    activeChallenges: {},
+    currentChallenge: null,
+    myChallenges: {},
+    currentUserId: null,
+    currentUsername: null,
+    selectedDiscipline: null,
+    selectedDifficulty: null,
+    selectedMode: 'async',
 
-  // Animation für Slide-Down
-  if (!document.getElementById('toast-animation')) {
-    const style = document.createElement('style');
-    style.id = 'toast-animation';
-    style.textContent = `
-      @keyframes slideDown {
-        from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    init: function () {
+      this.currentUserId = window.SupabaseSession && window.SupabaseSession.user ? window.SupabaseSession.user.id : null;
+      this.currentUsername = (window.StorageManager && StorageManager.getRaw('username')) || 'Anonym';
+      if (!socialReady()) {
+        console.warn('[FriendChallenges] SupabaseSocial nicht bereit. Lokaler Gastmodus ohne Remote-Challenges.');
+        return false;
       }
-    `;
-    document.head.appendChild(style);
-  }
+      return true;
+    },
 
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(-50%) translateY(-20px)';
-    toast.style.transition = 'all 0.3s ease-in';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
-}
+    createChallenge: async function (friendId, friendUsername, discipline, difficulty) {
+      if (!socialReady()) throw new Error('SupabaseSocial nicht verfuegbar');
+      var result = await window.SupabaseSocial.createChallenge(friendId || null, currentSettings(discipline, difficulty));
+      if (!result || !result.ok || !result.challenge) throw new Error('Challenge konnte nicht erstellt werden');
+      var id = result.challenge.id;
+      this.myChallenges[id] = result.challenge;
+      notify('Challenge erstellt', 'success');
+      return id;
+    },
 
-const FriendChallenges = {
-  // ─── State ───
-  activeChallenges: {},   // { challengeId: { ... } }
-  currentChallenge: null, // Aktuell angenommene Challenge
-  myChallenges: {},       // Von mir gesendete Challenges
-  currentUserId: null,
-  currentUsername: null,
+    acceptChallenge: async function (challengeId) {
+      if (!window.SupabaseSocial || typeof window.SupabaseSocial.acceptChallenge !== 'function') return false;
+      var result = await window.SupabaseSocial.acceptChallenge(challengeId);
+      if (!result || !result.ok) return false;
+      this.currentChallenge = result.challenge;
+      notify('Challenge angenommen', 'success');
+      if (window.AsyncChallenge && typeof window.AsyncChallenge.acceptChallenge === 'function') {
+        return window.AsyncChallenge.acceptChallenge(challengeId);
+      }
+      return true;
+    },
 
-  // ─── Firebase Paths ───
-  PATHS: {
-    challenges: () => 'friend_challenges_v1',
-    userChallenges: (uid) => `friend_challenges_v1/${uid}`,
-  },
+    declineChallenge: async function (challengeId) {
+      delete this.activeChallenges[challengeId];
+      notify('Challenge ausgeblendet', 'info');
+      return true;
+    },
 
-  // ─── Init ───
-  init() {
-    if (!fbReady || !fbDb || !fbUser) {
-      console.warn('[Challenges] Firebase nicht bereit');
-      return false;
-    }
+    submitChallengeResult: async function (challengeId, score, shots) {
+      var payload = {
+        challengeId: challengeId,
+        score: Number(score) || 0,
+        shots: Array.isArray(shots) ? shots : [],
+        submittedAt: Date.now()
+      };
+      try {
+        var stored = JSON.parse(localStorage.getItem('sd_friend_challenge_results') || '[]');
+        if (!Array.isArray(stored)) stored = [];
+        stored.unshift(payload);
+        localStorage.setItem('sd_friend_challenge_results', JSON.stringify(stored.slice(0, 50)));
+      } catch (error) {
+        console.warn('[FriendChallenges] Lokales Ergebnis konnte nicht gespeichert werden:', error);
+      }
+      notify('Ergebnis lokal gespeichert', 'success');
+      return true;
+    },
 
-    this.currentUserId = fbUser.uid;
-    this.currentUsername = StorageManager.getRaw('username') || 'Anonym';
-
-    // Listener für Challenges
-    this.setupChallengesListener();
-
-    console.debug('[Challenges] System initialisiert');
-    return true;
-  },
-
-  // ═══════════════════════════════════════════
-  //  CHALLENGE ERSTELLEN
-  // ═══════════════════════════════════════════
-
-  /** Neue Challenge erstellen */
-  async createChallenge(friendId, friendUsername, discipline, difficulty) {
-    if (!fbReady || !fbDb) {
-      throw new Error('Firebase nicht verfügbar');
-    }
-
-    const challengeId = `challenge_${Date.now()}_${this.currentUserId.substring(0, 8)}`;
-
-    const challengeData = {
-      challengeId,
-      fromUserId: this.currentUserId,
-      fromUsername: this.currentUsername,
-      toUserId: friendId,
-      toUsername: friendUsername,
-      discipline: discipline || G.discipline || 'lg40',
-      difficulty: difficulty || G.diff || 'real',
-      timestamp: Date.now(),
-      status: 'pending', // pending, accepted, completed, declined
-      challengerScore: null,
-      defenderScore: null,
-      challengerShots: [],
-      defenderShots: [],
-      completedAt: null
-    };
-
-    // Challenge in Firebase speichern
-    const updates = {};
-    updates[`${this.PATHS.challenges()}/${challengeId}`] = challengeData;
-    updates[`${this.PATHS.userChallenges(friendId)}/received/${challengeId}`] = true;
-    updates[`${this.PATHS.userChallenges(this.currentUserId)}/sent/${challengeId}`] = true;
-
-    await fbDb.ref().update(updates);
-
-    console.debug('[Challenges] Challenge erstellt:', challengeId);
-    return challengeId;
-  },
-
-  /** Challenge annehmen */
-  async acceptChallenge(challengeId) {
-    if (!fbReady || !fbDb) return;
-
-    const challenge = this.activeChallenges[challengeId];
-    if (!challenge) {
-      throw new Error('Challenge nicht gefunden');
-    }
-
-    // Status aktualisieren
-    await fbDb.ref(`${this.PATHS.challenges()}/${challengeId}`).update({
-      status: 'accepted',
-      acceptedAt: Date.now()
-    });
-
-    this.currentChallenge = challenge;
-
-    console.debug('[Challenges] Challenge angenommen:', challengeId);
-
-    // Battle starten
-    this.startChallengeBattle(challenge);
-  },
-
-  /** Challenge ablehnen */
-  async declineChallenge(challengeId) {
-    if (!fbReady || !fbDb) return;
-
-    await fbDb.ref(`${this.PATHS.challenges()}/${challengeId}`).update({
-      status: 'declined',
-      declinedAt: Date.now()
-    });
-
-    delete this.activeChallenges[challengeId];
-
-    console.debug('[Challenges] Challenge abgelehnt:', challengeId);
-  },
-
-  /** Challenge-Ergebnis speichern */
-  async submitChallengeResult(challengeId, score, shots) {
-    if (!fbReady || !fbDb) return;
-
-    const challenge = this.activeChallenges[challengeId] || this.currentChallenge;
-    if (!challenge) {
-      throw new Error('Challenge nicht gefunden');
-    }
-
-    const isChallenger = challenge.fromUserId === this.currentUserId;
-    const scoreField = isChallenger ? 'challengerScore' : 'defenderScore';
-    const shotsField = isChallenger ? 'challengerShots' : 'defenderShots';
-
-    await fbDb.ref(`${this.PATHS.challenges()}/${challengeId}`).update({
-      [scoreField]: score,
-      [shotsField]: shots,
-      lastUpdate: Date.now()
-    });
-
-    // Prüfen ob beide fertig sind
-    const updatedChallenge = {
-      ...challenge,
-      [scoreField]: score,
-      [shotsField]: shots
-    };
-
-    this.checkChallengeComplete(challengeId, updatedChallenge);
-
-    console.debug('[Challenges] Ergebnis gespeichert:', score);
-  },
-
-  /** Prüfen ob Challenge abgeschlossen */
-  async checkChallengeComplete(challengeId, challengeData) {
-    if (!challengeData.challengerScore || !challengeData.defenderScore) {
-      return; // Noch nicht beide fertig
-    }
-
-    // Winner bestimmen
-    let winner, status;
-    if (challengeData.challengerScore > challengeData.defenderScore) {
-      winner = challengeData.fromUserId;
-      status = 'challenger_wins';
-    } else if (challengeData.defenderScore > challengeData.challengerScore) {
-      winner = challengeData.toUserId;
-      status = 'defender_wins';
-    } else {
-      winner = 'draw';
-      status = 'draw';
-    }
-
-    await fbDb.ref(`${this.PATHS.challenges()}/${challengeId}`).update({
-      status: 'completed',
-      winner,
-      resultStatus: status,
-      completedAt: Date.now()
-    });
-
-    // Ergebnis anzeigen
-    this.showChallengeResult(challengeData, status);
-
-    console.debug('[Challenges] Challenge abgeschlossen:', status);
-  },
-
-  // ═══════════════════════════════════════════
-  //  UI: CHALLENGE OVERLAY
-  // ═══════════════════════════════════════════
-
-  /** Challenge-Overlay öffnen */
-  openChallengeOverlay(friendId, friendUsername) {
-    const overlay = document.getElementById('challengeOverlay');
-    if (!overlay) {
+    openChallengeOverlay: function (friendId, friendUsername) {
+      this.pendingFriendId = friendId || null;
+      this.pendingFriendUsername = friendUsername || 'Freund';
       this.createChallengeOverlay();
-    }
+      var overlay = document.getElementById('challengeOverlay');
+      if (overlay) overlay.classList.add('active');
+    },
 
-    // Daten setzen
-    document.getElementById('challengeFriendName').textContent = friendUsername;
-    document.getElementById('challengeFriendId').value = friendId;
-
-    // Overlay anzeigen
-    document.getElementById('challengeOverlay').classList.add('active');
-    document.body.style.overflow = 'hidden';
-
-    // Sfx
-    if (typeof Sfx !== 'undefined') Sfx.play('click');
-  },
-
-  /** Challenge-Overlay erstellen (falls nicht vorhanden) */
-  createChallengeOverlay() {
-    const overlay = document.createElement('div');
-    overlay.id = 'challengeOverlay';
-    overlay.className = 'challenge-overlay';
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) this.closeChallengeOverlay();
-    });
-    overlay.innerHTML = `
-      <div class="challenge-card">
-        <button class="challenge-close" onclick="FriendChallenges.closeChallengeOverlay()">✕</button>
-        
-        <div class="challenge-title">🎯 Herausfordern</div>
-        <div class="challenge-subtitle">gegen <span id="challengeFriendName"></span></div>
-
-        <input type="hidden" id="challengeFriendId">
-
-        <!-- Disziplin -->
-        <div class="challenge-section">
-          <div class="challenge-label">Disziplin</div>
-          <div class="challenge-discipline-grid">
-            <button class="discipline-btn ${G.discipline === 'lg40' ? 'active' : ''}" 
-                    onclick="FriendChallenges.selectDiscipline('lg40', this)">
-              🎯 LG 40
-            </button>
-            <button class="discipline-btn ${G.discipline === 'lg60' ? 'active' : ''}" 
-                    onclick="FriendChallenges.selectDiscipline('lg60', this)">
-              ⭐ LG 60
-            </button>
-            <button class="discipline-btn ${G.discipline === 'kk50' ? 'active' : ''}" 
-                    onclick="FriendChallenges.selectDiscipline('kk50', this)">
-              🎯 KK 50m
-            </button>
-            <button class="discipline-btn ${G.discipline === 'kk100' ? 'active' : ''}" 
-                    onclick="FriendChallenges.selectDiscipline('kk100', this)">
-              🎯 KK 100m
-            </button>
-          </div>
-        </div>
-
-        <!-- Schwierigkeit -->
-        <div class="challenge-section">
-          <div class="challenge-label">Schwierigkeit</div>
-          <div class="challenge-difficulty-grid">
-            <button class="difficulty-btn easy ${G.diff === 'easy' ? 'active' : ''}" 
-                    onclick="FriendChallenges.selectDifficulty('easy', this)">
-              😊 Einfach
-            </button>
-            <button class="difficulty-btn real ${G.diff === 'real' ? 'active' : ''}" 
-                    onclick="FriendChallenges.selectDifficulty('real', this)">
-              🎯 Mittel
-            </button>
-            <button class="difficulty-btn hard ${G.diff === 'hard' ? 'active' : ''}" 
-                    onclick="FriendChallenges.selectDifficulty('hard', this)">
-              💪 Elite
-            </button>
-            <button class="difficulty-btn elite ${G.diff === 'elite' ? 'active' : ''}" 
-                    onclick="FriendChallenges.selectDifficulty('elite', this)">
-              💫 Profi
-            </button>
-          </div>
-        </div>
-
-        <!-- Modus -->
-        <div class="challenge-section">
-          <div class="challenge-label">Modus</div>
-          <div class="challenge-mode-grid">
-            <button class="mode-btn live ${true ? 'active' : ''}" 
-                    onclick="FriendChallenges.selectMode('live', this)">
-              ⚡ Live
-              <small>Gleichzeitig spielen</small>
-            </button>
-            <button class="mode-btn async" 
-                    onclick="FriendChallenges.selectMode('async', this)">
-              🔄 Asynchron
-              <small>Challenger schießt zuerst</small>
-            </button>
-          </div>
-        </div>
-
-        <button class="challenge-start-btn" onclick="FriendChallenges.startChallenge()">
-          🎯 CHALLENGE STARTEN
-        </button>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-  },
-
-  /** Challenge-Overlay schließen */
-  closeChallengeOverlay() {
-    const overlay = document.getElementById('challengeOverlay');
-    if (overlay) {
-      overlay.classList.remove('active');
+    closeChallengeOverlay: function () {
+      var overlay = document.getElementById('challengeOverlay');
+      if (overlay) overlay.classList.remove('active');
       document.body.style.overflow = '';
-    }
-  },
+    },
 
-  // ─── Auswahl ───
+    createChallengeOverlay: function () {
+      if (document.getElementById('challengeOverlay')) return;
+      var overlay = document.createElement('div');
+      overlay.id = 'challengeOverlay';
+      overlay.className = 'challenge-overlay';
+      overlay.innerHTML = [
+        '<div class="challenge-sheet">',
+        '<div class="challenge-header"><h3>Challenge</h3><button class="challenge-close" onclick="FriendChallenges.closeChallengeOverlay()">x</button></div>',
+        '<div class="challenge-body">',
+        '<p id="challengeFriendName">Supabase Challenge</p>',
+        '<button class="challenge-start-btn" onclick="FriendChallenges.startChallenge()">Challenge erstellen</button>',
+        '</div></div>'
+      ].join('');
+      document.body.appendChild(overlay);
+    },
 
-  selectedDiscipline: 'lg40',
-  selectedDifficulty: 'real',
-  selectedMode: 'live',
+    selectDiscipline: function (discipline, el) {
+      this.selectedDiscipline = discipline;
+      document.querySelectorAll('.discipline-option').forEach(function (node) { node.classList.remove('selected'); });
+      if (el) el.classList.add('selected');
+    },
 
-  selectDiscipline(disc, btn) {
-    this.selectedDiscipline = disc;
-    document.querySelectorAll('.discipline-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if (typeof Sfx !== 'undefined') Sfx.play('click');
-  },
+    selectDifficulty: function (difficulty, el) {
+      this.selectedDifficulty = difficulty;
+      document.querySelectorAll('.difficulty-option').forEach(function (node) { node.classList.remove('selected'); });
+      if (el) el.classList.add('selected');
+    },
 
-  selectDifficulty(diff, btn) {
-    this.selectedDifficulty = diff;
-    document.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if (typeof Sfx !== 'undefined') Sfx.play('click');
-  },
+    selectMode: function (mode, el) {
+      this.selectedMode = mode || 'async';
+      document.querySelectorAll('.mode-option').forEach(function (node) { node.classList.remove('selected'); });
+      if (el) el.classList.add('selected');
+    },
 
-  selectMode(mode, btn) {
-    this.selectedMode = mode;
-    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if (typeof Sfx !== 'undefined') Sfx.play('click');
-  },
-
-  /** Challenge starten */
-  async startChallenge() {
-    const friendId = document.getElementById('challengeFriendId').value;
-    const friendName = document.getElementById('challengeFriendName').textContent;
-
-    if (!friendId) {
-      showNotification('❌ Freund nicht ausgewählt', 'error');
-      return;
-    }
-
-    try {
-      const challengeId = await this.createChallenge(
-        friendId,
-        friendName,
-        this.selectedDiscipline,
-        this.selectedDifficulty
-      );
-
-      this.closeChallengeOverlay();
-
-      if (this.selectedMode === 'live') {
-        // Live: Battle direkt starten (wartet auf Freund)
-        showNotification(`✅ Challenge an ${friendName} gesendet!`);
-      } else {
-        // Async: Challenger schießt zuerst
-        showNotification(`✅ Challenge erstellt! Du schießt zuerst.`);
-        this.startChallengeBattle({
-          challengeId,
-          fromUserId: this.currentUserId,
-          discipline: this.selectedDiscipline,
-          difficulty: this.selectedDifficulty
-        });
+    startChallenge: async function () {
+      try {
+        await this.createChallenge(this.pendingFriendId || null, this.pendingFriendUsername || '', this.selectedDiscipline, this.selectedDifficulty);
+        this.closeChallengeOverlay();
+      } catch (error) {
+        notify(error.message || 'Challenge konnte nicht erstellt werden', 'error');
       }
-    } catch (error) {
-      this.closeChallengeOverlay();
-      showNotification(`❌ ${error.message}`, 'error');
+    },
+
+    getState: function () {
+      return {
+        activeChallenges: this.activeChallenges,
+        currentChallenge: this.currentChallenge,
+        myChallenges: this.myChallenges
+      };
     }
-  },
+  };
 
-  // ═══════════════════════════════════════════
-  //  BATTLE-INTEGRATION
-  // ═══════════════════════════════════════════
+  window.FriendChallenges = FriendChallenges;
+  window.openChallengeOverlay = function (friendId, friendName) { FriendChallenges.openChallengeOverlay(friendId, friendName); };
+  window.closeChallengeOverlay = function () { FriendChallenges.closeChallengeOverlay(); };
 
-  /** Challenge-Battle starten */
-  startChallengeBattle(challenge) {
-    // G-State für Friend-Challenge setzen
-    G.friendChallenge = {
-      challengeId: challenge.challengeId,
-      friendId: challenge.toUserId || challenge.fromUserId,
-      friendUsername: challenge.toUsername || challenge.fromUsername,
-      isChallenger: challenge.fromUserId === this.currentUserId
-    };
-
-    // Disziplin und Schwierigkeit setzen
-    G.discipline = challenge.discipline || G.discipline;
-    G.diff = challenge.difficulty || G.diff;
-
-    // Overlay schließen
-    this.closeChallengeOverlay();
-
-    // Battle starten
-    if (typeof startBattle === 'function') {
-      startBattle();
-    }
-
-    console.debug('[Challenges] Challenge-Battle gestartet');
-  },
-
-  /** Challenge-Ergebnis anzeigen */
-  showChallengeResult(challenge, status) {
-    const isChallenger = challenge.fromUserId === this.currentUserId;
-    const myScore = isChallenger ? challenge.challengerScore : challenge.defenderScore;
-    const opponentScore = isChallenger ? challenge.defenderScore : challenge.challengerScore;
-    const opponentName = isChallenger ? challenge.toUsername : challenge.fromUsername;
-
-    let resultEmoji, resultText, resultClass;
-    if (status === 'draw') {
-      resultEmoji = '🤝';
-      resultText = 'Unentschieden!';
-      resultClass = 'draw';
-    } else if ((isChallenger && status === 'challenger_wins') || (!isChallenger && status === 'defender_wins')) {
-      resultEmoji = '🏆';
-      resultText = `Du hast gegen ${opponentName} gewonnen!`;
-      resultClass = 'win';
-    } else {
-      resultEmoji = '😔';
-      resultText = `${opponentName} hat gewonnen!`;
-      resultClass = 'lose';
-    }
-
-    // Share-Card-ähnliches Overlay anzeigen
-    if (typeof showShareCard === 'function') {
-      showShareCard({
-        resultEmoji,
-        resultText,
-        playerScore: myScore,
-        opponentScore,
-        opponentName,
-        discipline: challenge.discipline,
-        difficulty: challenge.difficulty
-      });
-    }
-
-    // Challenge zurücksetzen
-    this.currentChallenge = null;
-    G.friendChallenge = null;
-  },
-
-  // ═══════════════════════════════════════════
-  //  LISTENER
-  // ═══════════════════════════════════════════
-
-  setupChallengesListener() {
-    if (!fbReady || !fbDb) return;
-
-    // Auf neue Challenges hören
-    const ref = fbDb.ref(this.PATHS.challenges());
-
-    ref.on('child_added', (snapshot) => {
-      const challenge = snapshot.val();
-      if (challenge.toUserId === this.currentUserId && challenge.status === 'pending') {
-        this.activeChallenges[snapshot.key] = challenge;
-
-        // Notification anzeigen
-        showNotification(`🎯 ${challenge.fromUsername} fordert dich heraus!`);
-        
-        // NEU: Challenge-Cards aktualisieren
-        this.renderChallengeCards();
-      }
-    });
-
-    ref.on('child_changed', (snapshot) => {
-      const challenge = snapshot.val();
-      const key = snapshot.key;
-
-      if (challenge.toUserId === this.currentUserId || challenge.fromUserId === this.currentUserId) {
-        this.activeChallenges[key] = challenge;
-
-        // Status-Update verarbeiten
-        if (challenge.status === 'accepted' && challenge.toUserId === this.currentUserId) {
-          // Freund hat unsere Challenge angenommen
-          showNotification(`✅ ${challenge.toUsername} hat deine Challenge angenommen!`);
-        }
-
-        if (challenge.status === 'completed') {
-          this.showChallengeResult(challenge, challenge.resultStatus);
-          delete this.activeChallenges[key];
-        }
-      }
-    });
-  },
-
-  // ═══════════════════════════════════════════
-  //  HILFSFUNKTIONEN
-  // ═══════════════════════════════════════════
-
-  getPendingChallengeCount() {
-    return Object.values(this.activeChallenges)
-      .filter(c => c.toUserId === this.currentUserId && c.status === 'pending').length;
-  },
-
-  // ═══════════════════════════════════════════
-  //  NEU: Challenge-Cards im Dashboard rendern
-  // ═══════════════════════════════════════════
-
-  /** Offene Challenges im Dashboard anzeigen */
-  renderChallengeCards() {
-    const container = document.getElementById('pdChallengesContainer');
-    if (!container) return;
-
-    // Nur Challenges die AN MICH gerichtet sind und pending
-    const incomingChallenges = Object.values(this.activeChallenges)
-      .filter(c => c.toUserId === this.currentUserId && c.status === 'pending');
-
-    if (incomingChallenges.length === 0) {
-      container.innerHTML = '';
-      container.style.display = 'none';
-      return;
-    }
-
-    container.style.display = 'block';
-
-    const cardsHTML = incomingChallenges.map(challenge => `
-      <div class="challenge-notification-card">
-        <div class="challenge-card-header">
-          <div class="challenge-card-avatar">${challenge.fromUsername.charAt(0).toUpperCase()}</div>
-          <div class="challenge-card-info">
-            <div class="challenge-card-title">🎯 Neue Challenge!</div>
-            <div class="challenge-card-sub">
-              <strong>${this.escapeHtml(challenge.fromUsername)}</strong> fordert dich heraus
-            </div>
-          </div>
-        </div>
-        <div class="challenge-card-details">
-          <div class="challenge-card-badge">${this.getDisciplineIcon(challenge.discipline)} ${this.getDisciplineName(challenge.discipline)}</div>
-          <div class="challenge-card-badge difficulty-${challenge.difficulty}">${this.getDifficultyName(challenge.difficulty)}</div>
-        </div>
-        <div class="challenge-card-actions">
-          <button class="challenge-accept-btn" onclick="FriendChallenges.acceptChallenge('${challenge.challengeId}')">
-            ✅ Annehmen
-          </button>
-          <button class="challenge-decline-btn" onclick="FriendChallenges.declineChallenge('${challenge.challengeId}')">
-            ❌ Ablehnen
-          </button>
-        </div>
-      </div>
-    `).join('');
-
-    container.innerHTML = cardsHTML;
-  },
-
-  /** Disziplin-Icon */
-  getDisciplineIcon(disc) {
-    const icons = { lg40: '🌬️', lg60: '⭐', kk50: '🎯', kk100: '🎯', kk3x20: '🏆' };
-    return icons[disc] || '🎯';
-  },
-
-  /** Disziplin-Name */
-  getDisciplineName(disc) {
-    const names = { lg40: 'LG 40', lg60: 'LG 60', kk50: 'KK 50m', kk100: 'KK 100m', kk3x20: 'KK 3×20' };
-    return names[disc] || disc;
-  },
-
-  /** Schwierigkeits-Name */
-  getDifficultyName(diff) {
-    const names = { easy: '😊 Einfach', real: '🎯 Mittel', hard: '💪 Elite', elite: '💫 Profi' };
-    return names[diff] || diff;
-  },
-
-  /** HTML escapen */
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { FriendChallenges.init(); });
+  } else {
+    FriendChallenges.init();
   }
-};
-
-// Window-Funktionen für onclick
-window.openChallengeOverlay = (friendId, friendName) => 
-  FriendChallenges.openChallengeOverlay(friendId, friendName);
-window.closeChallengeOverlay = () => FriendChallenges.closeChallengeOverlay();
-
-// Auto-init
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    if (typeof fbReady !== 'undefined' && fbReady) {
-      FriendChallenges.init();
-    }
-  }, 2500);
-});
+})();

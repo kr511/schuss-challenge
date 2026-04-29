@@ -42,7 +42,7 @@ pwsh -ExecutionPolicy Bypass -File ./verify_backend.ps1   # CORS/auth/validation
 
 Persistence conventions:
 - All localStorage goes through `StorageManager` (`storage-manager.js`) with an `sd_` prefix. Prefer `StorageManager.get/set/getRaw/setRaw` over direct `localStorage.*`.
-- Firebase (v9 compat SDK, loaded from `gstatic.com` in `index.html`) handles anonymous auth, Google Sign-In, realtime friends/online status, and some leaderboard sync. Initialized in `app.js::initFirebase()` behind `fbReady`.
+- Supabase-only. Lokaler Gastmodus als Fallback. Auth, Google OAuth, friends, presence, async challenges, profile sync, and leaderboard data must use Supabase/Worker APIs or local guest data.
 - The Cloudflare Worker API (see backend section) handles sessions, achievements, streaks, leaderboard, feedback, profiles, live activity.
 
 Domain vocabulary:
@@ -57,7 +57,7 @@ AI / image pipeline:
 - `feature-fallback.js` listens for `featureReady` CustomEvents — features should dispatch `new CustomEvent('featureReady', { detail: { name: 'adaptiveBot' } })` when ready; there's a 5s safety-net check.
 
 PWA:
-- `sw.js` — precaches listed local JS/CSS + index.html; network-first for HTML, cache-first for assets; never caches Firebase or `/api/` requests.
+- `sw.js` — precaches listed local JS/CSS + index.html; network-first for HTML, cache-first for assets; never caches `/api/` requests.
 - **Releases require bumping both `CACHE_VERSION` in `sw.js` and the `?v=X.X` query params in `index.html`.** Otherwise users get stale files.
 
 `main.js.DEPRECATED` is an older bundler entry — ignore; production uses individual `<script>` tags.
@@ -75,12 +75,12 @@ Migrations are the authoritative schema (`migrations/0001_initial.sql`, `0002_so
 
 ### Auth model (easy to misread)
 
-The worker has **no real auth in production**. `getAuthenticatedUserId` only returns a user when **all** of these are true:
+The worker has **no real auth in production**. Its dev-user resolver only returns a user when **all** of these are true:
 - `env.ALLOW_INSECURE_DEV_AUTH === "true"`
 - The request hostname is `localhost` / `127.0.0.1` / `0.0.0.0`
 - The request carries `x-dev-user-id: <id>`
 
-In production (hostname != localhost), user-scoped endpoints will return `401 AUTH_REQUIRED`. The frontend currently uses Firebase for identity and the Worker for data that can be public or dev-only. Do not assume a userId is available server-side in prod.
+In production (hostname != localhost), user-scoped endpoints will return `401 AUTH_REQUIRED` unless the Supabase-authenticated flow is available for that endpoint. The frontend identity source is Supabase Auth; local guest play stays local.
 
 Admin endpoints (`/api/admin/*`) additionally require `userId ∈ ADMIN_USER_IDS` (comma-separated env var, empty by default).
 
@@ -97,8 +97,8 @@ CORS: `ALLOWED_ORIGINS` is an allow-list in `api.ts`. When `ALLOW_INSECURE_DEV_A
 
 ## Repo layout notes
 
-- `admin.html` is a standalone admin dashboard (React 19 via esm.sh CDN, not the bundled `react` in `package.json`). Keep it self-contained; don't wire it into `index.html`.
-- Friends system is split across `friends.js` / `friends-system.js` / `friends-ui.js` / `friend-challenges.js` — `friends.js` owns Firebase-backed friends/requests; the others layer on UI + challenge flow.
+- `admin.html` is a standalone Supabase-admin placeholder. Keep it self-contained; don't wire it into `index.html`.
+- Friends system is split across `friends.js` / `friends-system.js` / `friends-ui.js` / `friend-challenges.js` — SupabaseSocial owns friends, requests, online status, and challenge flow.
 - `vite`, `@vitejs/plugin-react`, and React are in `package.json` but the main app does not go through Vite. Don't assume a build step exists for the PWA.
 
 ## Working directory quirk

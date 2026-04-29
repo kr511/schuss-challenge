@@ -159,7 +159,7 @@ async function testExposeSessionLeavesLocalMode() {
   assert.equal(window.localStorage.getItem('sd_local_mode'), null);
   assert.equal(window.SchussduellLocalMode, false);
   assert.equal(window.SchussduellLocalPlay, false);
-  assert.equal(window.getAuthHeaders().Authorization, 'Bearer token-123');
+  assert.equal(window.getSupabaseHeaders().Authorization, 'Bearer token-123');
   assert.equal(window.localStorage.getItem('sd_username'), 'anna');
   assert.equal(window.localStorage.getItem('username'), 'anna');
   assert.equal(refreshCalls, 1);

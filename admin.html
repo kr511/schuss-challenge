@@ -3,470 +3,73 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - Schuss Challenge</title>
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <title>Admin - Schuss Challenge</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f1a; color: #e5e7eb; }
-    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-    input, textarea, select {
-      width: 100%; padding: 10px 14px; border: 1px solid #374151; border-radius: 8px;
-      font-size: 14px; margin-bottom: 12px; background: #1f2937; color: #e5e7eb;
-      font-family: inherit;
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: #e5e7eb;
+      background: #10151f;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    input:focus, textarea:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,0.2); }
-    select option { background: #1f2937; }
-    button { cursor: pointer; font-family: inherit; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid #1f2937; }
-    th { font-size: 13px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-    tr:hover td { background: rgba(255,255,255,0.03); }
+    main {
+      width: min(680px, 100%);
+      padding: 32px;
+      border: 1px solid #263241;
+      border-radius: 12px;
+      background: #151d29;
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
+    }
+    h1 { margin: 0 0 12px; font-size: 1.8rem; }
+    p { margin: 0 0 18px; color: #b6c2d1; line-height: 1.6; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid #3f5f8f;
+      border-radius: 999px;
+      color: #bfdbfe;
+      background: rgba(37, 99, 235, 0.16);
+      font-size: 0.9rem;
+      font-weight: 650;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+    a {
+      display: inline-flex;
+      min-height: 42px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      border-radius: 8px;
+      color: #ffffff;
+      background: #2563eb;
+      text-decoration: none;
+      font-weight: 650;
+    }
+    a.secondary { color: #dbeafe; background: #263241; }
   </style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="module">
-    import React from 'https://esm.sh/react@19.2.5';
-    import { createRoot } from 'https://esm.sh/react-dom@19.2.5/client';
-    import htm from 'https://esm.sh/htm@3.1.1';
-
-    const html = htm.bind(React.createElement);
-
-    const isLocal = ['localhost', '127.0.0.1', '0.0.0.0'].includes(location.hostname);
-    const API_URL = isLocal ? '' : 'https://schuss-challenge.eliaskummel.workers.dev';
-    const DEV_USER_ID = 'local-admin';
-
-    function apiHeaders(isAdmin = false) {
-      const h = { 'Content-Type': 'application/json' };
-      if (isAdmin && isLocal) h['x-dev-user-id'] = DEV_USER_ID;
-      return h;
-    }
-
-    async function apiFetch(path, opts = {}) {
-      const res = await fetch(API_URL + path, opts);
-      const data = await res.json();
-      if (!res.ok) throw Object.assign(new Error(data.message || res.statusText), { code: data.code, status: res.status });
-      return data;
-    }
-
-    // ── Firebase ─────────────────────────────────────────────────────────────
-    const FB_CONFIG = {
-      apiKey: "AIzaSyDiwpW30GJW8da04A8ga9zOlj72PLXrUUk",
-      authDomain: "burnished-block-402111.firebaseapp.com",
-      databaseURL: "https://burnished-block-402111-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "burnished-block-402111",
-      storageBucket: "burnished-block-402111.firebasestorage.app",
-      messagingSenderId: "123456789012",
-      appId: "1:123456789012:web:abcdef1234567890",
-    };
-
-    let fbDb = null;
-    let fbDbListeners = [];
-    function onFbDbReady(cb) { if (fbDb) cb(fbDb); else fbDbListeners.push(cb); }
-    window.addEventListener('load', () => {
-      if (typeof firebase !== 'undefined') {
-        if (firebase.apps.length === 0) firebase.initializeApp(FB_CONFIG);
-        fbDb = firebase.database();
-        fbDbListeners.forEach(cb => cb(fbDb));
-        fbDbListeners = [];
-      }
-    });
-
-    // ── Shared Components ────────────────────────────────────────────────────
-    function Spinner() {
-      return html`<div style=${{ display:'flex', alignItems:'center', justifyContent:'center', padding:'60px', color:'#6b7280' }}>
-        <span style=${{ fontSize:'32px' }}>⏳</span>
-        <span style=${{ marginLeft:'12px', fontSize:'18px' }}>Laden…</span>
-      </div>`;
-    }
-
-    function ErrorBox({ message, onRetry }) {
-      return html`<div style=${{ background:'#2d1515', border:'1px solid #7f1d1d', borderRadius:'10px', padding:'24px', textAlign:'center' }}>
-        <div style=${{ fontSize:'32px', marginBottom:'8px' }}>❌</div>
-        <div style=${{ color:'#fca5a5', marginBottom: onRetry ? '16px' : 0 }}>${message}</div>
-        ${onRetry && html`<button onClick=${onRetry} style=${{ padding:'8px 20px', background:'#374151', color:'white', border:'none', borderRadius:'6px' }}>Erneut versuchen</button>`}
-      </div>`;
-    }
-
-    function StatCard({ value, label, color = '#667eea' }) {
-      return html`<div style=${{ background:'#1a1a2e', borderRadius:'10px', padding:'20px 24px', minWidth:'110px', textAlign:'center' }}>
-        <div style=${{ fontSize:'32px', fontWeight:700, color }}>${value}</div>
-        <div style=${{ fontSize:'13px', color:'#9ca3af', marginTop:'4px' }}>${label}</div>
-      </div>`;
-    }
-
-    // ── Tab: Feedbacks ───────────────────────────────────────────────────────
-    const TYPE_CFG = {
-      bug:             { label:'🐛 Bug',       color:'#ef4444', bg:'rgba(239,68,68,0.15)' },
-      feature_request: { label:'💡 Feature',   color:'#3b82f6', bg:'rgba(59,130,246,0.15)' },
-      general:         { label:'💬 Feedback',  color:'#10b981', bg:'rgba(16,185,129,0.15)' },
-    };
-
-    function FeedbacksTab() {
-      const [feedbacks, setFeedbacks] = React.useState([]);
-      const [loading, setLoading] = React.useState(true);
-      const [error, setError] = React.useState(null);
-      const [filter, setFilter] = React.useState('all');
-      const [updating, setUpdating] = React.useState(null);
-
-      async function load() {
-        setLoading(true); setError(null);
-        try {
-          const data = await apiFetch('/api/admin/feedbacks', { headers: apiHeaders(true) });
-          setFeedbacks(data.feedbacks || []);
-        } catch (e) {
-          setError(e.code === 'AUTH_REQUIRED'
-            ? 'Nicht autorisiert. Für lokale Tests: wrangler dev --env local starten.'
-            : e.message);
-        } finally { setLoading(false); }
-      }
-
-      React.useEffect(() => { load(); }, []);
-
-      async function setStatus(id, status) {
-        setUpdating(id);
-        try {
-          await apiFetch(`/api/admin/feedbacks/${id}`, {
-            method: 'PATCH',
-            headers: apiHeaders(true),
-            body: JSON.stringify({ status }),
-          });
-          setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, status } : f));
-        } catch (e) {
-          alert('Fehler: ' + e.message);
-        } finally { setUpdating(null); }
-      }
-
-      const visible = filter === 'all' ? feedbacks : feedbacks.filter(f => f.feedback_type === filter);
-      const pending = feedbacks.filter(f => f.status === 'pending').length;
-      const done    = feedbacks.filter(f => f.status === 'done').length;
-      const archived = feedbacks.filter(f => f.status === 'archived').length;
-
-      if (loading) return html`<${Spinner}/>`;
-      if (error)   return html`<${ErrorBox} message=${error} onRetry=${load}/>`;
-
-      return html`<div>
-        <!-- Stats -->
-        <div style=${{ display:'flex', gap:'12px', marginBottom:'28px', flexWrap:'wrap' }}>
-          <${StatCard} value=${feedbacks.length} label="Gesamt"/>
-          <${StatCard} value=${pending}  label="Offen"     color="#f59e0b"/>
-          <${StatCard} value=${done}     label="Erledigt"  color="#10b981"/>
-          <${StatCard} value=${archived} label="Archiviert" color="#6b7280"/>
-        </div>
-        <!-- Filter -->
-        <div style=${{ display:'flex', gap:'8px', marginBottom:'24px', flexWrap:'wrap' }}>
-          ${['all','bug','feature_request','general'].map(t => html`
-            <button key=${t} onClick=${()=>setFilter(t)} style=${{
-              padding:'8px 18px', borderRadius:'20px', border:'none',
-              background: filter===t ? '#667eea' : '#1f2937',
-              color: filter===t ? 'white' : '#9ca3af',
-              fontWeight: filter===t ? 600 : 400, fontSize:'14px',
-            }}>${t==='all' ? 'Alle' : TYPE_CFG[t].label}</button>
-          `)}
-          <button onClick=${load} style=${{ marginLeft:'auto', padding:'8px 18px', borderRadius:'20px', border:'1px solid #374151', background:'transparent', color:'#9ca3af', fontSize:'14px' }}>🔄 Aktualisieren</button>
-        </div>
-        <!-- Cards -->
-        ${visible.length === 0
-          ? html`<div style=${{ textAlign:'center', padding:'60px', color:'#6b7280' }}>📭 Keine Feedbacks</div>`
-          : visible.map(f => {
-              const cfg = TYPE_CFG[f.feedback_type] || TYPE_CFG.general;
-              const isUpdating = updating === f.id;
-              return html`<div key=${f.id} style=${{
-                background:'#161625', border:'1px solid #1f2937', borderRadius:'12px',
-                padding:'20px 24px', marginBottom:'16px',
-                opacity: f.status === 'archived' ? 0.5 : 1,
-              }}>
-                <div style=${{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'16px' }}>
-                  <div style=${{ flex:1 }}>
-                    <div style=${{ display:'flex', gap:'8px', alignItems:'center', marginBottom:'8px', flexWrap:'wrap' }}>
-                      <span class="badge" style=${{ background:cfg.bg, color:cfg.color }}>${cfg.label}</span>
-                      <span style=${{ fontSize:'12px', color:'#6b7280' }}>${new Date(f.sent_at).toLocaleString('de-DE')}</span>
-                      <span class="badge" style=${{
-                        background: f.status==='done' ? 'rgba(16,185,129,0.15)' : f.status==='archived' ? 'rgba(107,114,128,0.15)' : 'rgba(245,158,11,0.15)',
-                        color: f.status==='done' ? '#10b981' : f.status==='archived' ? '#9ca3af' : '#f59e0b',
-                      }}>${f.status==='done' ? '✅ Erledigt' : f.status==='archived' ? '📦 Archiviert' : '⏳ Offen'}</span>
-                    </div>
-                    <div style=${{ fontWeight:600, fontSize:'17px', marginBottom:'4px', color:'#f3f4f6' }}>${f.title}</div>
-                    <div style=${{ fontSize:'13px', color:'#6b7280', marginBottom:'12px' }}>von: ${f.user_email}</div>
-                    <div style=${{ background:'#0d0d1a', padding:'14px', borderRadius:'8px', whiteSpace:'pre-wrap', lineHeight:'1.6', fontSize:'14px', color:'#d1d5db' }}>
-                      ${f.message}
-                    </div>
-                  </div>
-                  <div style=${{ display:'flex', flexDirection:'column', gap:'8px', flexShrink:0 }}>
-                    ${f.status !== 'done' && html`<button
-                      disabled=${isUpdating}
-                      onClick=${()=>setStatus(f.id,'done')}
-                      style=${{ padding:'8px 14px', background:'rgba(16,185,129,0.2)', color:'#10b981', border:'1px solid #10b981', borderRadius:'8px', fontSize:'13px', fontWeight:600 }}
-                    >${isUpdating ? '⏳' : '✅ Erledigt'}</button>`}
-                    ${f.status !== 'archived' && html`<button
-                      disabled=${isUpdating}
-                      onClick=${()=>setStatus(f.id,'archived')}
-                      style=${{ padding:'8px 14px', background:'rgba(107,114,128,0.15)', color:'#9ca3af', border:'1px solid #374151', borderRadius:'8px', fontSize:'13px' }}
-                    >${isUpdating ? '⏳' : '📦 Archiv'}</button>`}
-                    ${f.status !== 'pending' && html`<button
-                      disabled=${isUpdating}
-                      onClick=${()=>setStatus(f.id,'pending')}
-                      style=${{ padding:'8px 14px', background:'transparent', color:'#6b7280', border:'1px solid #374151', borderRadius:'8px', fontSize:'13px' }}
-                    >↩ Rücksetzen</button>`}
-                  </div>
-                </div>
-              </div>`;
-            })
-        }
-      </div>`;
-    }
-
-    // ── Tab: Leaderboard ─────────────────────────────────────────────────────
-    const MODES   = ['standard','challenge','bot_fight','timed'];
-    const PERIODS = ['daily','weekly','monthly','all'];
-    const MODE_LABELS   = { standard:'Standard', challenge:'Challenge', bot_fight:'Bot-Kampf', timed:'Timed' };
-    const PERIOD_LABELS = { daily:'Täglich', weekly:'Wöchentlich', monthly:'Monatlich', all:'Gesamt' };
-
-    function LeaderboardTab() {
-      const [mode,   setMode]   = React.useState('standard');
-      const [period, setPeriod] = React.useState('weekly');
-      const [data,   setData]   = React.useState(null);
-      const [loading,setLoading]= React.useState(false);
-      const [error,  setError]  = React.useState(null);
-
-      async function load(m = mode, p = period) {
-        setLoading(true); setError(null);
-        try {
-          const res = await apiFetch(`/api/leaderboard?mode=${m}&period=${p}`);
-          setData(res);
-        } catch(e) { setError(e.message); }
-        finally { setLoading(false); }
-      }
-
-      React.useEffect(() => { load(); }, []);
-
-      function handleMode(m)   { setMode(m);   load(m, period); }
-      function handlePeriod(p) { setPeriod(p); load(mode, p);   }
-
-      const MEDAL = ['🥇','🥈','🥉'];
-
-      return html`<div>
-        <div style=${{ display:'flex', gap:'8px', marginBottom:'16px', flexWrap:'wrap' }}>
-          ${MODES.map(m => html`<button key=${m} onClick=${()=>handleMode(m)} style=${{
-            padding:'8px 18px', borderRadius:'20px', border:'none',
-            background: mode===m ? '#667eea' : '#1f2937',
-            color: mode===m ? 'white' : '#9ca3af',
-            fontWeight: mode===m ? 600 : 400, fontSize:'14px',
-          }}>${MODE_LABELS[m]}</button>`)}
-        </div>
-        <div style=${{ display:'flex', gap:'8px', marginBottom:'28px', flexWrap:'wrap' }}>
-          ${PERIODS.map(p => html`<button key=${p} onClick=${()=>handlePeriod(p)} style=${{
-            padding:'7px 16px', borderRadius:'20px', border:'1px solid',
-            borderColor: period===p ? '#667eea' : '#374151',
-            background: 'transparent',
-            color: period===p ? '#a5b4fc' : '#6b7280',
-            fontSize:'13px',
-          }}>${PERIOD_LABELS[p]}</button>`)}
-        </div>
-        ${loading ? html`<${Spinner}/>` : error ? html`<${ErrorBox} message=${error} onRetry=${()=>load()}/>` : data && html`
-          <div style=${{ background:'#161625', border:'1px solid #1f2937', borderRadius:'12px', overflow:'hidden' }}>
-            <table>
-              <thead><tr>
-                <th>#</th><th>Spieler</th><th>Bestes Ergebnis</th><th>Spiele</th>
-              </tr></thead>
-              <tbody>
-                ${data.leaderboard.length === 0
-                  ? html`<tr><td colspan="4" style=${{ textAlign:'center', padding:'40px', color:'#6b7280' }}>Keine Einträge</td></tr>`
-                  : data.leaderboard.map((row,i) => html`<tr key=${row.userId}>
-                      <td style=${{ color:'#9ca3af' }}>${MEDAL[i] || row.rank}</td>
-                      <td style=${{ fontWeight:600, color:'#f3f4f6' }}>${row.displayName}</td>
-                      <td style=${{ color:'#a5b4fc', fontWeight:700, fontSize:'18px' }}>${row.bestScore}</td>
-                      <td style=${{ color:'#6b7280' }}>${row.gamesPlayed}</td>
-                    </tr>`)
-                }
-              </tbody>
-            </table>
-          </div>
-        `}
-      </div>`;
-    }
-
-    // ── Tab: Live Activity ───────────────────────────────────────────────────
-    const DISC_LABELS = { lg40:'LG 40', lg60:'LG 60', kk50:'KK 50', kk100:'KK 100', kk3x20:'KK 3×20' };
-    const DIFF_COLORS = { easy:'#10b981', real:'#3b82f6', hard:'#f59e0b', elite:'#ef4444' };
-
-    function LiveActivityTab() {
-      const [activity, setActivity] = React.useState(null);
-      const [loading,  setLoading]  = React.useState(true);
-      const [error,    setError]    = React.useState(null);
-      const [lastUpdate, setLastUpdate] = React.useState(null);
-
-      async function load() {
-        try {
-          const res = await apiFetch('/api/activity/live');
-          setActivity(res.activity || []);
-          setLastUpdate(new Date());
-          setError(null);
-        } catch(e) { setError(e.message); }
-        finally { setLoading(false); }
-      }
-
-      React.useEffect(() => {
-        load();
-        const id = setInterval(load, 30_000);
-        return () => clearInterval(id);
-      }, []);
-
-      if (loading)  return html`<${Spinner}/>`;
-      if (error)    return html`<${ErrorBox} message=${error} onRetry=${load}/>`;
-
-      const active = (activity || []).filter(a => a.status === 'active');
-
-      return html`<div>
-        <div style=${{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'24px' }}>
-          <div style=${{ display:'flex', gap:'12px' }}>
-            <${StatCard} value=${active.length} label="Aktive Spieler" color="#10b981"/>
-            <${StatCard} value=${(activity||[]).length} label="Gesamt Online"/>
-          </div>
-          <div style=${{ fontSize:'12px', color:'#6b7280', textAlign:'right' }}>
-            <div>Auto-Refresh 30s</div>
-            ${lastUpdate && html`<div>Zuletzt: ${lastUpdate.toLocaleTimeString('de-DE')}</div>`}
-            <button onClick=${load} style=${{ marginTop:'6px', padding:'5px 12px', background:'#1f2937', color:'#9ca3af', border:'1px solid #374151', borderRadius:'6px', fontSize:'12px' }}>🔄</button>
-          </div>
-        </div>
-        ${active.length === 0
-          ? html`<div style=${{ textAlign:'center', padding:'60px', color:'#6b7280' }}>🎯 Niemand aktiv gerade</div>`
-          : html`<div style=${{ display:'grid', gap:'12px', gridTemplateColumns:'repeat(auto-fill, minmax(260px,1fr))' }}>
-              ${active.map((a,i) => html`<div key=${(a.user_id||'') + '_' + (a.discipline||i)} style=${{
-                background:'#161625', border:'1px solid #1f2937', borderRadius:'10px', padding:'16px 20px',
-              }}>
-                <div style=${{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
-                  <span style=${{ fontWeight:600, color:'#f3f4f6' }}>${DISC_LABELS[a.discipline] || a.discipline}</span>
-                  <span class="badge" style=${{ background: (DIFF_COLORS[a.difficulty]||'#6b7280')+'26', color: DIFF_COLORS[a.difficulty]||'#9ca3af' }}>${a.difficulty}</span>
-                </div>
-                <div style=${{ fontSize:'12px', color:'#6b7280' }}>Nutzer: ${(a.user_id||'–').slice(0,12)}…</div>
-              </div>`)}
-            </div>`
-        }
-      </div>`;
-    }
-
-    // ── Tab: Updates erstellen ───────────────────────────────────────────────
-    function UpdatesTab() {
-      const [form, setForm] = React.useState({ title:'', message:'', priority:'medium', icon:'📢' });
-      const [busy,    setBusy]    = React.useState(false);
-      const [success, setSuccess] = React.useState(false);
-      const [fbReady, setFbReady] = React.useState(!!fbDb);
-      React.useEffect(() => { if (!fbDb) onFbDbReady(() => setFbReady(true)); }, []);
-
-      async function create() {
-        if (!form.title || !form.message) { alert('Bitte Titel und Nachricht ausfüllen!'); return; }
-        setBusy(true);
-        try {
-          const entry = {
-            id: 'update_' + Date.now(),
-            title: form.title,
-            message: form.message,
-            date: Date.now(),
-            priority: form.priority,
-            icon: form.icon,
-            createdBy: 'admin',
-          };
-          let saved = false;
-          if (fbDb) {
-            try { await fbDb.ref(`app_updates_v1/${entry.id}`).set(entry); saved = true; }
-            catch (e) { console.warn('Firebase-Fehler:', e.message); }
-          }
-          if (!saved) {
-            const updates = JSON.parse(localStorage.getItem('app_updates') || '[]');
-            updates.unshift(entry);
-            localStorage.setItem('app_updates', JSON.stringify(updates));
-          }
-          setForm({ title:'', message:'', priority:'medium', icon:'📢' });
-          setSuccess(true);
-          setTimeout(() => setSuccess(false), 3000);
-        } catch(e) { alert('Fehler: ' + e.message); }
-        finally { setBusy(false); }
-      }
-
-      const upd = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
-
-      return html`<div style=${{ maxWidth:'600px' }}>
-        <div style=${{ background:'#161625', border:'1px solid #1f2937', borderRadius:'12px', padding:'28px' }}>
-          <h2 style=${{ marginBottom:'20px', color:'#f3f4f6' }}>🔔 Neues Update erstellen</h2>
-          ${success && html`<div style=${{ padding:'12px', background:'rgba(16,185,129,0.15)', color:'#10b981', border:'1px solid #10b981', borderRadius:'8px', marginBottom:'16px', fontWeight:600 }}>✅ Update erfolgreich erstellt!</div>`}
-          ${!fbReady && !success && html`<div style=${{ padding:'10px 14px', background:'rgba(245,158,11,0.1)', color:'#f59e0b', border:'1px solid rgba(245,158,11,0.3)', borderRadius:'8px', marginBottom:'16px', fontSize:'13px' }}>⚠️ Firebase nicht verbunden — Fallback zu localStorage.</div>`}
-          <label style=${{ display:'block', marginBottom:'6px', fontWeight:600, color:'#d1d5db', fontSize:'14px' }}>Titel *</label>
-          <input type="text" value=${form.title} onInput=${upd('title')} placeholder="z.B. Neue Features verfügbar!"/>
-          <label style=${{ display:'block', marginBottom:'6px', fontWeight:600, color:'#d1d5db', fontSize:'14px' }}>Nachricht *</label>
-          <textarea rows="4" value=${form.message} onInput=${upd('message')} placeholder="Beschreibe das Update…" style=${{ resize:'vertical' }}></textarea>
-          <div style=${{ display:'flex', gap:'12px' }}>
-            <div style=${{ flex:'0 0 80px' }}>
-              <label style=${{ display:'block', marginBottom:'6px', fontWeight:600, color:'#d1d5db', fontSize:'14px' }}>Icon</label>
-              <input type="text" value=${form.icon} onInput=${upd('icon')} style=${{ width:'80px', textAlign:'center', fontSize:'20px' }}/>
-            </div>
-            <div style=${{ flex:1 }}>
-              <label style=${{ display:'block', marginBottom:'6px', fontWeight:600, color:'#d1d5db', fontSize:'14px' }}>Priorität</label>
-              <select value=${form.priority} onChange=${upd('priority')}>
-                <option value="low">🟦 Niedrig</option>
-                <option value="medium">🟨 Mittel</option>
-                <option value="high">🟥 Hoch</option>
-              </select>
-            </div>
-          </div>
-          <button
-            onClick=${create}
-            disabled=${busy || !form.title || !form.message}
-            style=${{
-              width:'100%', marginTop:'8px', padding:'13px', border:'none', borderRadius:'8px',
-              background: (busy || !form.title || !form.message) ? '#374151' : 'linear-gradient(135deg,#667eea,#764ba2)',
-              color: 'white', fontWeight:600, fontSize:'16px',
-              cursor: (busy || !form.title || !form.message) ? 'not-allowed' : 'pointer',
-            }}
-          >${busy ? '⏳ Erstelle…' : '✅ Update erstellen'}</button>
-        </div>
-      </div>`;
-    }
-
-    // ── Root App ─────────────────────────────────────────────────────────────
-    const TABS = [
-      { id:'feedbacks', label:'📝 Feedbacks', Component: FeedbacksTab },
-      { id:'leaderboard', label:'🏆 Leaderboard', Component: LeaderboardTab },
-      { id:'activity', label:'🟢 Live Activity', Component: LiveActivityTab },
-      { id:'updates', label:'🔔 Updates', Component: UpdatesTab },
-    ];
-
-    function App() {
-      const [tab, setTab] = React.useState('feedbacks');
-      const active = TABS.find(t => t.id === tab);
-
-      return html`<div style=${{ minHeight:'100vh', background:'#0f0f1a' }}>
-        <!-- Header -->
-        <div style=${{ background:'#13131f', borderBottom:'1px solid #1f2937', padding:'0 24px' }}>
-          <div style=${{ maxWidth:'1200px', margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', height:'60px' }}>
-            <div style=${{ fontWeight:700, fontSize:'20px', color:'#f3f4f6' }}>📊 Admin Dashboard</div>
-            <div style=${{ fontSize:'13px', color: isLocal ? '#10b981' : '#f59e0b' }}>
-              ${isLocal ? '🟢 Lokal (Dev Auth aktiv)' : '🌐 Produktion (kein Admin-Auth)'}
-            </div>
-          </div>
-        </div>
-        <!-- Tabs -->
-        <div style=${{ background:'#13131f', borderBottom:'1px solid #1f2937' }}>
-          <div style=${{ maxWidth:'1200px', margin:'0 auto', display:'flex', gap:'4px', padding:'0 24px' }}>
-            ${TABS.map(t => html`<button key=${t.id} onClick=${()=>setTab(t.id)} style=${{
-              padding:'14px 20px', border:'none', background:'transparent',
-              color: tab===t.id ? '#a5b4fc' : '#6b7280',
-              borderBottom: tab===t.id ? '2px solid #667eea' : '2px solid transparent',
-              fontWeight: tab===t.id ? 600 : 400,
-              fontSize:'14px',
-              transition:'color 0.15s',
-            }}>${t.label}</button>`)}
-          </div>
-        </div>
-        <!-- Content -->
-        <div style=${{ maxWidth:'1200px', margin:'0 auto', padding:'32px 24px' }}>
-          ${active && html`<${active.Component}/>`}
-        </div>
-      </div>`;
-    }
-
-    createRoot(document.getElementById('root')).render(html`<${App}/>`);
-  </script>
+  <main>
+    <div class="status">Supabase Admin noch nicht implementiert</div>
+    <h1>Adminbereich deaktiviert</h1>
+    <p>
+      Diese statische Admin-Seite lädt keine Legacy-Backend-Skripte mehr. Administrative Funktionen werden erst wieder
+      aktiviert, wenn sie vollständig über Supabase oder die Worker-API abgesichert sind.
+    </p>
+    <p>
+      Bis dahin bleiben Updates, Feedback-Moderation und Aktivitätsdaten in der normalen App über Supabase- und lokale
+      Fallback-Pfade verfügbar.
+    </p>
+    <div class="actions">
+      <a href="./index.html">Zur App</a>
+      <a class="secondary" href="./SUPABASE_SETUP.md">Supabase-Setup</a>
+    </div>
+  </main>
 </body>
 </html>

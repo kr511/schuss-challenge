@@ -6,8 +6,6 @@ const SocialSystem = (function() {
   'use strict';
 
   const STORAGE_KEY = 'social_friends';
-  const PRESENCE_PATH = 'presence/';
-  const USERS_PATH = 'users/';
 
   let _friends = [];
   let _initialized = false;
@@ -36,45 +34,45 @@ const SocialSystem = (function() {
   }
 
   /**
-   * Setzt den eigenen Online-Status in Firebase
+   * Setzt den eigenen Online-Status über SupabaseSocial
    */
   function setupPresence() {
-    if (typeof firebase === 'undefined' || !firebase.auth().currentUser) return;
-    
-    const uid = firebase.auth().currentUser.uid;
-    const presenceRef = firebase.database().ref(PRESENCE_PATH + uid);
-    
-    // On disconnect, set offline
-    presenceRef.onDisconnect().set({
-      status: 'offline',
-      last_seen: firebase.database.ServerValue.TIMESTAMP
-    });
-
-    // Set online now
-    presenceRef.set({
-      status: 'online',
-      username: StorageManager.getRaw('username') || 'Schütze',
-      last_seen: firebase.database.ServerValue.TIMESTAMP
-    });
+    if (window.SupabaseSocial && typeof window.SupabaseSocial.updateOnlineStatus === 'function') {
+      window.SupabaseSocial.updateOnlineStatus(true).catch(function(err) {
+        console.warn('[SupabaseSocial] Online-Status konnte nicht gesetzt werden:', err && err.message ? err.message : err);
+      });
+    }
   }
 
   /**
    * Sucht nach einem Schützen via Name
    */
   async function findUser(name) {
-    if (typeof firebase === 'undefined') return null;
-    
-    const snapshot = await firebase.database().ref(USERS_PATH)
-      .orderByChild('username')
-      .equalTo(name)
-      .limitToFirst(1)
-      .once('value');
-    
-    if (!snapshot.exists()) return null;
-    
-    const data = snapshot.val();
-    const uid = Object.keys(data)[0];
-    return { uid, ...data[uid] };
+    const query = String(name || '').trim();
+    if (!query) return null;
+
+    const client = window.SupabaseAuth?.client || window.SupabaseClient?.client || window.supabaseClient || null;
+    if (!client || typeof client.from !== 'function') return null;
+
+    try {
+      const { data, error } = await client
+        .from('profiles')
+        .select('id,username,display_name,total_xp,rank')
+        .or(`username.eq.${query},display_name.ilike.%${query}%`)
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      return {
+        uid: data.id,
+        username: data.username || data.display_name || query,
+        xp: data.total_xp || 0,
+        rank: data.rank || 'Anfänger'
+      };
+    } catch (err) {
+      console.warn('[SupabaseSocial] Nutzersuche fehlgeschlagen:', err && err.message ? err.message : err);
+      return null;
+    }
   }
 
   /**

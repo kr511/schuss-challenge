@@ -155,7 +155,6 @@
 
   function removeOldTags(){
     document.querySelectorAll('script[src*="gemini-ai.js"]').forEach(function(el){el.remove();});
-    document.querySelectorAll('script[src*="firebase-auth-compat.js"][data-provider="google"]').forEach(function(el){el.remove();});
   }
 
   function run(){removeOldTags();addStyle();addTrust();addStartFlow();addGuest();installUpdatesCloseFix();renameLabels();}

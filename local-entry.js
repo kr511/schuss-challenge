@@ -80,7 +80,7 @@
     window.SchussduellLocalMode = true;
     window.SchussduellLocalPlay = true;
     window.SupabaseSession = null;
-    window.getAuthHeaders = function () { return {}; };
+    window.getSupabaseHeaders = function () { return {}; };
   }
 
   function removeAuthGate() {
