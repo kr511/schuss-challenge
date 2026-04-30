@@ -1927,7 +1927,7 @@ const HealthyEngagement = (function () {
     showEngagementToast('Willkommen zurück! Eine kurze Session reicht heute schon für Fortschritt.');
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification('🎯 Schussduell erinnert dich', {
+        new Notification('🎯 Schützen Challenge erinnert dich', {
           body: 'Deine Rookie-Woche und Tagesmission warten auf dich.',
           tag: 'sd-gentle-reminder'
         });
@@ -5360,8 +5360,8 @@ window.shareTarget = async function () {
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
         files: [file],
-        title: 'Mein Schussduell Ergebnis',
-        text: `Ich habe gerade ein Duell im Schussduell absolviert! Mein Ergebnis: ${G.playerShots.length > 0 ? G.playerShots.reduce((a, b) => a + b.pts, 0).toFixed(1) : '–'}`
+        title: 'Mein Duell-Ergebnis · Schützen Challenge',
+        text: `Schützen Challenge – mein Duell-Ergebnis: ${G.playerShots.length > 0 ? G.playerShots.reduce((a, b) => a + b.pts, 0).toFixed(1) : '–'}`
       });
     } else {
       // Fallback: Bild herunterladen

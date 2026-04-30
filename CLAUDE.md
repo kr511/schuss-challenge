@@ -60,9 +60,7 @@ PWA:
 - `sw.js` — precaches listed local JS/CSS + index.html; network-first for HTML, cache-first for assets; never caches `/api/` requests.
 - **Releases require bumping both `CACHE_VERSION` in `sw.js` and the `?v=X.X` query params in `index.html`.** Otherwise users get stale files.
 
-`main.js.DEPRECATED` is an older bundler entry — ignore; production uses individual `<script>` tags.
-
-`patch_app_hooks.cjs` and `patch_dashboard.cjs` are **one-shot** rewrite scripts that have already been applied to `app.js` / `index.html`. Do not re-run them — they use brittle string-replace and would either double-apply or fail.
+`main.js.DEPRECATED`, `app-bugfixes.js`, `patch_app_hooks.cjs` und `patch_dashboard.cjs` wurden entfernt: `main.js.DEPRECATED` war ein alter Bundler-Einstieg, `app-bugfixes.js` enthielt verwaiste Function-Overrides, und die `patch_*.cjs` waren one-shot Rewrite-Scripts, die bereits angewendet waren. Produktion nutzt einzelne `<script>`-Tags.
 
 ### Backend — Cloudflare Worker + D1
 
