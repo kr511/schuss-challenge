@@ -2,12 +2,18 @@
 (function () {
   'use strict';
 
-  var SUPABASE_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
-  var SUPABASE_ANON = [
+  // Config bevorzugt aus zentraler Datei (supabase-config.js) lesen.
+  // Fallback auf öffentliche Default-Werte, damit GitHub-Pages-Setup ohne
+  // zusätzlichen Build weiter funktioniert.
+  var FALLBACK_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
+  var FALLBACK_ANON = [
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
     'eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0',
     'pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg'
   ].join('.');
+  var __cfg = (typeof window !== 'undefined' && window.SCHUETZEN_CHALLENGE_CONFIG) || null;
+  var SUPABASE_URL = (__cfg && __cfg.SUPABASE_URL) || FALLBACK_URL;
+  var SUPABASE_ANON = (__cfg && __cfg.SUPABASE_ANON_KEY) || FALLBACK_ANON;
 
   var LOCAL_KEYS = ['sd_local_play', 'sd_local_mode'];
   var client = null;
