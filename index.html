@@ -27,6 +27,8 @@
     rel="stylesheet">
   <!-- Supabase JS (muss vor auth-gate.js geladen sein) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- Zentrale Supabase-Config (muss vor auth-gate.js und supabase-client.js geladen sein) -->
+  <script src="supabase-config.js?v=1.0"></script>
   <!-- Auth-Gate: zeigt Login-Screen bis User authentifiziert ist -->
   <script src="auth-gate.js?v=1.0"></script>
   <script src="supabase-client.js?v=1.0" defer></script>
@@ -75,6 +77,7 @@
   <script src="reward-system.js?v=1.0" defer></script>
   <script src="src/storage/storage-manager.js?v=3.0"></script>
   <script src="src/data/shooter-challenges.js?v=1.0" defer></script>
+  <script src="src/features/shooter-challenges-ui.js?v=1.0" defer></script>
   <script src="performance-config.js"></script>
   <script src="src/bot/battle-balance.js" defer></script>
   <script src="src/testing/qa-test-suite.js" defer></script>
@@ -294,6 +297,9 @@
 
       <!-- ══ DAILY MISSIONS ══ -->
       <div id="pdQuestsContainer" style="margin-bottom:24px;"></div>
+
+      <!-- ══ TRAININGS-CHALLENGES (Schützen) ══ -->
+      <div id="shooterChallengesMount" style="margin-bottom:24px;"></div>
 
       <!-- ══ ACHIEVEMENT BADGES (dynamisch) ══ -->
       <div style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:12px;">Erfolge</div>

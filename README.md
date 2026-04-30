@@ -115,9 +115,25 @@ npm test                     # cleanup + check:js + check:html + Auth/Bridge-Tes
 ## 📚 Schützen-Challenges (Trainingsdaten)
 
 Statisches Frontend-Dataset: [`src/data/shooter-challenges.js`](src/data/shooter-challenges.js).
+UI-Modul (Render + Completion-Flow): [`src/features/shooter-challenges-ui.js`](src/features/shooter-challenges-ui.js).
 Persistenz-Schema (optional): [`supabase/migrations/0007_shooter_challenges.sql`](supabase/migrations/0007_shooter_challenges.sql).
 
 Felder pro Challenge: `id, title, description, category, difficulty, durationMinutes, safetyNote, requiredEquipment[], instructions[], scoringType, successCriteria, isDryFire, isLiveFire`.
+
+Speicherreihenfolge bei Abschluss: erst Supabase (`challenge_completions`, RLS auf `auth.uid()`), dann lokaler Fallback in `localStorage` (`sd_shooter_challenge_completions`). Es wird **nie** ein Erfolg gemeldet, wenn weder online noch lokal gespeichert werden konnte.
+
+## ⚙️ Supabase-Frontend-Config
+
+Zentrale Datei: [`supabase-config.js`](supabase-config.js). Wird **vor** `auth-gate.js` und `supabase-client.js` geladen und schreibt die Werte in `window.SCHUETZEN_CHALLENGE_CONFIG` und (für Kompatibilität) `window.__SUPABASE_CONFIG__`.
+
+Reihenfolge der Werte (höchste Priorität zuerst):
+
+1. `window.SCHUETZEN_CHALLENGE_CONFIG` (z. B. von einem eigenen Pre-Script gesetzt)
+2. `<meta name="supabase-url">` und `<meta name="supabase-anon-key">`
+3. `import.meta.env.VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` (nur falls jemand mit Vite baut)
+4. Hardcoded öffentliche Default-Werte (damit GitHub Pages ohne Build läuft)
+
+Im Frontend gehört **ausschließlich** der Supabase-Anon-Key. Der Service-Role-Key lebt nur als Cloudflare-Worker-Secret. Zugriffsschutz erfolgt über RLS-Policies (siehe `supabase/migrations/0007_shooter_challenges.sql` und `supabase/schema-social.sql`).
 
 ## 🛠️ Bekannte offene Punkte
 

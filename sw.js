@@ -18,7 +18,13 @@ const PRECACHE_URLS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => cache.addAll(PRECACHE_URLS)).catch(() => {})
+    caches.open(CACHE_VERSION)
+      .then((cache) => Promise.all(
+        // Per-URL hinzufügen: einzelne Cache-Misses dürfen Install nicht abbrechen.
+        PRECACHE_URLS.map((url) => cache.add(new Request(url, { cache: 'reload' }))
+          .catch((err) => console.warn('[SW] Precache fehlgeschlagen:', url, err && err.message)))
+      ))
+      .catch((err) => console.warn('[SW] Cache.open fehlgeschlagen:', err && err.message))
   );
   self.skipWaiting();
 });
