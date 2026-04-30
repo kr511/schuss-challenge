@@ -1,5 +1,5 @@
 /**
- * Streak-Tracker für Schussduell
+ * Streak-Tracker für Schützen Challenge
  * 
  * REGELN:
  * - Streak erhöht sich wenn man 1 Duell spielt (egal welche Disziplin/Schwierigkeit/Uhrzeit)

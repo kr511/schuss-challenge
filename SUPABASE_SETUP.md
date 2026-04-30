@@ -1,4 +1,4 @@
-# Supabase Setup – Schussduell
+# Supabase Setup – Schützen Challenge
 
 Vollständige Anleitung zur Einrichtung der Supabase-Integration.
 

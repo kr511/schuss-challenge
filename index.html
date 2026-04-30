@@ -46,10 +46,8 @@
   <script src="gemini-ai.js?v=3.0" defer></script>
   <script src="src/vision/image-compare.js?v=3.0" defer></script>
 
-  <!-- NEUE FEATURES: Physics Engine, Adaptive Bot-KI und erweiterte OCR -->
+  <!-- NEUE FEATURES: Adaptive Bot-KI und erweiterte OCR -->
   <script src="feature-fallback.js?v=3.0" defer></script>
-  <!-- physics-engine.js — aktuell nicht aktiv genutzt -->
-  <!-- <script src="physics-engine.js"></script> -->
   <script src="src/bot/adaptive-bot.js?v=3.0" defer></script>
   <script src="src/vision/contextual-ocr.js?v=3.0" defer></script>
   <script src="src/vision/multi-score-detection.js?v=3.0" defer></script>
@@ -78,6 +76,8 @@
   <script src="src/storage/storage-manager.js?v=3.0"></script>
   <script src="src/data/shooter-challenges.js?v=1.0" defer></script>
   <script src="src/features/shooter-challenges-ui.js?v=1.0" defer></script>
+  <script src="src/features/quick-training.js?v=1.0" defer></script>
+  <script src="src/features/online-status.js?v=1.0" defer></script>
   <script src="performance-config.js"></script>
   <script src="src/bot/battle-balance.js" defer></script>
   <script src="src/testing/qa-test-suite.js" defer></script>
@@ -154,7 +154,7 @@
       <!-- Top row: profil left · logo center · spacer right -->
       <div class="hdr-top">
         <!-- <div id="hdrStreakMount"></div> -->
-        <div class="logo">SCHUSS<em>DUELL</em></div>
+        <div class="logo">SCHÜTZEN<em>CHALLENGE</em></div>
         <div class="schuetzenpass-icon" id="profileIcon" style="visibility:hidden;" onclick="toggleProfileMenu()">👤
         </div>
       </div>
@@ -297,6 +297,9 @@
 
       <!-- ══ DAILY MISSIONS ══ -->
       <div id="pdQuestsContainer" style="margin-bottom:24px;"></div>
+
+      <!-- ══ SCHNELLTRAINING (10-Schuss MVP, lokal, ohne Account) ══ -->
+      <div id="quickTrainingMount" style="margin-bottom:18px;"></div>
 
       <!-- ══ TRAININGS-CHALLENGES (Schützen) ══ -->
       <div id="shooterChallengesMount" style="margin-bottom:24px;"></div>
@@ -1433,7 +1436,7 @@
       <div class="share-card" id="shareCard">
         <div class="sc-brand">
           <span class="sc-brand-icon">🎯</span>
-          <span class="sc-brand-name">SCHUSS CHALLENGE</span>
+          <span class="sc-brand-name">SCHÜTZEN CHALLENGE</span>
         </div>
         <div class="sc-divider"></div>
         <div class="sc-result-emoji" id="scResultEmoji"></div>

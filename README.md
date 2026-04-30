@@ -2,35 +2,60 @@
 
 > Projektname (UI/Manifest): **Schützen Challenge** · Repository-Slug: `schuss-challenge`
 
-**Schützen Challenge** is a modern **Progressive Web App (PWA)** designed to help shooters train precision, consistency, and grouping — whether you're using air rifles, smallbore, pistol, or dry-fire practice.
+**Schützen Challenge** ist eine **Progressive Web App (PWA)** für Sportschützen
+(Luftgewehr, Kleinkaliber). Die App unterstützt Trainingsdokumentation,
+Trockenübungen, Auswertung und einen Bot-Duell-Modus („Schussduell").
 
-Take real shots on paper targets → take a photo with your phone → get scoring support, feedback, and coaching-style training hints.
+Status: **Beta**. Kerngedanke: lokal-zuerst, ohne Account nutzbar, Online-Features
+sind optional.
 
-No extra hardware. No subscriptions. Just your browser and a target.
+## ✨ Was funktioniert heute?
 
-## ✨ Key Features
+- **Schnelltraining (10 Schuss)** — Ringergebnisse manuell eintragen, Ø/Total/Tipp,
+  rein lokale Speicherung. Funktioniert ohne Login.
+- **Trainings-Challenges (Schützen)** — Dataset mit strukturierten Trockenübungen und
+  Live-Fire-Aufgaben inkl. Sicherheitsnotiz, Material und Erfolgskriterium.
+- **Schussduell-Modus** — Bot-Duell mit Disziplinen LG/KK in unterschiedlichen
+  Schwierigkeiten. Ergebnis kann manuell eingetragen werden.
+- **Lokale Statistiken** — XP, Streaks und Trainingshistorie werden im Browser
+  gespeichert.
+- **Optionale Online-Funktionen** — Supabase-Login, Freunde, Async-Challenges und
+  serverseitige Ranglisten. Wenn Server/Login fehlt, läuft das lokale Training
+  trotzdem weiter und ein Banner weist freundlich darauf hin.
+- **PWA / Offline** — Installierbar (Add to Home Screen). Service Worker liefert
+  bei Offline-Navigation eine `offline.html`-Fallback-Seite aus.
 
-- **Photo scoring support** — Upload or capture photos of your shot targets and use assisted scoring workflows
-- **Offline-first PWA** — Installable on phone/home screen and usable for many local training functions after first load
-- **Local progress tracking** — Stats, XP, achievements, best groups and training history can be stored in the browser
-- **Optional online account features** — Login, leaderboard and sync features use Supabase
-- **Advanced Target Preprocessing** — Built-in Moiré-reduction, adaptive thresholding and correction helpers for target/display images
-- **Adaptive Training Bot** — Difficulty and target size adjust automatically based on your performance
-- **Multiple Training Modes** — Standard groups, timed challenges, training drills and duel modes
-- **Haptic & Sound Feedback** — Vibration and audio cues on hit/miss, especially useful on mobile
-- **Mobile-optimized** — Touch controls, camera integration and responsive design
+## ⚠️ Was ist experimentell / Beta?
+
+- **Foto-Auswertung („Wettkampf-Foto vergleichen")** — *Experimentell.* Verwendet ein
+  on-device TensorFlow.js-Modell zur Klassifikation Monitor vs. Papier. Die
+  automatische Ringerkennung trifft nicht immer richtig — Ergebnisse müssen
+  manuell überprüft und ggf. korrigiert werden.
+- **Adaptiver Trainings-Bot** — Heuristisches Modell. Ergebnisbänder werden über
+  `npm run verify:balance` regelmäßig stichprobenartig geprüft.
+- **OCR / Multi-Score-Erkennung** — Beta. Beste Ergebnisse bei guter Beleuchtung
+  und scharfem Foto.
+
+Wir behaupten **nicht**, dass irgendeine KI in der App eine elektronische Trefferanlage
+ersetzt. Verbindliche Wertungen kommen weiterhin vom Verein/Wettkampfsystem.
 
 ## 🔒 Datenschutz & Online-Funktionen
 
-Schuss Challenge ist **offline-first** und speichert viele Trainingsdaten lokal im Browser. Trotzdem sind nicht alle Funktionen komplett offline oder lokal.
+Schützen Challenge ist **offline-first**. Viele Trainingsdaten bleiben im Browser
+des Geräts. Nur diese Funktionen benötigen Internet:
 
-Einige Funktionen benötigen Internet:
+- Login / Account (Supabase)
+- Server-Ranglisten / Sync (Supabase)
+- Freunde, Async-Challenges (Supabase)
 
-- **Login und Account-Funktionen** über Supabase
-- **Ranglisten / Sync** über Supabase
-- **Freunde / Challenges / Trainingsergebnisse** über Supabase
+Wenn Supabase oder das Worker-API gerade nicht erreichbar sind, läuft das
+**Schnelltraining**, die **Trainings-Challenges** und das **Schussduell** weiter — die
+App zeigt nur einen kleinen Banner: *„Online-Funktionen gerade nicht verfügbar.
+Lokales Training funktioniert weiter."*
 
-Die Foto- und OCR-Funktionen sollen ohne externe KI-API auskommen. Gemini/Google-KI ist nicht Bestandteil der aktuellen App-Konfiguration.
+Foto-Auswertung läuft on-device (TensorFlow.js-Modell). Es werden keine Bilder
+für die Auswertung an einen externen Dienst geschickt. Gemini/Google-KI ist
+nicht Bestandteil der aktuellen App-Konfiguration.
 
 ## 🚀 Quick Start
 
@@ -137,6 +162,11 @@ Im Frontend gehört **ausschließlich** der Supabase-Anon-Key. Der Service-Role-
 
 ## 🛠️ Bekannte offene Punkte
 
-- Markenname wird im Code teils noch als „Schussduell" geführt (Branding-Migration läuft).
-- `main.js.DEPRECATED`, `patch_*.cjs` sind Altlasten und nicht mehr Bestandteil des Build-Pfads.
+- „Schussduell" wird weiterhin **bewusst** als Bezeichnung für den Bot-Duell-Modus
+  verwendet (in Battle-/Game-Over-Screens). Der Markenname der App ist
+  „Schützen Challenge".
+- Foto-Auswertung ist Beta — manuelle Korrektur ist immer möglich und manchmal
+  nötig.
 - TensorFlow.js-Modell wird beim ersten Vision-Use lokal geladen; Auswertung läuft On-Device.
+- Die alten One-Shot-Dateien (`main.js.DEPRECATED`, `app-bugfixes.js`,
+  `patch_app_hooks.cjs`, `patch_dashboard.cjs`) wurden entfernt.
