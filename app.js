@@ -5773,7 +5773,7 @@ window.addEventListener('orientationchange', () => {
 // ── Service Worker (PWA / Offline) ──────────────────────────────────
 if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=3.5').then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=4.0').then(registration => {
       console.log('✅ Service Worker registriert');
 
       // Prüfe auf Updates

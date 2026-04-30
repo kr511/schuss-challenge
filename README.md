@@ -1,6 +1,8 @@
-# Schuss Challenge – Precision Shooting Trainer PWA
+# Schützen Challenge – Precision Shooting Trainer PWA
 
-**Schuss Challenge** is a modern **Progressive Web App (PWA)** designed to help shooters train precision, consistency, and grouping — whether you're using air rifles, smallbore, pistol, or dry-fire practice.
+> Projektname (UI/Manifest): **Schützen Challenge** · Repository-Slug: `schuss-challenge`
+
+**Schützen Challenge** is a modern **Progressive Web App (PWA)** designed to help shooters train precision, consistency, and grouping — whether you're using air rifles, smallbore, pistol, or dry-fire practice.
 
 Take real shots on paper targets → take a photo with your phone → get scoring support, feedback, and coaching-style training hints.
 
@@ -82,3 +84,43 @@ RPC-Aufrufe im Frontend entsprechen ebenfalls dem finalen Contract:
 
 - `rpc('touch_my_profile', { next_username })`
 - `rpc('accept_friend_request', { request_id })`
+
+## 🧪 Lokale Befehle
+
+```bash
+npm install                  # Abhängigkeiten installieren
+npm run dev                  # wrangler dev → http://localhost:8787
+npm run check:js             # Syntax-Check aller Frontend-Module
+npm run check:html           # HTML-Integrity (IDs, Script-Sources, Profil-Tabs)
+npm run verify:balance       # Balance-Sampling über Disziplin × Difficulty
+npm test                     # cleanup + check:js + check:html + Auth/Bridge-Tests + verify:balance
+```
+
+## 📱 PWA-Test (manuell)
+
+1. `npm run dev` starten und im Chrome-DevTools → **Application** Tab öffnen.
+2. **Manifest** prüfen: Name „Schützen Challenge", `display: standalone`, Icons 192/512.
+3. **Service Workers**: registrierter SW (`sw.js?v=4.0`) ist *activated and running*.
+4. Im **Network**-Tab Throttling auf „Offline" stellen und neu laden → es muss `offline.html` ausgeliefert werden.
+5. Im **Application → Storage**-Tab prüfen: Auth-Tokens **nicht** in `caches` (Service Worker cached `/api/`, Supabase und OAuth-Hosts NIE).
+6. Auf einem echten Smartphone (HTTPS-Deployment) den Add-to-Home-Screen-Prompt durchklicken → App muss als Standalone öffnen.
+
+## 🔐 Sicherheitshinweise
+
+- **Anon-Key** (in `supabase-client.js`) ist designt zum Veröffentlichen; **service-role** lebt **nur** als Cloudflare-Secret.
+- `ALLOW_INSECURE_DEV_AUTH=true` ist ausschließlich für `localhost` gedacht – Produktion benutzt JWT-Validierung.
+- Schreiboperationen auf `shooter_challenges` sind durch RLS auf Einträge in `public.app_admins` beschränkt.
+- Trainings-Challenges enthalten **immer** eine `safetyNote`. Live-Fire-Inhalte sind explizit ausgewiesen und gelten ausschließlich auf zugelassenen Schießständen mit Aufsicht laut Standordnung.
+
+## 📚 Schützen-Challenges (Trainingsdaten)
+
+Statisches Frontend-Dataset: [`src/data/shooter-challenges.js`](src/data/shooter-challenges.js).
+Persistenz-Schema (optional): [`supabase/migrations/0007_shooter_challenges.sql`](supabase/migrations/0007_shooter_challenges.sql).
+
+Felder pro Challenge: `id, title, description, category, difficulty, durationMinutes, safetyNote, requiredEquipment[], instructions[], scoringType, successCriteria, isDryFire, isLiveFire`.
+
+## 🛠️ Bekannte offene Punkte
+
+- Markenname wird im Code teils noch als „Schussduell" geführt (Branding-Migration läuft).
+- `main.js.DEPRECATED`, `patch_*.cjs` sind Altlasten und nicht mehr Bestandteil des Build-Pfads.
+- TensorFlow.js-Modell wird beim ersten Vision-Use lokal geladen; Auswertung läuft On-Device.

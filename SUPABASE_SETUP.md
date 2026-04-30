@@ -30,7 +30,13 @@ supabase/migrations/0003_social_rls.sql        ← Row Level Security Policies
 supabase/migrations/0004_social_rpc.sql        ← RPCs (accept_friend_request, touch_my_profile)
 supabase/migrations/0005_worker_api_tables.sql ← Worker-API-Tabellen (users, game_sessions, …)
 supabase/migrations/0006_social_remove_friend_rpc.sql ← remove_friend RPC
+supabase/migrations/0007_shooter_challenges.sql        ← Schützen-Trainings-Challenges + RLS
 ```
+
+> Die Schützen-Challenges (Trainingsaufgaben) liegen statisch im Frontend
+> (`src/data/shooter-challenges.js`) und können optional in `public.shooter_challenges`
+> gespiegelt werden. Schreibrechte hat ausschließlich, wer in `public.app_admins`
+> als Admin geführt ist (per Service-Role-Key gepflegt).
 
 **Alternativ (all-in-one für Social):**  
 `supabase/schema-social.sql` enthält alles aus 0001-0004 + RPCs in einer Datei.  
