@@ -1,24 +1,42 @@
 {
-  "name": "Schussduell",
-  "short_name": "Schussduell",
-  "description": "Sportschützen-Duell: Schieß gegen den Bot!",
+  "name": "Schützen Challenge",
+  "short_name": "Schützen",
+  "description": "Trainings- und Challenge-PWA für Sportschützen (Luftgewehr & Kleinkaliber). Übungen, Sicherheit, Auswertung.",
+  "lang": "de-DE",
+  "dir": "ltr",
   "start_url": "./index.html",
+  "scope": "./",
+  "id": "/schuss-challenge/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "background_color": "#0a1a06",
   "theme_color": "#7ab030",
   "orientation": "portrait",
+  "categories": ["sports", "education", "lifestyle"],
   "icons": [
     {
       "src": "icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -6,8 +6,13 @@
  * reads window.SupabaseAuth.
  */
 (function () {
-  const SUPABASE_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0.pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg';
+  // Public Supabase config. Anon-Key ist designt zum Veröffentlichen
+  // (siehe Supabase docs), aber Deployments können beides via
+  // window.__SUPABASE_CONFIG__ überschreiben (z. B. injected vor dem Script).
+  // Die Service-Role darf NIEMALS hier landen – sie lebt nur im Worker-Secret.
+  const RUNTIME_CFG = (typeof window !== 'undefined' && window.__SUPABASE_CONFIG__) || {};
+  const SUPABASE_URL = RUNTIME_CFG.url || 'https://fknftkvozwfkcarldzms.supabase.co';
+  const SUPABASE_ANON = RUNTIME_CFG.anonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0.pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg';
 
   let fallbackClient = null;
   let session = window.SupabaseSession || null;
