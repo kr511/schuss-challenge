@@ -106,7 +106,7 @@ window.ImageCompare = (function () {
     const link = document.createElement('link');
     link.id = CSS_ID;
     link.rel = 'stylesheet';
-    link.href = 'image-compare.css';
+    link.href = 'image-compare.css?v=1.1';
     document.head.appendChild(link);
   }
 
@@ -2129,6 +2129,8 @@ window.ImageCompare = (function () {
     const scoreInput = overlay.querySelector('#icScoreInput');
     const compareBtn = overlay.querySelector('#icCompareBtn');
     const rawText = overlay.querySelector('#icRawText');
+    const btnWrong = overlay.querySelector('#icBtnWrong');
+    const editScoreBlock = overlay.querySelector('#icEditScoreBlock');
 
     if (!resultCard || !scoreInput || !compareBtn) return;
 
@@ -2143,17 +2145,21 @@ window.ImageCompare = (function () {
       if (detectedValue) detectedValue.textContent = displayValue;
       if (detectedLabel) {
         const conf = Math.round((parsed.bestMatch.confidence || 0) * 100);
-        detectedLabel.textContent = 'Erkannt (' + conf + '% Konfidenz)';
+        detectedLabel.textContent = 'Beta-Erkennung (' + conf + '%) - bitte manuell prüfen';
       }
 
       scoreInput.value = displayValue;
       compareBtn.disabled = false;
       overlay.dataset.detectedScore = displayValue;
+      if (btnWrong) btnWrong.style.display = 'block';
+      if (editScoreBlock) editScoreBlock.style.display = 'none';
     } else {
       if (detectedValue) detectedValue.textContent = '?';
       if (detectedLabel) detectedLabel.textContent = 'Keine Punktzahl erkannt - bitte manuell eingeben';
       scoreInput.value = '';
       compareBtn.disabled = true;
+      if (btnWrong) btnWrong.style.display = 'none';
+      if (editScoreBlock) editScoreBlock.style.display = 'block';
       scoreInput.focus();
       delete overlay.dataset.detectedScore;
     }
@@ -2295,7 +2301,7 @@ window.ImageCompare = (function () {
 
       const btn = document.createElement('button');
       btn.className = 'ic-go-upload-btn';
-      btn.innerHTML = '<span class="ic-go-upload-ico">📷</span> Foto schiessen';
+      btn.innerHTML = '<span class="ic-go-upload-ico">📷</span> Foto auswerten (Beta)';
       btn.addEventListener('click', () => {
         this.open(botScore, isKK, discipline);
       });

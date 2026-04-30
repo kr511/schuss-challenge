@@ -20,14 +20,17 @@
   'use strict';
 
   const MOUNT_ID = 'shooterChallengesMount';
+  const LOCAL_STORAGE_KEY = 'sd_shooter_challenge_completions';
   const STORAGE_KEY = 'shooter_challenge_completions';
-  const STORAGE_KEY_PENDING = 'shooter_challenge_pending_sync';
   const SUPABASE_TABLE = 'challenge_completions';
+  const LIVE_FIRE_WARNING = 'Nur auf zugelassenem Schießstand nach Standordnung und ggf. mit Aufsicht durchführen.';
+  const DRY_FIRE_WARNING = 'Waffe entladen, Magazin/Patronenlager kontrollieren, keine Munition im Übungsbereich.';
   const STATE = {
     filter: 'all',
     expandedId: null,
     busyId: null,
     initialized: false,
+    sessionCompletions: [],
   };
 
   function escHtml(input) {
@@ -44,7 +47,19 @@
   }
 
   function getStorage() {
-    return (typeof window !== 'undefined' && window.StorageManager) || null;
+    if (typeof StorageManager !== 'undefined'
+      && StorageManager
+      && typeof StorageManager.get === 'function'
+      && typeof StorageManager.set === 'function') {
+      return StorageManager;
+    }
+    if (typeof window !== 'undefined'
+      && window.StorageManager
+      && typeof window.StorageManager.get === 'function'
+      && typeof window.StorageManager.set === 'function') {
+      return window.StorageManager;
+    }
+    return null;
   }
 
   function getSupabaseSession() {
@@ -66,16 +81,31 @@
 
   function readLocalCompletions() {
     const sm = getStorage();
-    if (!sm) return [];
-    const raw = sm.get(STORAGE_KEY, []);
-    if (!Array.isArray(raw)) return [];
-    return raw;
+    try {
+      if (sm) {
+        const raw = sm.get(STORAGE_KEY, []);
+        return Array.isArray(raw) ? raw : [];
+      }
+      const raw = window.localStorage && window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      console.warn('[ShooterChallenges] Lokale Abschlüsse konnten nicht gelesen werden:', err);
+      return [];
+    }
   }
 
   function writeLocalCompletions(list) {
     const sm = getStorage();
-    if (!sm) return false;
-    return sm.set(STORAGE_KEY, list);
+    try {
+      if (sm) return sm.set(STORAGE_KEY, list) === true;
+      if (!window.localStorage) return false;
+      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(list));
+      return true;
+    } catch (err) {
+      console.warn('[ShooterChallenges] Lokale Abschlüsse konnten nicht gespeichert werden:', err);
+      return false;
+    }
   }
 
   function todayKey() {
@@ -86,9 +116,25 @@
     return `${y}-${m}-${day}`;
   }
 
+  function todayRangeIso() {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return { start: start.toISOString(), end: end.toISOString() };
+  }
+
+  function isSameLocalDay(value, reference = new Date()) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return false;
+    return d.getFullYear() === reference.getFullYear()
+      && d.getMonth() === reference.getMonth()
+      && d.getDate() === reference.getDate();
+  }
+
   function getCompletionMap() {
     const map = new Map();
-    for (const entry of readLocalCompletions()) {
+    for (const entry of readLocalCompletions().concat(STATE.sessionCompletions)) {
       if (!entry || !entry.challenge_id) continue;
       map.set(entry.challenge_id, entry);
     }
@@ -120,12 +166,26 @@
       synced: !!(extras && extras.synced),
     };
     // Bei mehrfachen Abschlüssen heute überschreiben statt duplizieren.
-    const today = todayKey();
     const filtered = list.filter((e) => !(e.challenge_id === challenge.id
       && typeof e.completed_at === 'string'
-      && e.completed_at.startsWith(today)));
+      && isSameLocalDay(e.completed_at)));
     filtered.push(entry);
-    writeLocalCompletions(filtered);
+    return writeLocalCompletions(filtered) ? entry : null;
+  }
+
+  function rememberSessionCompletion(challenge, synced) {
+    const entry = {
+      challenge_id: challenge.id,
+      category: challenge.category,
+      is_dry_fire: !!challenge.isDryFire,
+      is_live_fire: !!challenge.isLiveFire,
+      completed_at: new Date().toISOString(),
+      synced: !!synced,
+    };
+    STATE.sessionCompletions = STATE.sessionCompletions.filter((e) => !(e.challenge_id === challenge.id
+      && typeof e.completed_at === 'string'
+      && isSameLocalDay(e.completed_at)));
+    STATE.sessionCompletions.push(entry);
     return entry;
   }
 
@@ -142,12 +202,37 @@
         score: extras && Number.isFinite(extras.score) ? extras.score : null,
         notes: extras && extras.notes ? String(extras.notes).slice(0, 500) : null,
       };
+      const range = todayRangeIso();
+      const existingRes = await client
+        .from(SUPABASE_TABLE)
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('challenge_id', challenge.id)
+        .gte('completed_at', range.start)
+        .lt('completed_at', range.end)
+        .order('completed_at', { ascending: false });
+      if (existingRes && existingRes.error) {
+        return { ok: false, reason: 'select-error', error: existingRes.error };
+      }
+      const existing = Array.isArray(existingRes && existingRes.data) ? existingRes.data : [];
+      if (existing.length > 0 && existing[0] && existing[0].id) {
+        const { error } = await client
+          .from(SUPABASE_TABLE)
+          .update(payload)
+          .eq('id', existing[0].id);
+        if (error) return { ok: false, reason: 'update-error', error };
+        const duplicateIds = existing.slice(1).map((row) => row && row.id).filter(Boolean);
+        if (duplicateIds.length && typeof client.from(SUPABASE_TABLE).delete === 'function') {
+          client.from(SUPABASE_TABLE).delete().in('id', duplicateIds).then(() => {}, () => {});
+        }
+        return { ok: true, mode: 'updated' };
+      }
       const { error } = await client.from(SUPABASE_TABLE).insert(payload);
       if (error) {
         // FK-Verletzung (Tabelle existiert noch nicht / Challenge nicht synced) sauber behandeln.
         return { ok: false, reason: 'rpc-error', error };
       }
-      return { ok: true };
+      return { ok: true, mode: 'inserted' };
     } catch (err) {
       return { ok: false, reason: 'exception', error: err };
     }
@@ -181,11 +266,11 @@
     return list;
   }
 
-  function renderEmptyState(host) {
+  function renderEmptyState(host, reason) {
     host.innerHTML = `
       <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:18px;color:rgba(255,255,255,0.65);font-size:0.85rem;line-height:1.45;">
         <div style="font-weight:700;color:#b4dc78;margin-bottom:6px;">🎯 Trainings-Challenges</div>
-        <div>Noch keine Trainings-Challenges geladen. Bitte Seite neu laden.</div>
+        <div>${escHtml(reason || 'Trainings-Challenges werden gerade geladen. Lokales Training funktioniert weiter.')}</div>
       </div>`;
   }
 
@@ -209,12 +294,13 @@
       ? `<span style="background:rgba(240,80,80,0.18);color:#ffb4b4;border:1px solid rgba(240,80,80,0.45);border-radius:999px;padding:3px 9px;font-size:0.66rem;font-weight:700;letter-spacing:0.04em;">🔴 LIVE-FIRE</span>`
       : `<span style="background:rgba(0,195,255,0.15);color:#9bdcff;border:1px solid rgba(0,195,255,0.45);border-radius:999px;padding:3px 9px;font-size:0.66rem;font-weight:700;letter-spacing:0.04em;">🟦 TROCKENÜBUNG</span>`;
 
+    const safetyText = c.isLiveFire ? LIVE_FIRE_WARNING : DRY_FIRE_WARNING;
     const fireWarning = c.isLiveFire
       ? `<div style="background:rgba(240,80,80,0.08);border:1px solid rgba(240,80,80,0.4);border-radius:10px;padding:10px 12px;color:#ffd1d1;font-size:0.78rem;line-height:1.45;margin-top:8px;">
-          ⚠️ <strong>Nur auf zugelassenem Schießstand</strong> nach Standordnung und ggf. mit Aufsicht durchführen.
+          <strong>Live-Fire:</strong> ${escHtml(LIVE_FIRE_WARNING)}
         </div>`
       : `<div style="background:rgba(0,195,255,0.06);border:1px solid rgba(0,195,255,0.3);border-radius:10px;padding:10px 12px;color:#cdebff;font-size:0.78rem;line-height:1.45;margin-top:8px;">
-          🛡️ <strong>Trockenübung:</strong> keine Munition, Patronenlager und Magazin vorher prüfen.
+          <strong>Trockenübung:</strong> ${escHtml(DRY_FIRE_WARNING)}
         </div>`;
 
     const equip = (Array.isArray(c.requiredEquipment) ? c.requiredEquipment : [])
@@ -227,7 +313,7 @@
       ? '⏳ Speichere…'
       : completedToday
         ? '✅ Heute erledigt – nochmal markieren'
-        : '✓ Challenge abschließen';
+        : 'Challenge abschließen';
 
     const completionStyle = completedToday
       ? 'background:rgba(122,176,48,0.18);color:#b4dc78;border:1px solid rgba(122,176,48,0.55);'
@@ -244,14 +330,6 @@
         <div style="margin-top:10px;color:rgba(255,255,255,0.85);font-size:0.78rem;">
           <strong style="color:#fff;">Erfolgskriterium:</strong> ${escHtml(c.successCriteria || '')}
         </div>
-        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-          <button type="button" data-sc-complete="${escHtml(c.id)}"
-            ${busy ? 'disabled' : ''}
-            style="${completionStyle};border-radius:12px;padding:11px 14px;font-weight:700;font-size:0.85rem;cursor:${busy ? 'wait' : 'pointer'};flex:1;min-height:44px;">
-            ${completionLabel}
-          </button>
-        </div>
-        <div data-sc-msg="${escHtml(c.id)}" style="margin-top:8px;font-size:0.78rem;color:rgba(255,255,255,0.7);min-height:1em;"></div>
       </div>`;
 
     return `
@@ -268,6 +346,9 @@
             </div>
             <h3 style="margin:0 0 4px;font-size:0.98rem;color:#fff;font-weight:700;">${escHtml(c.title)}</h3>
             <p style="margin:0;color:rgba(255,255,255,0.7);font-size:0.82rem;line-height:1.4;">${escHtml(c.description)}</p>
+            <div style="margin-top:8px;background:${c.isLiveFire ? 'rgba(240,80,80,0.08)' : 'rgba(0,195,255,0.06)'};border:1px solid ${c.isLiveFire ? 'rgba(240,80,80,0.35)' : 'rgba(0,195,255,0.28)'};border-radius:10px;padding:8px 10px;color:${c.isLiveFire ? '#ffd1d1' : '#cdebff'};font-size:0.76rem;line-height:1.4;">
+              ${escHtml(safetyText)}
+            </div>
           </div>
           <button type="button" data-sc-toggle="${escHtml(c.id)}" aria-expanded="${expanded ? 'true' : 'false'}"
             style="flex-shrink:0;background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;justify-content:center;">
@@ -275,25 +356,53 @@
           </button>
         </div>
         ${detail}
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button type="button" data-sc-complete="${escHtml(c.id)}"
+            ${busy ? 'disabled' : ''}
+            style="${completionStyle};border-radius:12px;padding:11px 14px;font-weight:700;font-size:0.85rem;cursor:${busy ? 'wait' : 'pointer'};flex:1;min-height:44px;">
+            ${completionLabel}
+          </button>
+        </div>
+        <div data-sc-msg="${escHtml(c.id)}" style="margin-top:8px;font-size:0.78rem;color:rgba(255,255,255,0.7);min-height:1em;"></div>
       </article>`;
   }
 
   function render() {
     const host = document.getElementById(MOUNT_ID);
     if (!host) return;
-    const api = window.ShooterChallenges;
-    if (!api || typeof api.getAll !== 'function') {
-      renderEmptyState(host);
+    let api;
+    let all;
+    try {
+      api = window.ShooterChallenges;
+      if (!api || typeof api.getAll !== 'function') {
+        renderEmptyState(host, 'Trainings-Challenges werden geladen. Bitte kurz warten.');
+        return;
+      }
+      all = api.getAll();
+    } catch (err) {
+      console.warn('[ShooterChallenges] window.ShooterChallenges.getAll() fehlgeschlagen:', err);
+      renderEmptyState(host, 'Trainings-Challenges konnten nicht geladen werden. Bitte Seite neu laden.');
       return;
     }
-    const all = api.getAll();
     if (!Array.isArray(all) || all.length === 0) {
-      renderEmptyState(host);
+      renderEmptyState(host, 'Noch keine Trainings-Challenges verfügbar.');
       return;
     }
-    const filtered = applyFilter(all, STATE.filter);
-    const completed = getCompletionMap();
-    const cards = filtered.map((c) => renderCard(c, completed)).join('');
+    let cards = '';
+    let filtered = [];
+    let completed = new Map();
+    try {
+      filtered = applyFilter(all, STATE.filter);
+      if (filtered.length && !filtered.some((c) => c.id === STATE.expandedId)) {
+        STATE.expandedId = filtered[0].id;
+      }
+      completed = getCompletionMap();
+      cards = filtered.map((c) => renderCard(c, completed)).join('');
+    } catch (err) {
+      console.warn('[ShooterChallenges] render() fehlgeschlagen:', err);
+      renderEmptyState(host, 'Trainings-Challenges konnten nicht dargestellt werden. Lokales Training bleibt verfügbar.');
+      return;
+    }
 
     host.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
@@ -378,7 +487,9 @@
       const remote = await tryRemoteSave(challenge, {});
       if (remote.ok) {
         onlineSaved = true;
-        recordLocalCompletion(challenge, { synced: true });
+        if (!recordLocalCompletion(challenge, { synced: true })) {
+          rememberSessionCompletion(challenge, true);
+        }
         stored = true;
         userMessage = '✅ Abschluss online gespeichert.';
       } else {
@@ -431,6 +542,7 @@
 
     // Erst-Render
     render();
+    scheduleRenderRetries();
 
     // Re-Render, wenn Setup-Screen wieder sichtbar wird (z. B. nach Duell).
     document.addEventListener('visibilitychange', () => {
@@ -439,6 +551,27 @@
 
     // Bei Login/Logout neu rendern, damit Online/Offline-Hinweise stimmen.
     window.addEventListener('supabaseReady', () => render());
+    window.addEventListener('featureReady', (event) => {
+      if (event && event.detail && event.detail.name === 'shooterChallenges') render();
+    });
+  }
+
+  function scheduleRenderRetries() {
+    [250, 750, 1500, 3000].forEach((delay) => {
+      window.setTimeout(() => {
+        try {
+          const host = document.getElementById(MOUNT_ID);
+          const apiReady = !!(window.ShooterChallenges && typeof window.ShooterChallenges.getAll === 'function');
+          const uiReady = !!(window.ShooterChallengesUI && typeof window.ShooterChallengesUI.render === 'function');
+          if (host && apiReady && uiReady) render();
+          else if (host && !apiReady) renderEmptyState(host, 'Trainings-Challenges werden geladen. Bitte kurz warten.');
+        } catch (err) {
+          const host = document.getElementById(MOUNT_ID);
+          if (host) renderEmptyState(host, 'Trainings-Challenges konnten nicht dargestellt werden.');
+          console.warn('[ShooterChallenges] Retry fehlgeschlagen:', err);
+        }
+      }, delay);
+    });
   }
 
   function bootstrap() {

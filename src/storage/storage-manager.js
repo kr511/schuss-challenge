@@ -122,3 +122,8 @@ const StorageManager = (function () {
 
   return { get, set, getRaw, setRaw, remove, keys, clearAll, PREFIX };
 })();
+
+if (typeof window !== 'undefined'
+  && (!window.StorageManager || typeof window.StorageManager.get !== 'function')) {
+  window.StorageManager = StorageManager;
+}

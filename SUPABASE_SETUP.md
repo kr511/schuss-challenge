@@ -1,4 +1,4 @@
-# Supabase Setup – Schussduell
+# Supabase Setup – Schützen Challenge
 
 Vollständige Anleitung zur Einrichtung der Supabase-Integration.
 
@@ -131,17 +131,13 @@ npx tsx test_api_direct.mjs       # Worker-API-Tests (benötigt .dev.vars)
 
 ## 6. Frontend-Konfiguration
 
-Die folgenden Werte sind im Frontend hardcoded und müssen bei Projekt-Wechsel angepasst werden:
+Zentrale Quelle ist `supabase-config.js`. `auth-gate.js` und `supabase-client.js`
+bevorzugen `window.SCHUETZEN_CHALLENGE_CONFIG`, danach Meta-Tags,
+`import.meta.env` und zuletzt die bewusst gesetzten öffentlichen Defaults.
 
-**`supabase-client.js`** (Zeile 5-6):
-```javascript
-var SUPABASE_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
-var SUPABASE_ANON = 'eyJhbGciOiJIUzI1...'; // Anon Key (öffentlich, sicher)
-```
-
-**`auth-gate.js`** (Zeile 6-10): Gleicher Anon Key (aufgeteilt zur Lesbarkeit)
-
-Der `anon` Key ist intentionell öffentlich – er ist auf die RLS-Policies beschränkt.
+Im Frontend stehen ausschließlich Supabase URL und Anon Key. Der `anon` Key ist
+intentionell öffentlich und wird über RLS-Policies beschränkt. Der
+Service-Role-Key darf niemals in Frontend-Dateien landen.
 
 ---
 
