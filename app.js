@@ -1927,7 +1927,7 @@ const HealthyEngagement = (function () {
     showEngagementToast('Willkommen zurück! Eine kurze Session reicht heute schon für Fortschritt.');
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification('🎯 Schussduell erinnert dich', {
+        new Notification('🎯 Schützen Challenge erinnert dich', {
           body: 'Deine Rookie-Woche und Tagesmission warten auf dich.',
           tag: 'sd-gentle-reminder'
         });
@@ -4718,7 +4718,7 @@ function goToEntry() {
     icSlot.innerHTML = '';
     const btn = document.createElement('button');
     btn.className = 'ic-go-upload-btn';
-    btn.innerHTML = '<span class="ic-go-upload-ico">📸</span> Wettkampf-Foto vergleichen';
+    btn.innerHTML = '<span class="ic-go-upload-ico">📸</span> Wettkampf-Foto vergleichen (Beta)';
     btn.onclick = () => {
       if (typeof ImageCompare !== 'undefined') {
         // NEU: Multi-Score Detection aktivieren, falls verfügbar
@@ -4840,7 +4840,7 @@ function quickResult(res) {
     icSlot.innerHTML = '';
     const btn = document.createElement('button');
     btn.className = 'ic-go-upload-btn';
-    btn.innerHTML = '<span class="ic-go-upload-ico">📸</span> Wettkampf-Foto vergleichen';
+    btn.innerHTML = '<span class="ic-go-upload-ico">📸</span> Wettkampf-Foto vergleichen (Beta)';
     btn.onclick = () => {
       if (typeof ImageCompare !== 'undefined') {
         if (typeof MultiScoreDetection !== 'undefined' && MultiScoreDetection.CONFIG.enableRegionDetection) {
@@ -5354,20 +5354,20 @@ window.shareTarget = async function () {
   try {
     // Blob aus Canvas erstellen
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    const file = new File([blob], 'mein-schussduell-ergebnis.png', { type: 'image/png' });
+    const file = new File([blob], 'mein-schuetzen-challenge-duell-ergebnis.png', { type: 'image/png' });
 
     // Prüfen ob Web Share API unterstützt wird und Dateien teilen kann
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       await navigator.share({
         files: [file],
-        title: 'Mein Schussduell Ergebnis',
-        text: `Ich habe gerade ein Duell im Schussduell absolviert! Mein Ergebnis: ${G.playerShots.length > 0 ? G.playerShots.reduce((a, b) => a + b.pts, 0).toFixed(1) : '–'}`
+        title: 'Mein Duell-Ergebnis · Schützen Challenge',
+        text: `Schützen Challenge – mein Duell-Ergebnis: ${G.playerShots.length > 0 ? G.playerShots.reduce((a, b) => a + b.pts, 0).toFixed(1) : '–'}`
       });
     } else {
       // Fallback: Bild herunterladen
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png');
-      link.download = 'schussduell-ergebnis.png';
+      link.download = 'schuetzen-challenge-duell-ergebnis.png';
       link.click();
       showEngagementToast('Teilen nicht unterstützt – Bild wurde heruntergeladen.');
     }
@@ -5422,7 +5422,7 @@ function closeShareCard(e) {
 function getShareText() {
   const d = _lastShareData;
   if (!d) return null;
-  return `🎯 Schuss Challenge\n` +
+  return `🎯 Schützen Challenge\n` +
     `${d.emoji} ${d.title}\n\n` +
     `👧 Ich: ${d.playerPts} vs 🤖 ${d.diffLabel}: ${d.botPts}\n` +
     `${d.margin}\n` +
@@ -5439,7 +5439,7 @@ async function doShare() {
 
   if (navigator.share) {
     try {
-      await navigator.share({ title: '🎯 Schuss Challenge', text, url });
+      await navigator.share({ title: '🎯 Schützen Challenge', text, url });
       // Share-Erfolg tracken
       try {
         const stats = JSON.parse(localStorage.getItem('sd_shares') || '{}');
@@ -5773,7 +5773,7 @@ window.addEventListener('orientationchange', () => {
 // ── Service Worker (PWA / Offline) ──────────────────────────────────
 if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=4.0').then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=4.1').then(registration => {
       console.log('✅ Service Worker registriert');
 
       // Prüfe auf Updates

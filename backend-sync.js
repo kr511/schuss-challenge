@@ -49,6 +49,14 @@
         }
         if (!res.ok) throw new Error('HTTP ' + res.status);
         return res.json();
+      })
+      .catch(function (err) {
+        try {
+          window.dispatchEvent(new CustomEvent('schuetzen:online-warning', {
+            detail: { reason: 'Online-Sync gerade nicht erreichbar. Lokales Training funktioniert weiter.' }
+          }));
+        } catch (_e) { /* noop */ }
+        throw err;
       });
   }
 

@@ -11,9 +11,49 @@
     'eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0',
     'pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg'
   ].join('.');
-  var __cfg = (typeof window !== 'undefined' && window.SCHUETZEN_CHALLENGE_CONFIG) || null;
-  var SUPABASE_URL = (__cfg && __cfg.SUPABASE_URL) || FALLBACK_URL;
-  var SUPABASE_ANON = (__cfg && __cfg.SUPABASE_ANON_KEY) || FALLBACK_ANON;
+
+  function readMetaConfig(name) {
+    try {
+      var el = document.querySelector('meta[name="' + name + '"]');
+      return el ? String(el.getAttribute('content') || '').trim() : '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function readImportMetaConfig() {
+    try {
+      // eslint-disable-next-line no-new-func
+      var fn = new Function('try { return import.meta && import.meta.env || null; } catch (_e) { return null; }');
+      var env = fn();
+      if (!env) return null;
+      var url = String(env.VITE_SUPABASE_URL || '').trim();
+      var anon = String(env.VITE_SUPABASE_ANON_KEY || '').trim();
+      return url && anon ? { url: url, anon: anon, source: 'import.meta.env' } : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function readRuntimeConfig() {
+    var cfg = (typeof window !== 'undefined' && window.SCHUETZEN_CHALLENGE_CONFIG) || null;
+    if (cfg && cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY) {
+      return { url: cfg.SUPABASE_URL, anon: cfg.SUPABASE_ANON_KEY, source: 'window.SCHUETZEN_CHALLENGE_CONFIG' };
+    }
+    var metaUrl = readMetaConfig('supabase-url');
+    var metaAnon = readMetaConfig('supabase-anon-key');
+    if (metaUrl && metaAnon) return { url: metaUrl, anon: metaAnon, source: 'meta' };
+    var env = readImportMetaConfig();
+    if (env) return env;
+    return { url: FALLBACK_URL, anon: FALLBACK_ANON, source: 'fallback' };
+  }
+
+  var __cfg = readRuntimeConfig();
+  var SUPABASE_URL = __cfg.url;
+  var SUPABASE_ANON = __cfg.anon;
+  if (__cfg.source === 'fallback' && typeof console !== 'undefined' && console.warn) {
+    console.warn('[AuthGate] Keine Supabase-Config gefunden. Nutze öffentliche Defaults; lokaler Modus bleibt verfügbar.');
+  }
 
   var LOCAL_KEYS = ['sd_local_play', 'sd_local_mode'];
   var client = null;
@@ -181,7 +221,7 @@
     if ($('authGate')) { gateEl = $('authGate'); return; }
     gateEl = document.createElement('div');
     gateEl.id = 'authGate';
-    gateEl.innerHTML = '<div class="ag-card"><div class="ag-logo">🎯</div><div class="ag-title">SCHUSSDUELL</div><div class="ag-sub">Einmal anmelden oder lokal spielen.</div><div id="agSpinner" class="ag-spinner">⏳ Prüfe Anmeldung…</div><div id="agForm" class="ag-form"><div class="ag-tabs"><button class="ag-tab active" id="agTabSignin" type="button" onclick="__agSetMode(\'signin\')">Anmelden</button><button class="ag-tab" id="agTabSignup" type="button" onclick="__agSetMode(\'signup\')">Registrieren</button></div><div id="agError" class="ag-error"></div><div id="agInfo" class="ag-info"></div><label class="ag-label" for="agEmail">E-Mail-Adresse</label><input id="agEmail" class="ag-input" type="email" placeholder="name@example.com" autocomplete="email"><label class="ag-label" for="agPassword">Passwort</label><input id="agPassword" class="ag-input" type="password" placeholder="Mindestens 6 Zeichen" autocomplete="current-password"><button id="agSubmit" class="ag-btn" type="button" onclick="__agSubmit()">Anmelden</button><div class="ag-divider">oder</div><button id="agGoogle" class="ag-google" type="button" onclick="__agGoogle()">G&nbsp; Mit Google anmelden</button><button id="agLocal" class="ag-local" type="button" onclick="__agLocal()">👤 Ohne Anmeldung spielen</button><div class="ag-hint">Nach dem ersten Start wird diese Auswahl auf diesem Gerät gemerkt.</div></div></div>';
+    gateEl.innerHTML = '<div class="ag-card"><div class="ag-logo">🎯</div><div class="ag-title">SCHÜTZEN CHALLENGE</div><div class="ag-sub">Anmelden oder ohne Account lokal trainieren.</div><div id="agSpinner" class="ag-spinner">⏳ Prüfe Anmeldung…</div><div id="agForm" class="ag-form"><div class="ag-tabs"><button class="ag-tab active" id="agTabSignin" type="button" onclick="__agSetMode(\'signin\')">Anmelden</button><button class="ag-tab" id="agTabSignup" type="button" onclick="__agSetMode(\'signup\')">Registrieren</button></div><div id="agError" class="ag-error"></div><div id="agInfo" class="ag-info"></div><label class="ag-label" for="agEmail">E-Mail-Adresse</label><input id="agEmail" class="ag-input" type="email" placeholder="name@example.com" autocomplete="email"><label class="ag-label" for="agPassword">Passwort</label><input id="agPassword" class="ag-input" type="password" placeholder="Mindestens 6 Zeichen" autocomplete="current-password"><button id="agSubmit" class="ag-btn" type="button" onclick="__agSubmit()">Anmelden</button><div class="ag-divider">oder</div><button id="agGoogle" class="ag-google" type="button" onclick="__agGoogle()">G&nbsp; Mit Google anmelden</button><button id="agLocal" class="ag-local" type="button" onclick="__agLocal()">👤 Ohne Anmeldung spielen</button><div class="ag-hint">Nach dem ersten Start wird diese Auswahl auf diesem Gerät gemerkt.</div></div></div>';
     document.body.insertBefore(gateEl, document.body.firstChild);
     var onKey = function (ev) { if (ev.key === 'Enter') window.__agSubmit(); };
     $('agEmail') && $('agEmail').addEventListener('keydown', onKey);
