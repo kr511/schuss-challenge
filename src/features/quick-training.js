@@ -22,6 +22,7 @@
     expandedHistory: false,
     pendingFlushTried: false,
     syncingLocalId: null,
+    saving: false,
   };
 
   function escHtml(input) {
@@ -30,7 +31,7 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+      .replace(/\"/g, '&quot;')
       .replace(/'/g, '&#39;')
       .replace(/`/g, '&#96;')
       .replace(/\//g, '&#47;');
@@ -190,6 +191,15 @@
 
   function disciplineToRemote(d) {
     return d === 'kk' ? 'kk50' : 'lg40';
+  }
+
+  function setSavingUi(host, saving) {
+    const btn = host && host.querySelector('[data-qt-action="evaluate"]');
+    if (!btn) return;
+    btn.disabled = !!saving;
+    btn.style.opacity = saving ? '0.72' : '1';
+    btn.style.cursor = saving ? 'wait' : 'pointer';
+    btn.textContent = saving ? 'Speichere…' : 'Auswerten und speichern';
   }
 
   // TODO: Wenn `local_id` als echte Spalte in `training_results` ergaenzt wird
@@ -445,56 +455,68 @@
   async function onEvaluate(host) {
     const result = host.querySelector('[data-qt-result]');
     if (!result) return;
-    const { values, badInputs } = readShotsFromInputs(host);
-    if (badInputs > 0) {
-      result.innerHTML = `<div style="color:#ffb4b4;">${badInputs} Eingabe(n) sind ungueltig. Erlaubt sind Werte von 0.0 bis 10.9 mit maximal einer Nachkommastelle.</div>`;
+    if (STATE.saving) {
+      result.innerHTML = '<div style="color:#ffe7a3;">Speichern läuft bereits. Bitte kurz warten.</div>';
       return;
     }
-    const stats = computeStats(values);
-    if (stats.missing > 0) {
-      result.innerHTML = '<div style="color:#ffe7a3;">Bitte alle 10 Schuesse eintragen, bevor du speicherst.</div>';
-      return;
-    }
-
-    const entry = {
-      local_id: newLocalId(),
-      completed_at: new Date().toISOString(),
-      discipline: STATE.discipline,
-      shots: values,
-      total: stats.total,
-      avg: stats.avg,
-      best: stats.best,
-      worst: stats.worst,
-      count: stats.count,
-      syncStatus: 'local',
-      remote_session_id: null,
-    };
-    const history = readHistory();
-    history.push(entry);
-    const savedLocal = writeHistory(history);
-
-    renderResultBlock(host, entry, stats, savedLocal);
-    refreshHistoryDom(host);
-
+    STATE.saving = true;
+    setSavingUi(host, true);
     try {
-      window.dispatchEvent(new CustomEvent('quickTrainingSaved', { detail: { entry, saved: savedLocal } }));
-    } catch (_e) { /* noop */ }
-
-    if (!savedLocal) return;
-
-    const supabase = getSupabase();
-    const userId = getUserId();
-    if (supabase && userId) {
-      STATE.syncingLocalId = entry.local_id;
-      refreshResultStatus(host, entry, stats, savedLocal);
-      const ok = await trySupabaseSync(entry);
-      STATE.syncingLocalId = null;
-      const refreshed = readHistory().find((e) => e.local_id === entry.local_id) || entry;
-      refreshResultStatus(host, refreshed, stats, savedLocal);
-      refreshHistoryDom(host);
-      if (!ok) {
-        // bleibt pending - keine weitere Aktion in dieser Session.
+      const { values, badInputs } = readShotsFromInputs(host);
+      if (badInputs > 0) {
+        result.innerHTML = `<div style="color:#ffb4b4;">${badInputs} Eingabe(n) sind ungueltig. Erlaubt sind Werte von 0.0 bis 10.9 mit maximal einer Nachkommastelle.</div>`;
+        return;
       }
+      const stats = computeStats(values);
+      if (stats.missing > 0) {
+        result.innerHTML = '<div style="color:#ffe7a3;">Bitte alle 10 Schuesse eintragen, bevor du speicherst.</div>';
+        return;
+      }
+
+      const entry = {
+        local_id: newLocalId(),
+        completed_at: new Date().toISOString(),
+        discipline: STATE.discipline,
+        shots: values,
+        total: stats.total,
+        avg: stats.avg,
+        best: stats.best,
+        worst: stats.worst,
+        count: stats.count,
+        syncStatus: 'local',
+        remote_session_id: null,
+      };
+      const history = readHistory();
+      history.push(entry);
+      const savedLocal = writeHistory(history);
+
+      renderResultBlock(host, entry, stats, savedLocal);
+      refreshHistoryDom(host);
+
+      try {
+        window.dispatchEvent(new CustomEvent('quickTrainingSaved', { detail: { entry, saved: savedLocal } }));
+      } catch (_e) { /* noop */ }
+
+      if (!savedLocal) return;
+
+      const supabase = getSupabase();
+      const userId = getUserId();
+      if (supabase && userId) {
+        STATE.syncingLocalId = entry.local_id;
+        refreshResultStatus(host, entry, stats, savedLocal);
+        const ok = await trySupabaseSync(entry);
+        STATE.syncingLocalId = null;
+        const refreshed = readHistory().find((e) => e.local_id === entry.local_id) || entry;
+        refreshResultStatus(host, refreshed, stats, savedLocal);
+        refreshHistoryDom(host);
+        if (!ok) {
+          // bleibt pending - keine weitere Aktion in dieser Session.
+        }
+      }
+    } finally {
+      STATE.saving = false;
+      STATE.syncingLocalId = null;
+      setSavingUi(host, false);
     }
   }
 
@@ -568,6 +590,10 @@
     }
     try {
       window.addEventListener('supabaseReady', () => { flushPendingSyncs(); }, { passive: true });
+      window.addEventListener('online', () => {
+        STATE.pendingFlushTried = false;
+        flushPendingSyncs();
+      }, { passive: true });
     } catch (_e) { /* noop */ }
   }
 
