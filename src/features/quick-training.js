@@ -202,8 +202,6 @@
     btn.textContent = saving ? 'Speichere…' : 'Auswerten und speichern';
   }
 
-  // TODO: Wenn `local_id` als echte Spalte in `training_results` ergaenzt wird
-  // (additive Migration), kann der `notes`-Marker durch die echte Spalte ersetzt werden.
   async function trySupabaseSync(entry) {
     const supabase = getSupabase();
     const userId = getUserId();
@@ -211,13 +209,13 @@
     if (entry.syncStatus === 'synced') return true;
 
     try {
-      // Dedup-Check: gibt es bereits ein training_results mit diesem local_id-Marker?
-      const marker = 'qt:' + entry.local_id;
+      // Dedup-Check über echte Spalte training_results.local_id
+      // (additive Migration 0008_training_results_local_id.sql).
       const existing = await supabase
         .from('training_results')
         .select('id, session_id')
         .eq('user_id', userId)
-        .like('notes', marker)
+        .eq('local_id', entry.local_id)
         .limit(1);
       if (existing && Array.isArray(existing.data) && existing.data.length > 0) {
         const remote = existing.data[0];
@@ -251,13 +249,14 @@
         .insert({
           session_id: sessionId,
           user_id: userId,
+          local_id: entry.local_id,
           score: entry.total,
           average: entry.avg,
           best_series: entry.best,
           worst_series: entry.worst,
           manual_corrected: true,
           photo_used: false,
-          notes: marker,
+          notes: 'qt:' + entry.local_id,
         });
       if (resultsRes.error) {
         // Session ist da, Result fehlte - markiere pending, beim Retry greift Dedup-Check.

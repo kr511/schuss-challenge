@@ -31,12 +31,20 @@ supabase/migrations/0004_social_rpc.sql        ← RPCs (accept_friend_request, 
 supabase/migrations/0005_worker_api_tables.sql ← Worker-API-Tabellen (users, game_sessions, …)
 supabase/migrations/0006_social_remove_friend_rpc.sql ← remove_friend RPC
 supabase/migrations/0007_shooter_challenges.sql        ← Schützen-Trainings-Challenges + RLS
+supabase/migrations/0008_training_results_local_id.sql ← Quick-Training Dedup-Spalte (local_id)
 ```
 
 > Die Schützen-Challenges (Trainingsaufgaben) liegen statisch im Frontend
 > (`src/data/shooter-challenges.js`) und können optional in `public.shooter_challenges`
 > gespiegelt werden. Schreibrechte hat ausschließlich, wer in `public.app_admins`
 > als Admin geführt ist (per Service-Role-Key gepflegt).
+
+> Migration `0008_training_results_local_id.sql` ergänzt `training_results.local_id`
+> (text, nullbar) plus partiellen UNIQUE-Index `(user_id, local_id) where local_id is not null`.
+> Damit dedupliziert der Quick-Training-Sync (`src/features/quick-training.js`) künftig
+> über die echte Spalte (`.eq('user_id', …).eq('local_id', …)`) statt über einen
+> `notes LIKE 'qt:<id>'`-Marker. Bestandszeilen ohne `local_id` bleiben gültig; der
+> `notes`-Eintrag bleibt als optionaler, lesbarer Hinweis erhalten.
 
 **Alternativ (all-in-one für Social):**  
 `supabase/schema-social.sql` enthält alles aus 0001-0004 + RPCs in einer Datei.  
