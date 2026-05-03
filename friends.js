@@ -18,6 +18,7 @@ const FriendsSystem = (function() {
     initialized: false,
     bootstrapRetryTimer: null,
     statusHeartbeatId: null,
+    requestBusy: false,
   };
 
   function resolveCurrentUserId() {
@@ -140,7 +141,6 @@ const FriendsSystem = (function() {
 
   async function init(force = false) {
     const resolvedUserId = resolveCurrentUserId();
-    const wasInitialized = state.initialized;
     const sameUser = state.initialized && state.currentUserId === resolvedUserId;
     state.currentUserId = resolvedUserId;
 
@@ -200,14 +200,8 @@ const FriendsSystem = (function() {
       return false;
     }
 
-    if (code === state.userCode) {
+    if (code.toUpperCase() === state.userCode) {
       showFriendToast('❌ Du kannst dich nicht selbst hinzufügen', 'error');
-      return false;
-    }
-
-    const alreadyFriend = state.friends.find(f => f.code === code.toUpperCase());
-    if (alreadyFriend) {
-      showFriendToast('ℹ️ Bereits dein Freund', 'info');
       return false;
     }
 
@@ -234,12 +228,15 @@ const FriendsSystem = (function() {
   }
 
   async function acceptRequest(fromUserId) {
+    if (state.requestBusy) return false;
     if (!isSupabaseSocialAvailable()) {
       showFriendToast('❌ Melde dich an, um Anfragen zu akzeptieren', 'error');
       return false;
     }
 
     const requestId = getSupabaseRequestId(fromUserId);
+    state.requestBusy = true;
+    renderPendingRequests();
     try {
       const result = await window.SupabaseSocial.acceptRequest(requestId);
       await loadFriends();
@@ -257,16 +254,22 @@ const FriendsSystem = (function() {
       console.error('Supabase Fehler beim Akzeptieren:', e);
       showFriendToast('❌ Fehler aufgetreten', 'error');
       return false;
+    } finally {
+      state.requestBusy = false;
+      renderPendingRequests();
     }
   }
 
   async function declineRequest(fromUserId) {
+    if (state.requestBusy) return false;
     if (!isSupabaseSocialAvailable()) {
       showFriendToast('❌ Melde dich an, um Anfragen zu verwalten', 'error');
       return false;
     }
 
     const requestId = getSupabaseRequestId(fromUserId);
+    state.requestBusy = true;
+    renderPendingRequests();
     try {
       const result = await window.SupabaseSocial.declineRequest(requestId);
       await loadPendingRequests();
@@ -278,7 +281,11 @@ const FriendsSystem = (function() {
       return true;
     } catch (e) {
       console.error('Supabase Fehler beim Ablehnen:', e);
+      showFriendToast('❌ Fehler aufgetreten', 'error');
       return false;
+    } finally {
+      state.requestBusy = false;
+      renderPendingRequests();
     }
   }
 
@@ -416,6 +423,7 @@ const FriendsSystem = (function() {
     const receivedContainer = document.getElementById('receivedRequestsContainer');
     const sentContainer = document.getElementById('sentRequestsContainer');
     if (!receivedContainer && !sentContainer) return;
+    const disabled = state.requestBusy ? ' disabled aria-disabled="true"' : '';
 
     if (receivedContainer) {
       if (state.pendingRequests.length === 0) {
@@ -430,8 +438,8 @@ const FriendsSystem = (function() {
                 <div class="request-time">${formatTime(req.timestamp)}</div>
               </div>
               <div class="request-actions">
-                <button class="request-btn accept" onclick="FriendsSystem.acceptRequest('${req.fromUserId}')">✓</button>
-                <button class="request-btn decline" onclick="FriendsSystem.declineRequest('${req.fromUserId}')">✕</button>
+                <button class="request-btn accept" onclick="FriendsSystem.acceptRequest('${req.fromUserId}')"${disabled}>✓</button>
+                <button class="request-btn decline" onclick="FriendsSystem.declineRequest('${req.fromUserId}')"${disabled}>✕</button>
               </div>
             </div>
           `).join('')}
@@ -473,52 +481,6 @@ const FriendsSystem = (function() {
         <button class="friends-login-btn" onclick="typeof window.openLoginModal === 'function' && window.openLoginModal()">Anmelden</button>
       </div>
     `;
-  }
-
-  function renderPendingRequests() {
-    const receivedContainer = document.getElementById('receivedRequestsContainer');
-    const sentContainer = document.getElementById('sentRequestsContainer');
-    if (!receivedContainer && !sentContainer) return;
-
-    if (receivedContainer) {
-      if (state.pendingRequests.length === 0) {
-        receivedContainer.innerHTML = '<div class="requests-empty">Keine ausstehenden Anfragen</div>';
-      } else {
-        receivedContainer.innerHTML = `
-          ${state.pendingRequests.map(req => `
-            <div class="request-card">
-              <div class="request-avatar">${getFriendAvatar(req.fromUsername)}</div>
-              <div class="request-info">
-                <div class="request-name">${escapeHtml(req.fromUsername)}</div>
-                <div class="request-time">${formatTime(req.timestamp)}</div>
-              </div>
-              <div class="request-actions">
-                <button class="request-btn accept" onclick="FriendsSystem.acceptRequest('${req.fromUserId}')">✓</button>
-                <button class="request-btn decline" onclick="FriendsSystem.declineRequest('${req.fromUserId}')">✕</button>
-              </div>
-            </div>
-          `).join('')}
-        `;
-      }
-    }
-
-    if (sentContainer) {
-      if (state.sentRequests.length === 0) {
-        sentContainer.innerHTML = '<div class="requests-empty">Keine gesendeten Anfragen</div>';
-      } else {
-        sentContainer.innerHTML = `
-          ${state.sentRequests.map(req => `
-            <div class="request-card sent">
-              <div class="request-avatar">${getFriendAvatar(req.username)}</div>
-              <div class="request-info">
-                <div class="request-name">${escapeHtml(req.username)}</div>
-                <div class="request-status">⏳ Anfrage gesendet</div>
-              </div>
-            </div>
-          `).join('')}
-        `;
-      }
-    }
   }
 
   function challengeFriend(friendId) {
