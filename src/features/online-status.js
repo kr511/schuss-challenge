@@ -91,7 +91,9 @@
       }
       const sync = window.SupabaseBackendSync;
       if (sync && typeof sync.isWorkerAuthBlocked === 'function' && sync.isWorkerAuthBlocked()) {
-        show('Server gerade nicht erreichbar. Lokales Training funktioniert weiter.');
+        // workerAuthBlocked = Worker antwortete mit 401/403, nicht offline.
+        // Supabase-Friends und lokales Training laufen weiter.
+        show('Cloud-Sync pausiert (nicht angemeldet). Freunde und lokales Training funktionieren weiter.');
         return;
       }
       if (STATE.visible && !STATE.dismissed) hide();

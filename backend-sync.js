@@ -8,6 +8,7 @@
 
   var workerAuthBlocked = false;
   var authWarningShown = false;
+  var syncProfilePending = false; // verhindert parallele syncProfile-Aufrufe
 
   function isLocalMode() {
     return window.SchussduellLocalMode === true ||
@@ -97,6 +98,8 @@
 
   function syncProfile(displayName) {
     if (!isReady() || !displayName) return;
+    if (syncProfilePending) return; // kein paralleler Request
+    syncProfilePending = true;
     apiFetch('/api/profile', {
       method: 'POST',
       body: JSON.stringify({
@@ -105,11 +108,18 @@
       })
     }).catch(function (err) {
       console.warn('[BackendSync] profile sync failed:', err && err.message ? err.message : err);
+    }).finally(function () {
+      syncProfilePending = false;
     });
   }
 
   function onAuthReady(event) {
     if (!event || (event.detail && event.detail.local)) return;
+    // Frische Session → bisherigen Auth-Block aufheben.
+    // Grund: workerAuthBlocked kann durch einen abgelaufenen Token aus localStorage
+    // gesetzt worden sein, bevor auth-gate.js den Token refresht hat.
+    workerAuthBlocked = false;
+    authWarningShown = false;
     var name = localStorage.getItem('sd_username') || localStorage.getItem('username') || '';
     if (name) syncProfile(name);
   }
@@ -119,9 +129,11 @@
     if (event && event.detail && !event.detail.local && event.detail.session) onAuthReady(event);
   });
 
-  if (window.SupabaseSession && !isLocalMode()) {
-    setTimeout(function () { onAuthReady({ detail: { session: window.SupabaseSession } }); }, 300);
-  }
+  // Kein 300ms-Eager-Hack mehr: Wir warten auf supabaseAuthReady.
+  // Der Hack löste früher einen /api/profile-Request mit möglicherweise
+  // abgelaufenem Token aus (aus localStorage), bekam 401, setzte
+  // workerAuthBlocked=true permanent – auch wenn auth-gate danach
+  // einen frischen Token bereitstellte.
 
   window.SupabaseBackendSync = {
     syncGameSession: syncGameSession,

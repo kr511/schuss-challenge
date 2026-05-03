@@ -100,23 +100,10 @@ const UpdatesSystem = (function() {
   }
 
   async function loadSupabaseUpdates() {
-    try {
-      const client = window.SupabaseClient || window.SupabaseAuth?.client;
-      if (!client || typeof client.from !== 'function') return [];
-      const result = await client.from('app_updates').select('*').order('date', { ascending: false }).limit(50);
-      if (result.error) throw result.error;
-      return (result.data || []).map((row) => ({
-        id: row.id,
-        title: row.title,
-        message: row.message,
-        date: Number(row.date || Date.parse(row.created_at || '')) || Date.now(),
-        priority: row.priority || 'medium',
-        icon: row.icon || '📢',
-      }));
-    } catch (e) {
-      console.warn('[Updates] Supabase Updates nicht verfuegbar, nutze lokalen Fallback:', e?.message || e);
-      return [];
-    }
+    // Tabelle app_updates existiert nicht im Supabase-Schema (kein Migration-File).
+    // Query wird übersprungen, um HTTP 404 im Network-Tab zu vermeiden.
+    // Ankündigungen kommen aus demoUpdates oder localStorage.
+    return [];
   }
 
   /**
