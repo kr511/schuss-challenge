@@ -111,17 +111,19 @@
     return page;
   }
 
-  function renderFriendshipsPage() {
+  function renderFriendshipsPage(loading) {
     var page = ensurePage();
     var state = getFriendsState();
     var friends = Array.isArray(state.friends) ? state.friends : [];
     var pending = Array.isArray(state.pendingRequests) ? state.pendingRequests : [];
     var sent = Array.isArray(state.sentRequests) ? state.sentRequests : [];
-    var code = state.userCode || '------';
+    // Zeige "Wird geladen…" wenn noch kein Code vorhanden und loading=true
+    var code = state.userCode || (loading ? '…' : '------');
 
     page.innerHTML =
       '<div class="fp-wrap">' +
-        '<div class="fp-top"><button type="button" class="fp-back" data-fp-action="close">←</button><div><div class="fp-title">Freundschaften</div><div class="fp-sub">Freunde hinzufügen, Codes teilen und Duelle starten</div></div></div>' +
+        '<div class="fp-top"><button type="button" class="fp-back" data-fp-action="close">←</button><div><div class="fp-title">Freundschaften</div><div class="fp-sub">Freunde hinzufügen, Codes teilen und Duelle starten</div></div>' +
+        '<button type="button" class="fp-btn ghost" data-fp-action="refresh" style="margin-left:auto;flex-shrink:0;font-size:.75rem;padding:8px 10px;" title="Aktualisieren">↻</button></div>' +
         '<div class="fp-card"><div class="fp-code-label">Dein Freundes-Code</div><div class="fp-code-row"><div class="fp-code">' + esc(code) + '</div><button type="button" class="fp-btn ghost" data-fp-action="copy">Kopieren</button></div>' +
           '<div class="fp-add"><input id="fpFriendCodeInput" class="fp-input" maxlength="6" placeholder="Code eingeben"><button type="button" class="fp-btn" data-fp-action="add">Hinzufügen</button></div></div>' +
         '<div class="fp-section-title">Eingehende Anfragen</div>' +
@@ -130,7 +132,7 @@
         }).join('') : '<div class="fp-empty">Keine offenen Anfragen.</div>') + '</div>' +
         '<div class="fp-section-title">Deine Freunde (' + friends.length + ')</div>' +
         '<div class="fp-card">' + (friends.length ? friends.map(function (friend) {
-          return '<div class="fp-row"><div class="fp-avatar">' + avatar(friend.username) + '</div><div><div class="fp-name">' + esc(friend.username || 'Freund') + '</div><div class="fp-meta">Code ' + esc(friend.code || '------') + '</div></div><div class="fp-small-actions"><button type="button" class="fp-mini good" data-fp-action="challenge" data-id="' + esc(friend.userId) + '">Duell</button></div></div>';
+          return '<div class="fp-row"><div class="fp-avatar">' + avatar(friend.username) + '</div><div><div class="fp-name">' + esc(friend.username || 'Freund') + '</div><div class="fp-meta">Hinzugefügt ' + esc(formatTime(friend.addedAt ? Date.parse(friend.addedAt) : 0)) + '</div></div><div class="fp-small-actions"><button type="button" class="fp-mini good" data-fp-action="challenge" data-id="' + esc(friend.userId) + '">Duell</button></div></div>';
         }).join('') : '<div class="fp-empty">Noch keine Freunde. Teile deinen Code oder gib einen Freundes-Code ein.</div>') + '</div>' +
         '<div class="fp-section-title">Gesendete Anfragen</div>' +
         '<div class="fp-card">' + (sent.length ? sent.map(function (req) {
@@ -144,7 +146,8 @@
   function openFriendshipsPage() {
     addStyles();
     var page = ensurePage();
-    renderFriendshipsPage();
+    // loading=true: zeigt '…' als Platzhalter wenn Code noch nicht geladen
+    renderFriendshipsPage(true);
     page.classList.add('active');
     document.body.style.overflow = 'hidden';
 
@@ -153,7 +156,7 @@
         var result = window.FriendsSystem.init(true);
         if (result && typeof result.then === 'function') {
           result.then(function () {
-            renderFriendshipsPage();
+            renderFriendshipsPage(false);
             render();
           });
         }
@@ -184,6 +187,24 @@
         if (action === 'close') return closeFriendshipsPage();
         if (!window.FriendsSystem) {
           showToast('👥 Freunde werden geladen...');
+          return;
+        }
+
+        if (action === 'refresh') {
+          el.disabled = true;
+          el.textContent = '…';
+          try {
+            var initResult = window.FriendsSystem.init(true);
+            if (initResult && typeof initResult.then === 'function') {
+              await initResult;
+            }
+            renderFriendshipsPage(false);
+            render();
+            showToast('↻ Aktualisiert');
+          } finally {
+            el.disabled = false;
+            // Knopf wird durch renderFriendshipsPage() ohnehin neu gerendert
+          }
           return;
         }
 

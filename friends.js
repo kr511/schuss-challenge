@@ -216,8 +216,16 @@ const FriendsSystem = (function() {
       await loadFriends();
       if (!result || !result.ok) {
         const reason = result && result.reason;
-        const type = reason === 'already-friend' || reason === 'already-sent' ? 'info' : 'error';
-        showFriendToast((type === 'info' ? 'ℹ️ ' : '❌ ') + getSupabaseReasonMessage(reason), type);
+        let toastType, toastPrefix;
+        if (reason === 'already-friend' || reason === 'already-sent') {
+          toastType = 'info'; toastPrefix = 'ℹ️ ';
+        } else if (reason === 'recently-declined') {
+          // Cooldown: kein harter Fehler, sondern zeitlicher Hinweis
+          toastType = 'info'; toastPrefix = '⏳ ';
+        } else {
+          toastType = 'error'; toastPrefix = '❌ ';
+        }
+        showFriendToast(toastPrefix + getSupabaseReasonMessage(reason), toastType);
         return false;
       }
       showFriendToast('✅ Anfrage gesendet!', 'success');
