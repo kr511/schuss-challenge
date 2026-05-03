@@ -171,11 +171,16 @@ async function run() {
     assert.equal(alphaFriends[0].friend_user_id, beta.id);
     assert.equal(betaFriends[0].friend_user_id, alpha.id);
 
-    const declineRequest = await requestJson(restUrl('friend_requests', { select: 'id,status' }), authed(alphaToken, {
-      method: 'POST',
-      prefer: 'return=representation',
-      body: { from_user_id: alpha.id, to_user_id: beta.id, status: 'pending' },
-    }));
+    // Unique-Constraint (from_user_id, to_user_id): nur ein Row pro Paar.
+    // Upsert setzt die bestehende Anfrage zurück auf pending (wie addFriendByCode im Client).
+    const declineRequest = await requestJson(
+      restUrl('friend_requests', { select: 'id,status', on_conflict: 'from_user_id,to_user_id' }),
+      authed(alphaToken, {
+        method: 'POST',
+        prefer: 'resolution=merge-duplicates,return=representation',
+        body: { from_user_id: alpha.id, to_user_id: beta.id, status: 'pending', responded_at: null },
+      }),
+    );
     assert.equal(declineRequest[0].status, 'pending');
 
     const declinedAt = new Date().toISOString();
