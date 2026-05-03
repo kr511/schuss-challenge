@@ -7,6 +7,8 @@
   var PAGE_ID = 'pdFriendshipsPage';
   var STYLE_ID = 'pdFriendsQuickButtonStyle';
   var retryTimer = null;
+  var pollTimer = null;
+  var POLL_INTERVAL_MS = 10000; // alle 10s neue Anfragen prüfen während Seite offen
 
   function onReady(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
@@ -170,12 +172,47 @@
     }
 
     if (typeof triggerHaptic === 'function') triggerHaptic();
+    startPolling();
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(async function () {
+      var page = document.getElementById(PAGE_ID);
+      if (!page || !page.classList.contains('active')) { stopPolling(); return; }
+      if (!window.FriendsSystem || !window.SupabaseSocial) return;
+      try {
+        var prevCount = (window.FriendsSystem.getState().pendingRequests || []).length;
+        if (typeof window.SupabaseSocial.loadIncomingRequests === 'function') {
+          await window.SupabaseSocial.loadIncomingRequests();
+          // syncFromSupabaseState über init(false) – nur State synchronisieren
+          if (typeof window.FriendsSystem.init === 'function') {
+            // Leichtgewichtig: nur State-Sync ohne neues Supabase-Init
+          }
+        }
+        // Direkter State-Abgleich über getState nach loadIncomingRequests
+        var newCount = (window.SupabaseSocial.getState().incomingRequests || []).length;
+        if (newCount !== prevCount) {
+          // Neue oder weggefallene Anfragen → Seite und Badge neu rendern
+          if (typeof window.FriendsSystem.init === 'function') {
+            await window.FriendsSystem.init(true);
+          }
+          renderFriendshipsPage(false);
+          render();
+        }
+      } catch (e) { /* noop – Polling darf nie crashen */ }
+    }, POLL_INTERVAL_MS);
+  }
+
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   }
 
   function closeFriendshipsPage() {
     var page = document.getElementById(PAGE_ID);
     if (page) page.classList.remove('active');
     document.body.style.overflow = '';
+    stopPolling();
   }
 
   function bindPageEvents(page) {
