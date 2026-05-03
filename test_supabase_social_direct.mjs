@@ -171,6 +171,47 @@ async function run() {
     assert.equal(alphaFriends[0].friend_user_id, beta.id);
     assert.equal(betaFriends[0].friend_user_id, alpha.id);
 
+    const declineRequest = await requestJson(restUrl('friend_requests', { select: 'id,status' }), authed(alphaToken, {
+      method: 'POST',
+      prefer: 'return=representation',
+      body: { from_user_id: alpha.id, to_user_id: beta.id, status: 'pending' },
+    }));
+    assert.equal(declineRequest[0].status, 'pending');
+
+    const declinedAt = new Date().toISOString();
+    const declined = await requestJson(restUrl('friend_requests', {
+      select: 'id,status,responded_at',
+      id: `eq.${declineRequest[0].id}`,
+    }), authed(betaToken, {
+      method: 'PATCH',
+      prefer: 'return=representation',
+      body: { status: 'declined', responded_at: declinedAt },
+    }));
+    assert.equal(declined[0].status, 'declined');
+
+    const blockedRetry = await requestJson(restUrl('friend_requests', {
+      select: 'id,status,responded_at',
+      from_user_id: `eq.${alpha.id}`,
+      to_user_id: `eq.${beta.id}`,
+    }), authed(alphaToken));
+    assert.equal(blockedRetry[0].status, 'declined');
+    assert.ok(Date.parse(blockedRetry[0].responded_at) >= Date.parse(declinedAt));
+
+    const over24hAgo = new Date(Date.now() - (24 * 60 * 60 * 1000 + 60 * 1000)).toISOString();
+    await requestJson(restUrl('friend_requests', { id: `eq.${declineRequest[0].id}` }), authed(SERVICE_KEY, {
+      method: 'PATCH',
+      apikey: SERVICE_KEY,
+      body: { responded_at: over24hAgo },
+      allowEmpty: true,
+    }));
+
+    const reactivated = await requestJson(restUrl('friend_requests', {
+      select: 'id,status,responded_at',
+      from_user_id: `eq.${alpha.id}`,
+      to_user_id: `eq.${beta.id}`,
+    }), authed(alphaToken));
+    assert.equal(reactivated[0].status, 'declined');
+
     await requestJson(restUrl('online_status', { on_conflict: 'user_id' }), authed(alphaToken, {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
