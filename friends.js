@@ -117,6 +117,7 @@ const FriendsSystem = (function() {
       'code-not-found': 'Code nicht gefunden',
       'already-friend': 'Bereits dein Freund',
       'already-sent': 'Bereits Anfrage gesendet',
+      'request-not-found': 'Anfrage nicht gefunden oder bereits bearbeitet',
     };
     return messages[reason] || 'Aktion konnte nicht ausgeführt werden';
   }
@@ -205,12 +206,9 @@ const FriendsSystem = (function() {
       return false;
     }
 
-    const alreadyFriend = state.friends.find(f => f.code === code.toUpperCase());
-    if (alreadyFriend) {
-      showFriendToast('ℹ️ Bereits dein Freund', 'info');
-      return false;
-    }
-
+    // Hinweis: Bereits-Freund-Prüfung erfolgt serverseitig in SupabaseSocial.addFriendByCode
+    // (query gegen friends-Tabelle). Hier keine lokale Code-Prüfung, da loadFriends()
+    // kein code-Feld zurückliefert.
     try {
       const result = await window.SupabaseSocial.addFriendByCode(code);
       await loadPendingRequests();
@@ -410,52 +408,6 @@ const FriendsSystem = (function() {
         </div>
       `).join('')}
     `;
-  }
-
-  function renderPendingRequests() {
-    const receivedContainer = document.getElementById('receivedRequestsContainer');
-    const sentContainer = document.getElementById('sentRequestsContainer');
-    if (!receivedContainer && !sentContainer) return;
-
-    if (receivedContainer) {
-      if (state.pendingRequests.length === 0) {
-        receivedContainer.innerHTML = '<div class="requests-empty">Keine ausstehenden Anfragen</div>';
-      } else {
-        receivedContainer.innerHTML = `
-          ${state.pendingRequests.map(req => `
-            <div class="request-card">
-              <div class="request-avatar">${getFriendAvatar(req.fromUsername)}</div>
-              <div class="request-info">
-                <div class="request-name">${escapeHtml(req.fromUsername)}</div>
-                <div class="request-time">${formatTime(req.timestamp)}</div>
-              </div>
-              <div class="request-actions">
-                <button class="request-btn accept" onclick="FriendsSystem.acceptRequest('${req.fromUserId}')">✓</button>
-                <button class="request-btn decline" onclick="FriendsSystem.declineRequest('${req.fromUserId}')">✕</button>
-              </div>
-            </div>
-          `).join('')}
-        `;
-      }
-    }
-
-    if (sentContainer) {
-      if (state.sentRequests.length === 0) {
-        sentContainer.innerHTML = '<div class="requests-empty">Keine gesendeten Anfragen</div>';
-      } else {
-        sentContainer.innerHTML = `
-          ${state.sentRequests.map(req => `
-            <div class="request-card sent">
-              <div class="request-avatar">${getFriendAvatar(req.username)}</div>
-              <div class="request-info">
-                <div class="request-name">${escapeHtml(req.username)}</div>
-                <div class="request-status">⏳ Anfrage gesendet</div>
-              </div>
-            </div>
-          `).join('')}
-        `;
-      }
-    }
   }
 
   function renderFriendsLoginPrompt() {

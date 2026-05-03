@@ -201,25 +201,42 @@
             return;
           }
           if (typeof window.FriendsSystem.addFriendByCode === 'function') {
-            await window.FriendsSystem.addFriendByCode(code);
-            if (input) input.value = '';
-            renderFriendshipsPage();
-            render();
+            el.disabled = true;
+            try {
+              await window.FriendsSystem.addFriendByCode(code);
+              if (input) input.value = '';
+              renderFriendshipsPage();
+              render();
+            } finally {
+              el.disabled = false;
+            }
           }
           return;
         }
 
         if (action === 'accept' && id && typeof window.FriendsSystem.acceptRequest === 'function') {
-          await window.FriendsSystem.acceptRequest(id);
-          renderFriendshipsPage();
-          render();
+          // Doppelklick-Schutz: Button deaktivieren bis die Aktion abgeschlossen ist.
+          el.disabled = true;
+          try {
+            await window.FriendsSystem.acceptRequest(id);
+            renderFriendshipsPage();
+            render();
+          } finally {
+            el.disabled = false;
+          }
           return;
         }
 
         if (action === 'decline' && id && typeof window.FriendsSystem.declineRequest === 'function') {
-          await window.FriendsSystem.declineRequest(id);
-          renderFriendshipsPage();
-          render();
+          // Doppelklick-Schutz: Button deaktivieren bis die Aktion abgeschlossen ist.
+          el.disabled = true;
+          try {
+            await window.FriendsSystem.declineRequest(id);
+            renderFriendshipsPage();
+            render();
+          } finally {
+            el.disabled = false;
+          }
           return;
         }
 

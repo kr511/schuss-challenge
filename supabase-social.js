@@ -368,14 +368,24 @@
     if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
 
     var client = getClient();
+    var user = getUser();
+    // Sicherheitsfilter: nur der Empfänger (to_user_id) kann eine Anfrage ablehnen.
+    // Ohne .eq('to_user_id') könnte der Sender seine eigene Anfrage auf 'declined' setzen.
+    // maybeSingle() statt single() verhindert PGRST116-Fehler bei bereits verarbeiteten Anfragen.
     var result = await client
       .from('friend_requests')
       .update({ status: 'declined', responded_at: new Date().toISOString() })
       .eq('id', requestId)
+      .eq('to_user_id', user.id)
       .select('id')
-      .single();
+      .maybeSingle();
 
     if (result.error) throw result.error;
+    if (!result.data) {
+      // Anfrage existiert nicht oder gehört nicht diesem User – kein Fehler, aber auch kein Erfolg
+      await loadIncomingRequests();
+      return { ok: false, reason: 'request-not-found' };
+    }
     await loadIncomingRequests();
     return { ok: true };
   }
