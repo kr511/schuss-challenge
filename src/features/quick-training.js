@@ -22,7 +22,6 @@
     expandedHistory: false,
     pendingFlushTried: false,
     syncingLocalId: null,
-    saving: false,
   };
 
   function escHtml(input) {
@@ -31,7 +30,7 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/\"/g, '&quot;')
+      .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
       .replace(/`/g, '&#96;')
       .replace(/\//g, '&#47;');
@@ -193,15 +192,8 @@
     return d === 'kk' ? 'kk50' : 'lg40';
   }
 
-  function setSavingUi(host, saving) {
-    const btn = host && host.querySelector('[data-qt-action="evaluate"]');
-    if (!btn) return;
-    btn.disabled = !!saving;
-    btn.style.opacity = saving ? '0.72' : '1';
-    btn.style.cursor = saving ? 'wait' : 'pointer';
-    btn.textContent = saving ? 'Speichere…' : 'Auswerten und speichern';
-  }
-
+  // TODO: Wenn `local_id` als echte Spalte in `training_results` ergaenzt wird
+  // (additive Migration), kann der `notes`-Marker durch die echte Spalte ersetzt werden.
   async function trySupabaseSync(entry) {
     const supabase = getSupabase();
     const userId = getUserId();
@@ -209,13 +201,13 @@
     if (entry.syncStatus === 'synced') return true;
 
     try {
-      // Dedup-Check über echte Spalte training_results.local_id
-      // (additive Migration 0008_training_results_local_id.sql).
+      // Dedup-Check: gibt es bereits ein training_results mit diesem local_id-Marker?
+      const marker = 'qt:' + entry.local_id;
       const existing = await supabase
         .from('training_results')
         .select('id, session_id')
         .eq('user_id', userId)
-        .eq('local_id', entry.local_id)
+        .eq('notes', marker)
         .limit(1);
       if (existing && Array.isArray(existing.data) && existing.data.length > 0) {
         const remote = existing.data[0];
@@ -249,14 +241,13 @@
         .insert({
           session_id: sessionId,
           user_id: userId,
-          local_id: entry.local_id,
           score: entry.total,
           average: entry.avg,
           best_series: entry.best,
           worst_series: entry.worst,
           manual_corrected: true,
           photo_used: false,
-          notes: 'qt:' + entry.local_id,
+          notes: marker,
         });
       if (resultsRes.error) {
         // Session ist da, Result fehlte - markiere pending, beim Retry greift Dedup-Check.
@@ -454,68 +445,56 @@
   async function onEvaluate(host) {
     const result = host.querySelector('[data-qt-result]');
     if (!result) return;
-    if (STATE.saving) {
-      result.innerHTML = '<div style="color:#ffe7a3;">Speichern läuft bereits. Bitte kurz warten.</div>';
+    const { values, badInputs } = readShotsFromInputs(host);
+    if (badInputs > 0) {
+      result.innerHTML = `<div style="color:#ffb4b4;">${badInputs} Eingabe(n) sind ungueltig. Erlaubt sind Werte von 0.0 bis 10.9 mit maximal einer Nachkommastelle.</div>`;
       return;
     }
-    STATE.saving = true;
-    setSavingUi(host, true);
+    const stats = computeStats(values);
+    if (stats.missing > 0) {
+      result.innerHTML = '<div style="color:#ffe7a3;">Bitte alle 10 Schuesse eintragen, bevor du speicherst.</div>';
+      return;
+    }
+
+    const entry = {
+      local_id: newLocalId(),
+      completed_at: new Date().toISOString(),
+      discipline: STATE.discipline,
+      shots: values,
+      total: stats.total,
+      avg: stats.avg,
+      best: stats.best,
+      worst: stats.worst,
+      count: stats.count,
+      syncStatus: 'local',
+      remote_session_id: null,
+    };
+    const history = readHistory();
+    history.push(entry);
+    const savedLocal = writeHistory(history);
+
+    renderResultBlock(host, entry, stats, savedLocal);
+    refreshHistoryDom(host);
+
     try {
-      const { values, badInputs } = readShotsFromInputs(host);
-      if (badInputs > 0) {
-        result.innerHTML = `<div style="color:#ffb4b4;">${badInputs} Eingabe(n) sind ungueltig. Erlaubt sind Werte von 0.0 bis 10.9 mit maximal einer Nachkommastelle.</div>`;
-        return;
-      }
-      const stats = computeStats(values);
-      if (stats.missing > 0) {
-        result.innerHTML = '<div style="color:#ffe7a3;">Bitte alle 10 Schuesse eintragen, bevor du speicherst.</div>';
-        return;
-      }
+      window.dispatchEvent(new CustomEvent('quickTrainingSaved', { detail: { entry, saved: savedLocal } }));
+    } catch (_e) { /* noop */ }
 
-      const entry = {
-        local_id: newLocalId(),
-        completed_at: new Date().toISOString(),
-        discipline: STATE.discipline,
-        shots: values,
-        total: stats.total,
-        avg: stats.avg,
-        best: stats.best,
-        worst: stats.worst,
-        count: stats.count,
-        syncStatus: 'local',
-        remote_session_id: null,
-      };
-      const history = readHistory();
-      history.push(entry);
-      const savedLocal = writeHistory(history);
+    if (!savedLocal) return;
 
-      renderResultBlock(host, entry, stats, savedLocal);
-      refreshHistoryDom(host);
-
-      try {
-        window.dispatchEvent(new CustomEvent('quickTrainingSaved', { detail: { entry, saved: savedLocal } }));
-      } catch (_e) { /* noop */ }
-
-      if (!savedLocal) return;
-
-      const supabase = getSupabase();
-      const userId = getUserId();
-      if (supabase && userId) {
-        STATE.syncingLocalId = entry.local_id;
-        refreshResultStatus(host, entry, stats, savedLocal);
-        const ok = await trySupabaseSync(entry);
-        STATE.syncingLocalId = null;
-        const refreshed = readHistory().find((e) => e.local_id === entry.local_id) || entry;
-        refreshResultStatus(host, refreshed, stats, savedLocal);
-        refreshHistoryDom(host);
-        if (!ok) {
-          // bleibt pending - keine weitere Aktion in dieser Session.
-        }
-      }
-    } finally {
-      STATE.saving = false;
+    const supabase = getSupabase();
+    const userId = getUserId();
+    if (supabase && userId) {
+      STATE.syncingLocalId = entry.local_id;
+      refreshResultStatus(host, entry, stats, savedLocal);
+      const ok = await trySupabaseSync(entry);
       STATE.syncingLocalId = null;
-      setSavingUi(host, false);
+      const refreshed = readHistory().find((e) => e.local_id === entry.local_id) || entry;
+      refreshResultStatus(host, refreshed, stats, savedLocal);
+      refreshHistoryDom(host);
+      if (!ok) {
+        // bleibt pending - keine weitere Aktion in dieser Session.
+      }
     }
   }
 
@@ -589,10 +568,6 @@
     }
     try {
       window.addEventListener('supabaseReady', () => { flushPendingSyncs(); }, { passive: true });
-      window.addEventListener('online', () => {
-        STATE.pendingFlushTried = false;
-        flushPendingSyncs();
-      }, { passive: true });
     } catch (_e) { /* noop */ }
   }
 

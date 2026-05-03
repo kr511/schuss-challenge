@@ -394,12 +394,23 @@ export async function updateStreak(
   const currentRow = rows[0];
 
   if (!currentRow) {
-    await insertRow(env, "streaks", {
-      user_id: userId,
-      current_streak: 1,
-      longest_streak: 1,
-      last_played_date: playedDate,
-    });
+    // BUGFIX: Plain insertRow warf bei Race-Condition (zwei gleichzeitige
+    // Anfragen für denselben User) eine Unique-Constraint-Violation, weil
+    // user_id der Primary-Key ist. Mit ignore-duplicates ist der zweite
+    // Aufruf ein harmloser No-Op und beide Aufrufe sehen denselben
+    // Streak-Stand {current:1, longest:1}.
+    await upsertRow(
+      env,
+      "streaks",
+      {
+        user_id: userId,
+        current_streak: 1,
+        longest_streak: 1,
+        last_played_date: playedDate,
+      },
+      "user_id",
+      "resolution=ignore-duplicates,return=minimal",
+    );
     return { current: 1, longest: 1 };
   }
 

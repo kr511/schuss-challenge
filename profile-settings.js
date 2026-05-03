@@ -202,7 +202,7 @@
 
     panel.innerHTML = [
       '<div class="settings-tab">',
-      '<div class="settings-tab-head"><div class="settings-tab-title">Profil & Einstellungen</div><div class="settings-tab-sub">Passe dein Schussduell-Erlebnis an.</div></div>',
+      '<div class="settings-tab-head"><div class="settings-tab-title">Profil & Einstellungen</div><div class="settings-tab-sub">Passe deine Trainingseinstellungen an.</div></div>',
       '<section class="settings-block"><div class="settings-label">Konto</div>',
       '<div class="settings-row first"><div class="settings-copy"><div class="settings-title">Status</div><div class="settings-desc">' + escapeHtml(email || 'Kein Online-Konto aktiv') + '</div></div><span class="settings-pill">' + escapeHtml(getAccountLabel()) + '</span></div>',
       '<div class="settings-input-row"><input id="settingsNameInput" class="settings-input" maxlength="15" value="' + escapeHtml(name) + '" placeholder="Schützenname"><button id="settingsSaveNameBtn" class="settings-btn primary" type="button">Speichern</button></div><div id="settingsToast" class="settings-toast"></div>',

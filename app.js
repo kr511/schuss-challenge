@@ -159,9 +159,14 @@ const Sfx = {
 };
 
 function toggleMute() {
+  // BUGFIX: Wenn der Mute-Button im aktuellen Screen nicht im DOM steht
+  // (z. B. weil das Profile-Sheet noch nicht gemountet wurde), warf
+  // getElementById('muteBtn').textContent einen TypeError und brach den
+  // Klick-Handler ab — Mute-Toggle blieb dadurch ohne Wirkung.
   Sfx.init();
   Sfx.muted = !Sfx.muted;
-  document.getElementById('muteBtn').textContent = Sfx.muted ? '🔇' : '🔊';
+  const muteBtn = document.getElementById('muteBtn');
+  if (muteBtn) muteBtn.textContent = Sfx.muted ? '🔇' : '🔊';
   if (!Sfx.muted) Sfx.play('click');
 }
 
@@ -668,6 +673,11 @@ function toggleProfileMenu() {
       const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
       document.body.style.position = '';
       document.body.style.top = '';
+      // BUGFIX: Beim Öffnen wird body.style.width = '100%' gesetzt
+      // (siehe unten), aber beim Schließen wurde es nie zurückgesetzt.
+      // Das ließ den Body-Layout-Shift (insb. wenn vorher auto/0 war)
+      // permanent stehen — sichtbar als horizontales Scroll-Glitch.
+      document.body.style.width = '';
       requestAnimationFrame(() => { window.scrollTo(0, scrollY); });
     }
 
@@ -4064,9 +4074,14 @@ function startBattle() {
     DOM.shotLog = flat;
   }
 
-  DOM.lastShotTxt.innerHTML = G.is3x20
-    ? `<b>Bereit!</b> Position 1: <b>${G.positions[0]}</b> · 20 Schüsse · Feuer frei!`
-    : '<b>Bereit!</b> Drück FEUER – du schießt in der echten Welt, der Bot schießt automatisch nach seinem Rhythmus.';
+  // BUGFIX: lastShotTxt konnte null sein, wenn das Battle-Screen-DOM
+  // noch nicht montiert war (z. B. unvollständiges DOM beim Hot-Reload).
+  // Schreibender Zugriff auf .innerHTML hätte das Spiel hier gecrasht.
+  if (DOM.lastShotTxt) {
+    DOM.lastShotTxt.innerHTML = G.is3x20
+      ? `<b>Bereit!</b> Position 1: <b>${G.positions[0]}</b> · 20 Schüsse · Feuer frei!`
+      : '<b>Bereit!</b> Drück FEUER – du schießt in der echten Welt, der Bot schießt automatisch nach seinem Rhythmus.';
+  }
 
   const diffCfg = DIFF[G.diff];
   const weapCfg = WEAPON_CFG[G.weapon];
@@ -5414,7 +5429,15 @@ function openShareCard() {
 
 function closeShareCard(e) {
   const overlay = document.getElementById('shareOverlay');
-  if (e && e.target !== overlay && !overlay?.contains(e.target)) return;
+  // BUGFIX: Wenn das Overlay-Element fehlt (z. B. bei Hot-Reload-Edge-Cases
+  // oder programmatischem Aufruf), warf der nachfolgende classList-Zugriff
+  // einen TypeError und setzte body.overflow nie zurück → Seite blieb
+  // unscrollbar. Jetzt früh raus, aber overflow trotzdem aufräumen.
+  if (!overlay) {
+    document.body.style.overflow = '';
+    return;
+  }
+  if (e && e.target !== overlay && !overlay.contains(e.target)) return;
   overlay.classList.remove('active');
   document.body.style.overflow = '';
 }
@@ -5542,7 +5565,16 @@ function restartGame() {
 function showScreen(id) {
   if (id !== 'screenOver') clearPendingFeedbackPrompt();
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  // BUGFIX: Wenn die Ziel-Screen-ID im DOM fehlt (z. B. unbekannter Screen
+  // bei Refactor oder partiellem DOM), warf der direkte classList-Aufruf
+  // einen TypeError und sperrte die ganze Navigation. Jetzt loggen wir nur
+  // einen Hinweis, damit der Rest der App weiterläuft.
+  const target = document.getElementById(id);
+  if (!target) {
+    console.error(`[showScreen] Screen "${id}" nicht gefunden — Navigation abgebrochen.`);
+    return;
+  }
+  target.classList.add('active');
   if (id === 'screenSetup') {
     RookiePlan.evaluateAndRender(true);
     if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();

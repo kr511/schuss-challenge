@@ -542,3 +542,175 @@ end;
 $$;
 
 grant execute on function public.remove_friend(uuid) to authenticated;
+
+-- ============================================================================
+-- 0007_shooter_challenges.sql
+-- ============================================================================
+-- Schützen-Challenges – seriöse Trainings- und Übungsdaten.
+-- RLS-Policies:
+--   • shooter_challenges      → öffentlich lesbar, schreibend nur Admins.
+--   • challenge_completions   → eigene Zeilen lesen/schreiben (auth.uid()).
+--   • training_sessions       → eigene Zeilen lesen/schreiben.
+--   • user_progress           → eigene Zeile lesen/schreiben.
+--
+-- Admin-Erkennung über Tabelle public.app_admins (user_id, granted_at).
+
+create table if not exists public.app_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  granted_at timestamptz not null default now()
+);
+
+alter table public.app_admins enable row level security;
+
+drop policy if exists "app_admins_select_self" on public.app_admins;
+create policy "app_admins_select_self" on public.app_admins
+  for select using (auth.uid() = user_id);
+
+create table if not exists public.shooter_challenges (
+  id text primary key,
+  title text not null,
+  description text not null,
+  category text not null check (category in (
+    'sicherheit','grundlagen','atmung','stand','abzug',
+    'zielbild','trockenuebung','konzentration','wettkampf','auswertung'
+  )),
+  difficulty text not null check (difficulty in ('anfaenger','fortgeschritten','profi')),
+  duration_minutes integer not null check (duration_minutes between 1 and 240),
+  safety_note text not null,
+  required_equipment jsonb not null default '[]'::jsonb,
+  instructions jsonb not null default '[]'::jsonb,
+  scoring_type text not null check (scoring_type in ('checklist','shots','time','self')),
+  success_criteria text not null,
+  is_dry_fire boolean not null default true,
+  is_live_fire boolean not null default false,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.shooter_challenges enable row level security;
+
+drop policy if exists "shooter_challenges_select_public" on public.shooter_challenges;
+create policy "shooter_challenges_select_public" on public.shooter_challenges
+  for select using (is_active);
+
+drop policy if exists "shooter_challenges_admin_insert" on public.shooter_challenges;
+create policy "shooter_challenges_admin_insert" on public.shooter_challenges
+  for insert with check (
+    exists (select 1 from public.app_admins a where a.user_id = auth.uid())
+  );
+
+drop policy if exists "shooter_challenges_admin_update" on public.shooter_challenges;
+create policy "shooter_challenges_admin_update" on public.shooter_challenges
+  for update using (
+    exists (select 1 from public.app_admins a where a.user_id = auth.uid())
+  ) with check (
+    exists (select 1 from public.app_admins a where a.user_id = auth.uid())
+  );
+
+drop policy if exists "shooter_challenges_admin_delete" on public.shooter_challenges;
+create policy "shooter_challenges_admin_delete" on public.shooter_challenges
+  for delete using (
+    exists (select 1 from public.app_admins a where a.user_id = auth.uid())
+  );
+
+create table if not exists public.challenge_completions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  challenge_id text not null references public.shooter_challenges(id) on delete cascade,
+  completed_at timestamptz not null default now(),
+  score numeric,
+  notes text,
+  created_at timestamptz not null default now(),
+  unique (user_id, challenge_id, completed_at)
+);
+
+create index if not exists idx_completions_user on public.challenge_completions(user_id);
+create index if not exists idx_completions_challenge on public.challenge_completions(challenge_id);
+
+alter table public.challenge_completions enable row level security;
+
+drop policy if exists "completions_select_own" on public.challenge_completions;
+create policy "completions_select_own" on public.challenge_completions
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "completions_insert_own" on public.challenge_completions;
+create policy "completions_insert_own" on public.challenge_completions
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "completions_update_own" on public.challenge_completions;
+create policy "completions_update_own" on public.challenge_completions
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "completions_delete_own" on public.challenge_completions;
+create policy "completions_delete_own" on public.challenge_completions
+  for delete using (auth.uid() = user_id);
+
+create table if not exists public.user_progress (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  total_completions integer not null default 0,
+  total_dry_fire_minutes integer not null default 0,
+  total_live_fire_minutes integer not null default 0,
+  last_completion_at timestamptz,
+  current_streak integer not null default 0,
+  longest_streak integer not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_progress enable row level security;
+
+drop policy if exists "user_progress_select_own" on public.user_progress;
+create policy "user_progress_select_own" on public.user_progress
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "user_progress_insert_own" on public.user_progress;
+create policy "user_progress_insert_own" on public.user_progress
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "user_progress_update_own" on public.user_progress;
+create policy "user_progress_update_own" on public.user_progress
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ============================================================================
+-- 0008_worker_api_rls.sql
+-- ============================================================================
+-- RLS-Policies für Worker-API-Tables.
+-- Der Cloudflare Worker nutzt den service_role-Key, der RLS grundsätzlich
+-- umgeht. Diese Policies definieren, was direkten Supabase-Client-Zugriffen
+-- (anon / authenticated JWT) erlaubt ist.
+
+drop policy if exists "users_select_own" on public.users;
+create policy "users_select_own" on public.users
+  for select
+  using (auth.uid()::text = id);
+
+drop policy if exists "game_sessions_select_own" on public.game_sessions;
+create policy "game_sessions_select_own" on public.game_sessions
+  for select
+  using (auth.uid()::text = user_id);
+
+drop policy if exists "achievements_select_own" on public.achievements;
+create policy "achievements_select_own" on public.achievements
+  for select
+  using (auth.uid()::text = user_id);
+
+drop policy if exists "streaks_select_own" on public.streaks;
+create policy "streaks_select_own" on public.streaks
+  for select
+  using (auth.uid()::text = user_id);
+
+drop policy if exists "api_profiles_select_public_or_own" on public.api_profiles;
+create policy "api_profiles_select_public_or_own" on public.api_profiles
+  for select
+  using (
+    privacy_settings = 'public'
+    or auth.uid()::text = user_id
+  );
+
+drop policy if exists "activity_log_select_active_recent" on public.activity_log;
+create policy "activity_log_select_active_recent" on public.activity_log
+  for select
+  using (
+    status = 'active'
+    and "timestamp" > (extract(epoch from now()) * 1000)::bigint - 60000
+  );

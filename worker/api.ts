@@ -110,7 +110,10 @@ function pickAllowedOrigin(request: Request, env: Env): string {
   if (getAllowedOrigins(env).has(origin)) return origin;
   // Allow any localhost origin while dev auth is enabled so `wrangler dev`
   // works from arbitrary ports without config churn.
-  if (env.ALLOW_INSECURE_DEV_AUTH === "true" && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+  // BUGFIX: 0.0.0.0 wurde von isLocalDevelopmentRequest erlaubt, aber hier
+  // nicht — Inkonsistenz, bei der ein Browser, der gegen 0.0.0.0:8787
+  // entwickelt, keine CORS-Header bekam und das API-Aufrufe scheitern liess.
+  if (env.ALLOW_INSECURE_DEV_AUTH === "true" && /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(origin)) {
     return origin;
   }
   return "";
