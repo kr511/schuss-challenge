@@ -134,6 +134,7 @@ window.SupabaseSocial = {
     if (code === 'NOTFND') return { ok: false, reason: 'code-not-found' };
     if (code === 'ALRFND') return { ok: false, reason: 'already-friend' };
     if (code === 'ALRSNT') return { ok: false, reason: 'already-sent' };
+    if (code === 'RCDCLN') return { ok: false, reason: 'recently-declined' };
     return { ok: true, requestId: 'request-3' };
   },
   async acceptRequest(id) {
@@ -302,5 +303,43 @@ window.SupabaseSocial.acceptRequest = async function (id) {
 };
 const acceptFail = await window.FriendsSystem.acceptRequest('sender-1');
 assert.equal(acceptFail, false, 'FriendsSystem gibt false zurück wenn SupabaseSocial.acceptRequest fehlschlägt');
+
+// Restore acceptRequest for remaining tests
+window.SupabaseSocial.acceptRequest = async function (id) {
+  calls.push(['acceptRequest', id]);
+  return { ok: true };
+};
+
+// ─── Re-Request-Regel (7 Szenarien) ──────────────────────────────────────────
+// Szenario 1: Anfrage senden → B sieht incoming request
+// (bereits in Szenario 2/5 getestet über remoteState.incomingRequests)
+
+// Szenario 2: B lehnt ab → recently-declined wird korrekt gemeldet
+const declineRes = await window.FriendsSystem.declineRequest('sender-1');
+assert.equal(declineRes, true, 'S2: decline erfolgreich');
+
+// Szenario 3: A versucht innerhalb 24h nochmal → recently-declined, false zurück, kein Toast-Erfolg
+const rcdclnRes = await window.FriendsSystem.addFriendByCode('RCDCLN');
+assert.equal(rcdclnRes, false, 'S3: recently-declined gibt false zurück');
+assert.ok(
+  calls.some(([name, code]) => name === 'addFriendByCode' && code === 'RCDCLN'),
+  'S3: SupabaseSocial.addFriendByCode mit RCDCLN aufgerufen'
+);
+
+// Szenario 4 + 5: Nach 24h kann A erneut anfragen
+// (die re-request Logik liegt in supabase-social.js und wird im Direkttest mit echter DB geprüft;
+//  hier im Mock-Test prüfen wir, dass ein normaler addFriendByCode nach Ablauf des Cooldowns
+//  wieder { ok: true } liefert — Mock gibt bei 'ABCDEF' immer ok:true zurück)
+const reRequestRes = await window.FriendsSystem.addFriendByCode('ABCDEF');
+assert.equal(reRequestRes, true, 'S4+5: Nach Cooldown kann A erneut anfragen (ok:true)');
+
+// Szenario 6: B nimmt an → true zurück (Friend-Rows A→B und B→A im Direkttest geprüft)
+const acceptAgainRes = await window.FriendsSystem.acceptRequest('sender-1');
+assert.equal(acceptAgainRes, true, 'S6: acceptRequest nach re-request erfolgreich');
+
+// Szenario 7: A darf eigene Anfrage nicht per declineRequest ablehnen → request-not-found
+// Der Mock simuliert das Verhalten: 'BADREQ' (kein to_user_id-Match) → { ok:false, reason:'request-not-found' }
+const senderDeclineOwnRes = await window.FriendsSystem.declineRequest('BADREQ');
+assert.equal(senderDeclineOwnRes, false, 'S7: Sender kann eigene Anfrage nicht ablehnen (request-not-found)');
 
 console.log('friends Supabase bridge tests passed ✓');

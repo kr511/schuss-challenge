@@ -118,6 +118,7 @@ const FriendsSystem = (function() {
       'code-not-found': 'Code nicht gefunden',
       'already-friend': 'Bereits dein Freund',
       'already-sent': 'Bereits Anfrage gesendet',
+      'recently-declined': 'Anfrage kürzlich abgelehnt – bitte 24 Stunden warten.',
       'request-not-found': 'Anfrage nicht gefunden oder bereits bearbeitet',
     };
     return messages[reason] || 'Aktion konnte nicht ausgeführt werden';

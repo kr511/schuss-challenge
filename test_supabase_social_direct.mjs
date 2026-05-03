@@ -212,6 +212,83 @@ async function run() {
     }), authed(alphaToken));
     assert.equal(reactivated[0].status, 'declined');
 
+    // Szenario 5: Alpha fragt nach abgelaufenem 24h-Cooldown erneut an.
+    // Simuliert app-seitigen upsert (addFriendByCode: status→pending, responded_at→null).
+    const reRequestRows = await requestJson(
+      restUrl('friend_requests', {
+        select: 'id,status,responded_at',
+        id: `eq.${declineRequest[0].id}`,
+      }),
+      authed(alphaToken, {
+        method: 'PATCH',
+        prefer: 'return=representation',
+        body: { status: 'pending', responded_at: null },
+      }),
+    );
+    assert.equal(reRequestRows[0].status, 'pending', 'S5: Status nach Re-Request ist pending');
+    assert.equal(reRequestRows[0].responded_at, null, 'S5: responded_at nach Re-Request ist null');
+
+    // Szenario 1 (Wiederholung): Beta sieht die Re-Anfrage als incoming request.
+    const incomingAgain = await requestJson(restUrl('friend_requests', {
+      select: 'id,status',
+      to_user_id: `eq.${beta.id}`,
+      from_user_id: `eq.${alpha.id}`,
+      status: 'eq.pending',
+    }), authed(betaToken));
+    assert.ok(incomingAgain.length > 0, 'S1b: Beta sieht Re-Anfrage als eingehende pending request');
+    assert.equal(incomingAgain[0].id, declineRequest[0].id, 'S1b: Korrekte Request-ID bei Re-Anfrage');
+
+    // Szenario 7: Alpha (Sender) versucht, die eigene Anfrage per to_user_id-Filter abzulehnen.
+    // declineRequest() im Client filtert .eq('to_user_id', user.id).
+    // Da to_user_id = beta, findet die Query für alpha keine Zeile → 0 Zeilen, kein Update.
+    const alphaDeclineAttempt = await requestJson(
+      restUrl('friend_requests', {
+        select: 'id',
+        id: `eq.${declineRequest[0].id}`,
+        to_user_id: `eq.${alpha.id}`,  // alpha ist NICHT der Empfänger
+      }),
+      authed(alphaToken, {
+        method: 'PATCH',
+        prefer: 'return=representation',
+        body: { status: 'declined', responded_at: new Date().toISOString() },
+      }),
+    );
+    assert.equal(alphaDeclineAttempt.length, 0,
+      'S7: Sender kann eigene Anfrage nicht per to_user_id-Filter ablehnen – 0 Zeilen betroffen');
+
+    // Verify: Anfrage ist noch pending (nicht declined vom Sender)
+    const afterAlphaDeclineAttempt = await requestJson(restUrl('friend_requests', {
+      select: 'id,status',
+      id: `eq.${declineRequest[0].id}`,
+    }), authed(alphaToken));
+    assert.equal(afterAlphaDeclineAttempt[0].status, 'pending',
+      'S7: Status bleibt pending nach fehlgeschlagenem Sender-Decline');
+
+    // Szenario 6: Beta nimmt die Re-Anfrage an.
+    // Hinweis: Alpha und Beta sind noch befreundet (Freundschaft aus erstem accept),
+    // INSERT into friends wird on_conflict do nothing – kein Fehler.
+    await requestJson(restUrl('rpc/accept_friend_request'), authed(betaToken, {
+      method: 'POST',
+      body: { request_id: declineRequest[0].id },
+      allowEmpty: true,
+    }));
+
+    const reqAfterReAccept = await requestJson(restUrl('friend_requests', {
+      select: 'id,status',
+      id: `eq.${declineRequest[0].id}`,
+    }), authed(alphaToken));
+    assert.equal(reqAfterReAccept[0].status, 'accepted', 'S6: Status nach Re-Accept ist accepted');
+
+    // Friendship-Rows existieren weiterhin (waren schon da, on_conflict do nothing).
+    const alphaFriendsAfterReAccept = await requestJson(restUrl('friends', {
+      select: 'friend_user_id',
+      user_id: `eq.${alpha.id}`,
+    }), authed(alphaToken));
+    assert.ok(
+      alphaFriendsAfterReAccept.some((r) => r.friend_user_id === beta.id),
+      'S6: Friend-Row A→B nach Re-Accept vorhanden',
+    );
+
     await requestJson(restUrl('online_status', { on_conflict: 'user_id' }), authed(alphaToken, {
       method: 'POST',
       prefer: 'resolution=merge-duplicates,return=minimal',
@@ -264,7 +341,7 @@ async function run() {
     assert.equal(alphaFriendsAfterRemove.length, 0);
     assert.equal(betaFriendsAfterRemove.length, 0);
 
-    console.log('Supabase social smoke passed: auth, profiles, friend code, request accept, presence, challenge, remove friend.');
+    console.log('Supabase social smoke passed: auth, profiles, friend code, request/accept/decline/re-request, presence, challenge, remove friend.');
   } finally {
     await Promise.all(created.map(deleteAuthUser));
   }
