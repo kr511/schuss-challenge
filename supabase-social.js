@@ -326,16 +326,24 @@
 
     var existingRequest = await client
       .from('friend_requests')
-      .select('id, status')
+      .select('id, status, responded_at')
       .eq('from_user_id', user.id)
       .eq('to_user_id', target.data.user_id)
-      .eq('status', 'pending')
       .maybeSingle();
 
     if (existingRequest.error) throw existingRequest.error;
     if (existingRequest.data && existingRequest.data.id) {
-      await loadOutgoingRequests();
-      return { ok: false, reason: 'already-sent' };
+      if (existingRequest.data.status === 'pending') {
+        await loadOutgoingRequests();
+        return { ok: false, reason: 'already-sent' };
+      }
+
+      if (existingRequest.data.status === 'declined') {
+        var declinedAtMs = existingRequest.data.responded_at ? Date.parse(existingRequest.data.responded_at) : 0;
+        if (declinedAtMs && (Date.now() - declinedAtMs) < 24 * 60 * 60 * 1000) {
+          return { ok: false, reason: 'recently-declined' };
+        }
+      }
     }
 
     var request = await client
@@ -343,7 +351,8 @@
       .upsert({
         from_user_id: user.id,
         to_user_id: target.data.user_id,
-        status: 'pending'
+        status: 'pending',
+        responded_at: null
       }, { onConflict: 'from_user_id,to_user_id' })
       .select('id')
       .single();

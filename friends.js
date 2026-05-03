@@ -118,6 +118,7 @@ const FriendsSystem = (function() {
       'code-not-found': 'Code nicht gefunden',
       'already-friend': 'Bereits dein Freund',
       'already-sent': 'Bereits Anfrage gesendet',
+      'recently-declined': 'Anfrage wurde kürzlich abgelehnt. Bitte später erneut versuchen.',
     };
     return messages[reason] || 'Aktion konnte nicht ausgeführt werden';
   }
