@@ -4,103 +4,139 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Schussduell / Schuss Challenge is a PWA for shooting-sport training (air rifle + smallbore). The frontend is vanilla JS served as static assets; the backend is a Cloudflare Worker backed by D1. Local AI (TensorFlow.js) runs on-device for monitor-vs-paper target classification — per the README, no image data leaves the device. UI/comments are primarily in German.
+Schützen Challenge is a PWA for shooting-sport training (air rifle + smallbore). The product name is **Schützen Challenge**; "Schussduell" is kept only as the name of the bot-duel game mode. The frontend is vanilla JS served as static assets; the backend is a Cloudflare Worker. Local AI (TensorFlow.js) runs on-device for monitor-vs-paper target classification — no image data leaves the device. UI/comments are primarily in German.
 
 ## Commands
 
 ```bash
-npm run dev                   # wrangler dev — serves worker + static assets at http://localhost:8787
-npm run verify:balance        # runs verify-balance.js → BattleBalance.runBalanceVerification over disciplines × difficulties
-npm run d1:migrate:local      # applies migrations/0001_initial.sql to local D1
-npm run d1:migrate:remote     # applies 0001_initial.sql to remote D1
-
-# Additional migrations must be applied manually (the npm scripts only cover 0001):
-npx wrangler d1 execute schuss_challenge --file=./migrations/0002_social.sql --local
-npx wrangler d1 execute schuss_challenge --file=./migrations/0003_feedback_updates.sql --local
+npm run dev          # wrangler dev via scripts/dev-wrangler.mjs → http://localhost:8787
+npm run check:js     # node --check syntax validation for all JS files (30+ files)
+npm run check:html   # src/testing/check-html-integrity.mjs — checks IDs, script sources, tab counts
+npm run verify:balance  # stochastic bot-balance test, 120 games × discipline × difficulty
+npm test             # cleanup:legacy + check:js + check:html + auth/friends/async bridge tests + verify:balance
 ```
 
-### Tests (no `npm test` script — run manually)
+**Run after every change** — at minimum `npm run check:js && npm run check:html`.
+
+### Tests requiring credentials
 
 ```bash
-npx tsx test_api_direct.mjs   # in-process worker test. Uses node:sqlite as a D1 stand-in and imports worker/api.ts directly. This bypasses wrangler/miniflare, which crashes on Node 24 + Windows (noted in that file).
-node test_xss_direct.mjs      # jsdom-based XSS tests for escHtml + render functions
-pwsh -ExecutionPolicy Bypass -File ./verify_backend.ps1   # CORS/auth/validation probes against a running `npm run dev` on :8787
+# Needs .dev.vars with SUPABASE_SERVICE_KEY and SUPABASE_JWT_SECRET:
+npm run test:supabase          # test_api_direct.mjs + test_supabase_social_direct.mjs
+npx tsx test_api_direct.mjs   # in-process worker test; imports worker/api.ts directly
+                               # (bypasses wrangler/miniflare which crashes on Node 24 + Windows)
+node test_xss_direct.mjs      # jsdom XSS tests for escHtml + render functions
 ```
 
-`qa-test-suite.js` runs automatically in the browser ~2s after load; it's not part of the CI-style test set.
+`.dev.vars` format:
+```
+SUPABASE_SERVICE_KEY=eyJ...
+SUPABASE_JWT_SECRET=...
+```
+
+### Supabase migrations
+
+```bash
+npm run supabase:bundle   # regenerates supabase/run-all-migrations.sql from individual files
+npm run supabase:apply    # applies pending migrations via scripts/apply-supabase-migrations.mjs
+```
+
+New migrations go in `supabase/migrations/` as `NNNN_descriptive_name.sql` and must also be appended to `supabase/run-all-migrations.sql` (or regenerated via `supabase:bundle`).
+
+### D1 migrations (Cloudflare Worker only)
+
+```bash
+npm run d1:migrate:local    # migrations/0001_initial.sql → local D1
+npm run d1:migrate:remote   # migrations/0001_initial.sql → remote D1
+# 0002+ must be applied manually:
+npx wrangler d1 execute schuss_challenge --file=./migrations/0002_social.sql --local
+```
 
 ## Architecture
 
-### Frontend — monolith + feature modules, no bundler
+### Two separate database schemas
 
-`index.html` is the single entry. It loads ~25 `<script>` tags with `?v=X.X` query params for cache-busting; **load order is intentional** (`app.js` must load before `daily-challenge.js`, `friends.js`, etc.). Each feature file is an IIFE exposing a global (`AdaptiveBotSystem`, `DailyChallenge`, `FriendsSystem`, `StorageManager`, `BattleBalance`, …).
+The project has **two independent persistence layers** — a common source of confusion:
 
-`app.js` (~7.5k lines) is the core. Key globals:
-- `G` — runtime game state (discipline, weapon, shots, bot state, timers, 3×20 positions)
+| Layer | Location | Accessed by | Tables |
+|---|---|---|---|
+| **Cloudflare D1** | `migrations/` | Worker only (service_role) | `users`, `game_sessions`, `achievements`, `streaks`, `feedback`, `api_profiles`, `activity_log` |
+| **Supabase Postgres** | `supabase/migrations/` | Frontend via anon key + Worker via service_role | `profiles`, `friends`, `training_sessions`, `training_results`, `leaderboard_entries`, `shooter_challenges`, `challenge_completions`, `user_progress`, etc. |
+
+`supabase/migrations/` currently has 0001–0008 (note: two files share the `0005_` prefix). `supabase/run-all-migrations.sql` is the bundled paste-into-SQL-editor version.
+
+### Frontend — no bundler, intentional script load order
+
+`index.html` loads ~25 `<script>` tags with `?v=X.X` cache-busting params. **Load order matters**: `app.js` must be first; feature modules (`src/features/*`, `friends.js`, etc.) load after. Each feature is an IIFE that exposes a global.
+
+`app.js` (~7.5k lines) is the core:
+- `G` — runtime game state (discipline, weapon, shots, bot, timers, 3×20 positions)
 - `DOM` — cached `getElementById` refs
-- `showScreen(id)` — view transitions between `screenEntry`, `screenSetup`, `screenBattle`, `screenOver`, `screenFeedback`
+- `showScreen(id)` — transitions between `screenEntry`, `screenSetup`, `screenBattle`, `screenOver`, `screenFeedback`
 
-Persistence conventions:
-- All localStorage goes through `StorageManager` (`storage-manager.js`) with an `sd_` prefix. Prefer `StorageManager.get/set/getRaw/setRaw` over direct `localStorage.*`.
-- Supabase-only. Lokaler Gastmodus als Fallback. Auth, Google OAuth, friends, presence, async challenges, profile sync, and leaderboard data must use Supabase/Worker APIs or local guest data.
-- The Cloudflare Worker API (see backend section) handles sessions, achievements, streaks, leaderboard, feedback, profiles, live activity.
+Feature modules in `src/`:
+- `src/features/quick-training.js` — offline-first 10-shot training, Supabase sync via `training_results.local_id`
+- `src/features/shooter-challenges-ui.js` — renders safety challenges; always shows Safety Notes + fire-type badge
+- `src/features/online-status.js` — online/offline indicator
+- `src/features/async-challenge.js` — async duel flow via SupabaseSocial
+- `src/storage/storage-manager.js` — all localStorage via `sd_` prefix; always prefer `StorageManager.get/set` over direct `localStorage.*`
+- `src/bot/battle-balance.js` — `BALANCE_TARGETS` is source of truth for bot scoring bands
+- `src/game/duel-result-screen.js` — post-duel result flow
+- `src/vision/image-compare.js` — TF.js CNN (monitor vs paper), loads on demand; always marked **Beta** in UI
+- `src/testing/` — `qa-test-suite.js` (auto-runs in browser), `verify-balance.js`, `check-html-integrity.mjs`
 
 Domain vocabulary:
-- Disciplines: `lg40`, `lg60`, `kk50`, `kk100`, `kk3x20` (LG = Luftgewehr / air rifle, KK = Kleinkaliber / smallbore; 3×20 splits into kneeling/prone/standing)
+- Disciplines: `lg40`, `lg60`, `kk50`, `kk100`, `kk3x20`
 - Bot difficulties: `easy`, `real`, `hard`, `elite`
-- API-level `GameMode`: `standard | challenge | bot_fight | timed` (this is distinct from discipline)
-- Balance targets per discipline × difficulty live in `battle-balance.js::BALANCE_TARGETS` and are the source of truth for bot scoring bands.
+- API `GameMode`: `standard | challenge | bot_fight | timed`
 
-AI / image pipeline:
-- `image-compare.js` + `image-compare-brain.js` + `model.json` + `weights.bin` + `group1-shard*.bin` — a TensorFlow.js CNN classifying monitor vs paper targets, loaded on demand via `loadMLModel()`. If TF.js isn't present, it degrades gracefully.
-- `contextual-ocr.js` + `multi-score-detection.js` — OCR/score extraction from captured photos.
-- `feature-fallback.js` listens for `featureReady` CustomEvents — features should dispatch `new CustomEvent('featureReady', { detail: { name: 'adaptiveBot' } })` when ready; there's a 5s safety-net check.
+### Backend — Cloudflare Worker
 
-PWA:
-- `sw.js` — precaches listed local JS/CSS + index.html; network-first for HTML, cache-first for assets; never caches `/api/` requests.
-- **Releases require bumping both `CACHE_VERSION` in `sw.js` and the `?v=X.X` query params in `index.html`.** Otherwise users get stale files.
+- `worker/index.ts` — routes `/api/*` → `handleApiRequest`; else `env.ASSETS.fetch(request)` (assets served from repo root per `wrangler.jsonc`)
+- `worker/api.ts` — routing, Zod validation, CORS, auth. Public (no auth): `GET /api/leaderboard`, `POST /api/feedback`, `GET /api/activity/live`, `GET /api/profile/:publicId`
+- `worker/db.ts` — Supabase PostgREST helpers; `ensureUserExists` is called before inserts (upserts on conflict to handle race conditions)
+- `worker/types.ts` — `Env`, `GameMode`, `FeedbackStatus`
 
-`main.js.DEPRECATED` is an older bundler entry — ignore; production uses individual `<script>` tags.
+### Auth model
 
-`patch_app_hooks.cjs` and `patch_dashboard.cjs` are **one-shot** rewrite scripts that have already been applied to `app.js` / `index.html`. Do not re-run them — they use brittle string-replace and would either double-apply or fail.
+The Worker resolves a user from the Supabase JWT (`Authorization: Bearer <supabase-jwt>`), validated against `SUPABASE_JWT_SECRET`. Dev shortcut: if `ALLOW_INSECURE_DEV_AUTH=true` AND hostname is localhost/127.0.0.1/0.0.0.0, `x-dev-user-id` header is accepted without JWT. In production, user-scoped endpoints return `401 AUTH_REQUIRED` without a valid JWT.
 
-### Backend — Cloudflare Worker + D1
+Admin endpoints (`/api/admin/*`) require `userId ∈ ADMIN_USER_IDS` (comma-separated env var).
 
-- `worker/index.ts` — entry. Routes `/api/*` → `handleApiRequest`; else `env.ASSETS.fetch(request)` to serve static files from the repo root (configured via `"assets": { "directory": "." }` in `wrangler.jsonc`).
-- `worker/api.ts` — all routing, Zod validation, CORS, auth. Public endpoints (no auth): `GET /api/leaderboard`, `POST /api/feedback`, `GET /api/activity/live`, `GET /api/profile/:publicId`. Everything else requires a resolved user id.
-- `worker/db.ts` — D1 query helpers; `ensureUserExists` is called before inserts so an unknown `userId` auto-creates a row.
-- `worker/types.ts` — `Env` + shared types. `GameMode` and `FeedbackStatus` enums live here.
+CORS: `ALLOWED_ORIGINS` allowlist in `api.ts`. `ALLOW_INSECURE_DEV_AUTH=true` additionally echoes any localhost/127.0.0.1/0.0.0.0 origin.
 
-Migrations are the authoritative schema (`migrations/0001_initial.sql`, `0002_social.sql`, `0003_feedback_updates.sql`). Table list: `users`, `game_sessions`, `achievements`, `streaks`, `feedback`, `profiles`, `activity_log`. Always add new schema as a new numbered migration.
+### PWA / Service Worker
 
-### Auth model (easy to misread)
+`sw.js` strategy:
+- **Navigation (HTML)**: network-first → `offline.html` fallback
+- **`/api/`, Supabase, googleapis, accounts.google.com**: passthrough, never cached
+- **JS/CSS**: passthrough to network (no cache-locking — avoids stale-file bugs)
+- **Shell assets** (icons, manifest, offline.html): cache-first from precache
 
-The worker has **no real auth in production**. Its dev-user resolver only returns a user when **all** of these are true:
-- `env.ALLOW_INSECURE_DEV_AUTH === "true"`
-- The request hostname is `localhost` / `127.0.0.1` / `0.0.0.0`
-- The request carries `x-dev-user-id: <id>`
+**On release**: bump `CACHE_VERSION` in `sw.js` AND `?v=X.X` on every changed `<script>`/`<link>` in `index.html`. Without both, users get stale files.
 
-In production (hostname != localhost), user-scoped endpoints will return `401 AUTH_REQUIRED` unless the Supabase-authenticated flow is available for that endpoint. The frontend identity source is Supabase Auth; local guest play stays local.
+## Gotchas
 
-Admin endpoints (`/api/admin/*`) additionally require `userId ∈ ADMIN_USER_IDS` (comma-separated env var, empty by default).
+- **Scroll-lock cleanup**: Any modal that sets `body.style.overflow='hidden'` or `position='fixed'` must restore it on every close path (X button, overlay click, navigation). Restore `overflow` synchronously — not inside `requestAnimationFrame` — on iOS Safari.
+- **Null-check DOM refs**: `getElementById` results can be null, especially in `startBattle`. Early-return with `console.error` rather than crashing.
+- **`escHtml` contract**: Must escape `& < > " ' \` /` and coerce null/undefined to `""`. See `test_xss_direct.mjs`. Use `textContent`/`createElement` over template-string `innerHTML` where possible.
+- **Balance changes**: Any edit to `battle-balance.js` or `adaptive-bot.js` requires `npm run verify:balance`.
+- **Double-submit protection**: Use a `busyId`/`saving` state flag; disable the button and restore in `finally`. Pattern used in `shooter-challenges-ui.js` (`STATE.busyId`) and `quick-training.js` (`STATE.saving`).
+- **`featureReady` events**: Feature IIFEs should dispatch `new CustomEvent('featureReady', { detail: { name: '...' } })` after init. `feature-fallback.js` has a 5s safety-net.
+- **Don't re-run patch scripts**: `patch_app_hooks.cjs` and `patch_dashboard.cjs` are one-shot scripts already applied. Re-running them will double-apply or break.
 
-CORS: `ALLOWED_ORIGINS` is an allow-list in `api.ts`. When `ALLOW_INSECURE_DEV_AUTH=true`, any `localhost`/`127.0.0.1` origin is echoed. Unknown origins get no `Access-Control-Allow-Origin` header (the request still succeeds at the network layer — this is by design).
+## RLS model for Supabase tables
 
-## Gotchas / patterns the codebase cares about
-
-- **Scroll-lock cleanup on overlay close** (`BUGFIXES.md` BUG #1/#2). When any modal sets `document.body.style.overflow = 'hidden'` or `position = 'fixed'`, every close path (X button, overlay-click, navigation) must restore it, and restore `overflow` synchronously (not inside `requestAnimationFrame`) on iOS Safari.
-- **Null-check DOM refs before mutating** (`BUGFIXES.md` BUG #3/#7). `DOM.shotLogWrap`, `DOM.slPills[i]`, and similar `getElementById` results can be `null` — early-return with `console.error` instead of crashing. startBattle is the usual offender.
-- **Escape user-supplied strings with `escHtml` before interpolating into HTML.** See `test_xss_direct.mjs` for the contract (must escape `& < > " ' ` /`, and coerce null/undefined to `""`). Prefer `textContent` / `createElement` over template-string `innerHTML` whenever possible.
-- **Cache-bust on release.** Bump `CACHE_VERSION` in `sw.js` and `?v=X.X` in every affected `<script>`/`<link>` in `index.html`. The service worker is aggressively cache-first for JS/CSS.
-- **Balance changes must be verified.** If you touch scoring in `battle-balance.js` or bot logic in `adaptive-bot.js`, run `npm run verify:balance` — it samples 120 games per discipline × difficulty and asserts `BALANCE_TARGETS` bands.
-- **Don't rename `ADMIN_USER_IDS` / `ALLOW_INSECURE_DEV_AUTH`** without updating `wrangler.jsonc` (`vars` in root + `env.local.vars` + `env.production.vars`) and `worker/types.ts::Env`.
+- **Social tables** (`profiles`, `friends`, `friend_requests`, etc.): frontend uses anon key, RLS enforces per-user access.
+- **Training/challenge tables** (`training_sessions`, `training_results`, `challenge_completions`, `shooter_challenges`): RLS enforces `auth.uid() = user_id`; `shooter_challenges` is public-read, admin-write.
+- **Worker-API tables** (`users`, `game_sessions`, `achievements`, `streaks`, `feedback`, `api_profiles`, `activity_log`): Worker uses service_role (bypasses RLS); `0008_worker_api_rls.sql` adds read-only policies for authenticated direct access.
+- `training_results.local_id` is a real column (added in `0008_training_results_local_id.sql`); Quick Training dedup uses `.eq('local_id', entry.local_id)`, not `notes`.
 
 ## Repo layout notes
 
-- `admin.html` is a standalone Supabase-admin placeholder. Keep it self-contained; don't wire it into `index.html`.
-- Friends system is split across `friends.js` / `friends-system.js` / `friends-ui.js` / `friend-challenges.js` — SupabaseSocial owns friends, requests, online status, and challenge flow.
-- `vite`, `@vitejs/plugin-react`, and React are in `package.json` but the main app does not go through Vite. Don't assume a build step exists for the PWA.
-
-## Working directory quirk
-
-`wrangler.jsonc` sets `"assets": { "directory": "." }`, so `wrangler dev` serves the entire repo root (including `node_modules/` and migration SQL) over HTTP locally. Treat the repo root as the public docroot when reasoning about asset paths.
+- `admin.html` — standalone Supabase-admin stub; keep self-contained, don't wire into `index.html`
+- `supabase/run-all-migrations.sql` — paste-into-Supabase-SQL-editor bundle; regenerate with `npm run supabase:bundle` after adding migrations
+- `main.js.DEPRECATED` — ignore; production uses individual `<script>` tags
+- Friends system: `friends.js` / `friends-system.js` / `friends-ui.js` / `friend-challenges.js` — `SupabaseSocial` owns friends, requests, online status, challenge flow
+- `wrangler.jsonc` `"assets": { "directory": "." }` means `wrangler dev` serves the entire repo root over HTTP — treat it as the public docroot
+- React/Vite are in `package.json` but the main PWA does **not** go through Vite; no build step for the frontend
