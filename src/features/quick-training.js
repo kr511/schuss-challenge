@@ -164,6 +164,72 @@
     return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}. ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   }
 
+  function computeTrainingStats(history) {
+    const list = Array.isArray(history) ? history : [];
+    const totals = list
+      .filter((e) => e && Number.isFinite(e.total))
+      .map((e) => Number(e.total));
+    if (!totals.length) {
+      return { count: 0, last: null, prev: null, avgLast5: null, best: null, trend: null };
+    }
+    const last = totals[totals.length - 1];
+    const prev = totals.length >= 2 ? totals[totals.length - 2] : null;
+    const lastFive = totals.slice(-5);
+    const avgLast5 = lastFive.reduce((sum, n) => sum + n, 0) / lastFive.length;
+    const best = totals.reduce((max, n) => (n > max ? n : max), totals[0]);
+    const trend = prev === null ? null : Math.round((last - prev) * 10) / 10;
+    return {
+      count: totals.length,
+      last: Math.round(last * 10) / 10,
+      prev: prev === null ? null : Math.round(prev * 10) / 10,
+      avgLast5: Math.round(avgLast5 * 10) / 10,
+      best: Math.round(best * 10) / 10,
+      trend,
+    };
+  }
+
+  function formatTrend(diff) {
+    if (diff === null || !Number.isFinite(diff)) return '–';
+    if (Math.abs(diff) < 0.05) return '±0.0';
+    const sign = diff > 0 ? '+' : '−';
+    return `${sign}${Math.abs(diff).toFixed(1)}`;
+  }
+
+  function trendColor(diff) {
+    if (diff === null || !Number.isFinite(diff) || Math.abs(diff) < 0.05) return 'rgba(255,255,255,0.7)';
+    return diff > 0 ? '#b4dc78' : '#ffb4b4';
+  }
+
+  function statsBoxHtml(variant) {
+    const stats = computeTrainingStats(readHistory());
+    const wrapBase = "background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px;";
+    const wrap = variant === 'closed' ? `${wrapBase}margin-top:10px;` : `${wrapBase}margin-top:12px;`;
+    if (!stats.count) {
+      return `<div style="${wrap}">
+        <div style="font-size:0.75rem;color:rgba(255,255,255,0.62);text-align:center;">Noch keine Daten – starte dein erstes Schnelltraining für deine Statistik.</div>
+      </div>`;
+    }
+    const cell = (label, value, valueColor) => `
+      <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:6px 8px;text-align:center;min-width:0;">
+        <div style="font-size:0.62rem;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.04em;line-height:1.1;">${escHtml(label)}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:0.95rem;font-weight:700;color:${escHtml(valueColor || '#fff')};margin-top:2px;line-height:1.1;">${escHtml(value)}</div>
+      </div>`;
+    const last = Number.isFinite(stats.last) ? stats.last.toFixed(1) : '–';
+    const avg5 = Number.isFinite(stats.avgLast5) ? stats.avgLast5.toFixed(1) : '–';
+    const best = Number.isFinite(stats.best) ? stats.best.toFixed(1) : '–';
+    const trendStr = formatTrend(stats.trend);
+    const avgLabel = stats.count >= 5 ? 'Ø 5' : `Ø ${stats.count}`;
+    const trendLabel = stats.prev === null ? 'Trend' : 'Δ vorher';
+    return `<div style="${wrap}">
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;">
+        ${cell('Letztes', last)}
+        ${cell(avgLabel, avg5)}
+        ${cell('Best', best)}
+        ${cell(trendLabel, trendStr, trendColor(stats.trend))}
+      </div>
+    </div>`;
+  }
+
   function syncBadge(status) {
     if (status === 'synced') return { sym: '✓', label: 'Online synchronisiert', color: '#7ad27a' };
     if (status === 'pending') return { sym: '↻', label: 'Sync ausstehend', color: '#ffd27a' };
@@ -326,10 +392,6 @@
   }
 
   function renderClosed(host) {
-    const last = readHistory().slice(-1)[0] || null;
-    const lastSummary = last && Number.isFinite(last.total)
-      ? `Letztes Training: ${Number(last.total).toFixed(1)} Ringe (Ø ${Number(last.avg || 0).toFixed(2)})`
-      : 'Noch kein lokales Training erfasst.';
     host.innerHTML = `
       <section style="background:linear-gradient(145deg,rgba(50,55,60,0.4),rgba(15,18,20,0.85));border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;box-shadow:0 8px 28px rgba(0,0,0,0.38);">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -339,7 +401,7 @@
           </div>
           <button type="button" data-qt-toggle="open" style="background:linear-gradient(135deg,#7ab030,#5a9020);color:#0a1a06;border:1px solid rgba(122,176,48,0.6);border-radius:12px;padding:10px 14px;font-weight:700;font-size:0.85rem;cursor:pointer;min-height:44px;">Training starten</button>
         </div>
-        <div style="margin-top:8px;font-size:0.78rem;color:rgba(255,255,255,0.58);">${escHtml(lastSummary)}</div>
+        ${statsBoxHtml('closed')}
         ${footerHint()}
       </section>`;
     const toggle = host.querySelector('[data-qt-toggle="open"]');
@@ -370,7 +432,9 @@
         </div>
         <div data-qt-result style="margin-top:12px;font-size:0.85rem;color:rgba(255,255,255,0.85);min-height:1em;"></div>
         <div style="margin-top:14px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.1);">
-          <div style="font-size:0.78rem;color:rgba(255,255,255,0.62);margin-bottom:6px;font-weight:700;">Letzte Trainings (lokal)</div>
+          <div style="font-size:0.78rem;color:rgba(255,255,255,0.62);margin-bottom:6px;font-weight:700;">Trainingsverlauf</div>
+          <div data-qt-stats>${statsBoxHtml('open')}</div>
+          <div style="font-size:0.78rem;color:rgba(255,255,255,0.62);margin:10px 0 6px;font-weight:700;">Letzte Trainings (lokal)</div>
           <div data-qt-history style="display:flex;flex-direction:column;gap:6px;">${renderHistoryRows()}</div>
         </div>
         ${footerHint()}
@@ -435,6 +499,8 @@
   function refreshHistoryDom(host) {
     const histEl = host.querySelector('[data-qt-history]');
     if (histEl) histEl.innerHTML = renderHistoryRows();
+    const statsEl = host.querySelector('[data-qt-stats]');
+    if (statsEl) statsEl.innerHTML = statsBoxHtml('open');
     bindHistoryToggle(host);
   }
 
@@ -577,6 +643,8 @@
     flushPendingSyncs,
     _parseShotInput: parseShotInput,
     _computeStats: computeStats,
+    _computeTrainingStats: computeTrainingStats,
+    _formatTrend: formatTrend,
     _buildRecommendation: buildRecommendation,
     _state: STATE,
   });
