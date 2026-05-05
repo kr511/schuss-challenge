@@ -502,6 +502,14 @@ const FriendsSystem = (function() {
       return;
     }
 
+    if (window.FriendPhotoDuel && typeof window.FriendPhotoDuel.openCreate === 'function') {
+      window.FriendPhotoDuel.openCreate(friendId);
+      if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) {
+        MobileFeatures.triggerHaptic('medium');
+      }
+      return;
+    }
+
     if (isSupabaseSocialAvailable() && typeof window.SupabaseSocial.createChallenge === 'function') {
       window.SupabaseSocial.createChallenge(friendId, {
         discipline: G && G.discipline,

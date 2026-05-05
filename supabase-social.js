@@ -445,6 +445,69 @@
     state.heartbeatId = null;
   }
 
+  var PHOTO_DUEL_KIND = 'photo_duel';
+  var PHOTO_DUEL_XP_REWARD = 20;
+  var DISCIPLINE_META = {
+    lg40: { weapon: 'lg', distance: '10', shots: 40 },
+    lg60: { weapon: 'lg', distance: '10', shots: 60 },
+    kk50: { weapon: 'kk', distance: '50', shots: 60 },
+    kk100: { weapon: 'kk', distance: '100', shots: 60 },
+    kk3x20: { weapon: 'kk', distance: '50', shots: 60 }
+  };
+
+  function getDisciplineMeta(discipline) {
+    return DISCIPLINE_META[discipline] || DISCIPLINE_META.lg40;
+  }
+
+  function normalizePhotoDuelScore(input) {
+    var data = input || {};
+    var score = Number(data.score);
+    if (!Number.isFinite(score) || score < 0) throw new Error('invalid-score');
+    var confidence = Number(data.confidence);
+    return {
+      score: score,
+      scoreSource: String(data.scoreSource || data.source || 'ocr-confirmed').slice(0, 32),
+      ocrConfidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : null
+    };
+  }
+
+  async function loadResultsForChallengeIds(ids) {
+    var client = getClient();
+    var challengeIds = Array.from(new Set((ids || []).filter(Boolean)));
+    if (!client || challengeIds.length === 0) return {};
+
+    var rows = await client
+      .from('async_results')
+      .select('challenge_id, user_id, score, shots, submitted_at, score_source, ocr_confidence, confirmed_at')
+      .in('challenge_id', challengeIds);
+
+    if (rows.error) throw rows.error;
+
+    var byChallenge = {};
+    (rows.data || []).forEach(function (row) {
+      if (!byChallenge[row.challenge_id]) byChallenge[row.challenge_id] = [];
+      byChallenge[row.challenge_id].push(row);
+    });
+    return byChallenge;
+  }
+
+  function mapPhotoDuelRows(rows, profileMap, resultMap) {
+    return (rows || []).map(function (row) {
+      var creatorProfile = profileMap[row.creator_id] || {};
+      var opponentProfile = profileMap[row.opponent_id] || {};
+      var results = (resultMap && resultMap[row.id]) || [];
+      var creatorResult = results.find(function (result) { return result.user_id === row.creator_id; }) || null;
+      var opponentResult = results.find(function (result) { return result.user_id === row.opponent_id; }) || null;
+      return Object.assign({}, row, {
+        creator_username: creatorProfile.display_name || creatorProfile.username || 'Spieler',
+        opponent_username: opponentProfile.display_name || opponentProfile.username || 'Freund',
+        creator_score: creatorResult ? Number(creatorResult.score) : null,
+        opponent_score: opponentResult ? Number(opponentResult.score) : null,
+        results: results
+      });
+    });
+  }
+
   async function createChallenge(opponentId, settings) {
     if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
 
@@ -484,7 +547,9 @@
     if (rows.error) throw rows.error;
 
     var profileMap = await loadProfiles((rows.data || []).map(function (row) { return row.opponent_id; }));
-    return (rows.data || []).map(function (row) {
+    return (rows.data || []).filter(function (row) {
+      return row.kind !== PHOTO_DUEL_KIND;
+    }).map(function (row) {
       var profile = profileMap[row.opponent_id] || {};
       return Object.assign({}, row, {
         opponent_username: profile.display_name || profile.username || ''
@@ -507,7 +572,9 @@
     if (rows.error) throw rows.error;
 
     var profileMap = await loadProfiles((rows.data || []).map(function (row) { return row.creator_id; }));
-    return (rows.data || []).map(function (row) {
+    return (rows.data || []).filter(function (row) {
+      return row.kind !== PHOTO_DUEL_KIND;
+    }).map(function (row) {
       var profile = profileMap[row.creator_id] || {};
       return Object.assign({}, row, {
         creator_username: profile.display_name || profile.username || 'Spieler'
@@ -530,6 +597,217 @@
 
     if (result.error) throw result.error;
     return { ok: true, challenge: result.data };
+  }
+
+  async function createPhotoDuel(opponentId, scorePayload) {
+    if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
+    if (!opponentId) return { ok: false, reason: 'missing-opponent' };
+
+    var client = getClient();
+    var user = getUser();
+    var discipline = String((scorePayload && scorePayload.discipline) || 'lg40');
+    var meta = getDisciplineMeta(discipline);
+    var scoreData = normalizePhotoDuelScore(scorePayload);
+    var now = new Date().toISOString();
+
+    var challenge = await client
+      .from('async_challenges')
+      .insert({
+        creator_id: user.id,
+        opponent_id: opponentId,
+        kind: PHOTO_DUEL_KIND,
+        discipline: discipline,
+        weapon: meta.weapon,
+        distance: meta.distance,
+        difficulty: null,
+        shots: meta.shots,
+        burst: false,
+        status: 'pending',
+        xp_reward: PHOTO_DUEL_XP_REWARD,
+        updated_at: now
+      })
+      .select('*')
+      .single();
+
+    if (challenge.error) throw challenge.error;
+
+    var result = await client
+      .from('async_results')
+      .insert({
+        challenge_id: challenge.data.id,
+        user_id: user.id,
+        score: scoreData.score,
+        shots: [],
+        score_source: scoreData.scoreSource,
+        ocr_confidence: scoreData.ocrConfidence,
+        confirmed_at: now
+      })
+      .select('*')
+      .single();
+
+    if (result.error) throw result.error;
+
+    return {
+      ok: true,
+      challenge: Object.assign({}, challenge.data, {
+        creator_score: scoreData.score,
+        results: [result.data]
+      })
+    };
+  }
+
+  async function loadIncomingPhotoDuels() {
+    if (!(await ensureReady())) return [];
+
+    var client = getClient();
+    var user = getUser();
+    var rows = await client
+      .from('async_challenges')
+      .select('*')
+      .eq('opponent_id', user.id)
+      .eq('kind', PHOTO_DUEL_KIND)
+      .in('status', ['pending', 'accepted', 'completed'])
+      .order('created_at', { ascending: false });
+
+    if (rows.error) throw rows.error;
+
+    var ids = (rows.data || []).map(function (row) { return row.id; });
+    var profileMap = await loadProfiles((rows.data || []).reduce(function (acc, row) {
+      acc.push(row.creator_id, row.opponent_id);
+      return acc;
+    }, []));
+    var resultMap = await loadResultsForChallengeIds(ids);
+    return mapPhotoDuelRows(rows.data || [], profileMap, resultMap);
+  }
+
+  async function loadCreatedPhotoDuels() {
+    if (!(await ensureReady())) return [];
+
+    var client = getClient();
+    var user = getUser();
+    var rows = await client
+      .from('async_challenges')
+      .select('*')
+      .eq('creator_id', user.id)
+      .eq('kind', PHOTO_DUEL_KIND)
+      .in('status', ['pending', 'accepted', 'declined', 'completed'])
+      .order('created_at', { ascending: false });
+
+    if (rows.error) throw rows.error;
+
+    var ids = (rows.data || []).map(function (row) { return row.id; });
+    var profileMap = await loadProfiles((rows.data || []).reduce(function (acc, row) {
+      acc.push(row.creator_id, row.opponent_id);
+      return acc;
+    }, []));
+    var resultMap = await loadResultsForChallengeIds(ids);
+    return mapPhotoDuelRows(rows.data || [], profileMap, resultMap);
+  }
+
+  async function acceptPhotoDuel(challengeId) {
+    if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
+
+    var client = getClient();
+    var user = getUser();
+    var now = new Date().toISOString();
+    var result = await client
+      .from('async_challenges')
+      .update({ status: 'accepted', accepted_at: now, updated_at: now })
+      .eq('id', challengeId)
+      .eq('opponent_id', user.id)
+      .eq('kind', PHOTO_DUEL_KIND)
+      .eq('status', 'pending')
+      .select('*')
+      .maybeSingle();
+
+    if (result.error) throw result.error;
+    if (!result.data) return { ok: false, reason: 'duel-not-found' };
+    return { ok: true, challenge: result.data };
+  }
+
+  async function declinePhotoDuel(challengeId) {
+    if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
+
+    var client = getClient();
+    var user = getUser();
+    var now = new Date().toISOString();
+    var result = await client
+      .from('async_challenges')
+      .update({ status: 'declined', updated_at: now })
+      .eq('id', challengeId)
+      .eq('opponent_id', user.id)
+      .eq('kind', PHOTO_DUEL_KIND)
+      .eq('status', 'pending')
+      .select('*')
+      .maybeSingle();
+
+    if (result.error) throw result.error;
+    if (!result.data) return { ok: false, reason: 'duel-not-found' };
+    return { ok: true, challenge: result.data };
+  }
+
+  async function loadPhotoDuelResults(challengeId) {
+    if (!(await ensureReady())) return [];
+    var resultMap = await loadResultsForChallengeIds([challengeId]);
+    return resultMap[challengeId] || [];
+  }
+
+  async function submitPhotoDuelResult(challengeId, scorePayload) {
+    if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
+
+    var client = getClient();
+    var user = getUser();
+    var scoreData = normalizePhotoDuelScore(scorePayload);
+    var now = new Date().toISOString();
+
+    var challenge = await client
+      .from('async_challenges')
+      .select('*')
+      .eq('id', challengeId)
+      .eq('kind', PHOTO_DUEL_KIND)
+      .maybeSingle();
+
+    if (challenge.error) throw challenge.error;
+    if (!challenge.data || (challenge.data.creator_id !== user.id && challenge.data.opponent_id !== user.id)) {
+      return { ok: false, reason: 'duel-not-found' };
+    }
+
+    var result = await client
+      .from('async_results')
+      .upsert({
+        challenge_id: challengeId,
+        user_id: user.id,
+        score: scoreData.score,
+        shots: [],
+        submitted_at: now,
+        score_source: scoreData.scoreSource,
+        ocr_confidence: scoreData.ocrConfidence,
+        confirmed_at: now
+      }, { onConflict: 'challenge_id,user_id' })
+      .select('*')
+      .single();
+
+    if (result.error) throw result.error;
+
+    var results = await loadPhotoDuelResults(challengeId);
+    var hasCreator = results.some(function (row) { return row.user_id === challenge.data.creator_id; });
+    var hasOpponent = results.some(function (row) { return row.user_id === challenge.data.opponent_id; });
+    var nextChallenge = challenge.data;
+
+    if (hasCreator && hasOpponent && challenge.data.status !== 'completed') {
+      var completed = await client
+        .from('async_challenges')
+        .update({ status: 'completed', completed_at: now, updated_at: now })
+        .eq('id', challengeId)
+        .eq('kind', PHOTO_DUEL_KIND)
+        .select('*')
+        .single();
+
+      if (completed.error) throw completed.error;
+      nextChallenge = completed.data;
+    }
+
+    return { ok: true, challenge: nextChallenge, result: result.data, results: results };
   }
 
   function getStatus() {
@@ -594,6 +872,13 @@
     loadCreatedChallenges: loadCreatedChallenges,
     loadAvailableChallenges: loadAvailableChallenges,
     acceptChallenge: acceptChallenge,
+    createPhotoDuel: createPhotoDuel,
+    loadIncomingPhotoDuels: loadIncomingPhotoDuels,
+    loadCreatedPhotoDuels: loadCreatedPhotoDuels,
+    acceptPhotoDuel: acceptPhotoDuel,
+    declinePhotoDuel: declinePhotoDuel,
+    submitPhotoDuelResult: submitPhotoDuelResult,
+    loadPhotoDuelResults: loadPhotoDuelResults,
     getStatus: getStatus,
     getState: function () { return Object.assign({}, state); }
   };

@@ -99,6 +99,7 @@ window.ImageCompare = (function () {
   let _ocrProgressCallback = null;
   const _ocrCache = new Map();
   let _workerIdleTimer = null;
+  let _captureResolve = null;
   const WORKER_IDLE_TIMEOUT = 60000; // 60 Sekunden Inaktivität → Worker terminieren
 
   function injectStyles() {
@@ -1753,6 +1754,28 @@ window.ImageCompare = (function () {
     if (progressStatus) progressStatus.textContent = statusText;
   }
 
+  function setOverlayText(overlay, title, submitLabel) {
+    if (!overlay) return;
+    const titleEl = overlay.querySelector('.ic-title');
+    const compareBtn = overlay.querySelector('#icCompareBtn');
+    if (titleEl) {
+      if (!overlay.dataset.defaultTitle) overlay.dataset.defaultTitle = titleEl.textContent || '';
+      titleEl.textContent = title || overlay.dataset.defaultTitle || 'FOTO-AUSWERTUNG';
+    }
+    if (compareBtn) {
+      if (!overlay.dataset.defaultSubmitLabel) overlay.dataset.defaultSubmitLabel = compareBtn.textContent || '';
+      compareBtn.textContent = submitLabel || overlay.dataset.defaultSubmitLabel || 'ERGEBNIS UEBERNEHMEN';
+    }
+  }
+
+  function restoreOverlayText(overlay) {
+    if (!overlay) return;
+    const titleEl = overlay.querySelector('.ic-title');
+    const compareBtn = overlay.querySelector('#icCompareBtn');
+    if (titleEl && overlay.dataset.defaultTitle) titleEl.textContent = overlay.dataset.defaultTitle;
+    if (compareBtn && overlay.dataset.defaultSubmitLabel) compareBtn.textContent = overlay.dataset.defaultSubmitLabel;
+  }
+
   function createOverlay(botScore, isKK) {
     const overlay = document.getElementById('icOverlay');
     if (!overlay) {
@@ -1799,6 +1822,15 @@ window.ImageCompare = (function () {
 
     uploadZone.addEventListener('change', (e) => {
       if (e.target && e.target.id === 'icFileInput') {
+        const file = e.target.files && e.target.files[0];
+        if (file) {
+          handleImageFileEnhanced(file, overlay);
+        }
+      }
+    });
+
+    overlay.addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'icFileInput' && !e.target.closest('#icUploadZone')) {
         const file = e.target.files && e.target.files[0];
         if (file) {
           handleImageFileEnhanced(file, overlay);
@@ -1873,6 +1905,29 @@ window.ImageCompare = (function () {
       }
 
       const detectedShots = overlay._detectedShots || null;
+      if (overlay.dataset.captureMode === 'true') {
+        const confidence = parseFloat(overlay.dataset.ocrConfidence || '0') || 0;
+        let scoreSource = 'manual';
+        if (!Number.isNaN(detected)) {
+          scoreSource = Math.abs(detected - playerScore) > 0.0001 ? 'manual-corrected' : 'ocr-confirmed';
+        }
+        const resolveCapture = _captureResolve;
+        _captureResolve = null;
+        closeOverlay(false);
+        if (resolveCapture) {
+          resolveCapture({
+            score: playerScore,
+            detectedScore: Number.isNaN(detected) ? null : detected,
+            confidence,
+            source: scoreSource,
+            discipline,
+            isKK,
+            detectedShots
+          });
+        }
+        return;
+      }
+
       closeOverlay();
 
       const playerInp = document.getElementById('playerInp');
@@ -1903,13 +1958,20 @@ window.ImageCompare = (function () {
     }, { passive: true });
   }
 
-  function closeOverlay() {
+  function closeOverlay(cancelCapture = true) {
     const overlay = document.getElementById('icOverlay');
     if (overlay) {
       overlay.style.opacity = '0';
       overlay.style.pointerEvents = 'none';
       const isKK = overlay.dataset.isKK === 'true';
       resetUploadZone(overlay, isKK);
+      restoreOverlayText(overlay);
+      overlay.dataset.captureMode = 'false';
+    }
+    if (cancelCapture && _captureResolve) {
+      const resolveCapture = _captureResolve;
+      _captureResolve = null;
+      resolveCapture(null);
     }
     _isProcessing = false;
   }
@@ -1938,11 +2000,14 @@ window.ImageCompare = (function () {
       URL.revokeObjectURL(objectUrl);
     };
 
+    uploadZone.style.display = 'block';
+    const modeSelection = overlay.querySelector('#v2ModeSelection');
+    if (modeSelection) modeSelection.style.display = 'none';
     uploadZone.classList.add('has-image');
     const icon = uploadZone.querySelector('.ic-upload-icon');
     const text = uploadZone.querySelector('.ic-upload-text');
     const sub = uploadZone.querySelector('.ic-upload-sub');
-    const input = uploadZone.querySelector('#icFileInput');
+    const input = overlay.querySelector('#icFileInput');
     if (icon) icon.style.display = 'none';
     if (text) text.style.display = 'none';
     if (sub) sub.style.display = 'none';
@@ -2053,11 +2118,14 @@ window.ImageCompare = (function () {
       URL.revokeObjectURL(objectUrl);
     };
 
+    uploadZone.style.display = 'block';
+    const modeSelection = overlay.querySelector('#v2ModeSelection');
+    if (modeSelection) modeSelection.style.display = 'none';
     uploadZone.classList.add('has-image');
     const icon = uploadZone.querySelector('.ic-upload-icon');
     const text = uploadZone.querySelector('.ic-upload-text');
     const sub = uploadZone.querySelector('.ic-upload-sub');
-    const input = uploadZone.querySelector('#icFileInput');
+    const input = overlay.querySelector('#icFileInput');
     if (icon) icon.style.display = 'none';
     if (text) text.style.display = 'none';
     if (sub) sub.style.display = 'none';
@@ -2151,6 +2219,7 @@ window.ImageCompare = (function () {
       scoreInput.value = displayValue;
       compareBtn.disabled = false;
       overlay.dataset.detectedScore = displayValue;
+      overlay.dataset.ocrConfidence = String(parsed.bestMatch.confidence || 0);
       if (btnWrong) btnWrong.style.display = 'block';
       if (editScoreBlock) editScoreBlock.style.display = 'none';
     } else {
@@ -2162,11 +2231,14 @@ window.ImageCompare = (function () {
       if (editScoreBlock) editScoreBlock.style.display = 'block';
       scoreInput.focus();
       delete overlay.dataset.detectedScore;
+      delete overlay.dataset.ocrConfidence;
     }
   }
 
   function resetUploadZone(overlay, isKK) {
     const uploadZone = overlay.querySelector('#icUploadZone');
+    const modeSelection = overlay.querySelector('#v2ModeSelection');
+    const scannerView = overlay.querySelector('#v2ScannerView');
     const progress = overlay.querySelector('#icProgress');
     const resultCard = overlay.querySelector('#icResultCard');
     const compareBtn = overlay.querySelector('#icCompareBtn');
@@ -2180,6 +2252,10 @@ window.ImageCompare = (function () {
 
     if (!uploadZone) return;
 
+    uploadZone.style.display = 'none';
+    if (modeSelection) modeSelection.style.display = 'flex';
+    if (scannerView) scannerView.style.display = 'none';
+
     const previewWrap = uploadZone.querySelector('.ic-preview-wrap');
     if (previewWrap) previewWrap.remove();
 
@@ -2188,7 +2264,7 @@ window.ImageCompare = (function () {
     const icon = uploadZone.querySelector('.ic-upload-icon');
     const text = uploadZone.querySelector('.ic-upload-text');
     const sub = uploadZone.querySelector('.ic-upload-sub');
-    const input = uploadZone.querySelector('#icFileInput');
+    const input = overlay.querySelector('#icFileInput');
     if (icon) icon.style.display = '';
     if (text) text.style.display = '';
     if (sub) sub.style.display = '';
@@ -2220,6 +2296,7 @@ window.ImageCompare = (function () {
     }
 
     delete overlay.dataset.detectedScore;
+    delete overlay.dataset.ocrConfidence;
     delete overlay._currentFile;
     delete overlay._detectedShots;
 
@@ -2274,6 +2351,8 @@ window.ImageCompare = (function () {
 
       const overlay = createOverlay(botScore || 0, !!isKK);
       if (!overlay) return;
+      restoreOverlayText(overlay);
+      overlay.dataset.captureMode = 'false';
       overlay.dataset.discipline = discipline || '';
       overlay.dataset.multiScore = 'false';
     },
@@ -2289,8 +2368,43 @@ window.ImageCompare = (function () {
 
       const overlay = createOverlay(botScore || 0, !!isKK);
       if (!overlay) return;
+      restoreOverlayText(overlay);
+      overlay.dataset.captureMode = 'false';
       overlay.dataset.discipline = discipline || '';
       overlay.dataset.multiScore = 'true';
+    },
+
+    captureScore(options = {}) {
+      injectStyles();
+
+      const discipline = options.discipline || 'lg40';
+      const isKK = typeof options.isKK === 'boolean' ? options.isKK : String(discipline).startsWith('kk');
+
+      if (typeof ContextualOCR !== 'undefined') {
+        ContextualOCR.setGameContext(discipline, isKK ? 'kk' : 'lg');
+      }
+
+      const overlay = createOverlay(0, isKK);
+      if (!overlay) return Promise.resolve(null);
+
+      if (_captureResolve) {
+        const previousResolve = _captureResolve;
+        _captureResolve = null;
+        previousResolve(null);
+      }
+
+      overlay.dataset.captureMode = 'true';
+      overlay.dataset.discipline = discipline || '';
+      overlay.dataset.multiScore = options.multiScore === false ? 'false' : 'true';
+      setOverlayText(
+        overlay,
+        options.title || 'FOTO-DUELL ERGEBNIS',
+        options.submitLabel || 'ERGEBNIS FUER DUELL NUTZEN'
+      );
+
+      return new Promise((resolve) => {
+        _captureResolve = resolve;
+      });
     },
 
     createGameOverButton(container, botScore, isKK, discipline = null) {
