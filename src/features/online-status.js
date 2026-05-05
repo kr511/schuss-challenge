@@ -83,6 +83,10 @@
     }
   }
 
+  function showAuthSyncBlocked() {
+    show('Cloud-Sync pausiert wegen Auth-/Token-Prüfung. Freunde und lokales Training funktionieren weiter; bei frischem Login-Token versucht die App automatisch erneut zu synchronisieren.');
+  }
+
   function evaluate() {
     try {
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -90,10 +94,19 @@
         return;
       }
       const sync = window.SupabaseBackendSync;
-      if (sync && typeof sync.isWorkerAuthBlocked === 'function' && sync.isWorkerAuthBlocked()) {
+      if (sync && typeof sync.isReady === 'function') {
+        sync.isReady(); // löst Tokenwechsel-/Retry-Recovery aus, ohne Netzwerkrequest.
+      }
+      const blockStatus = sync && typeof sync.getAuthBlockStatus === 'function'
+        ? sync.getAuthBlockStatus()
+        : null;
+      const isAuthBlocked = blockStatus
+        ? blockStatus.blocked
+        : Boolean(sync && typeof sync.isWorkerAuthBlocked === 'function' && sync.isWorkerAuthBlocked());
+      if (isAuthBlocked) {
         // workerAuthBlocked = Worker antwortete mit 401/403, nicht offline.
         // Supabase-Friends und lokales Training laufen weiter.
-        show('Cloud-Sync pausiert (nicht angemeldet). Freunde und lokales Training funktionieren weiter.');
+        showAuthSyncBlocked();
         return;
       }
       if (STATE.visible && !STATE.dismissed) hide();
@@ -107,6 +120,27 @@
     window.addEventListener('online', () => {
       STATE.dismissed = false;
       evaluate();
+    });
+    window.addEventListener('supabaseReady', () => {
+      STATE.dismissed = false;
+      evaluate();
+    });
+    window.addEventListener('supabaseAuthReady', () => {
+      STATE.dismissed = false;
+      evaluate();
+    });
+    window.addEventListener('supabaseSessionChanged', () => {
+      STATE.dismissed = false;
+      evaluate();
+    });
+    window.addEventListener('schuetzen:backend-sync-auth-blocked', () => {
+      STATE.dismissed = false;
+      showAuthSyncBlocked();
+    });
+    window.addEventListener('schuetzen:backend-sync-auth-restored', () => {
+      STATE.dismissed = false;
+      hide();
+      setTimeout(evaluate, 0);
     });
     window.addEventListener('schuetzen:online-warning', (event) => {
       const reason = event && event.detail && event.detail.reason;
