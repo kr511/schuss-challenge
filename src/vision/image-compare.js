@@ -2409,7 +2409,7 @@ window.ImageCompare = (function () {
       setOverlayText(
         overlay,
         options.title || 'FOTO-DUELL ERGEBNIS',
-        options.submitLabel || 'ERGEBNIS FUER DUELL NUTZEN'
+        options.submitLabel || 'ERGEBNIS FÜR DUELL NUTZEN'
       );
 
       return new Promise((resolve) => {

@@ -218,7 +218,7 @@
       discipline: discipline,
       isKK: disc.isKK,
       title: title || ('Foto-Duell - ' + disc.label),
-      submitLabel: 'Score fuer Duell nutzen',
+      submitLabel: 'Score für Duell nutzen',
       multiScore: true,
       zIndex: CAPTURE_Z_INDEX
     });
