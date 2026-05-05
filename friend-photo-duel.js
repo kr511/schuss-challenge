@@ -8,6 +8,7 @@
 
   var XP_REWARD = 20;
   var POLL_MS = 60000;
+  var CAPTURE_Z_INDEX = 25000;
   var DISCIPLINES = {
     lg40: { label: 'LG 40', weapon: 'lg', distance: '10', shots: 40, isKK: false },
     lg60: { label: 'LG 60', weapon: 'lg', distance: '10', shots: 60, isKK: false },
@@ -218,7 +219,8 @@
       isKK: disc.isKK,
       title: title || ('Foto-Duell - ' + disc.label),
       submitLabel: 'Score fuer Duell nutzen',
-      multiScore: true
+      multiScore: true,
+      zIndex: CAPTURE_Z_INDEX
     });
   }
 

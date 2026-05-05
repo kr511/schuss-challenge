@@ -82,6 +82,7 @@ window.ImageCompare = (function () {
 
   const CSS_ID = 'ic-styles';
   const TESSERACT_SRC = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+  const CAPTURE_OVERLAY_Z_INDEX = '25000';
   const OCR_CACHE_MAX = 5;
   const DEFAULT_OCR_PASSES = Array.isArray(Brain && Brain.OCR_PASSES) && Brain.OCR_PASSES.length
     ? Brain.OCR_PASSES
@@ -1776,6 +1777,11 @@ window.ImageCompare = (function () {
     if (compareBtn && overlay.dataset.defaultSubmitLabel) compareBtn.textContent = overlay.dataset.defaultSubmitLabel;
   }
 
+  function setOverlayZIndex(overlay, value) {
+    if (!overlay) return;
+    overlay.style.zIndex = value ? String(value) : '';
+  }
+
   function createOverlay(botScore, isKK) {
     const overlay = document.getElementById('icOverlay');
     if (!overlay) {
@@ -1966,6 +1972,7 @@ window.ImageCompare = (function () {
       const isKK = overlay.dataset.isKK === 'true';
       resetUploadZone(overlay, isKK);
       restoreOverlayText(overlay);
+      setOverlayZIndex(overlay, '');
       overlay.dataset.captureMode = 'false';
     }
     if (cancelCapture && _captureResolve) {
@@ -2351,6 +2358,7 @@ window.ImageCompare = (function () {
 
       const overlay = createOverlay(botScore || 0, !!isKK);
       if (!overlay) return;
+      setOverlayZIndex(overlay, '');
       restoreOverlayText(overlay);
       overlay.dataset.captureMode = 'false';
       overlay.dataset.discipline = discipline || '';
@@ -2368,6 +2376,7 @@ window.ImageCompare = (function () {
 
       const overlay = createOverlay(botScore || 0, !!isKK);
       if (!overlay) return;
+      setOverlayZIndex(overlay, '');
       restoreOverlayText(overlay);
       overlay.dataset.captureMode = 'false';
       overlay.dataset.discipline = discipline || '';
@@ -2386,6 +2395,7 @@ window.ImageCompare = (function () {
 
       const overlay = createOverlay(0, isKK);
       if (!overlay) return Promise.resolve(null);
+      setOverlayZIndex(overlay, options.zIndex || CAPTURE_OVERLAY_Z_INDEX);
 
       if (_captureResolve) {
         const previousResolve = _captureResolve;

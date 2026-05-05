@@ -80,7 +80,7 @@ window.StorageManager = {
 };
 window.ImageCompare = {
   async captureScore(options) {
-    calls.push(['captureScore', options.discipline, options.isKK]);
+    calls.push(['captureScore', options.discipline, options.isKK, options.zIndex]);
     const next = captureQueue.shift();
     if (!next) return null;
     return next;
@@ -169,6 +169,10 @@ assert.deepEqual(
   ['createPhotoDuel', 'friend-1', 'lg40', 402.4],
 );
 assert.ok(calls.some(([name]) => name === 'captureScore'));
+assert.deepEqual(
+  calls.find(([name]) => name === 'captureScore'),
+  ['captureScore', 'lg40', false, 25000],
+);
 
 photoIncoming = [{
   id: 'incoming-decline-1',
