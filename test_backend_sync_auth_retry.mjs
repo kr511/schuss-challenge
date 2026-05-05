@@ -90,7 +90,7 @@ assert.equal(fetchCalls.length, 1);
 assert.equal(fetchCalls[0].authorization, 'Bearer token-old');
 assert.equal(window.SupabaseBackendSync.isWorkerAuthBlocked(), true);
 
-let status = window.SupabaseBackendSync.getAuthBlockStatus();
+let status = window.SupabaseBackendSync.readAuthBlockStatus();
 assert.equal(status.blocked, true);
 assert.equal(status.hasTokenAtAuthBlock, true);
 assert.equal(status.tokenChanged, false);
@@ -107,7 +107,7 @@ assert.equal(fetchCalls.length, 1, 'sync remains paused while the old token is b
 
 activeToken = 'token-new';
 nextStatus = 200;
-status = window.SupabaseBackendSync.getAuthBlockStatus();
+status = window.SupabaseBackendSync.readAuthBlockStatus();
 assert.equal(status.tokenChanged, true);
 
 assert.equal(window.SupabaseBackendSync.isReady(), true);
@@ -119,7 +119,7 @@ await flush();
 
 assert.equal(fetchCalls[1].authorization, 'Bearer token-new');
 assert.equal(window.SupabaseBackendSync.isWorkerAuthBlocked(), false);
-assert.equal(window.SupabaseBackendSync.getAuthBlockStatus().blocked, false);
+assert.equal(window.SupabaseBackendSync.readAuthBlockStatus().blocked, false);
 assert.equal(banner.style.display, 'none');
 
 window.SupabaseBackendSync.resetAuthBlock('manual-test');

@@ -97,8 +97,8 @@
       if (sync && typeof sync.isReady === 'function') {
         sync.isReady(); // löst Tokenwechsel-/Retry-Recovery aus, ohne Netzwerkrequest.
       }
-      const blockStatus = sync && typeof sync.getAuthBlockStatus === 'function'
-        ? sync.getAuthBlockStatus()
+      const blockStatus = sync && typeof sync.readAuthBlockStatus === 'function'
+        ? sync.readAuthBlockStatus()
         : null;
       const isAuthBlocked = blockStatus
         ? blockStatus.blocked

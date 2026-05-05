@@ -222,7 +222,7 @@
     syncProfile: syncProfile,
     isReady: isReady,
     resetAuthBlock: resetAuthBlock,
-    getAuthBlockStatus: function () {
+    readAuthBlockStatus: function () {
       var token = getToken();
       return {
         blocked: workerAuthBlocked,
