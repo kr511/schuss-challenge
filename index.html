@@ -56,7 +56,7 @@
 
   <!-- HAUPT-APP (MUSS VOR ALLEN ABHÄNGIGEN MODulen LADEN) -->
   <script type="module" src="src/main.js?v=1.0"></script>
-  <script src="app.js?v=3.6" defer></script>
+  <script src="app.js?v=3.7" defer></script>
   <script src="leaderboard-modern.js?v=1.0" defer></script>
   
   <!-- ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile -->
@@ -482,7 +482,6 @@
         <div class="ps-tabs">
           <div class="ps-tab active" data-tab="stats" onclick="switchProfileTab('stats')">📊 Stats</div>
           <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ SUN</div>
-          <div class="ps-tab" data-tab="lb" onclick="switchProfileTab('lb')">🏆 Global</div>
           <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
           <div class="ps-tab" data-tab="settings" onclick="switchProfileTab('settings')">⚙ Einstellungen</div>
           <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
@@ -745,12 +744,6 @@
           </div>
 
           <!-- ── LEADERBOARD PANEL ── -->
-          <div class="ps-panel" id="psPanel-lb">
-            <div class="lb-panel" data-lb-list>
-              <div class="lb-loading">⏳</div>
-            </div>
-          </div>
-
           <!-- ── HISTORY PANEL ── -->
           <div class="ps-panel" id="psPanel-history">
             <div id="psHistoryList">
