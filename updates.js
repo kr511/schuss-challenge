@@ -27,6 +27,8 @@
 const UpdatesSystem = (function() {
   'use strict';
 
+  const GLOBAL_READ_KEY = 'updates_read_global_v1';
+
   // State
   const state = {
     updates: [],
@@ -110,14 +112,10 @@ const UpdatesSystem = (function() {
    * Lädt den Lese-Status
    */
   async function loadReadStatus() {
-    const userId = getCurrentUserKey();
-    if (!userId) return;
-
-    const readKey = `updates_read_${userId}`;
-    const readUpdates = JSON.parse(localStorage.getItem(readKey) || '[]');
+    const readUpdates = readStoredReadIds();
 
     // Ungelesene zählen
-    state.unreadCount = state.updates.filter(u => !readUpdates.includes(u.id)).length;
+    state.unreadCount = state.updates.filter(u => !readUpdates.has(u.id)).length;
   }
 
   /**
@@ -125,14 +123,42 @@ const UpdatesSystem = (function() {
    */
   function markAllAsRead() {
     const userId = getCurrentUserKey();
-    if (!userId) return;
+    const allIds = state.updates.map(u => u.id).filter(Boolean);
+    const readUpdates = readStoredReadIds();
+    allIds.forEach(id => readUpdates.add(id));
 
-    const readKey = `updates_read_${userId}`;
-    const allIds = state.updates.map(u => u.id);
-    localStorage.setItem(readKey, JSON.stringify(allIds));
+    writeReadIds(GLOBAL_READ_KEY, readUpdates);
+    if (userId) writeReadIds(`updates_read_${userId}`, readUpdates);
 
     state.unreadCount = 0;
     updateUnreadBadge();
+  }
+
+  function readJsonArray(key) {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+      return Array.isArray(parsed) ? parsed.filter(Boolean).map(String) : [];
+    } catch (e) {
+      console.warn('[Updates] Lesestatus konnte nicht gelesen werden:', e);
+      return [];
+    }
+  }
+
+  function writeReadIds(key, ids) {
+    try {
+      localStorage.setItem(key, JSON.stringify(Array.from(ids)));
+    } catch (e) {
+      console.warn('[Updates] Lesestatus konnte nicht gespeichert werden:', e);
+    }
+  }
+
+  function readStoredReadIds() {
+    const readUpdates = new Set(readJsonArray(GLOBAL_READ_KEY));
+    const userId = getCurrentUserKey();
+    if (userId) {
+      readJsonArray(`updates_read_${userId}`).forEach(id => readUpdates.add(id));
+    }
+    return readUpdates;
   }
 
   /**
@@ -407,9 +433,21 @@ const UpdatesSystem = (function() {
     return div.innerHTML;
   }
 
+  function getStorageRaw(key) {
+    try {
+      if (window.StorageManager && typeof window.StorageManager.getRaw === 'function') {
+        return window.StorageManager.getRaw(key);
+      }
+    } catch (e) {}
+    try {
+      return localStorage.getItem('sd_' + key) || localStorage.getItem(key) || '';
+    } catch (e) {
+      return '';
+    }
+  }
 
   function getCurrentUserKey() {
-    return window.SupabaseSession?.user?.id || StorageManager.getRaw('userId') || StorageManager.getRaw('local_user_id') || 'local';
+    return window.SupabaseSession?.user?.id || getStorageRaw('userId') || getStorageRaw('local_user_id') || 'local';
   }
 
   /**
