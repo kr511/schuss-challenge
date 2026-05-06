@@ -47,7 +47,6 @@ const ClubsSystem = (function () {
     initialized: false,
     loading: false,
     actionBusy: false,
-    actionBusyChallenge: false,
     readyDispatched: false,
     myClub: null,
     members: [],
@@ -619,39 +618,6 @@ const ClubsSystem = (function () {
     }
   }
 
-  async function createClubChallenge(payload) {
-    const client = getClient();
-    const club = state.myClub;
-    if (!client || !club || !hasRemoteSession()) return null;
-
-    const args = {
-      p_club_id: club.id,
-      p_name: String(payload.name || '').trim(),
-      p_description: String(payload.description || '').trim() || null,
-      p_difficulty: payload.difficulty || 'real',
-      p_discipline: payload.discipline || 'lg40',
-      p_weapon: payload.weapon || null,
-      p_required_score: payload.requiredScore != null ? Number(payload.requiredScore) : null,
-      p_duration_days: Number(payload.durationDays || 7),
-    };
-
-    state.actionBusyChallenge = true;
-    try {
-      const result = await client.rpc('create_club_challenge', args);
-      if (result.error) throw result.error;
-      await refreshClubData();
-      showToast('Wochenchallenge erstellt.', 'success');
-      return result.data;
-    } catch (error) {
-      const message = friendlyError(error);
-      setOverlayMessage(message, 'error');
-      showToast(message, 'error');
-      throw error;
-    } finally {
-      state.actionBusyChallenge = false;
-      if (isOverlayOpen()) renderClubOverlay();
-    }
-  }
 
   function renderDashboardClubCard() {
     const mount = document.getElementById('clubDashboardMount');
@@ -1067,18 +1033,9 @@ const ClubsSystem = (function () {
 
   function renderChallengeTab(body) {
     const challenge = state.currentChallenge;
-    const club = state.myClub;
-    const isAdmin = club && (club.role === 'owner' || club.role === 'admin');
 
     if (!challenge) {
-      const empty = emptyState('Aktuell läuft keine Wochenchallenge.');
-      body.appendChild(empty);
-      if (isAdmin) {
-        body.appendChild(renderChallengeCreateForm());
-      } else {
-        const hint = createEl('p', 'club-form-intro', 'Ein Vereins-Admin kann eine neue Wochenchallenge starten.');
-        body.appendChild(hint);
-      }
+      body.appendChild(emptyState('Aktuell läuft keine Wochenchallenge.'));
       return;
     }
 
@@ -1129,7 +1086,6 @@ const ClubsSystem = (function () {
         submit.textContent = 'Ergebnis einreichen';
       }
     });
-    submit.disabled = state.actionBusyChallenge;
     submitBox.append(scoreInput, submit);
     card.appendChild(submitBox);
 
@@ -1157,82 +1113,6 @@ const ClubsSystem = (function () {
       });
     }
     body.appendChild(list);
-  }
-
-  function renderChallengeCreateForm() {
-    const wrapper = createEl('div', 'club-challenge-create');
-    const intro = createEl('p', 'club-form-intro', 'Erstelle eine neue Wochenchallenge für deinen Verein.');
-    wrapper.appendChild(intro);
-
-    const form = createEl('form', 'club-form');
-
-    const nameInput = createEl('input', 'club-input');
-    nameInput.placeholder = 'Name der Challenge';
-    nameInput.maxLength = 120;
-    nameInput.required = true;
-
-    const descInput = createEl('textarea', 'club-input');
-    descInput.placeholder = 'Beschreibung (optional)';
-    descInput.maxLength = 600;
-    descInput.rows = 2;
-
-    const disciplineSelect = createEl('select', 'club-input');
-    Object.keys(DISCIPLINE_LABELS).forEach((key) => {
-      if (key === 'all') return;
-      const option = document.createElement('option');
-      option.value = key;
-      option.textContent = DISCIPLINE_LABELS[key];
-      disciplineSelect.appendChild(option);
-    });
-
-    const difficultySelect = createEl('select', 'club-input');
-    ['easy', 'real', 'hard', 'elite'].forEach((diff) => {
-      const option = document.createElement('option');
-      option.value = diff;
-      option.textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
-      if (diff === 'real') option.selected = true;
-      difficultySelect.appendChild(option);
-    });
-
-    const requiredScoreInput = createEl('input', 'club-input');
-    requiredScoreInput.type = 'number';
-    requiredScoreInput.min = '0';
-    requiredScoreInput.max = '6000';
-    requiredScoreInput.placeholder = 'Zielwertung (optional)';
-
-    const durationInput = createEl('input', 'club-input');
-    durationInput.type = 'number';
-    durationInput.min = '1';
-    durationInput.max = '90';
-    durationInput.value = '7';
-    durationInput.placeholder = 'Dauer in Tagen';
-
-    const submit = createEl('button', 'club-btn club-btn-primary club-btn-wide', 'Challenge starten');
-    submit.type = 'submit';
-    submit.disabled = state.actionBusyChallenge;
-
-    form.append(nameInput, descInput, disciplineSelect, difficultySelect, requiredScoreInput, durationInput, submit);
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      submit.disabled = true;
-      submit.textContent = 'Wird erstellt...';
-      try {
-        await createClubChallenge({
-          name: nameInput.value,
-          description: descInput.value,
-          discipline: disciplineSelect.value,
-          difficulty: difficultySelect.value,
-          requiredScore: requiredScoreInput.value ? Number(requiredScoreInput.value) : null,
-          durationDays: durationInput.value ? Number(durationInput.value) : 7,
-        });
-      } catch (_error) {
-        submit.disabled = false;
-        submit.textContent = 'Challenge starten';
-      }
-    });
-
-    wrapper.appendChild(form);
-    return wrapper;
   }
 
   function emptyState(text) {
@@ -1283,7 +1163,6 @@ const ClubsSystem = (function () {
     loadCurrentClubChallenge,
     loadChallengeStandings,
     submitChallengeResult,
-    createClubChallenge,
     showClubOverlay,
     renderDashboardClubCard,
     copyClubCode,
