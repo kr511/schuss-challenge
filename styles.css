@@ -926,6 +926,13 @@
       transition: all .3s ease;
     }
 
+    /* Legacy header trigger: the premium dashboard uses #pdProfileBtn instead. */
+    #screenSetup > .hdr .schuetzenpass-icon {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none;
+    }
+
     /* Default - No Ring */
     .schuetzenpass-icon::before {
       content: '';
@@ -8223,4 +8230,3 @@ body.keyboard-visible .bottom-sheet {
     border-color: rgba(100, 150, 200, .25);
   }
 }
-
