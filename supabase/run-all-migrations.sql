@@ -1,7 +1,7 @@
 -- Schuss Challenge Supabase setup bundle
 -- Generated from supabase/migrations.
 -- Run this in Supabase Dashboard -> SQL Editor -> New query.
--- Generated at: 2026-05-06T13:34:51.243Z
+-- Generated at: 2026-05-06T16:41:28.133Z
 
 -- ============================================================================
 -- 0001_social_tables.sql

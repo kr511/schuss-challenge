@@ -11,10 +11,43 @@ const ClubsSystem = (function () {
     member: 'Mitglied',
   };
 
+  const DISCIPLINE_LABELS = {
+    all: 'Alle Disziplinen',
+    lg40: 'LG 40',
+    lg60: 'LG 60',
+    kk50: 'KK 50',
+    kk100: 'KK 100',
+    kk3x20: 'KK 3×20',
+  };
+
+  const TIME_RANGE_LABELS = {
+    week: 'Diese Woche',
+    month: 'Dieser Monat',
+    season: 'Saison',
+    alltime: 'Gesamt',
+  };
+
+  const RANKING_FILTERS_KEY = 'clubs_ranking_filters';
+
+  function loadStoredRankingFilters() {
+    try {
+      const raw = getStorageRaw(RANKING_FILTERS_KEY, '');
+      if (!raw) return { discipline: 'all', timeRange: 'alltime' };
+      const parsed = JSON.parse(raw);
+      return {
+        discipline: DISCIPLINE_LABELS[parsed.discipline] ? parsed.discipline : 'all',
+        timeRange: TIME_RANGE_LABELS[parsed.timeRange] ? parsed.timeRange : 'alltime',
+      };
+    } catch (_error) {
+      return { discipline: 'all', timeRange: 'alltime' };
+    }
+  }
+
   const state = {
     initialized: false,
     loading: false,
     actionBusy: false,
+    actionBusyChallenge: false,
     readyDispatched: false,
     myClub: null,
     members: [],
@@ -23,6 +56,9 @@ const ClubsSystem = (function () {
     myRank: null,
     activeTab: 'overview',
     lastError: '',
+    currentChallenge: null,
+    challengeStandings: [],
+    clubRankingFilters: { discipline: 'all', timeRange: 'alltime' },
   };
 
   function getClient() {
@@ -166,6 +202,9 @@ const ClubsSystem = (function () {
     if (state.loading && !force) return false;
     state.loading = true;
     state.lastError = '';
+    if (!state.initialized) {
+      state.clubRankingFilters = loadStoredRankingFilters();
+    }
     renderDashboardClubCard();
 
     try {
@@ -175,6 +214,8 @@ const ClubsSystem = (function () {
         state.leaderboard = [];
         state.memberCount = 0;
         state.myRank = null;
+        state.currentChallenge = null;
+        state.challengeStandings = [];
         state.initialized = true;
         return false;
       }
@@ -201,12 +242,18 @@ const ClubsSystem = (function () {
     state.leaderboard = [];
     state.memberCount = 0;
     state.myRank = null;
+    state.currentChallenge = null;
+    state.challengeStandings = [];
 
     if (!club || !club.id) return null;
 
     state.members = await loadClubMembers(club.id);
     state.memberCount = state.members.length;
-    state.leaderboard = await loadClubLeaderboard(club.id);
+    state.leaderboard = await loadClubLeaderboard(club.id, state.clubRankingFilters);
+    state.currentChallenge = await loadCurrentClubChallenge(club.id);
+    if (state.currentChallenge) {
+      state.challengeStandings = await loadChallengeStandings(state.currentChallenge.id);
+    }
 
     const user = getUser();
     const ownEntry = user ? state.leaderboard.find((entry) => entry.userId === user.id) : null;
@@ -379,13 +426,52 @@ const ClubsSystem = (function () {
     });
   }
 
-  async function loadClubLeaderboard(clubId) {
+  async function loadClubLeaderboard(clubId, filters) {
     const client = getClient();
     if (!client || !clubId || !hasRemoteSession()) return [];
 
+    const activeFilters = filters || state.clubRankingFilters || { discipline: 'all', timeRange: 'alltime' };
     const members = state.myClub && state.myClub.id === clubId && state.members.length
       ? state.members
       : await loadClubMembers(clubId);
+    const memberById = {};
+    members.forEach((member) => {
+      memberById[member.userId] = member;
+    });
+
+    try {
+      const rpcResult = await client.rpc('get_club_leaderboard_filtered', {
+        p_club_id: clubId,
+        p_discipline: activeFilters.discipline || 'all',
+        p_time_range: activeFilters.timeRange || 'alltime',
+      });
+
+      if (!rpcResult.error && Array.isArray(rpcResult.data)) {
+        return rpcResult.data
+          .filter((row) => row && row.user_id)
+          .map((row) => ({
+            userId: row.user_id,
+            displayName: (memberById[row.user_id] && memberById[row.user_id].displayName) || shortUserId(row.user_id),
+            bestScore: Number(row.best_score) || 0,
+            totalSessions: Number(row.session_count) || 0,
+            duelWins: Number(row.duel_wins) || 0,
+            lastResultAt: row.last_session || '',
+          }))
+          .sort((a, b) => {
+            if (b.bestScore !== a.bestScore) return b.bestScore - a.bestScore;
+            if (b.duelWins !== a.duelWins) return b.duelWins - a.duelWins;
+            return b.totalSessions - a.totalSessions;
+          })
+          .map((entry, index) => Object.assign(entry, { rank: index + 1 }));
+      }
+      if (rpcResult.error) {
+        console.warn('[ClubsSystem] filtered leaderboard RPC unavailable, falling back:', rpcResult.error);
+      }
+    } catch (error) {
+      console.warn('[ClubsSystem] filtered leaderboard RPC failed, falling back:', error);
+    }
+
+    // Fallback: legacy leaderboard_entries query (no filters, no duel wins)
     const memberIds = members.map((member) => member.userId).filter(Boolean);
     if (memberIds.length === 0) return [];
 
@@ -398,11 +484,6 @@ const ClubsSystem = (function () {
         .limit(500);
 
       if (result.error) throw result.error;
-
-      const memberById = {};
-      members.forEach((member) => {
-        memberById[member.userId] = member;
-      });
 
       const byUser = {};
       (result.data || []).forEach((row) => {
@@ -417,6 +498,7 @@ const ClubsSystem = (function () {
             displayName: memberById[userId].displayName || row.username || shortUserId(userId),
             bestScore: score,
             totalSessions: 0,
+            duelWins: 0,
             lastResultAt: row.created_at || '',
             weapon: row.weapon || '',
             discipline: row.discipline || '',
@@ -440,6 +522,134 @@ const ClubsSystem = (function () {
     } catch (error) {
       console.warn('[ClubsSystem] club leaderboard unavailable:', error);
       return [];
+    }
+  }
+
+  async function loadCurrentClubChallenge(clubId) {
+    const client = getClient();
+    if (!client || !clubId || !hasRemoteSession()) return null;
+
+    try {
+      const result = await client
+        .from('club_challenges')
+        .select('id, club_id, name, description, difficulty, discipline, weapon, required_score, starts_at, ends_at, created_by, created_at')
+        .eq('club_id', clubId)
+        .lte('starts_at', new Date().toISOString())
+        .gte('ends_at', new Date().toISOString())
+        .order('ends_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (result.error) {
+        if (String(result.error.message || '').includes('relation') || String(result.error.code || '') === '42P01') {
+          return null;
+        }
+        throw result.error;
+      }
+      if (!result.data) return null;
+      return {
+        id: result.data.id,
+        clubId: result.data.club_id,
+        name: result.data.name,
+        description: result.data.description || '',
+        difficulty: result.data.difficulty || 'real',
+        discipline: result.data.discipline,
+        weapon: result.data.weapon || '',
+        requiredScore: result.data.required_score,
+        startsAt: result.data.starts_at,
+        endsAt: result.data.ends_at,
+        createdBy: result.data.created_by,
+        createdAt: result.data.created_at,
+      };
+    } catch (error) {
+      console.warn('[ClubsSystem] club challenge unavailable:', error);
+      return null;
+    }
+  }
+
+  async function loadChallengeStandings(challengeId) {
+    const client = getClient();
+    if (!client || !challengeId || !hasRemoteSession()) return [];
+
+    try {
+      const result = await client
+        .from('club_challenge_completions')
+        .select('id, user_id, score, completed_at')
+        .eq('challenge_id', challengeId)
+        .order('score', { ascending: false })
+        .limit(50);
+
+      if (result.error) {
+        if (String(result.error.code || '') === '42P01') return [];
+        throw result.error;
+      }
+      const memberById = {};
+      state.members.forEach((member) => {
+        memberById[member.userId] = member;
+      });
+      return (result.data || []).map((row, index) => ({
+        rank: index + 1,
+        userId: row.user_id,
+        displayName: (memberById[row.user_id] && memberById[row.user_id].displayName) || shortUserId(row.user_id),
+        score: Number(row.score) || 0,
+        completedAt: row.completed_at || '',
+      }));
+    } catch (error) {
+      console.warn('[ClubsSystem] challenge standings unavailable:', error);
+      return [];
+    }
+  }
+
+  async function submitChallengeResult(challengeId, score) {
+    const client = getClient();
+    if (!client || !challengeId || !hasRemoteSession()) return null;
+    const numericScore = Number(score);
+    if (!Number.isFinite(numericScore) || numericScore < 0) return null;
+
+    try {
+      const result = await client.rpc('submit_club_challenge_result', {
+        p_challenge_id: challengeId,
+        p_score: Math.round(numericScore),
+      });
+      if (result.error) throw result.error;
+      return result.data;
+    } catch (error) {
+      console.warn('[ClubsSystem] submit challenge result failed:', error);
+      throw error;
+    }
+  }
+
+  async function createClubChallenge(payload) {
+    const client = getClient();
+    const club = state.myClub;
+    if (!client || !club || !hasRemoteSession()) return null;
+
+    const args = {
+      p_club_id: club.id,
+      p_name: String(payload.name || '').trim(),
+      p_description: String(payload.description || '').trim() || null,
+      p_difficulty: payload.difficulty || 'real',
+      p_discipline: payload.discipline || 'lg40',
+      p_weapon: payload.weapon || null,
+      p_required_score: payload.requiredScore != null ? Number(payload.requiredScore) : null,
+      p_duration_days: Number(payload.durationDays || 7),
+    };
+
+    state.actionBusyChallenge = true;
+    try {
+      const result = await client.rpc('create_club_challenge', args);
+      if (result.error) throw result.error;
+      await refreshClubData();
+      showToast('Wochenchallenge erstellt.', 'success');
+      return result.data;
+    } catch (error) {
+      const message = friendlyError(error);
+      setOverlayMessage(message, 'error');
+      showToast(message, 'error');
+      throw error;
+    } finally {
+      state.actionBusyChallenge = false;
+      if (isOverlayOpen()) renderClubOverlay();
     }
   }
 
@@ -497,10 +707,13 @@ const ClubsSystem = (function () {
     text.textContent = state.myClub.location ? state.myClub.location : 'Dein Vereinsbereich ist bereit.';
 
     const stats = createEl('div', 'club-card-stats');
+    const challengeStatus = state.currentChallenge
+      ? state.currentChallenge.name
+      : 'Keine aktive Challenge';
     stats.append(
       statPill('Dein Rang', state.myRank ? '#' + state.myRank : '-'),
       statPill('Mitglieder', String(state.memberCount || 0)),
-      statPill('Wochenstatus', 'Noch keine Wochenchallenge')
+      statPill('Wochenstatus', challengeStatus)
     );
 
     actions.appendChild(createButton('Verein öffnen', 'club-btn club-btn-primary', () => showClubOverlay('overview')));
@@ -538,16 +751,39 @@ const ClubsSystem = (function () {
 
   function lockBodyScroll() {
     if (document.body.dataset.clubScrollLock === '1') return;
+    // Capture previous state synchronously (NOT in rAF - iOS 17 Safari freeze)
     document.body.dataset.clubScrollLock = '1';
     document.body.dataset.clubPrevOverflow = document.body.style.overflow || '';
+    document.body.dataset.clubPrevPosition = document.body.style.position || '';
+    document.body.dataset.clubPrevTop = document.body.style.top || '';
+    document.body.dataset.clubScrollY = String(window.scrollY || 0);
     document.body.style.overflow = 'hidden';
+    // position: fixed + top: -scrollY prevents iOS 17 scroll-freeze after modal close
+    document.body.style.position = 'fixed';
+    document.body.style.top = '-' + (window.scrollY || 0) + 'px';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
   }
 
   function unlockBodyScroll() {
     if (document.body.dataset.clubScrollLock !== '1') return;
+    const scrollY = parseInt(document.body.dataset.clubScrollY || '0', 10) || 0;
+    // Restore SYNCHRONOUSLY (not in rAF) - iOS 17 Safari requires this
     document.body.style.overflow = document.body.dataset.clubPrevOverflow || '';
+    document.body.style.position = document.body.dataset.clubPrevPosition || '';
+    document.body.style.top = document.body.dataset.clubPrevTop || '';
+    document.body.style.left = '';
+    document.body.style.right = '';
     delete document.body.dataset.clubScrollLock;
     delete document.body.dataset.clubPrevOverflow;
+    delete document.body.dataset.clubPrevPosition;
+    delete document.body.dataset.clubPrevTop;
+    delete document.body.dataset.clubScrollY;
+    // Force reflow so iOS Safari flushes layout before scroll restore
+    void document.body.offsetHeight;
+    if (scrollY > 0) {
+      window.scrollTo(0, scrollY);
+    }
   }
 
   function showClubOverlay(tab) {
@@ -597,6 +833,7 @@ const ClubsSystem = (function () {
           ['overview', 'Übersicht'],
           ['members', 'Mitglieder'],
           ['leaderboard', 'Rangliste'],
+          ['challenge', 'Wochenchallenge'],
         ]
       : [
           ['create', 'Verein erstellen'],
@@ -621,6 +858,8 @@ const ClubsSystem = (function () {
       renderMembersTab(body);
     } else if (state.activeTab === 'leaderboard') {
       renderLeaderboardTab(body);
+    } else if (state.activeTab === 'challenge') {
+      renderChallengeTab(body);
     } else {
       renderOverviewTab(body);
     }
@@ -698,12 +937,16 @@ const ClubsSystem = (function () {
     const club = state.myClub;
     if (!club) return;
 
+    const challengeLabel = state.currentChallenge
+      ? state.currentChallenge.name + ' · ' + (DISCIPLINE_LABELS[state.currentChallenge.discipline] || state.currentChallenge.discipline)
+      : 'Noch keine Wochenchallenge';
+
     const grid = createEl('div', 'club-overview-grid');
     grid.append(
       overviewItem('Vereinscode', club.code || '-'),
       overviewItem('Mitglieder', String(state.memberCount || state.members.length || 0)),
       overviewItem('Deine Rolle', roleLabel(club.role)),
-      overviewItem('Wochenchallenge', 'Noch keine Wochenchallenge')
+      overviewItem('Wochenchallenge', challengeLabel)
     );
 
     const codeBox = createEl('div', 'club-code-box');
@@ -745,10 +988,59 @@ const ClubsSystem = (function () {
   }
 
   function renderLeaderboardTab(body) {
+    const filters = state.clubRankingFilters || { discipline: 'all', timeRange: 'alltime' };
+
+    const filterBar = createEl('div', 'club-filter-bar');
+
+    const disciplineSelect = createEl('select', 'club-filter-select');
+    Object.keys(DISCIPLINE_LABELS).forEach((key) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = DISCIPLINE_LABELS[key];
+      if (filters.discipline === key) option.selected = true;
+      disciplineSelect.appendChild(option);
+    });
+
+    const timeSelect = createEl('select', 'club-filter-select');
+    Object.keys(TIME_RANGE_LABELS).forEach((key) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = TIME_RANGE_LABELS[key];
+      if (filters.timeRange === key) option.selected = true;
+      timeSelect.appendChild(option);
+    });
+
+    const onFilterChange = async () => {
+      const newFilters = {
+        discipline: disciplineSelect.value || 'all',
+        timeRange: timeSelect.value || 'alltime',
+      };
+      state.clubRankingFilters = newFilters;
+      try {
+        if (window.StorageManager && typeof window.StorageManager.setRaw === 'function') {
+          window.StorageManager.setRaw(RANKING_FILTERS_KEY, JSON.stringify(newFilters));
+        } else {
+          localStorage.setItem('sd_' + RANKING_FILTERS_KEY, JSON.stringify(newFilters));
+        }
+      } catch (_error) {}
+      if (state.myClub && state.myClub.id) {
+        state.leaderboard = await loadClubLeaderboard(state.myClub.id, newFilters);
+        const user = getUser();
+        const ownEntry = user ? state.leaderboard.find((entry) => entry.userId === user.id) : null;
+        state.myRank = ownEntry ? ownEntry.rank : null;
+      }
+      renderClubOverlay();
+    };
+    disciplineSelect.addEventListener('change', onFilterChange);
+    timeSelect.addEventListener('change', onFilterChange);
+
+    filterBar.append(disciplineSelect, timeSelect);
+    body.appendChild(filterBar);
+
     const list = createEl('div', 'club-list');
 
     if (!state.leaderboard.length) {
-      list.appendChild(emptyState('Noch keine Vereinsergebnisse vorhanden.'));
+      list.appendChild(emptyState('Noch keine Vereinsergebnisse für diese Auswahl.'));
       body.appendChild(list);
       return;
     }
@@ -757,9 +1049,12 @@ const ClubsSystem = (function () {
       const row = createEl('div', 'club-rank-row');
       const rank = createEl('div', 'club-rank-number', '#' + entry.rank);
       const info = createEl('div', 'club-rank-info');
+      const sessionsText = String(entry.totalSessions || 0) + ' Ergebnisse'
+        + (Number(entry.duelWins || 0) > 0 ? ' · ' + entry.duelWins + ' Duell-Siege' : '')
+        + (entry.lastResultAt ? ' · ' + formatDate(entry.lastResultAt) : '');
       info.append(
         createEl('strong', '', entry.displayName || shortUserId(entry.userId)),
-        createEl('span', '', String(entry.totalSessions || 0) + ' Ergebnisse' + (entry.lastResultAt ? ' · ' + formatDate(entry.lastResultAt) : ''))
+        createEl('span', '', sessionsText)
       );
       const score = createEl('div', 'club-rank-score');
       score.append(createEl('strong', '', String(entry.bestScore)), createEl('span', '', 'Best'));
@@ -768,6 +1063,176 @@ const ClubsSystem = (function () {
     });
 
     body.appendChild(list);
+  }
+
+  function renderChallengeTab(body) {
+    const challenge = state.currentChallenge;
+    const club = state.myClub;
+    const isAdmin = club && (club.role === 'owner' || club.role === 'admin');
+
+    if (!challenge) {
+      const empty = emptyState('Aktuell läuft keine Wochenchallenge.');
+      body.appendChild(empty);
+      if (isAdmin) {
+        body.appendChild(renderChallengeCreateForm());
+      } else {
+        const hint = createEl('p', 'club-form-intro', 'Ein Vereins-Admin kann eine neue Wochenchallenge starten.');
+        body.appendChild(hint);
+      }
+      return;
+    }
+
+    const card = createEl('div', 'club-challenge-card');
+    const title = createEl('h3', 'club-challenge-title', challenge.name);
+    card.appendChild(title);
+
+    if (challenge.description) {
+      card.appendChild(createEl('p', 'club-challenge-description', challenge.description));
+    }
+
+    const metaGrid = createEl('div', 'club-overview-grid');
+    metaGrid.append(
+      overviewItem('Disziplin', DISCIPLINE_LABELS[challenge.discipline] || challenge.discipline),
+      overviewItem('Schwierigkeit', challenge.difficulty || 'real'),
+      overviewItem('Zielwertung', challenge.requiredScore != null ? String(challenge.requiredScore) : '-'),
+      overviewItem('Endet', formatDate(challenge.endsAt) || '-')
+    );
+    card.appendChild(metaGrid);
+
+    const submitBox = createEl('div', 'club-challenge-submit');
+    const scoreInput = createEl('input', 'club-input');
+    scoreInput.type = 'number';
+    scoreInput.min = '0';
+    scoreInput.max = '6000';
+    scoreInput.placeholder = 'Dein Ergebnis (z.B. 387)';
+
+    const submit = createButton('Ergebnis einreichen', 'club-btn club-btn-primary', async () => {
+      const value = Number(scoreInput.value);
+      if (!Number.isFinite(value) || value < 0 || value > 6000) {
+        setOverlayMessage('Bitte gib einen gültigen Score ein.', 'error');
+        return;
+      }
+      submit.disabled = true;
+      submit.textContent = 'Wird übertragen...';
+      try {
+        await submitChallengeResult(challenge.id, value);
+        showToast('Ergebnis gespeichert.', 'success');
+        scoreInput.value = '';
+        state.challengeStandings = await loadChallengeStandings(challenge.id);
+        renderClubOverlay();
+      } catch (error) {
+        const message = friendlyError(error);
+        setOverlayMessage(message, 'error');
+        showToast(message, 'error');
+      } finally {
+        submit.disabled = false;
+        submit.textContent = 'Ergebnis einreichen';
+      }
+    });
+    submit.disabled = state.actionBusyChallenge;
+    submitBox.append(scoreInput, submit);
+    card.appendChild(submitBox);
+
+    body.appendChild(card);
+
+    const standingsHeader = createEl('h4', 'club-standings-header', 'Standings');
+    body.appendChild(standingsHeader);
+
+    const list = createEl('div', 'club-list');
+    if (!state.challengeStandings.length) {
+      list.appendChild(emptyState('Noch keine Ergebnisse für diese Challenge.'));
+    } else {
+      state.challengeStandings.forEach((entry) => {
+        const row = createEl('div', 'club-rank-row');
+        const rank = createEl('div', 'club-rank-number', '#' + entry.rank);
+        const info = createEl('div', 'club-rank-info');
+        info.append(
+          createEl('strong', '', entry.displayName),
+          createEl('span', '', entry.completedAt ? formatDate(entry.completedAt) : '')
+        );
+        const score = createEl('div', 'club-rank-score');
+        score.append(createEl('strong', '', String(entry.score)), createEl('span', '', 'Punkte'));
+        row.append(rank, info, score);
+        list.appendChild(row);
+      });
+    }
+    body.appendChild(list);
+  }
+
+  function renderChallengeCreateForm() {
+    const wrapper = createEl('div', 'club-challenge-create');
+    const intro = createEl('p', 'club-form-intro', 'Erstelle eine neue Wochenchallenge für deinen Verein.');
+    wrapper.appendChild(intro);
+
+    const form = createEl('form', 'club-form');
+
+    const nameInput = createEl('input', 'club-input');
+    nameInput.placeholder = 'Name der Challenge';
+    nameInput.maxLength = 120;
+    nameInput.required = true;
+
+    const descInput = createEl('textarea', 'club-input');
+    descInput.placeholder = 'Beschreibung (optional)';
+    descInput.maxLength = 600;
+    descInput.rows = 2;
+
+    const disciplineSelect = createEl('select', 'club-input');
+    Object.keys(DISCIPLINE_LABELS).forEach((key) => {
+      if (key === 'all') return;
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = DISCIPLINE_LABELS[key];
+      disciplineSelect.appendChild(option);
+    });
+
+    const difficultySelect = createEl('select', 'club-input');
+    ['easy', 'real', 'hard', 'elite'].forEach((diff) => {
+      const option = document.createElement('option');
+      option.value = diff;
+      option.textContent = diff.charAt(0).toUpperCase() + diff.slice(1);
+      if (diff === 'real') option.selected = true;
+      difficultySelect.appendChild(option);
+    });
+
+    const requiredScoreInput = createEl('input', 'club-input');
+    requiredScoreInput.type = 'number';
+    requiredScoreInput.min = '0';
+    requiredScoreInput.max = '6000';
+    requiredScoreInput.placeholder = 'Zielwertung (optional)';
+
+    const durationInput = createEl('input', 'club-input');
+    durationInput.type = 'number';
+    durationInput.min = '1';
+    durationInput.max = '90';
+    durationInput.value = '7';
+    durationInput.placeholder = 'Dauer in Tagen';
+
+    const submit = createEl('button', 'club-btn club-btn-primary club-btn-wide', 'Challenge starten');
+    submit.type = 'submit';
+    submit.disabled = state.actionBusyChallenge;
+
+    form.append(nameInput, descInput, disciplineSelect, difficultySelect, requiredScoreInput, durationInput, submit);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      submit.textContent = 'Wird erstellt...';
+      try {
+        await createClubChallenge({
+          name: nameInput.value,
+          description: descInput.value,
+          discipline: disciplineSelect.value,
+          difficulty: difficultySelect.value,
+          requiredScore: requiredScoreInput.value ? Number(requiredScoreInput.value) : null,
+          durationDays: durationInput.value ? Number(durationInput.value) : 7,
+        });
+      } catch (_error) {
+        submit.disabled = false;
+        submit.textContent = 'Challenge starten';
+      }
+    });
+
+    wrapper.appendChild(form);
+    return wrapper;
   }
 
   function emptyState(text) {
@@ -815,10 +1280,19 @@ const ClubsSystem = (function () {
     joinClubByCode,
     loadClubMembers,
     loadClubLeaderboard,
+    loadCurrentClubChallenge,
+    loadChallengeStandings,
+    submitChallengeResult,
+    createClubChallenge,
     showClubOverlay,
     renderDashboardClubCard,
     copyClubCode,
-    getState: () => ({ ...state, members: state.members.slice(), leaderboard: state.leaderboard.slice() }),
+    getState: () => ({
+      ...state,
+      members: state.members.slice(),
+      leaderboard: state.leaderboard.slice(),
+      challengeStandings: state.challengeStandings.slice(),
+    }),
   };
 })();
 
