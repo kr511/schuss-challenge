@@ -5,6 +5,7 @@
 create table if not exists public.club_duel_results (
   id uuid primary key default gen_random_uuid(),
   club_id uuid not null references public.clubs(id) on delete cascade,
+  source_id text,
   winner_id uuid not null references auth.users(id) on delete cascade,
   loser_id uuid references auth.users(id) on delete set null,
   duel_type text not null check (duel_type in ('friend_async', 'photo', 'bot_fight')),
@@ -20,6 +21,11 @@ create index if not exists club_duel_results_club_winner_idx
 create index if not exists club_duel_results_club_recent_idx
   on public.club_duel_results (club_id, created_at desc);
 
+-- Prevents duplicate inserts when both participants record the same duel.
+create unique index if not exists club_duel_results_source_unique_idx
+  on public.club_duel_results (club_id, duel_type, source_id)
+  where source_id is not null;
+
 create or replace function public.record_club_duel(
   p_club_id uuid,
   p_winner_id uuid,
@@ -27,11 +33,13 @@ create or replace function public.record_club_duel(
   p_duel_type text,
   p_discipline text,
   p_winner_score integer default null,
-  p_loser_score integer default null
+  p_loser_score integer default null,
+  p_source_id text default null
 )
 returns table (
   id uuid,
   club_id uuid,
+  source_id text,
   winner_id uuid,
   loser_id uuid,
   duel_type text,
@@ -47,6 +55,7 @@ as $$
 declare
   current_user_id uuid := auth.uid();
   new_row public.club_duel_results%rowtype;
+  clean_source text;
 begin
   if current_user_id is null then
     raise exception 'AUTH_REQUIRED' using errcode = '28000';
@@ -67,12 +76,35 @@ begin
     raise exception 'WINNER_NOT_CLUB_MEMBER' using errcode = '42501';
   end if;
 
+  clean_source := nullif(left(trim(coalesce(p_source_id, '')), 120), '');
+
+  -- Dedup: if a row with the same (club, duel_type, source_id) already exists,
+  -- return it instead of inserting a duplicate. Both participants may call this
+  -- when they each open the result screen.
+  if clean_source is not null then
+    select * into new_row
+    from public.club_duel_results
+    where club_id = p_club_id
+      and duel_type = p_duel_type
+      and source_id = clean_source
+    limit 1;
+
+    if new_row.id is not null then
+      return query
+        select new_row.id, new_row.club_id, new_row.source_id,
+               new_row.winner_id, new_row.loser_id,
+               new_row.duel_type, new_row.discipline,
+               new_row.winner_score, new_row.loser_score, new_row.created_at;
+      return;
+    end if;
+  end if;
+
   insert into public.club_duel_results (
-    club_id, winner_id, loser_id, duel_type, discipline,
+    club_id, source_id, winner_id, loser_id, duel_type, discipline,
     winner_score, loser_score
   )
   values (
-    p_club_id, p_winner_id, p_loser_id, p_duel_type, p_discipline,
+    p_club_id, clean_source, p_winner_id, p_loser_id, p_duel_type, p_discipline,
     p_winner_score, p_loser_score
   )
   returning * into new_row;
@@ -90,9 +122,10 @@ begin
   );
 
   return query
-    select new_row.id, new_row.club_id, new_row.winner_id, new_row.loser_id,
-           new_row.duel_type, new_row.discipline, new_row.winner_score,
-           new_row.loser_score, new_row.created_at;
+    select new_row.id, new_row.club_id, new_row.source_id,
+           new_row.winner_id, new_row.loser_id,
+           new_row.duel_type, new_row.discipline,
+           new_row.winner_score, new_row.loser_score, new_row.created_at;
 end;
 $$;
 
@@ -103,7 +136,7 @@ create or replace function public.get_club_leaderboard_filtered(
 )
 returns table (
   user_id uuid,
-  best_score integer,
+  best_score numeric,
   session_count integer,
   duel_wins integer,
   last_session timestamptz
@@ -133,17 +166,19 @@ begin
       from public.club_members cm
       where cm.club_id = p_club_id
     ),
-    training as (
+    scoreboard as (
+      -- leaderboard_entries already aggregates per-result rows with score/discipline/created_at,
+      -- which avoids needing to join training_results to training_sessions for discipline.
       select
-        tr.user_id,
-        max(tr.total_score) as best_score,
+        le.user_id,
+        max(le.score) as best_score,
         count(*)::integer as session_count,
-        max(tr.created_at) as last_session
-      from public.training_results tr
-      where tr.user_id in (select user_id from members)
-        and tr.created_at >= range_start
-        and (p_discipline = 'all' or tr.discipline = p_discipline)
-      group by tr.user_id
+        max(le.created_at) as last_session
+      from public.leaderboard_entries le
+      where le.user_id in (select user_id from members)
+        and le.created_at >= range_start
+        and (p_discipline = 'all' or le.discipline = p_discipline)
+      group by le.user_id
     ),
     wins as (
       select
@@ -157,12 +192,12 @@ begin
     )
     select
       m.user_id,
-      coalesce(t.best_score, 0)::integer as best_score,
-      coalesce(t.session_count, 0)::integer as session_count,
+      coalesce(s.best_score, 0)::numeric as best_score,
+      coalesce(s.session_count, 0)::integer as session_count,
       coalesce(w.duel_wins, 0)::integer as duel_wins,
-      t.last_session
+      s.last_session
     from members m
-    left join training t on t.user_id = m.user_id
+    left join scoreboard s on s.user_id = m.user_id
     left join wins w on w.user_id = m.user_id
     order by best_score desc, duel_wins desc, session_count desc;
 end;
@@ -170,9 +205,9 @@ $$;
 
 grant select on public.club_duel_results to authenticated;
 
-revoke execute on function public.record_club_duel(uuid, uuid, uuid, text, text, integer, integer) from public, anon;
+revoke execute on function public.record_club_duel(uuid, uuid, uuid, text, text, integer, integer, text) from public, anon;
 revoke execute on function public.get_club_leaderboard_filtered(uuid, text, text) from public, anon;
-grant execute on function public.record_club_duel(uuid, uuid, uuid, text, text, integer, integer) to authenticated;
+grant execute on function public.record_club_duel(uuid, uuid, uuid, text, text, integer, integer, text) to authenticated;
 grant execute on function public.get_club_leaderboard_filtered(uuid, text, text) to authenticated;
 
 alter table public.club_duel_results enable row level security;

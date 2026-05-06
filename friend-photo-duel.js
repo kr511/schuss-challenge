@@ -56,7 +56,7 @@
     );
   }
 
-  async function recordSharedClubDuel(winnerId, loserId, duelType, discipline, winnerScore, loserScore) {
+  async function recordSharedClubDuel(winnerId, loserId, duelType, discipline, winnerScore, loserScore, sourceId) {
     if (!window.SupabaseClient || !winnerId || !loserId) return;
     try {
       // Find a club where BOTH winner and loser are members
@@ -86,6 +86,7 @@
         p_discipline: discipline,
         p_winner_score: winnerScore != null ? Math.round(Number(winnerScore)) : null,
         p_loser_score: loserScore != null ? Math.round(Number(loserScore)) : null,
+        p_source_id: sourceId ? String(sourceId) : null,
       });
     } catch (error) {
       console.warn('[FriendPhotoDuel] recordSharedClubDuel failed:', error);
@@ -462,7 +463,7 @@
       var loserId = winnerId === duel.creator_id ? duel.opponent_id : duel.creator_id;
       var winnerScore = winnerId === duel.creator_id ? creatorScore : opponentScore;
       var loserScore = winnerId === duel.creator_id ? opponentScore : creatorScore;
-      recordSharedClubDuel(winnerId, loserId, 'photo', duel.discipline, winnerScore, loserScore);
+      recordSharedClubDuel(winnerId, loserId, 'photo', duel.discipline, winnerScore, loserScore, duel.id);
     }
 
     var disc = DISCIPLINES[duel.discipline] || DISCIPLINES.lg40;

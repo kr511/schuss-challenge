@@ -18,6 +18,8 @@ const migrationFiles = [
   '0008_worker_api_rls.sql',
   '0009_friend_photo_duels.sql',
   '0010_clubs_core.sql',
+  '0011_club_challenges.sql',
+  '0012_club_duel_results.sql',
 ];
 
 const header = `-- Schuss Challenge Supabase setup bundle

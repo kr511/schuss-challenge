@@ -318,12 +318,12 @@ const AsyncChallenge = (function() {
       const discipline = state.currentChallenge && state.currentChallenge.discipline
         ? state.currentChallenge.discipline
         : 'lg40';
-      recordClubDuelIfShared(winnerId, loserId, 'friend_async', discipline, winnerScore, loserScore);
+      recordClubDuelIfShared(winnerId, loserId, 'friend_async', discipline, winnerScore, loserScore, challengeId);
     }
     state.currentChallenge = null;
   }
 
-  async function recordClubDuelIfShared(winnerId, loserId, duelType, discipline, winnerScore, loserScore) {
+  async function recordClubDuelIfShared(winnerId, loserId, duelType, discipline, winnerScore, loserScore, sourceId) {
     if (!window.SupabaseClient || !winnerId || !loserId) return;
     try {
       const membersResult = await window.SupabaseClient
@@ -352,6 +352,7 @@ const AsyncChallenge = (function() {
         p_discipline: discipline,
         p_winner_score: winnerScore != null ? Math.round(Number(winnerScore)) : null,
         p_loser_score: loserScore != null ? Math.round(Number(loserScore)) : null,
+        p_source_id: sourceId ? String(sourceId) : null,
       });
     } catch (error) {
       console.warn('[AsyncChallenge] recordClubDuelIfShared failed:', error);
