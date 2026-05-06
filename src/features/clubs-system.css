@@ -531,3 +531,69 @@
     grid-template-columns: 1fr;
   }
 }
+
+.club-filter-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.club-filter-select {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 0 11px;
+  font: inherit;
+  font-size: 0.88rem;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.55) 50%),
+                    linear-gradient(135deg, rgba(255,255,255,0.55) 50%, transparent 50%);
+  background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+}
+
+.club-filter-select:focus {
+  border-color: rgba(0, 195, 255, 0.55);
+  box-shadow: 0 0 0 3px rgba(0, 195, 255, 0.12);
+}
+
+.club-challenge-card {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.club-challenge-title {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.club-challenge-description {
+  margin: 0 0 12px;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.9rem;
+}
+
+.club-challenge-submit {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.club-standings-header {
+  margin: 14px 0 8px;
+  font-size: 0.94rem;
+  color: rgba(255, 255, 255, 0.86);
+}

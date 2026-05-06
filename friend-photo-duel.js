@@ -56,6 +56,43 @@
     );
   }
 
+  async function recordSharedClubDuel(winnerId, loserId, duelType, discipline, winnerScore, loserScore, sourceId) {
+    if (!window.SupabaseClient || !winnerId || !loserId) return;
+    try {
+      // Find a club where BOTH winner and loser are members
+      var membersResult = await window.SupabaseClient
+        .from('club_members')
+        .select('club_id, user_id')
+        .in('user_id', [winnerId, loserId]);
+      if (membersResult.error || !Array.isArray(membersResult.data)) return;
+
+      var clubsByUser = {};
+      membersResult.data.forEach(function (row) {
+        if (!clubsByUser[row.user_id]) clubsByUser[row.user_id] = new Set();
+        clubsByUser[row.user_id].add(row.club_id);
+      });
+      if (!clubsByUser[winnerId] || !clubsByUser[loserId]) return;
+      var sharedClubId = null;
+      clubsByUser[winnerId].forEach(function (id) {
+        if (!sharedClubId && clubsByUser[loserId].has(id)) sharedClubId = id;
+      });
+      if (!sharedClubId) return;
+
+      await window.SupabaseClient.rpc('record_club_duel', {
+        p_club_id: sharedClubId,
+        p_winner_id: winnerId,
+        p_loser_id: loserId,
+        p_duel_type: duelType,
+        p_discipline: discipline,
+        p_winner_score: winnerScore != null ? Math.round(Number(winnerScore)) : null,
+        p_loser_score: loserScore != null ? Math.round(Number(loserScore)) : null,
+        p_source_id: sourceId ? String(sourceId) : null,
+      });
+    } catch (error) {
+      console.warn('[FriendPhotoDuel] recordSharedClubDuel failed:', error);
+    }
+  }
+
   function html(value) {
     var div = document.createElement('div');
     div.textContent = String(value == null ? '' : value);
@@ -421,6 +458,13 @@
     var draw = !winnerId;
     var xp = awardWinnerXp(duel, winnerId);
     markOnce('friend_photo_duel_results_seen', duel.id);
+
+    if (winnerId) {
+      var loserId = winnerId === duel.creator_id ? duel.opponent_id : duel.creator_id;
+      var winnerScore = winnerId === duel.creator_id ? creatorScore : opponentScore;
+      var loserScore = winnerId === duel.creator_id ? opponentScore : creatorScore;
+      recordSharedClubDuel(winnerId, loserId, 'photo', duel.discipline, winnerScore, loserScore, duel.id);
+    }
 
     var disc = DISCIPLINES[duel.discipline] || DISCIPLINES.lg40;
     var title = draw ? 'Unentschieden' : (myWon ? 'Du hast gewonnen' : 'Duell beendet');

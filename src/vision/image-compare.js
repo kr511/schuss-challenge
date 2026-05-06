@@ -2340,6 +2340,83 @@ window.ImageCompare = (function () {
   }
 
 
+  function cropTopRegion(sourceCanvas, ratio = 0.18) {
+    if (!sourceCanvas || !sourceCanvas.width || !sourceCanvas.height) return null;
+    const out = document.createElement('canvas');
+    out.width = sourceCanvas.width;
+    out.height = Math.max(40, Math.round(sourceCanvas.height * ratio));
+    const ctx = out.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(sourceCanvas, 0, 0, sourceCanvas.width, out.height, 0, 0, out.width, out.height);
+    return out;
+  }
+
+  function parseDisciplineText(rawText) {
+    const text = String(rawText || '').toUpperCase().replace(/\s+/g, ' ').trim();
+    if (!text) return null;
+    // Normalize common OCR confusions: O -> 0, I/l -> 1
+    const normalized = text.replace(/O/g, '0').replace(/[Il|]/g, '1');
+    // Try patterns: "LG40", "LG 40", "LG-40", "KK 50", "KK 100", "KK 3X20", "KK3x20"
+    const patterns = [
+      { regex: /\b(LG)\s*[\-]?\s*(40|60)\b/, mapper: (m) => 'lg' + m[2] },
+      { regex: /\b(KK)\s*[\-]?\s*3\s*[X×*]\s*20\b/, mapper: () => 'kk3x20' },
+      { regex: /\b(KK)\s*[\-]?\s*(50|100)\b/, mapper: (m) => 'kk' + m[2] },
+    ];
+    for (let i = 0; i < patterns.length; i++) {
+      const match = normalized.match(patterns[i].regex);
+      if (match) return patterns[i].mapper(match);
+    }
+    return null;
+  }
+
+  async function detectDisciplineFromImage(sourceCanvas, options = {}) {
+    if (!sourceCanvas) return { discipline: null, confidence: 0, rawText: '' };
+    const startedAt = Date.now();
+    const ratio = Number.isFinite(options.ratio) ? options.ratio : 0.18;
+    const region = cropTopRegion(sourceCanvas, ratio);
+    if (!region) return { discipline: null, confidence: 0, rawText: '' };
+
+    let worker;
+    try {
+      worker = await getWorker();
+    } catch (error) {
+      console.warn('[ImageCompare] discipline OCR: worker unavailable:', error);
+      return { discipline: null, confidence: 0, rawText: '', error: String(error && error.message || error) };
+    }
+
+    const previousWhitelist = '0123456789., OolI|Ss\n';
+    try {
+      if (worker.setParameters) {
+        await worker.setParameters({
+          tessedit_char_whitelist: '0123456789LGKkXx ',
+          tessedit_pageseg_mode: '6',
+        });
+      }
+      const result = await worker.recognize(region.toDataURL('image/png'));
+      const rawText = (result && result.data && result.data.text) || '';
+      const confidence = Number((result && result.data && result.data.confidence) || 0) / 100;
+      const discipline = parseDisciplineText(rawText);
+      return {
+        discipline,
+        confidence: discipline ? confidence : 0,
+        rawText: rawText.trim(),
+        latencyMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      console.warn('[ImageCompare] discipline OCR failed:', error);
+      return { discipline: null, confidence: 0, rawText: '', error: String(error && error.message || error) };
+    } finally {
+      if (worker && worker.setParameters) {
+        try {
+          await worker.setParameters({
+            tessedit_char_whitelist: previousWhitelist,
+            tessedit_pageseg_mode: '6',
+          });
+        } catch (_e) {}
+      }
+    }
+  }
+
   return {
     init() {
       injectStyles();
@@ -2348,6 +2425,9 @@ window.ImageCompare = (function () {
     async getTesseractWorker() {
       return await getWorker();
     },
+
+    detectDisciplineFromImage,
+    parseDisciplineText,
 
     open(botScore, isKK, discipline = null) {
       injectStyles();

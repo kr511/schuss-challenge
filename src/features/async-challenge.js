@@ -310,7 +310,53 @@ const AsyncChallenge = (function() {
     const result = myFinalScore > opponentFinalScore ? 'win' : (myFinalScore < opponentFinalScore ? 'lose' : 'draw');
     showAsyncResult(myFinalScore, opponentFinalScore, opponentResult.challengerUsername, result);
     if (result === 'win' && typeof awardXP === 'function') awardXP(state.currentChallenge.difficulty);
+    if (result !== 'draw' && myResult.challengerId && opponentResult.challengerId) {
+      const winnerId = result === 'win' ? myResult.challengerId : opponentResult.challengerId;
+      const loserId = result === 'win' ? opponentResult.challengerId : myResult.challengerId;
+      const winnerScore = result === 'win' ? myFinalScore : opponentFinalScore;
+      const loserScore = result === 'win' ? opponentFinalScore : myFinalScore;
+      const discipline = state.currentChallenge && state.currentChallenge.discipline
+        ? state.currentChallenge.discipline
+        : 'lg40';
+      recordClubDuelIfShared(winnerId, loserId, 'friend_async', discipline, winnerScore, loserScore, challengeId);
+    }
     state.currentChallenge = null;
+  }
+
+  async function recordClubDuelIfShared(winnerId, loserId, duelType, discipline, winnerScore, loserScore, sourceId) {
+    if (!window.SupabaseClient || !winnerId || !loserId) return;
+    try {
+      const membersResult = await window.SupabaseClient
+        .from('club_members')
+        .select('club_id, user_id')
+        .in('user_id', [winnerId, loserId]);
+      if (membersResult.error || !Array.isArray(membersResult.data)) return;
+
+      const clubsByUser = {};
+      membersResult.data.forEach((row) => {
+        if (!clubsByUser[row.user_id]) clubsByUser[row.user_id] = new Set();
+        clubsByUser[row.user_id].add(row.club_id);
+      });
+      if (!clubsByUser[winnerId] || !clubsByUser[loserId]) return;
+      let sharedClubId = null;
+      clubsByUser[winnerId].forEach((id) => {
+        if (!sharedClubId && clubsByUser[loserId].has(id)) sharedClubId = id;
+      });
+      if (!sharedClubId) return;
+
+      await window.SupabaseClient.rpc('record_club_duel', {
+        p_club_id: sharedClubId,
+        p_winner_id: winnerId,
+        p_loser_id: loserId,
+        p_duel_type: duelType,
+        p_discipline: discipline,
+        p_winner_score: winnerScore != null ? Math.round(Number(winnerScore)) : null,
+        p_loser_score: loserScore != null ? Math.round(Number(loserScore)) : null,
+        p_source_id: sourceId ? String(sourceId) : null,
+      });
+    } catch (error) {
+      console.warn('[AsyncChallenge] recordClubDuelIfShared failed:', error);
+    }
   }
 
   /**
