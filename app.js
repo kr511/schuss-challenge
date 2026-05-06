@@ -725,7 +725,6 @@ function switchProfileTab(tab) {
   panels.forEach(p => p.classList.toggle('active', p.id === 'psPanel-' + tab));
 
   if (tab === 'sun') renderSunGrid();
-  if (tab === 'lb') loadLeaderboard();
   if (tab === 'history') renderHistory();
   if (tab === 'debug') refreshDebugPanel();
   if (tab === 'settings') refreshSettingsPanelUI();
@@ -813,7 +812,6 @@ function refreshProfileSheet() {
   if (activeTab) {
     const t = activeTab.dataset.tab;
     if (t === 'sun') renderSunGrid();
-    if (t === 'lb') loadLeaderboard(true);
     if (t === 'history') renderHistory();
     if (t === 'debug') renderDebugPanel();
     if (t === 'settings') refreshSettingsPanelUI();
