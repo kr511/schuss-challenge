@@ -61,9 +61,9 @@ The project has **two independent persistence layers** — a common source of co
 | Layer | Location | Accessed by | Tables |
 |---|---|---|---|
 | **Cloudflare D1** | `migrations/` | Worker only (service_role) | `users`, `game_sessions`, `achievements`, `streaks`, `feedback`, `api_profiles`, `activity_log` |
-| **Supabase Postgres** | `supabase/migrations/` | Frontend via anon key + Worker via service_role | `profiles`, `friends`, `training_sessions`, `training_results`, `leaderboard_entries`, `shooter_challenges`, `challenge_completions`, `user_progress`, etc. |
+| **Supabase Postgres** | `supabase/migrations/` | Frontend via anon key + Worker via service_role | `profiles`, `friends`, `training_sessions`, `training_results`, `leaderboard_entries`, `shooter_challenges`, `challenge_completions`, `clubs`, `club_members`, `club_activity`, etc. |
 
-`supabase/migrations/` currently has 0001–0008 (note: two files share the `0005_` prefix). `supabase/run-all-migrations.sql` is the bundled paste-into-SQL-editor version.
+`supabase/migrations/` currently has 0001–0010 (note: two files share the `0005_` and `0008_` prefixes). `supabase/run-all-migrations.sql` is the bundled paste-into-SQL-editor version.
 
 ### Frontend — no bundler, intentional script load order
 
@@ -76,6 +76,7 @@ The project has **two independent persistence layers** — a common source of co
 
 Feature modules in `src/`:
 - `src/features/quick-training.js` — offline-first 10-shot training, Supabase sync via `training_results.local_id`
+- `src/features/clubs-system.js` — Vereinsmodus Sprint 1 via Supabase (`window.ClubsSystem`)
 - `src/features/shooter-challenges-ui.js` — renders safety challenges; always shows Safety Notes + fire-type badge
 - `src/features/online-status.js` — online/offline indicator
 - `src/features/async-challenge.js` — async duel flow via SupabaseSocial
@@ -130,6 +131,7 @@ CORS: `ALLOWED_ORIGINS` allowlist in `api.ts`. `ALLOW_INSECURE_DEV_AUTH=true` ad
 - **Social tables** (`profiles`, `friends`, `friend_requests`, etc.): frontend uses anon key, RLS enforces per-user access.
 - **Training/challenge tables** (`training_sessions`, `training_results`, `challenge_completions`, `shooter_challenges`): RLS enforces `auth.uid() = user_id`; `shooter_challenges` is public-read, admin-write.
 - **Worker-API tables** (`users`, `game_sessions`, `achievements`, `streaks`, `feedback`, `api_profiles`, `activity_log`): Worker uses service_role (bypasses RLS); `0008_worker_api_rls.sql` adds read-only policies for authenticated direct access.
+- **Club tables** (`clubs`, `club_members`, `club_activity`): frontend uses anon key + JWT. Members can read their own club; code-based create/join flows go through narrow RPCs (`create_club_with_owner`, `join_club_by_code`) so there is no public full-club listing.
 - `training_results.local_id` is a real column (added in `0008_training_results_local_id.sql`); Quick Training dedup uses `.eq('local_id', entry.local_id)`, not `notes`.
 
 ## Repo layout notes

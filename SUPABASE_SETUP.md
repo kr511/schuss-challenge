@@ -32,6 +32,9 @@ supabase/migrations/0005_worker_api_tables.sql ← Worker-API-Tabellen (users, g
 supabase/migrations/0006_social_remove_friend_rpc.sql ← remove_friend RPC
 supabase/migrations/0007_shooter_challenges.sql        ← Schützen-Trainings-Challenges + RLS
 supabase/migrations/0008_training_results_local_id.sql ← Quick-Training Dedup-Spalte (local_id)
+supabase/migrations/0008_worker_api_rls.sql            ← Direkte Read-Policies für Worker-API-Tabellen
+supabase/migrations/0009_friend_photo_duels.sql        ← Foto-Duelle über async_challenges/results
+supabase/migrations/0010_clubs_core.sql                ← Vereinsmodus (clubs, club_members, club_activity)
 ```
 
 > Die Schützen-Challenges (Trainingsaufgaben) liegen statisch im Frontend
@@ -60,6 +63,9 @@ Danach noch `0005_worker_api_tables.sql` und `0006_social_remove_friend_rpc.sql`
 - `online_status` – Präsenz-Heartbeat
 - `async_challenges` – Asynchrone Duell-Herausforderungen
 - `async_results` – Duell-Ergebnisse
+- `clubs` – Vereine mit eindeutigem Beitrittscode
+- `club_members` – Vereinsmitgliedschaften mit `owner` / `admin` / `member`
+- `club_activity` – Vereinsaktivität für spätere Feeds und Wochenchallenges
 
 **Worker-API-Tabellen** (nur über Worker mit service_role):
 - `users` – User-Identität (wird automatisch beim ersten API-Call angelegt)
@@ -179,6 +185,7 @@ Supabase-only. Lokaler Gastmodus als Fallback.
 | **Google Sign-In** | ✅ Supabase OAuth | In `auth-gate.js` via `supabase.auth.signInWithOAuth` |
 | **Friends / Requests** | ✅ Supabase | `supabase-social.js` mit lokalem Gastmodus |
 | **Online-Präsenz** | ✅ Supabase | `supabase-social.js` / `updateOnlineStatus` |
+| **Vereinsmodus** | ✅ Supabase | `src/features/clubs-system.js` mit RLS + RPCs für Vereinscode-Flows |
 | **Spieldaten sync** | ✅ Supabase | `backend-sync.js` → Worker API → Supabase DB |
 | **Friend-Challenges** | ✅ Supabase | `friend-challenges.js` ruft `SupabaseSocial` auf |
 | **Async Challenges** | ✅ Supabase | `src/features/async-challenge.js` ruft `SupabaseSocial` auf |

@@ -1,7 +1,7 @@
 -- Schuss Challenge Supabase setup bundle
 -- Generated from supabase/migrations.
 -- Run this in Supabase Dashboard -> SQL Editor -> New query.
--- Generated at: 2026-04-29T10:53:16.526Z
+-- Generated at: 2026-05-06T13:34:51.243Z
 
 -- ============================================================================
 -- 0001_social_tables.sql
@@ -554,6 +554,7 @@ grant execute on function public.remove_friend(uuid) to authenticated;
 --   • user_progress           → eigene Zeile lesen/schreiben.
 --
 -- Admin-Erkennung über Tabelle public.app_admins (user_id, granted_at).
+-- Dort werden zugelassene Admin-User-IDs gepflegt.
 
 create table if not exists public.app_admins (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -566,6 +567,10 @@ drop policy if exists "app_admins_select_self" on public.app_admins;
 create policy "app_admins_select_self" on public.app_admins
   for select using (auth.uid() = user_id);
 
+-- Schreibzugriff auf app_admins gibt es bewusst NICHT via RLS.
+-- Nur per Service-Role (Worker oder Supabase Studio).
+
+-- ── shooter_challenges ──────────────────────────────────────────────
 create table if not exists public.shooter_challenges (
   id text primary key,
   title text not null,
@@ -614,6 +619,7 @@ create policy "shooter_challenges_admin_delete" on public.shooter_challenges
     exists (select 1 from public.app_admins a where a.user_id = auth.uid())
   );
 
+-- ── challenge_completions ──────────────────────────────────────────
 create table if not exists public.challenge_completions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -646,6 +652,43 @@ drop policy if exists "completions_delete_own" on public.challenge_completions;
 create policy "completions_delete_own" on public.challenge_completions
   for delete using (auth.uid() = user_id);
 
+-- ── training_sessions ──────────────────────────────────────────────
+create table if not exists public.training_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  discipline text,
+  weapon text,
+  notes text,
+  shots_total integer check (shots_total is null or shots_total >= 0),
+  ring_average numeric,
+  is_dry_fire boolean not null default true,
+  is_live_fire boolean not null default false
+);
+
+create index if not exists idx_training_user on public.training_sessions(user_id);
+create index if not exists idx_training_started_at on public.training_sessions(started_at);
+
+alter table public.training_sessions enable row level security;
+
+drop policy if exists "training_select_own" on public.training_sessions;
+create policy "training_select_own" on public.training_sessions
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "training_insert_own" on public.training_sessions;
+create policy "training_insert_own" on public.training_sessions
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "training_update_own" on public.training_sessions;
+create policy "training_update_own" on public.training_sessions
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "training_delete_own" on public.training_sessions;
+create policy "training_delete_own" on public.training_sessions
+  for delete using (auth.uid() = user_id);
+
+-- ── user_progress ──────────────────────────────────────────────────
 create table if not exists public.user_progress (
   user_id uuid primary key references auth.users(id) on delete cascade,
   total_completions integer not null default 0,
@@ -672,32 +715,85 @@ create policy "user_progress_update_own" on public.user_progress
   for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- ============================================================================
+-- 0008_training_results_local_id.sql
+-- ============================================================================
+-- Schuss Challenge: Quick-Training Sync-Härtung.
+-- Additive Migration. Idempotent ausführbar.
+--
+-- Ziel: Dedup beim Sync von lokal erfassten Quick-Training-Einträgen
+-- (src/features/quick-training.js) erfolgt künftig über eine echte Spalte
+-- training_results.local_id statt über einen notes-Marker (LIKE 'qt:<id>').
+--
+-- 1) Spalte training_results.local_id hinzufügen (nullbar, Backfill nicht nötig).
+-- 2) Partieller UNIQUE-Index auf (user_id, local_id) für not-null-Werte —
+--    so bleiben bestehende Zeilen ohne local_id erlaubt, neue Inserts mit
+--    local_id sind pro User eindeutig.
+
+alter table public.training_results
+  add column if not exists local_id text;
+
+create unique index if not exists training_results_user_local_id_uidx
+  on public.training_results (user_id, local_id)
+  where local_id is not null;
+
+-- ============================================================================
 -- 0008_worker_api_rls.sql
 -- ============================================================================
--- RLS-Policies für Worker-API-Tables.
--- Der Cloudflare Worker nutzt den service_role-Key, der RLS grundsätzlich
--- umgeht. Diese Policies definieren, was direkten Supabase-Client-Zugriffen
--- (anon / authenticated JWT) erlaubt ist.
+-- RLS-Policies für Worker-API-Tables
+--
+-- Kontext: Diese Tabellen (users, game_sessions, achievements, streaks,
+-- feedback, api_profiles, activity_log) werden ausschließlich über den
+-- Cloudflare Worker mit dem service_role-Key beschrieben und gelesen.
+-- Der service_role-Key umgeht RLS grundsätzlich – die Worker-Funktionalität
+-- ist davon unberührt.
+--
+-- Die Policies hier definieren, was direkte Supabase-Client-Zugriffe
+-- (anon / authenticated JWT) dürfen. Das dokumentiert den Intent explizit
+-- und verhindert unbeabsichtigten Datenzugriff über die Supabase REST-API.
+--
+-- Idempotent: Alle Policies werden mit DROP IF EXISTS + CREATE neu angelegt.
+
+-- ─── users ────────────────────────────────────────────────────────────────
+-- id ist TEXT (nicht UUID) – auth.uid() muss gecastet werden.
+-- Nutzer dürfen ihr eigenes Basisprofil lesen.
 
 drop policy if exists "users_select_own" on public.users;
 create policy "users_select_own" on public.users
   for select
   using (auth.uid()::text = id);
 
+-- ─── game_sessions ─────────────────────────────────────────────────────────
+-- Nutzer dürfen eigene Spielsitzungen lesen.
+
 drop policy if exists "game_sessions_select_own" on public.game_sessions;
 create policy "game_sessions_select_own" on public.game_sessions
   for select
   using (auth.uid()::text = user_id);
+
+-- ─── achievements ──────────────────────────────────────────────────────────
+-- Nutzer dürfen eigene Achievements lesen.
 
 drop policy if exists "achievements_select_own" on public.achievements;
 create policy "achievements_select_own" on public.achievements
   for select
   using (auth.uid()::text = user_id);
 
+-- ─── streaks ──────────────────────────────────────────────────────────────
+-- Nutzer dürfen eigenen Streak lesen.
+
 drop policy if exists "streaks_select_own" on public.streaks;
 create policy "streaks_select_own" on public.streaks
   for select
   using (auth.uid()::text = user_id);
+
+-- ─── feedback ─────────────────────────────────────────────────────────────
+-- Kein direkter Lesezugriff. Feedback wird über den Worker eingereicht
+-- und ist ausschließlich für Admins (über Worker/Admin-Endpoints) sichtbar.
+-- Keine Policies = deny by default für anon/authenticated.
+
+-- ─── api_profiles ─────────────────────────────────────────────────────────
+-- Öffentliche Profile sind für alle lesbar.
+-- Eigenes Profil ist immer lesbar (unabhängig von privacy_settings).
 
 drop policy if exists "api_profiles_select_public_or_own" on public.api_profiles;
 create policy "api_profiles_select_public_or_own" on public.api_profiles
@@ -707,10 +803,507 @@ create policy "api_profiles_select_public_or_own" on public.api_profiles
     or auth.uid()::text = user_id
   );
 
+-- ─── activity_log ─────────────────────────────────────────────────────────
+-- Aktive Einträge der letzten 60 Sekunden sind öffentlich lesbar.
+-- Das erlaubt die Live-Aktivitätsanzeige auch bei zukünftigem
+-- direktem Supabase-Client-Zugriff (aktuell über Worker).
+
 drop policy if exists "activity_log_select_active_recent" on public.activity_log;
 create policy "activity_log_select_active_recent" on public.activity_log
   for select
   using (
     status = 'active'
     and "timestamp" > (extract(epoch from now()) * 1000)::bigint - 60000
+  );
+
+-- ============================================================================
+-- 0009_friend_photo_duels.sql
+-- ============================================================================
+-- Friend photo duels: local photo analysis, remote score/state only.
+
+alter table public.async_challenges
+  add column if not exists kind text not null default 'async';
+
+alter table public.async_challenges
+  add column if not exists xp_reward integer not null default 20;
+
+alter table public.async_challenges
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table public.async_challenges
+  drop constraint if exists async_challenges_status_check;
+
+alter table public.async_challenges
+  add constraint async_challenges_status_check
+  check (status in ('pending', 'accepted', 'completed', 'cancelled', 'expired', 'declined'));
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'async_challenges_kind_check'
+      and conrelid = 'public.async_challenges'::regclass
+  ) then
+    alter table public.async_challenges
+      add constraint async_challenges_kind_check
+      check (kind in ('async', 'photo_duel'));
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'async_challenges_xp_reward_check'
+      and conrelid = 'public.async_challenges'::regclass
+  ) then
+    alter table public.async_challenges
+      add constraint async_challenges_xp_reward_check
+      check (xp_reward >= 0 and xp_reward <= 1000);
+  end if;
+end $$;
+
+alter table public.async_results
+  add column if not exists score_source text not null default 'manual';
+
+alter table public.async_results
+  add column if not exists ocr_confidence numeric;
+
+alter table public.async_results
+  add column if not exists confirmed_at timestamptz;
+
+create index if not exists idx_async_challenges_photo_opponent_status
+  on public.async_challenges(opponent_id, status, updated_at desc)
+  where kind = 'photo_duel';
+
+create index if not exists idx_async_challenges_photo_creator_status
+  on public.async_challenges(creator_id, status, updated_at desc)
+  where kind = 'photo_duel';
+
+drop policy if exists "async_results_insert_own" on public.async_results;
+create policy "async_results_insert_own" on public.async_results
+  for insert with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.async_challenges c
+      where c.id = challenge_id
+        and auth.uid() in (c.creator_id, c.opponent_id)
+    )
+  );
+
+drop policy if exists "async_results_update_own" on public.async_results;
+create policy "async_results_update_own" on public.async_results
+  for update using (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.async_challenges c
+      where c.id = challenge_id
+        and auth.uid() in (c.creator_id, c.opponent_id)
+    )
+  ) with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.async_challenges c
+      where c.id = challenge_id
+        and auth.uid() in (c.creator_id, c.opponent_id)
+    )
+  );
+
+-- ============================================================================
+-- 0010_clubs_core.sql
+-- ============================================================================
+-- Schuss Challenge: Vereinsmodus Sprint 1
+-- Core tables, RLS and narrow RPC helpers for club creation/join-by-code.
+
+create extension if not exists pgcrypto;
+create schema if not exists private;
+
+create table if not exists public.clubs (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(trim(name)) between 2 and 120),
+  slug text,
+  code text unique not null check (code ~ '^[A-Z0-9]{2,6}-[A-Z0-9]{3,6}$'),
+  location text,
+  created_by uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.club_members (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references public.clubs(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null default 'member' check (role in ('owner', 'admin', 'member')),
+  joined_at timestamptz not null default now(),
+  unique (club_id, user_id)
+);
+
+create table if not exists public.club_activity (
+  id uuid primary key default gen_random_uuid(),
+  club_id uuid not null references public.clubs(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null,
+  type text not null,
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists clubs_code_idx
+  on public.clubs (code);
+
+create index if not exists club_members_user_idx
+  on public.club_members (user_id, joined_at desc);
+
+create index if not exists club_members_club_idx
+  on public.club_members (club_id, joined_at asc);
+
+create index if not exists club_activity_club_created_idx
+  on public.club_activity (club_id, created_at desc);
+
+create or replace function private.set_clubs_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists clubs_set_updated_at on public.clubs;
+create trigger clubs_set_updated_at
+  before update on public.clubs
+  for each row
+  execute function private.set_clubs_updated_at();
+
+create or replace function private.add_club_owner_membership()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.club_members (club_id, user_id, role)
+  values (new.id, new.created_by, 'owner')
+  on conflict (club_id, user_id) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists clubs_add_owner_membership on public.clubs;
+create trigger clubs_add_owner_membership
+  after insert on public.clubs
+  for each row
+  execute function private.add_club_owner_membership();
+
+create or replace function private.make_club_slug(raw_name text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select nullif(
+    regexp_replace(
+      regexp_replace(lower(trim(coalesce(raw_name, ''))), '[^a-z0-9]+', '-', 'g'),
+      '(^-|-$)',
+      '',
+      'g'
+    ),
+    ''
+  );
+$$;
+
+create or replace function private.normalize_club_code(raw_code text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select regexp_replace(upper(trim(coalesce(raw_code, ''))), '\s+', '', 'g');
+$$;
+
+create or replace function private.is_club_member(target_club_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.club_members cm
+    where cm.club_id = target_club_id
+      and cm.user_id = auth.uid()
+  );
+$$;
+
+create or replace function private.is_club_admin(target_club_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.club_members cm
+    where cm.club_id = target_club_id
+      and cm.user_id = auth.uid()
+      and cm.role in ('owner', 'admin')
+  );
+$$;
+
+create or replace function private.generate_club_code(raw_name text)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  base_prefix text;
+  candidate text;
+  attempt integer := 0;
+begin
+  base_prefix := substring(regexp_replace(upper(coalesce(raw_name, '')), '[^A-Z0-9]', '', 'g') from 1 for 3);
+  if char_length(base_prefix) < 2 then
+    base_prefix := 'SV';
+  end if;
+  base_prefix := rpad(base_prefix, 3, 'X');
+
+  loop
+    candidate := base_prefix || '-' || lpad(floor(random() * 10000)::integer::text, 4, '0');
+
+    if not exists (select 1 from public.clubs c where c.code = candidate) then
+      return candidate;
+    end if;
+
+    attempt := attempt + 1;
+    if attempt >= 25 then
+      candidate := base_prefix || '-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
+      if not exists (select 1 from public.clubs c where c.code = candidate) then
+        return candidate;
+      end if;
+    end if;
+
+    if attempt >= 50 then
+      raise exception 'CLUB_CODE_GENERATION_FAILED' using errcode = 'P0001';
+    end if;
+  end loop;
+end;
+$$;
+
+create or replace function public.create_club_with_owner(
+  club_name text,
+  club_location text default null
+)
+returns table (
+  id uuid,
+  name text,
+  slug text,
+  code text,
+  location text,
+  created_by uuid,
+  created_at timestamptz,
+  updated_at timestamptz,
+  role text,
+  joined_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  clean_name text;
+  clean_location text;
+  next_code text;
+  new_club public.clubs%rowtype;
+  new_membership public.club_members%rowtype;
+begin
+  if current_user_id is null then
+    raise exception 'AUTH_REQUIRED' using errcode = '28000';
+  end if;
+
+  clean_name := left(trim(coalesce(club_name, '')), 120);
+  if char_length(clean_name) < 2 then
+    raise exception 'CLUB_NAME_REQUIRED' using errcode = '22023';
+  end if;
+
+  clean_location := nullif(left(trim(coalesce(club_location, '')), 120), '');
+
+  for attempt in 1..12 loop
+    next_code := private.generate_club_code(clean_name);
+    begin
+      insert into public.clubs (name, slug, code, location, created_by)
+      values (clean_name, private.make_club_slug(clean_name), next_code, clean_location, current_user_id)
+      returning * into new_club;
+      exit;
+    exception when unique_violation then
+      if attempt = 12 then
+        raise exception 'CLUB_CODE_GENERATION_FAILED' using errcode = 'P0001';
+      end if;
+    end;
+  end loop;
+
+  insert into public.club_members (club_id, user_id, role)
+  values (new_club.id, current_user_id, 'owner')
+  on conflict (club_id, user_id) do update
+    set role = 'owner'
+  returning * into new_membership;
+
+  insert into public.club_activity (club_id, user_id, type, payload)
+  values (new_club.id, current_user_id, 'club_created', jsonb_build_object('name', new_club.name));
+
+  return query
+    select
+      new_club.id,
+      new_club.name,
+      new_club.slug,
+      new_club.code,
+      new_club.location,
+      new_club.created_by,
+      new_club.created_at,
+      new_club.updated_at,
+      new_membership.role,
+      new_membership.joined_at;
+end;
+$$;
+
+create or replace function public.join_club_by_code(join_code text)
+returns table (
+  id uuid,
+  name text,
+  slug text,
+  code text,
+  location text,
+  created_by uuid,
+  created_at timestamptz,
+  updated_at timestamptz,
+  role text,
+  joined_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  normalized_code text;
+  compact_code text;
+  target_club public.clubs%rowtype;
+  membership public.club_members%rowtype;
+begin
+  if current_user_id is null then
+    raise exception 'AUTH_REQUIRED' using errcode = '28000';
+  end if;
+
+  normalized_code := private.normalize_club_code(join_code);
+  compact_code := regexp_replace(normalized_code, '-', '', 'g');
+
+  if char_length(compact_code) < 5 then
+    raise exception 'CLUB_CODE_INVALID' using errcode = '22023';
+  end if;
+
+  select c.*
+  into target_club
+  from public.clubs c
+  where c.code = normalized_code
+     or regexp_replace(c.code, '-', '', 'g') = compact_code
+  limit 1;
+
+  if target_club.id is null then
+    raise exception 'CLUB_CODE_NOT_FOUND' using errcode = 'P0002';
+  end if;
+
+  insert into public.club_members (club_id, user_id, role)
+  values (target_club.id, current_user_id, 'member')
+  on conflict (club_id, user_id) do nothing
+  returning * into membership;
+
+  if membership.id is not null then
+    insert into public.club_activity (club_id, user_id, type, payload)
+    values (target_club.id, current_user_id, 'member_joined', jsonb_build_object('code', target_club.code));
+  else
+    select cm.*
+    into membership
+    from public.club_members cm
+    where cm.club_id = target_club.id
+      and cm.user_id = current_user_id;
+  end if;
+
+  return query
+    select
+      target_club.id,
+      target_club.name,
+      target_club.slug,
+      target_club.code,
+      target_club.location,
+      target_club.created_by,
+      target_club.created_at,
+      target_club.updated_at,
+      membership.role,
+      membership.joined_at;
+end;
+$$;
+
+grant select, insert, update on public.clubs to authenticated;
+grant select on public.club_members to authenticated;
+grant select, insert on public.club_activity to authenticated;
+
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
+revoke execute on all functions in schema private from public, anon;
+revoke execute on function public.create_club_with_owner(text, text) from public, anon;
+revoke execute on function public.join_club_by_code(text) from public, anon;
+
+grant execute on function private.is_club_member(uuid) to authenticated;
+grant execute on function private.is_club_admin(uuid) to authenticated;
+grant execute on function public.create_club_with_owner(text, text) to authenticated;
+grant execute on function public.join_club_by_code(text) to authenticated;
+
+alter table public.clubs enable row level security;
+alter table public.club_members enable row level security;
+alter table public.club_activity enable row level security;
+
+drop policy if exists "clubs_select_member" on public.clubs;
+create policy "clubs_select_member"
+  on public.clubs for select
+  to authenticated
+  using (private.is_club_member(id));
+
+drop policy if exists "clubs_insert_own" on public.clubs;
+create policy "clubs_insert_own"
+  on public.clubs for insert
+  to authenticated
+  with check (auth.uid() = created_by);
+
+drop policy if exists "clubs_update_admin" on public.clubs;
+create policy "clubs_update_admin"
+  on public.clubs for update
+  to authenticated
+  using (private.is_club_admin(id))
+  with check (private.is_club_admin(id));
+
+drop policy if exists "club_members_select_same_club" on public.club_members;
+create policy "club_members_select_same_club"
+  on public.club_members for select
+  to authenticated
+  using (private.is_club_member(club_id));
+
+drop policy if exists "club_activity_select_member" on public.club_activity;
+create policy "club_activity_select_member"
+  on public.club_activity for select
+  to authenticated
+  using (private.is_club_member(club_id));
+
+drop policy if exists "club_activity_insert_member_self" on public.club_activity;
+create policy "club_activity_insert_member_self"
+  on public.club_activity for insert
+  to authenticated
+  with check (
+    private.is_club_member(club_id)
+    and (user_id is null or user_id = auth.uid())
   );

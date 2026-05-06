@@ -13,6 +13,11 @@ const migrationFiles = [
   '0005_worker_api_tables.sql',
   '0005_training_leaderboard.sql',
   '0006_social_remove_friend_rpc.sql',
+  '0007_shooter_challenges.sql',
+  '0008_training_results_local_id.sql',
+  '0008_worker_api_rls.sql',
+  '0009_friend_photo_duels.sql',
+  '0010_clubs_core.sql',
 ];
 
 const header = `-- Schuss Challenge Supabase setup bundle
