@@ -199,9 +199,55 @@ async function testExistingUsernameIsNotOverwritten() {
   assert.equal(window.localStorage.getItem('username'), 'Eva');
 }
 
+async function testTokenRefreshUpdatesSessionAndDispatchesSessionChanged() {
+  let authStateHandler = null;
+  const sessionOne = {
+    access_token: 'token-old',
+    user: { email: 'refresh@example.com', user_metadata: {} },
+  };
+  const sessionTwo = {
+    access_token: 'token-new',
+    user: { email: 'refresh@example.com', user_metadata: {} },
+  };
+
+  const { window } = createDom({
+    supabase: {
+      createClient() {
+        return {
+          auth: {
+            onAuthStateChange(handler) {
+              authStateHandler = handler;
+            },
+            async getSession() {
+              return { data: { session: null } };
+            },
+          },
+        };
+      },
+    },
+  });
+
+  await waitFor(() => typeof authStateHandler === 'function');
+  const sessionEvents = [];
+  window.addEventListener('supabaseSessionChanged', (event) => {
+    sessionEvents.push(event.detail);
+  });
+
+  authStateHandler('SIGNED_IN', sessionOne);
+  authStateHandler('TOKEN_REFRESHED', sessionTwo);
+
+  assert.equal(window.SupabaseSession, sessionTwo);
+  assert.equal(window.getSupabaseHeaders().Authorization, 'Bearer token-new');
+  assert.equal(sessionEvents.at(-1).event, 'TOKEN_REFRESHED');
+  assert.equal(sessionEvents.at(-1).session, sessionTwo);
+  assert.equal(sessionEvents.at(-1).tokenChanged, true);
+  assert.equal(window.SupabaseAuthInitializing, false);
+}
+
 await testPkceRecovery();
 await testLocalPlayWithoutReloadAndStorageFallback();
 await testExposeSessionLeavesLocalMode();
 await testExistingUsernameIsNotOverwritten();
+await testTokenRefreshUpdatesSessionAndDispatchesSessionChanged();
 
 console.log('auth-gate PKCE/local-mode tests passed');

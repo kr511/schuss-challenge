@@ -63,6 +63,7 @@
   var finishing = false;
   var memoryStore = {};
   var PKCE_RECOVERY_MESSAGE = 'Google-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut anmelden oder lokal spielen.';
+  window.SupabaseAuthInitializing = true;
 
   function storageGet(key) {
     try {
@@ -115,6 +116,7 @@
     window.SchussduellLocalMode = true;
     window.SchussduellLocalPlay = true;
     window.SupabaseSession = null;
+    window.SupabaseAuthInitializing = false;
     window.getSupabaseHeaders = function () { return {}; };
   }
 
@@ -205,6 +207,9 @@
     removeGate();
     try {
       window.dispatchEvent(new CustomEvent('supabaseAuthReady', { detail: { session: null, local: true } }));
+    } catch (e) {}
+    try {
+      window.dispatchEvent(new CustomEvent('supabaseSessionChanged', { detail: { session: null, local: true, event: 'LOCAL_MODE' } }));
     } catch (e) {}
     if (reload) setTimeout(function () { window.location.replace(appUrl() + '?local=1'); }, 60);
   }
@@ -329,21 +334,52 @@
     if (submit) submit.textContent = busy ? '⏳ Bitte warten…' : (mode === 'signin' ? 'Anmelden' : 'Konto erstellen');
   }
 
-  function exposeSession(session) {
+  function dispatchSessionChanged(session, authEvent, tokenChanged) {
+    try {
+      window.dispatchEvent(new CustomEvent('supabaseSessionChanged', {
+        detail: {
+          session: session || null,
+          event: authEvent || 'SESSION',
+          tokenChanged: !!tokenChanged
+        }
+      }));
+    } catch (e) {}
+  }
+
+  function exposeSession(session, authEvent) {
+    var previousToken = window.SupabaseSession && window.SupabaseSession.access_token
+      ? String(window.SupabaseSession.access_token)
+      : '';
+    var nextToken = session && session.access_token ? String(session.access_token) : '';
     LOCAL_KEYS.forEach(function (key) { storageRemove(key); });
     window.SupabaseClient = client;
     window.SupabaseSession = session;
+    window.SupabaseAuthInitializing = false;
     window.SchussduellLocalMode = false;
     window.SchussduellLocalPlay = false;
-    window.getSupabaseHeaders = function () { return { Authorization: 'Bearer ' + session.access_token }; };
+    window.getSupabaseHeaders = function () {
+      var currentSession = window.SupabaseSession || session;
+      return currentSession && currentSession.access_token
+        ? { Authorization: 'Bearer ' + currentSession.access_token }
+        : {};
+    };
     syncProfileNameFromSession(session);
-    try { window.dispatchEvent(new CustomEvent('supabaseAuthReady', { detail: { session: session } })); } catch (e) {}
+    try {
+      window.dispatchEvent(new CustomEvent('supabaseAuthReady', {
+        detail: { session: session, event: authEvent || 'SIGNED_IN' }
+      }));
+    } catch (e) {}
+    dispatchSessionChanged(session, authEvent || 'SIGNED_IN', previousToken !== nextToken);
   }
 
-  function onAuthenticated(session, reload) {
-    if (!session || !session.access_token) { showForm(); return; }
+  function onAuthenticated(session, reload, authEvent) {
+    if (!session || !session.access_token) {
+      window.SupabaseAuthInitializing = false;
+      showForm();
+      return;
+    }
     if (finishing && !reload) return;
-    exposeSession(session);
+    exposeSession(session, authEvent);
     if (reload) {
       finishing = true;
       showInfo('✅ Anmeldung erfolgreich. App wird geladen…');
@@ -434,7 +470,7 @@
       var res = mode === 'signup' ? await client.auth.signUp({ email: email, password: password }) : await client.auth.signInWithPassword({ email: email, password: password });
       if (res.error) throw res.error;
       var session = (res.data && res.data.session) || await getSession();
-      if (session) onAuthenticated(session, true);
+      if (session) onAuthenticated(session, true, 'SIGNED_IN');
       else { showInfo('✅ Bestätigungs-E-Mail gesendet! Bitte überprüfe deinen Posteingang.'); setBusy(false); }
     } catch (err) {
       showError(friendlyAuthError(err, mode === 'signup' ? 'Registrierung fehlgeschlagen. Bitte erneut versuchen.' : 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.'));
@@ -490,24 +526,35 @@
         await waitForSupabase(6000);
         // detectSessionInUrl: false — wir machen den PKCE-Callback manuell via handleOAuthCallback
         client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce' } });
+        function handleAuthStateChange(event, session) {
+          if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+            onAuthenticated(session, false, event);
+            return;
+          }
+          if (event === 'SIGNED_OUT') {
+            window.SupabaseSession = null;
+            window.SupabaseAuthInitializing = false;
+            window.getSupabaseHeaders = function () { return {}; };
+            dispatchSessionChanged(null, event, true);
+          }
+        }
         if (!needsSessionCheck) {
           // Kein Token, kein Callback: nur auf zukünftige Sign-Ins lauschen
-          client.auth.onAuthStateChange(function (event, session) {
-            if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) onAuthenticated(session, false);
-          });
+          client.auth.onAuthStateChange(handleAuthStateChange);
+          window.SupabaseAuthInitializing = false;
           return;
         }
         var oauthSession = await handleOAuthCallback();
-        if (oauthSession) { onAuthenticated(oauthSession, true); return; }
-        client.auth.onAuthStateChange(function (event, session) {
-          if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) onAuthenticated(session, false);
-        });
+        if (oauthSession) { onAuthenticated(oauthSession, true, 'SIGNED_IN'); return; }
+        client.auth.onAuthStateChange(handleAuthStateChange);
         var session = await Promise.race([
           getSession(),
           new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 1200); })
         ]);
-        if (session) { onAuthenticated(session, false); }
+        if (session) { onAuthenticated(session, false, 'INITIAL_SESSION'); }
+        else window.SupabaseAuthInitializing = false;
       } catch (err) {
+        window.SupabaseAuthInitializing = false;
         console.warn('[AuthGate] Session-Check fehlgeschlagen:', err);
         showError(friendlyAuthError(err));
         setBusy(false);

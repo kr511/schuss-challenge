@@ -269,6 +269,33 @@ async function resolveAuthenticatedUserId(request: Request, env: Env, url: URL):
   return null;
 }
 
+function hasBearerAuth(request: Request): boolean {
+  return /^Bearer\s+.+$/i.test(request.headers.get("authorization") ?? "");
+}
+
+function authFailureMessage(request: Request, env: Env, url: URL): string {
+  const bearer = hasBearerAuth(request);
+  const secret = env.SUPABASE_JWT_SECRET?.trim() ?? "";
+
+  if (bearer && !secret) {
+    return "Worker Supabase JWT verification is not configured (SUPABASE_JWT_SECRET missing)";
+  }
+
+  if (bearer && secret) {
+    return "Supabase JWT verification failed. Check token freshness and SUPABASE_JWT_SECRET/signing key config.";
+  }
+
+  if (env.ALLOW_INSECURE_DEV_AUTH === "true" && isLocalDevelopmentRequest(url)) {
+    return "Missing x-dev-user-id for local development";
+  }
+
+  if (!secret) {
+    return "User-scoped API routes require Supabase JWT verification to be configured";
+  }
+
+  return "User authentication is required";
+}
+
 function getAdminUserIds(env: Env): Set<string> {
   const raw = env.ADMIN_USER_IDS?.trim() ?? "";
   if (!raw) return new Set();
@@ -532,11 +559,7 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
     const userId = await resolveAuthenticatedUserId(request, env, url);
     if (!userId) {
       return withCors(
-        authError(
-          env.ALLOW_INSECURE_DEV_AUTH === "true"
-            ? "Missing x-dev-user-id for local development"
-            : "User-scoped API routes are disabled until secure authentication is configured",
-        ),
+        authError(authFailureMessage(request, env, url)),
         origin,
       );
     }

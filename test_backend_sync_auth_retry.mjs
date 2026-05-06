@@ -1,128 +1,143 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { JSDOM, VirtualConsole } from 'jsdom';
+import { JSDOM } from 'jsdom';
 
-const backendSyncSource = await readFile(new URL('./backend-sync.js', import.meta.url), 'utf8');
-const onlineStatusSource = await readFile(new URL('./src/features/online-status.js', import.meta.url), 'utf8');
+const source = await readFile(new URL('./backend-sync.js', import.meta.url), 'utf8');
 
-function waitFor(predicate, timeoutMs = 1500) {
-  const started = Date.now();
-  return new Promise((resolve, reject) => {
-    const timer = setInterval(() => {
-      try {
-        if (predicate()) {
-          clearInterval(timer);
-          resolve();
-          return;
-        }
-        if (Date.now() - started > timeoutMs) {
-          clearInterval(timer);
-          reject(new Error('Timed out waiting for backend sync auth retry'));
-        }
-      } catch (error) {
-        clearInterval(timer);
-        reject(error);
-      }
-    }, 20);
-  });
+function wait(ms = 0) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function flush() {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
-
-const virtualConsole = new VirtualConsole();
-virtualConsole.on('jsdomError', (error) => { console.error(error); });
-
-const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
-  url: 'https://kr511.github.io/schuss-challenge/',
-  runScripts: 'dangerously',
-  pretendToBeVisual: true,
-  virtualConsole,
-});
-
-const { window } = dom;
-const fetchCalls = [];
-const blockedEvents = [];
-const restoredEvents = [];
-let activeToken = 'token-old';
-let nextStatus = 401;
-
-window.console = { ...console, log() {}, warn() {} };
-window.SchussduellLocalMode = false;
-window.SchussduellLocalPlay = false;
-window.SupabaseSession = null;
-window.SupabaseAuth = {
-  getSession() {
-    return { access_token: activeToken };
-  },
-};
-window.fetch = async (url, options = {}) => {
-  fetchCalls.push({
-    url: String(url),
-    authorization: options.headers && options.headers.Authorization,
+function createDom({ fetchImpl, config } = {}) {
+  const fetchCalls = [];
+  const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
+    url: 'https://kr511.github.io/schuss-challenge/',
+    runScripts: 'dangerously',
+    pretendToBeVisual: true,
   });
-  return {
-    status: nextStatus,
-    ok: nextStatus >= 200 && nextStatus < 300,
-    json: async () => ({ ok: true }),
+  const { window } = dom;
+  window.console = { ...console, warn() {} };
+  window.__SCHUSS_BACKEND_SYNC_TEST_CONFIG__ = {
+    AUTH_STABLE_MS: 0,
+    AUTH_BLOCK_SHORT_RETRY_MS: 50,
+    AUTH_BLOCK_RETRY_MS: 1000,
+    AUTH_BLOCK_WARNING_FAILURES: 3,
+    ...(config || {}),
   };
-};
+  window.fetch = async (url, opts) => {
+    fetchCalls.push({ url: String(url), opts });
+    if (fetchImpl) return fetchImpl(url, opts, fetchCalls.length);
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  window.eval(source);
+  return { dom, window, fetchCalls };
+}
 
-window.addEventListener('schuetzen:backend-sync-auth-blocked', (event) => {
-  blockedEvents.push(event.detail);
-});
-window.addEventListener('schuetzen:backend-sync-auth-restored', (event) => {
-  restoredEvents.push(event.detail);
-});
+function dispatchAuth(window, eventName = 'SIGNED_IN') {
+  window.SupabaseAuthInitializing = false;
+  window.dispatchEvent(new window.CustomEvent('supabaseAuthReady', {
+    detail: { session: window.SupabaseSession, event: eventName },
+  }));
+}
 
-window.eval(backendSyncSource);
-window.eval(onlineStatusSource);
-window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
+async function testNoTokenDoesNotFetch() {
+  const { dom, window, fetchCalls } = createDom();
+  window.SupabaseBackendSync.syncProfile('Anna');
+  await wait();
 
-assert.equal(window.SupabaseBackendSync.isReady(), true);
+  assert.equal(fetchCalls.length, 0);
+  assert.equal(window.SupabaseBackendSync.readAuthBlockStatus().tokenExists, false);
+  dom.window.close();
+}
 
-window.SupabaseBackendSync.syncProfile('Tester');
-await waitFor(() => blockedEvents.length === 1);
-await flush();
+async function testAuthInitializingDoesNotFetch() {
+  const { dom, window, fetchCalls } = createDom();
+  window.SupabaseAuthInitializing = true;
+  window.SupabaseSession = { access_token: 'token-initial', user: { id: 'u1' } };
 
-assert.equal(fetchCalls.length, 1);
-assert.equal(fetchCalls[0].authorization, 'Bearer token-old');
-assert.equal(window.SupabaseBackendSync.isWorkerAuthBlocked(), true);
+  window.SupabaseBackendSync.syncProfile('Anna');
+  await wait();
+  assert.equal(fetchCalls.length, 0);
+  assert.equal(window.SupabaseBackendSync.readAuthBlockStatus().readiness, 'auth-initializing');
 
-let status = window.SupabaseBackendSync.readAuthBlockStatus();
-assert.equal(status.blocked, true);
-assert.equal(status.hasTokenAtAuthBlock, true);
-assert.equal(status.tokenChanged, false);
+  dispatchAuth(window, 'SIGNED_IN');
+  window.SupabaseBackendSync.syncProfile('Anna');
+  await wait();
+  assert.equal(fetchCalls.length, 1);
+  dom.window.close();
+}
 
-const banner = window.document.getElementById('onlineStatusBanner');
-assert.ok(banner);
-assert.equal(banner.style.display, 'flex');
-assert.match(banner.textContent, /Cloud-Sync pausiert/);
-assert.doesNotMatch(banner.textContent, /nicht angemeldet/);
+async function testLocalModeDoesNotFetch() {
+  const { dom, window, fetchCalls } = createDom();
+  window.SupabaseSession = { access_token: 'token-local', user: { id: 'u1' } };
+  window.SchussduellLocalMode = true;
 
-window.SupabaseBackendSync.syncProfile('Tester');
-await flush();
-assert.equal(fetchCalls.length, 1, 'sync remains paused while the old token is blocked');
+  window.SupabaseBackendSync.syncGameSession({ score: 10, shotsFired: 1 });
+  await wait();
 
-activeToken = 'token-new';
-nextStatus = 200;
-status = window.SupabaseBackendSync.readAuthBlockStatus();
-assert.equal(status.tokenChanged, true);
+  assert.equal(fetchCalls.length, 0);
+  assert.equal(window.SupabaseBackendSync.readAuthBlockStatus().readiness, 'local-mode');
+  dom.window.close();
+}
 
-assert.equal(window.SupabaseBackendSync.isReady(), true);
-await waitFor(() => restoredEvents.length === 1);
+async function testAuthBlockResetsAfterTokenChange() {
+  const { dom, window, fetchCalls } = createDom({
+    fetchImpl: () => new Response(JSON.stringify({ error: true }), { status: 401 }),
+  });
+  window.SupabaseSession = { access_token: 'old-token', user: { id: 'u1' } };
+  dispatchAuth(window, 'SIGNED_IN');
 
-window.SupabaseBackendSync.syncProfile('Tester');
-await waitFor(() => fetchCalls.length === 2);
-await flush();
+  window.SupabaseBackendSync.syncProfile('Anna');
+  await wait();
 
-assert.equal(fetchCalls[1].authorization, 'Bearer token-new');
-assert.equal(window.SupabaseBackendSync.isWorkerAuthBlocked(), false);
-assert.equal(window.SupabaseBackendSync.readAuthBlockStatus().blocked, false);
-assert.equal(banner.style.display, 'none');
+  let status = window.SupabaseBackendSync.readAuthBlockStatus();
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(status.blocked, true);
+  assert.equal(status.lastStatus, 401);
+  assert.equal(status.lastEndpoint, '/api/profile');
+  assert.equal(status.warningEligible, false);
 
-window.SupabaseBackendSync.resetAuthBlock('manual-test');
-window.close();
+  window.SupabaseSession = { access_token: 'new-token', user: { id: 'u1' } };
+  window.dispatchEvent(new window.CustomEvent('supabaseSessionChanged', {
+    detail: { session: window.SupabaseSession, event: 'TOKEN_REFRESHED', tokenChanged: true },
+  }));
+  await wait();
 
-console.log('backend sync auth retry tests passed');
+  status = window.SupabaseBackendSync.readAuthBlockStatus();
+  assert.equal(status.blocked, false);
+  assert.equal(status.failedAttempts, 0);
+  assert.equal(status.lastStatus, 0);
+  dom.window.close();
+}
+
+async function testRepeatedAuthFailuresBecomeWarningEligible() {
+  const { dom, window, fetchCalls } = createDom({
+    config: { AUTH_BLOCK_SHORT_RETRY_MS: 0, AUTH_BLOCK_RETRY_MS: 1000 },
+    fetchImpl: (_url, _opts, callCount) => new Response(JSON.stringify({ error: true }), {
+      status: callCount % 2 === 0 ? 403 : 401,
+    }),
+  });
+  window.SupabaseSession = { access_token: 'stable-token', user: { id: 'u1' } };
+  dispatchAuth(window, 'SIGNED_IN');
+
+  for (let i = 0; i < 3; i += 1) {
+    window.SupabaseBackendSync.syncProfile('Anna');
+    await wait();
+  }
+
+  const status = window.SupabaseBackendSync.readAuthBlockStatus();
+  assert.equal(fetchCalls.length, 3);
+  assert.equal(status.blocked, true);
+  assert.equal(status.failedAttempts, 3);
+  assert.equal(status.warningEligible, true);
+  assert.equal(status.lastStatus, 401);
+  dom.window.close();
+}
+
+await testNoTokenDoesNotFetch();
+await testAuthInitializingDoesNotFetch();
+await testLocalModeDoesNotFetch();
+await testAuthBlockResetsAfterTokenChange();
+await testRepeatedAuthFailuresBecomeWarningEligible();
+
+console.log('backend-sync auth retry tests passed');

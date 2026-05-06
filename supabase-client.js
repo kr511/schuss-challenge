@@ -90,10 +90,15 @@
       },
     });
 
-    fallbackClient.auth.onAuthStateChange((_event, nextSession) => {
+    fallbackClient.auth.onAuthStateChange((event, nextSession) => {
+      const previousToken = window.SupabaseSession?.access_token || session?.access_token || '';
+      const nextToken = nextSession?.access_token || '';
       session = nextSession;
-      if (!window.SupabaseSession) window.SupabaseSession = nextSession;
-      window.dispatchEvent(new CustomEvent('supabaseReady', { detail: { session } }));
+      window.SupabaseSession = nextSession;
+      window.dispatchEvent(new CustomEvent('supabaseReady', { detail: { session, event } }));
+      window.dispatchEvent(new CustomEvent('supabaseSessionChanged', {
+        detail: { session, event, tokenChanged: previousToken !== nextToken }
+      }));
     });
 
     return fallbackClient;
