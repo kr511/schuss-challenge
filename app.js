@@ -1,175 +1,3 @@
-/* ─── AUDIO ENGINE (Procedural Web Audio) ── */
-const Sfx = {
-  ctx: null,
-  muted: false,
-  init() {
-    if (!this.ctx) {
-      try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        this.ctx = new AudioContext();
-      } catch (e) { console.warn('Web Audio API not supported'); }
-    } else if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
-  },
-  play(type, data = null) {
-    if (this.muted || !this.ctx) return;
-    const t = this.ctx.currentTime;
-    const g = this.ctx.createGain();
-    g.connect(this.ctx.destination);
-
-    const osc = this.ctx.createOscillator();
-    osc.connect(g);
-
-    if (type === 'click') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(600, t);
-      osc.frequency.exponentialRampToValueAtTime(300, t + 0.05);
-      g.gain.setValueAtTime(0.7, t);
-      g.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
-      osc.start(t);
-      osc.stop(t + 0.05);
-    }
-    else if (type === 'start') { // Tiefer Swoosh für Duell Start
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(100, t);
-      osc.frequency.exponentialRampToValueAtTime(350, t + 0.4);
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.8, t + 0.1);
-      g.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
-      osc.start(t);
-      osc.stop(t + 0.4);
-    }
-    else if (type === 'shootLG') { // Luftdruck Zischen + Knall
-      const noise = this.ctx.createBufferSource();
-      const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.2, this.ctx.sampleRate);
-      const o = buffer.getChannelData(0);
-      for (let i = 0; i < buffer.length; i++) o[i] = (Math.random() * 2 - 1) * 0.5;
-      noise.buffer = buffer;
-      const noiseFilter = this.ctx.createBiquadFilter();
-      noiseFilter.type = 'highpass';
-      noiseFilter.frequency.value = 1000;
-
-      noise.connect(noiseFilter);
-      noiseFilter.connect(g);
-
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(150, t);
-      osc.frequency.exponentialRampToValueAtTime(40, t + 0.1);
-
-      g.gain.setValueAtTime(0.9, t);
-      g.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
-
-      noise.start(t);
-      osc.start(t);
-      osc.stop(t + 0.15);
-    }
-    else if (type === 'shootKK') { // KK Scharfer Knall
-      const noise = this.ctx.createBufferSource();
-      const buffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.3, this.ctx.sampleRate);
-      const o = buffer.getChannelData(0);
-      for (let i = 0; i < buffer.length; i++) o[i] = (Math.random() * 2 - 1) * 0.8;
-      noise.buffer = buffer;
-
-      const noiseFilter = this.ctx.createBiquadFilter();
-      noiseFilter.type = 'lowpass';
-      noiseFilter.frequency.setValueAtTime(4000, t);
-      noiseFilter.frequency.exponentialRampToValueAtTime(500, t + 0.2);
-
-      noise.connect(noiseFilter);
-      noiseFilter.connect(g);
-
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(200, t);
-      osc.frequency.exponentialRampToValueAtTime(50, t + 0.15);
-
-      g.gain.setValueAtTime(1, t);
-      g.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
-
-      noise.start(t);
-      osc.start(t);
-      osc.stop(t + 0.25);
-    }
-    else if (type === 'hit') {
-      // data is score (0 to 10.9)
-      const pts = data || 0;
-      osc.type = 'sine';
-
-      if (pts >= 10.0) {
-        osc.frequency.setValueAtTime(1200, t); // Helles Ding
-        osc.frequency.exponentialRampToValueAtTime(800, t + 0.3);
-        g.gain.setValueAtTime(0.6, t);
-        g.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
-      } else if (pts >= 9.0) {
-        osc.frequency.setValueAtTime(800, t);
-        osc.frequency.exponentialRampToValueAtTime(600, t + 0.2);
-        g.gain.setValueAtTime(0.5, t);
-        g.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-      } else if (pts >= 6.0) {
-        osc.frequency.setValueAtTime(400, t);
-        g.gain.setValueAtTime(0.4, t);
-        g.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
-      } else {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(150, t); // Dumpferes Tocken
-        g.gain.setValueAtTime(0.3, t);
-        g.gain.linearRampToValueAtTime(0.01, t + 0.1);
-      }
-      osc.start(t);
-      osc.stop(t + 0.4);
-    }
-    else if (type === 'win') {
-      osc.disconnect(); // BUG-FIX: Haupt-Oscillator nicht benötigt, vom Graph trennen
-      const notes = [440, 554, 659, 880]; // A Major Arpeggio
-      g.gain.setValueAtTime(0.5, t);
-      notes.forEach((freq, i) => {
-        const o = this.ctx.createOscillator();
-        o.type = 'sine';
-        o.frequency.value = freq;
-        o.connect(g);
-        o.start(t + i * 0.1);
-        o.stop(t + i * 0.1 + 0.3);
-      });
-      g.gain.linearRampToValueAtTime(0.01, t + 0.6);
-    }
-    else if (type === 'lose') {
-      osc.disconnect(); // BUG-FIX: Haupt-Oscillator nicht benötigt, vom Graph trennen
-      const notes = [300, 250, 200]; // Descending
-      g.gain.setValueAtTime(0.5, t);
-      notes.forEach((freq, i) => {
-        const o = this.ctx.createOscillator();
-        o.type = 'triangle';
-        o.frequency.value = freq;
-        o.connect(g);
-        o.start(t + i * 0.2);
-        o.stop(t + i * 0.2 + 0.4);
-      });
-      g.gain.linearRampToValueAtTime(0.01, t + 0.8);
-    }
-    else if (type === 'draw') {
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(300, t);
-      osc.frequency.setValueAtTime(400, t + 0.2);
-      g.gain.setValueAtTime(0.3, t);
-      g.gain.linearRampToValueAtTime(0.01, t + 0.4);
-      osc.start(t);
-      osc.stop(t + 0.4);
-    }
-  }
-};
-
-function toggleMute() {
-  // BUGFIX: Wenn der Mute-Button im aktuellen Screen nicht im DOM steht
-  // (z. B. weil das Profile-Sheet noch nicht gemountet wurde), warf
-  // getElementById('muteBtn').textContent einen TypeError und brach den
-  // Klick-Handler ab — Mute-Toggle blieb dadurch ohne Wirkung.
-  Sfx.init();
-  Sfx.muted = !Sfx.muted;
-  const muteBtn = document.getElementById('muteBtn');
-  if (muteBtn) muteBtn.textContent = Sfx.muted ? '🔇' : '🔊';
-  if (!Sfx.muted) Sfx.play('click');
-}
-
 /* ─── DATA MIGRATION v3 ─── */
 // Alte Daten-Keys bereinigen ohne Username zu löschen
 // v3: neue Schwierigkeitsnamen (Elite/Profi) + KK-Zehntel-Fix
@@ -229,48 +57,6 @@ const G = (SC_STATE && typeof SC_STATE.createInitialState === 'function')
     transitionLabel: ''
   };
 
-/* ─── DISZIPLIN CONFIG ───────────────────── */
-const DISC = {
-  // Luftgewehr
-  lg40: {
-    name: 'LG 40', weapon: 'lg', shots: 40, dist: '10', is3x20: false,
-    timeMins: 50, desc: '40 Schuss · 50 Min', icon: '🎯',
-    info: '<b>LG 40</b> – Klassische Luftgewehr-Disziplin. 40 Schuss auf 10 m. Zeitlimit: 50 Minuten.'
-  },
-  lg60: {
-    name: 'LG 60', weapon: 'lg', shots: 60, dist: '10', is3x20: false,
-    timeMins: 70, desc: '60 Schuss · 70 Min', icon: '⭐',
-    info: '<b>LG 60</b> – Erweiterte Luftgewehr-Disziplin. 60 Schuss auf 10 m. Zeitlimit: 70 Minuten.'
-  },
-  // KK
-  kk50: {
-    name: 'KK 50m', weapon: 'kk', shots: 60, dist: '50', is3x20: false,
-    timeMins: 50, desc: '60 Schuss · 50 Min', icon: '🎯',
-    info: '<b>KK 60 / 50m</b> – 60 Schuss KK auf 50 Meter. Zeitlimit: 50 Minuten.'
-  },
-  kk100: {
-    name: 'KK 100m', weapon: 'kk', shots: 60, dist: '100', is3x20: false,
-    timeMins: 70, desc: '60 Schuss · 70 Min', icon: '🎯',
-    info: '<b>KK 60 / 100m</b> – 60 Schuss KK auf 100 Meter. Extreme Präzision. Zeitlimit: 70 Minuten.'
-  },
-  kk3x20: {
-    name: 'KK 3×20', weapon: 'kk', shots: 60, dist: '50', is3x20: true,
-    timeMins: 105, desc: '3 x 20 Schuss · 105 Min', icon: '🏆',
-    positions: ['Kniend', 'Liegend', 'Stehend'], posIcons: ['🦵', '🛏️', '🧍'],
-    info: '<b>KK 3×20</b> – Je 20 Schuss kniend, liegend und stehend mit KK auf 50 m. Zeitlimit: 105 Minuten inkl. Positionswechsel.'
-  },
-};
-
-// Disziplinen pro Waffe
-const WEAPON_DISCS = {
-  lg: ['lg40', 'lg60'],
-  kk: ['kk50', 'kk100', 'kk3x20'],
-};
-const LEADERBOARD_DISCIPLINE_ROOT = 'leaderboard_disciplines_v1';
-const ACCOUNT_LINK_ROOT = 'account_links_v1';
-const SEASON_ROOT = 'seasons_v1';
-const ADMIN_ACCOUNTS_ROOT = 'admin_accounts_v1';
-
 function normalizeLeaderboardScope(scope) {
   if (scope === 'global') return 'global';
   return Object.prototype.hasOwnProperty.call(DISC, scope) ? scope : 'global';
@@ -311,39 +97,8 @@ function getCurrentSeasonId(now = Date.now()) {
   return getCurrentSeasonInfo(now).id;
 }
 
-/* ─── CONFIG ─────────────────────────────── */
-const DIST_INFO = {
-  lg: {
-    '10': '<b>10 Meter</b> – Luftgewehr-Standarddistanz. Höchste Präzision gefordert.'
-  },
-  kk: {
-    '50': '<b>50 Meter</b> – KK-Standarddistanz. Klassische Königsdisziplin!',
-    '100': '<b>100 Meter</b> – Extreme KK-Distanz. Maximale Konzentration und Technik gefordert!'
-  }
-};
-
 // Lebendige Dist-Info: wird von Disziplin überschrieben wenn vorhanden
 function getDistInfo() { return DIST_INFO[G.weapon]?.[G.dist] || ''; }
-
-const SIGMA = { '10': 18, '50': 46, '100': 72 };
-const DIFF = {
-  easy: {
-    mult: 0.33, noise: 5, lbl: '😊 EINFACH', cls: 'easy',
-    info: '<b>Einfach</b> – Solider Einstieg. ~360–375 Pkt. Schaffbar mit Konzentration!'
-  },
-  real: {
-    mult: 0.30, noise: 3.0, lbl: '🎯 MITTEL', cls: 'real',
-    info: '<b>Mittel</b> – Fast nur 9er und 10er. ~380–390 Pkt. Kein Spaziergang!'
-  },
-  hard: {
-    mult: 0.28, noise: 0.5, lbl: '💪 ELITE', cls: 'hard',
-    info: '<b>Elite</b> – Trifft sehr präzise. ~395–405 Pkt. Kaum zu schlagen!'
-  },
-  elite: {
-    mult: 0.25, noise: 0.08, lbl: '💫 PROFI', cls: 'elite',
-    info: '<b>Profi</b> – Immer ≥410 Zehntel. Extrem präzise. Viel Glück!'
-  }
-};
 
 // ─── TÄGLICHE LOGIN-BELohnungen ─────────────────────
 function getLocalDayStart(timestamp) {
@@ -443,37 +198,6 @@ function showLoginBonus(message) {
   }, 3000);
 }
 
-// Disziplinspezifische Schwierigkeits-Infos
-const DIFF_INFO_BY_DISC = {
-  // LG 60 hat höhere Punktwerte (60 Schuss, Zehntel)
-  lg60: {
-    easy: '<b>Einfach</b> – Solider Einstieg. ~575–585 Pkt. Schaffbar mit Konzentration!',
-    real: '<b>Mittel</b> – Fast nur 9er und 10er. ~590–605 Pkt. Kein Spaziergang!',
-    hard: '<b>Elite</b> – Trifft sehr präzise. ~610–618 Pkt. Kaum zu schlagen!',
-    elite: '<b>Profi</b> – Schießt immer ≥620 Pkt. Extrem präzise. Viel Glück!'
-  },
-  // KK 50m / 100m: 60 Schuss Liegend mit Zehntel-Wertung
-  kk50: {
-    easy: '<b>Einfach</b> – Solider Einstieg. ~580–588 Zehntel. Schaffbar mit Konzentration!',
-    real: '<b>Mittel</b> – Starke Präzision. ~590–600 Zehntel. Kein Spaziergang!',
-    hard: '<b>Elite</b> – Trifft sehr präzise. ~602–610 Zehntel. Kaum zu schlagen!',
-    elite: '<b>Profi</b> – Schießt ≥612 Zehntel. Extrem präzise. Viel Glück!'
-  },
-  kk100: {
-    easy: '<b>Einfach</b> – Solider Einstieg. ~580–588 Zehntel. Schaffbar mit Konzentration!',
-    real: '<b>Mittel</b> – Starke Präzision. ~590–600 Zehntel. Kein Spaziergang!',
-    hard: '<b>Elite</b> – Trifft sehr präzise. ~602–610 Zehntel. Kaum zu schlagen!',
-    elite: '<b>Profi</b> – Schießt ≥612 Zehntel. Extrem präzise. Viel Glück!'
-  },
-  // KK 3×20: Gesamt 60 Schuss, nur ganze Zahlen
-  kk3x20: {
-    easy: '<b>Einfach</b> – Solider Einstieg. Gesamt ~530–542 Ringe. Schaffbar mit Konzentration!',
-    real: '<b>Mittel</b> – Fast nur 9er und 10er. Gesamt ~544–555 Ringe. Kein Spaziergang!',
-    hard: '<b>Elite</b> – Trifft sehr präzise. Gesamt ~557–565 Ringe. Kaum zu schlagen!',
-    elite: '<b>Profi</b> – Gesamt ≥567 Ringe. Extrem präzise. Viel Glück!'
-  }
-};
-
 // Hilfsfunktion zum Abrufen der disziplinspezifischen Schwierigkeits-Info
 function getDiffInfo(diff) {
   const moduleInfo = window.SchussChallenge?.bot?.battleBalance?.getDifficultyInfoFromBalance?.(G.discipline, diff);
@@ -493,19 +217,6 @@ function getDiffInfo(diff) {
 function isKK3x20WholeRingsOnly() {
   return G.is3x20 && G.weapon === 'kk';
 }
-
-const WEAPON_CFG = {
-  lg: {
-    icon: '🌬️', name: 'Luftgewehr', badgeCls: 'lg', defaultDist: '10',
-    allowedDists: ['10'],
-    setupTag: (disc, dist) => `◆ LUFTGEWEHR · ${(DISC[disc]?.name || disc).toUpperCase()} · ${dist} METER ◆`
-  },
-  kk: {
-    icon: '🎯', name: 'Kleinkaliber', badgeCls: 'kk', defaultDist: '50',
-    allowedDists: ['50', '100'],
-    setupTag: (disc, dist) => `◆ KLEINKALIBER · ${(DISC[disc]?.name || disc).toUpperCase()} · ${dist} METER ◆`
-  }
-};
 
 /* ─── XP / RANKS ─────────────────────────── */
 const XP_PER_WIN = SC_XP?.XP_PER_WIN || { easy: 10, real: 20, hard: 40, elite: 75 };
