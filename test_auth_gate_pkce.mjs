@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { JSDOM, VirtualConsole } from 'jsdom';
 
 const source = await readFile(new URL('./auth-gate.js', import.meta.url), 'utf8');
-const expectedMessage = 'Google-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut anmelden oder lokal spielen.';
+const expectedMessage = 'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut anmelden oder lokal spielen.';
 
 function waitFor(predicate, timeoutMs = 1500) {
   const started = Date.now();

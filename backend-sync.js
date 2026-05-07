@@ -7,7 +7,10 @@
     ? ''
     : 'https://schuss-challenge.eliaskummel.workers.dev';
 
-  var AUTH_STABLE_MS = Number(testConfig.AUTH_STABLE_MS ?? 450);
+  var AUTH_STABLE_MS = Number(testConfig.AUTH_STABLE_MS ?? 1250);
+  var INITIAL_PROFILE_SYNC_DELAY_MS = Number(testConfig.INITIAL_PROFILE_SYNC_DELAY_MS ?? AUTH_STABLE_MS + 250);
+  var WORKER_AUTH_RETRY_MS = Number(testConfig.WORKER_AUTH_RETRY_MS ?? 700);
+  var WORKER_AUTH_MAX_RETRIES = Number(testConfig.WORKER_AUTH_MAX_RETRIES ?? 1);
   var AUTH_BLOCK_SHORT_RETRY_MS = Number(testConfig.AUTH_BLOCK_SHORT_RETRY_MS ?? 20 * 1000);
   var AUTH_BLOCK_RETRY_MS = Number(testConfig.AUTH_BLOCK_RETRY_MS ?? 90 * 1000);
   var AUTH_BLOCK_REPEAT_WINDOW_MS = Number(testConfig.AUTH_BLOCK_REPEAT_WINDOW_MS ?? 5 * 60 * 1000);
@@ -29,9 +32,22 @@
   var lastAuthEventName = '';
   var lastTokenFingerprint = '';
   var lastTokenChangeAt = 0;
+  var lastDisableReason = '';
+  var lastRetryCount = 0;
 
   function now() {
     return Date.now();
+  }
+
+  function wait(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, Math.max(0, ms || 0)); });
+  }
+
+  function debugSync(message, detail, warn) {
+    try {
+      var logger = warn && console.warn ? console.warn : (console.info || console.log);
+      if (logger) logger.call(console, '[BackendSync] ' + message, detail || {});
+    } catch (_e) {}
   }
 
   function safeStorageGet(key) {
@@ -66,7 +82,11 @@
 
   function tokenFingerprint(token) {
     if (!token) return '';
-    return String(token.length) + ':' + token.slice(0, 12) + ':' + token.slice(-8);
+    var hash = 0;
+    for (var i = 0; i < token.length; i += 1) {
+      hash = ((hash * 31) + token.charCodeAt(i)) >>> 0;
+    }
+    return String(token.length) + ':' + hash.toString(36);
   }
 
   function syncTokenState(reason) {
@@ -76,6 +96,11 @@
       var hadPreviousToken = !!lastTokenFingerprint;
       lastTokenFingerprint = fingerprint;
       lastTokenChangeAt = now();
+      debugSync(hadPreviousToken || reason === 'TOKEN_REFRESHED' ? 'token refresh' : 'token observed', {
+        reason: reason || 'token_state',
+        tokenExists: true,
+        tokenChanged: hadPreviousToken
+      });
       if (hadPreviousToken && workerAuthBlocked) {
         resetAuthBlock(reason || 'token_changed');
       }
@@ -98,6 +123,7 @@
         detail: { reason: reason || 'retry_window' }
       }));
     } catch (_e) { /* noop */ }
+    debugSync('sync auth cooldown released', { reason: reason || 'retry_window' });
   }
 
   function resetAuthBlock(reason) {
@@ -112,12 +138,15 @@
     lastEndpoint = '';
     firstAuthFailureAt = 0;
     failedAuthAttempts = 0;
+    lastDisableReason = '';
+    lastRetryCount = 0;
     if (!hadState) return;
     try {
       window.dispatchEvent(new CustomEvent('schuetzen:backend-sync-auth-restored', {
         detail: { reason: reason || 'reset' }
       }));
     } catch (_e) { /* noop */ }
+    debugSync('sync auth block reset', { reason: reason || 'reset' });
   }
 
   function getReadiness() {
@@ -211,7 +240,7 @@
     return getReadiness().ready;
   }
 
-  function disableWorkerSync(status, endpoint) {
+  function disableWorkerSync(status, endpoint, reason, retryCount) {
     var current = now();
     var token = getToken();
     var fingerprint = tokenFingerprint(token);
@@ -227,14 +256,19 @@
     tokenAtAuthBlock = fingerprint;
     lastStatus = Number(status) || 0;
     lastEndpoint = endpoint || '';
+    lastDisableReason = reason || 'worker-auth';
+    lastRetryCount = Number(retryCount) || 0;
     retryAt = current + (failedAuthAttempts >= AUTH_BLOCK_WARNING_FAILURES
       ? AUTH_BLOCK_RETRY_MS
       : AUTH_BLOCK_SHORT_RETRY_MS);
 
-    if (!authWarningShown) {
-      authWarningShown = true;
-      console.warn('[BackendSync] Optionaler Worker-Sync wartet nach HTTP ' + status + ' (' + (endpoint || 'unknown') + '). Supabase-Friends und lokales Training laufen weiter.');
-    }
+    authWarningShown = true;
+    console.warn('[BackendSync] Optionaler Worker-Sync deaktiviert sich temporaer nach HTTP ' + status + ' (' + (endpoint || 'unknown') + '). Supabase-Login und lokales Training laufen weiter.', {
+      retryCount: lastRetryCount,
+      failedAttempts: failedAuthAttempts,
+      tokenExists: !!token,
+      syncDisabledReason: lastDisableReason
+    });
 
     try {
       window.dispatchEvent(new CustomEvent('schuetzen:backend-sync-auth-blocked', {
@@ -266,7 +300,9 @@
       tokenStable: readiness.tokenStable,
       readiness: readiness.reason,
       lastAuthEvent: lastAuthEventName,
-      lastAuthEventAt: lastAuthEventAt
+      lastAuthEventAt: lastAuthEventAt,
+      syncDisabledReason: lastDisableReason,
+      retryCount: lastRetryCount
     };
   }
 
@@ -279,8 +315,67 @@
     }, Math.max(0, delay || AUTH_STABLE_MS + 50));
   }
 
-  function apiFetch(path, opts) {
-    if (!isReady()) return Promise.resolve(null);
+  function getAuthClient() {
+    if (window.SupabaseClient && window.SupabaseClient.auth) return window.SupabaseClient;
+    try {
+      if (window.SupabaseAuth && window.SupabaseAuth.client && window.SupabaseAuth.client.auth) {
+        return window.SupabaseAuth.client;
+      }
+    } catch (_e) {}
+    return null;
+  }
+
+  async function refreshSessionSnapshot(reason) {
+    var authClient = getAuthClient();
+    if (!authClient || !authClient.auth || typeof authClient.auth.getSession !== 'function') {
+      return getToken();
+    }
+
+    try {
+      var previousToken = getToken();
+      var res = await authClient.auth.getSession();
+      if (res && res.error) {
+        debugSync('session restore failed', {
+          reason: reason || 'session_restore',
+          message: res.error.message || String(res.error),
+          tokenExists: !!previousToken
+        }, true);
+        return previousToken;
+      }
+      var session = res && res.data && res.data.session ? res.data.session : null;
+      if (session && session.access_token) {
+        window.SupabaseSession = session;
+        syncTokenState(reason || 'session_restored');
+        debugSync('session restored', {
+          reason: reason || 'session_restored',
+          tokenExists: true,
+          tokenChanged: previousToken !== session.access_token
+        });
+        if (previousToken !== session.access_token) {
+          try {
+            window.dispatchEvent(new CustomEvent('supabaseSessionChanged', {
+              detail: {
+                session: session,
+                event: 'SESSION_RESTORED',
+                tokenChanged: true,
+                source: 'backend-sync'
+              }
+            }));
+          } catch (_e) { /* noop */ }
+        }
+      }
+    } catch (err) {
+      debugSync('session restore failed', {
+        reason: reason || 'session_restore',
+        message: err && err.message ? err.message : String(err || 'unknown'),
+        tokenExists: !!getToken()
+      }, true);
+    }
+    return getToken();
+  }
+
+  async function apiFetch(path, opts, retryCount) {
+    if (!isReady()) return null;
     var url = /^https?:\/\//i.test(path) ? path : WORKER_BASE + path;
     var token = getToken();
     var existingHeaders = (opts && opts.headers) || {};
@@ -290,27 +385,47 @@
       token ? { Authorization: 'Bearer ' + token } : {}
     );
 
-    return fetch(url, Object.assign({}, opts, { headers: headers }))
-      .then(function (res) {
-        if (res.status === 401 || res.status === 403) {
-          disableWorkerSync(res.status, path);
-          return null;
+    try {
+      var res = await fetch(url, Object.assign({}, opts, { headers: headers }));
+      if (res.status === 401 || res.status === 403) {
+        var nextRetryCount = Number(retryCount) || 0;
+        debugSync('worker sync failed', {
+          endpoint: path,
+          status: res.status,
+          retryCount: nextRetryCount,
+          tokenExists: !!token
+        }, true);
+
+        if (nextRetryCount < WORKER_AUTH_MAX_RETRIES) {
+          debugSync('retrying worker sync', {
+            endpoint: path,
+            status: res.status,
+            retryCount: nextRetryCount + 1,
+            delayMs: WORKER_AUTH_RETRY_MS,
+            tokenExists: !!token
+          });
+          await wait(WORKER_AUTH_RETRY_MS);
+          await refreshSessionSnapshot('worker_auth_retry');
+          if (isReady()) return apiFetch(path, opts, nextRetryCount + 1);
         }
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.status === 204 ? null : res.json();
-      })
-      .catch(function (err) {
-        try {
-          window.dispatchEvent(new CustomEvent('schuetzen:backend-sync-error', {
-            detail: {
-              endpoint: path,
-              message: err && err.message ? err.message : String(err || 'unknown'),
-              optional: true
-            }
-          }));
-        } catch (_e) { /* noop */ }
-        throw err;
-      });
+
+        disableWorkerSync(res.status, path, 'http_' + res.status + '_after_retry', nextRetryCount);
+        return null;
+      }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.status === 204 ? null : res.json();
+    } catch (err) {
+      try {
+        window.dispatchEvent(new CustomEvent('schuetzen:backend-sync-error', {
+          detail: {
+            endpoint: path,
+            message: err && err.message ? err.message : String(err || 'unknown'),
+            optional: true
+          }
+        }));
+      } catch (_e) { /* noop */ }
+      throw err;
+    }
   }
 
   function syncGameSession(data) {
@@ -378,7 +493,7 @@
 
   function syncStoredProfileName() {
     var name = safeStorageGet('sd_username') || safeStorageGet('username') || '';
-    if (name) scheduleProfileRetry(name, AUTH_STABLE_MS + 25);
+    if (name) scheduleProfileRetry(name, INITIAL_PROFILE_SYNC_DELAY_MS);
   }
 
   function onAuthReady(event) {
@@ -388,6 +503,11 @@
       lastAuthEventAt = now();
       lastAuthEventName = 'local';
       resetAuthBlock('local_mode');
+      debugSync('auth ok', {
+        event: 'local',
+        local: true,
+        tokenExists: false
+      });
       return;
     }
 
@@ -395,6 +515,11 @@
     lastAuthEventAt = now();
     lastAuthEventName = detail.event || event.type || 'auth_ready';
     syncTokenState(lastAuthEventName);
+    debugSync('auth ok', {
+      event: lastAuthEventName,
+      tokenExists: !!getToken(),
+      sessionRestored: lastAuthEventName === 'INITIAL_SESSION'
+    });
     resetAuthBlock(lastAuthEventName);
     syncStoredProfileName();
   }

@@ -62,7 +62,10 @@
   var mode = 'signin';
   var finishing = false;
   var memoryStore = {};
-  var PKCE_RECOVERY_MESSAGE = 'Google-Anmeldung konnte nicht abgeschlossen werden. Bitte erneut anmelden oder lokal spielen.';
+  var PKCE_RECOVERY_MESSAGE = 'Anmeldung konnte nicht abgeschlossen werden. Bitte erneut anmelden oder lokal spielen.';
+  var CLOUD_SYNC_UNAVAILABLE_MESSAGE = 'Anmeldung erfolgreich. Cloud-Sync momentan nicht verfügbar.';
+  var SESSION_READY_TIMEOUT_MS = 3500;
+  var SESSION_READY_POLL_MS = 100;
   window.SupabaseAuthInitializing = true;
 
   function storageGet(key) {
@@ -261,6 +264,16 @@
     return String(err.message || err.error_description || err.error || err);
   }
 
+  function debugAuth(message, detail) {
+    try {
+      if (typeof console !== 'undefined' && console.info) {
+        console.info('[AuthGate] ' + message, Object.assign({
+          tokenExists: !!(window.SupabaseSession && window.SupabaseSession.access_token)
+        }, detail || {}));
+      }
+    } catch (e) {}
+  }
+
   function normalizeAuthMessage(message) {
     return String(message || '')
       .toLowerCase()
@@ -351,6 +364,11 @@
       ? String(window.SupabaseSession.access_token)
       : '';
     var nextToken = session && session.access_token ? String(session.access_token) : '';
+    debugAuth(authEvent === 'TOKEN_REFRESHED' ? 'token refresh' : 'auth ok', {
+      event: authEvent || 'SIGNED_IN',
+      tokenExists: !!nextToken,
+      tokenChanged: previousToken !== nextToken
+    });
     LOCAL_KEYS.forEach(function (key) { storageRemove(key); });
     window.SupabaseClient = client;
     window.SupabaseSession = session;
@@ -374,6 +392,10 @@
 
   function onAuthenticated(session, reload, authEvent) {
     if (!session || !session.access_token) {
+      debugAuth('auth session without access token', {
+        event: authEvent || 'SESSION',
+        tokenExists: false
+      });
       window.SupabaseAuthInitializing = false;
       showForm();
       return;
@@ -408,6 +430,46 @@
     return res.data && res.data.session ? res.data.session : null;
   }
 
+  function hasAccessToken(session) {
+    return !!(session && session.access_token);
+  }
+
+  function wait(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, Math.max(0, ms || 0)); });
+  }
+
+  async function waitForSessionWithToken(seedSession, reason, timeoutMs) {
+    var deadline = Date.now() + (timeoutMs || SESSION_READY_TIMEOUT_MS);
+    var session = seedSession || null;
+    if (hasAccessToken(session)) {
+      debugAuth('auth ok', { reason: reason || 'session', tokenExists: true });
+      return session;
+    }
+
+    while (Date.now() < deadline) {
+      try {
+        session = await getSession();
+        if (hasAccessToken(session)) {
+          debugAuth('session restored', { reason: reason || 'session', tokenExists: true });
+          return session;
+        }
+      } catch (err) {
+        debugAuth('session restore pending', {
+          reason: reason || 'session',
+          tokenExists: false,
+          message: getErrorMessage(err)
+        });
+      }
+      await wait(SESSION_READY_POLL_MS);
+    }
+
+    debugAuth('session token missing after wait', {
+      reason: reason || 'session',
+      tokenExists: false
+    });
+    return null;
+  }
+
   function getOAuthParams() {
     var search = new URLSearchParams(window.location.search || '');
     var hash = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
@@ -433,7 +495,7 @@
           if (isPkceVerifierError(res.error)) throw createPkceRecoveryError(res.error);
           throw res.error;
         }
-        return (res.data && res.data.session) || await getSession();
+        return await waitForSessionWithToken((res.data && res.data.session) || null, 'oauth_callback', SESSION_READY_TIMEOUT_MS);
       } catch (err) {
         cleanUrl();
         if (isPkceVerifierError(err)) throw createPkceRecoveryError(err);
@@ -470,6 +532,7 @@
       var res = mode === 'signup' ? await client.auth.signUp({ email: email, password: password }) : await client.auth.signInWithPassword({ email: email, password: password });
       if (res.error) throw res.error;
       var session = (res.data && res.data.session) || await getSession();
+      if (session && !session.access_token) session = await waitForSessionWithToken(session, 'password_signin', 1800);
       if (session) onAuthenticated(session, true, 'SIGNED_IN');
       else { showInfo('✅ Bestätigungs-E-Mail gesendet! Bitte überprüfe deinen Posteingang.'); setBusy(false); }
     } catch (err) {
@@ -528,7 +591,21 @@
         client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce' } });
         function handleAuthStateChange(event, session) {
           if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-            onAuthenticated(session, false, event);
+            if (session.access_token) {
+              onAuthenticated(session, false, event);
+              return;
+            }
+            debugAuth('auth event without access token', {
+              event: event,
+              tokenExists: false
+            });
+            waitForSessionWithToken(session, event, SESSION_READY_TIMEOUT_MS)
+              .then(function (readySession) {
+                if (readySession) onAuthenticated(readySession, false, event);
+              })
+              .catch(function (err) {
+                console.warn('[AuthGate] Session nach Auth-Event nicht bereit:', err);
+              });
             return;
           }
           if (event === 'SIGNED_OUT') {
@@ -551,6 +628,7 @@
           getSession(),
           new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 1200); })
         ]);
+        if (session && !session.access_token) session = await waitForSessionWithToken(session, 'initial_session', 1800);
         if (session) { onAuthenticated(session, false, 'INITIAL_SESSION'); }
         else window.SupabaseAuthInitializing = false;
       } catch (err) {
@@ -561,6 +639,24 @@
       }
     })();
   }
+
+  window.addEventListener('schuetzen:backend-sync-auth-blocked', function (event) {
+    var detail = event && event.detail ? event.detail : {};
+    var hasToken = !!(window.SupabaseSession && window.SupabaseSession.access_token);
+    debugAuth('worker sync failed', {
+      status: detail.lastStatus || 0,
+      retryCount: detail.failedAttempts || detail.retryCount || 0,
+      syncDisabledReason: detail.syncDisabledReason || 'worker-auth',
+      tokenExists: hasToken
+    });
+    if (hasToken) {
+      window.SupabaseAuthInitializing = false;
+      if ($('authGate')) {
+        showInfo(CLOUD_SYNC_UNAVAILABLE_MESSAGE);
+        removeGate();
+      }
+    }
+  });
 
   ready(init);
 })();

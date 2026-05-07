@@ -19,6 +19,7 @@ function createDom({ fetchImpl, config } = {}) {
   window.console = { ...console, warn() {} };
   window.__SCHUSS_BACKEND_SYNC_TEST_CONFIG__ = {
     AUTH_STABLE_MS: 0,
+    WORKER_AUTH_RETRY_MS: 0,
     AUTH_BLOCK_SHORT_RETRY_MS: 50,
     AUTH_BLOCK_RETRY_MS: 1000,
     AUTH_BLOCK_WARNING_FAILURES: 3,
@@ -91,7 +92,7 @@ async function testAuthBlockResetsAfterTokenChange() {
   await wait();
 
   let status = window.SupabaseBackendSync.readAuthBlockStatus();
-  assert.equal(fetchCalls.length, 1);
+  assert.equal(fetchCalls.length, 2);
   assert.equal(status.blocked, true);
   assert.equal(status.lastStatus, 401);
   assert.equal(status.lastEndpoint, '/api/profile');
@@ -126,11 +127,31 @@ async function testRepeatedAuthFailuresBecomeWarningEligible() {
   }
 
   const status = window.SupabaseBackendSync.readAuthBlockStatus();
-  assert.equal(fetchCalls.length, 3);
+  assert.equal(fetchCalls.length, 6);
   assert.equal(status.blocked, true);
   assert.equal(status.failedAttempts, 3);
   assert.equal(status.warningEligible, true);
-  assert.equal(status.lastStatus, 401);
+  assert.equal(status.lastStatus, 403);
+  dom.window.close();
+}
+
+async function testSingleAuthFailureRetriesBeforeBlocking() {
+  const { dom, window, fetchCalls } = createDom({
+    fetchImpl: (_url, _opts, callCount) => new Response(JSON.stringify({ ok: true }), {
+      status: callCount === 1 ? 401 : 200,
+    }),
+  });
+  window.SupabaseSession = { access_token: 'stable-token', user: { id: 'u1' } };
+  dispatchAuth(window, 'SIGNED_IN');
+
+  window.SupabaseBackendSync.syncProfile('Anna');
+  await wait();
+
+  const status = window.SupabaseBackendSync.readAuthBlockStatus();
+  assert.equal(fetchCalls.length, 2);
+  assert.equal(status.blocked, false);
+  assert.equal(status.failedAttempts, 0);
+  assert.equal(status.lastStatus, 0);
   dom.window.close();
 }
 
@@ -139,5 +160,6 @@ await testAuthInitializingDoesNotFetch();
 await testLocalModeDoesNotFetch();
 await testAuthBlockResetsAfterTokenChange();
 await testRepeatedAuthFailuresBecomeWarningEligible();
+await testSingleAuthFailureRetriesBeforeBlocking();
 
 console.log('backend-sync auth retry tests passed');
