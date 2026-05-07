@@ -95,6 +95,12 @@
   <script src="src/features/online-status.js?v=1.2" defer></script>
   <script src="performance-config.js"></script>
   <script src="src/bot/battle-balance.js" defer></script>
+  
+  <!-- Vercel Web Analytics -->
+  <script type="module">
+    import { inject } from '@vercel/analytics';
+    inject();
+  </script>
 </head>
 
 <body>
