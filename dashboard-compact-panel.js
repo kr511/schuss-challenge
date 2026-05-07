@@ -216,7 +216,7 @@
       '<div style="display:flex;align-items:center;justify-content:space-between;margin:0 0 10px 0;gap:10px">' +
         '<div><div style="font-size:1.05rem;font-weight:800;color:#fff;line-height:1.2">Highscore</div><div style="font-size:.72rem;color:rgba(255,255,255,.42)">Karte antippen für komplette Liste</div></div>' +
       '</div>' +
-      '<section class="cp-card" role="button" tabindex="0" aria-label="Highscore öffnen"><div class="cp-head"><span>🏆 Beste Spieler-Ergebnisse</span><span class="cp-pill">Top 5</span></div>' +
+      '<section class="cp-card" role="button" tabindex="0" aria-label="Highscore öffnen"><div class="cp-head"><span>🏆 Beste Ergebnisse</span><span class="cp-pill">Top 5</span></div>' +
         (highs.length ? highs.map(function (h, i) {
           return '<div class="cp-row"><div class="cp-i">' + medals[i] + '</div><div style="min-width:0"><div class="cp-name">' + esc(h.name) + '</div><div class="cp-sub">' + esc(h.disc + (h.result ? ' · ' + h.result : '')) + '</div></div><div class="cp-val">' + fmtScore(h.score) + '</div></div>';
         }).join('') : emptyRow('Noch kein Highscore')) +
