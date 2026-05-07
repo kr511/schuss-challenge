@@ -101,103 +101,6 @@ function getCurrentSeasonId(now = Date.now()) {
 function getDistInfo() { return DIST_INFO[G.weapon]?.[G.dist] || ''; }
 
 // ─── TÄGLICHE LOGIN-BELohnungen ─────────────────────
-function getLocalDayStart(timestamp) {
-  const date = new Date(timestamp);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-}
-
-function initDailyLoginRewards() {
-  const rawLastVisit = Number(localStorage.getItem('sd_last_visit') || '0');
-  const lastVisit = Number.isFinite(rawLastVisit) ? rawLastVisit : 0;
-  const today = Date.now();
-  const oneDay = 24 * 60 * 60 * 1000;
-
-  // Wenn kein letzter Besuch gespeichert, heute als ersten Besuch markieren
-  if (lastVisit === 0) {
-    localStorage.setItem('sd_last_visit', today.toString());
-    localStorage.setItem('sd_login_streak', '1');
-    awardLoginReward(1);
-    return;
-  }
-
-  // Prüfen, ob seit letztem Besuch ein Tag vergangen ist
-  const daysDiff = Math.round((getLocalDayStart(today) - getLocalDayStart(lastVisit)) / oneDay);
-
-  if (daysDiff <= 0) {
-    // Heute schon belohnt bekommen
-    return;
-  } else if (daysDiff === 1) {
-    // Aufeinanderfolgender Tag
-    const currentStreak = parseInt(localStorage.getItem('sd_login_streak') || '0');
-    const newStreak = currentStreak + 1;
-    localStorage.setItem('sd_login_streak', newStreak.toString());
-    localStorage.setItem('sd_last_visit', today.toString());
-    awardLoginReward(newStreak);
-  } else {
-    // Streak unterbrochen (mehr als 1 Tag Lücke)
-    localStorage.setItem('sd_last_visit', today.toString());
-    localStorage.setItem('sd_login_streak', '1');
-    awardLoginReward(1); // Belohnung für den Neustart
-  }
-}
-
-function awardLoginReward(streak) {
-  let rewardXP = streak > 1 ? 5 : 0; // Kein XP am 1. Tag, 5 XP als Basis danach
-  let hasMysteryBonus = false;
-
-  // Streak-Boni (nur der höchste Bonus zählt)
-  if (streak >= 30) rewardXP += 50;      // Monatsbonus
-  else if (streak >= 14) rewardXP += 20; // Zweiwochenbonus
-  else if (streak >= 7) rewardXP += 10;  // Wochenbonus
-
-  // Zufällige Mystery-Belohnung alle 10 Tage
-  if (streak % 10 === 0 && Math.random() < 0.3) {
-    rewardXP += 25; // Mystery-Bonus
-    hasMysteryBonus = true;
-  }
-
-  const gained = awardFlatXP(rewardXP);
-  if (gained <= 0) return;
-
-  const labelParts = [];
-  if (streak > 1) labelParts.push(`${streak}-Tag-Streak`);
-  if (hasMysteryBonus) labelParts.push('Mystery-Bonus');
-
-  const suffix = labelParts.length ? ` (${labelParts.join(' · ')})` : '';
-  showLoginBonus(`+${gained} XP${suffix}`);
-}
-
-function showLoginBonus(message) {
-  // Erstelle eine temporäre Benachrichtigung
-  const bonusEl = document.createElement('div');
-  bonusEl.className = 'login-bonus-popup';
-  bonusEl.innerHTML = `
-        <div class="login-bonus-content">
-          <div class="login-bonus-icon">🎁</div>
-          <div class="login-bonus-text">${message}</div>
-        </div>
-      `;
-
-  document.body.appendChild(bonusEl);
-
-  // Animation: Einblenden, warten, Ausblenden
-  setTimeout(() => {
-    bonusEl.style.opacity = '1';
-    bonusEl.style.transform = 'translateY(0)';
-  }, 10);
-
-  setTimeout(() => {
-    bonusEl.style.opacity = '0';
-    bonusEl.style.transform = 'translateY(-20px)';
-  }, 2500);
-
-  setTimeout(() => {
-    if (bonusEl.parentElement) {
-      bonusEl.parentElement.removeChild(bonusEl);
-    }
-  }, 3000);
-}
-
 // Hilfsfunktion zum Abrufen der disziplinspezifischen Schwierigkeits-Info
 function getDiffInfo(diff) {
   const moduleInfo = window.SchussChallenge?.bot?.battleBalance?.getDifficultyInfoFromBalance?.(G.discipline, diff);
@@ -228,114 +131,6 @@ const RANKS = SC_XP?.RANKS || [
   { name: 'Großmeister', min: 1000, max: 1999, icon: '🏆' },
   { name: 'Legende', min: 2000, max: Infinity, icon: '💫' }
 ];
-
-function getRank(xp) {
-  if (SC_XP && typeof SC_XP.getRankInfo === 'function') {
-    return SC_XP.getRankInfo(xp);
-  }
-  for (let i = RANKS.length - 1; i >= 0; i--) {
-    if (xp >= RANKS[i].min) return { rank: RANKS[i], idx: i };
-  }
-  return { rank: RANKS[0], idx: 0 };
-}
-
-function loadXP() {
-  G.xp = StorageManager.get('xp', 0) || 0;
-}
-
-function saveXP() {
-  StorageManager.set('xp', G.xp);
-  scheduleCloudSync('xp_changed');
-}
-
-function awardXP(diff) {
-  const gained = XP_PER_WIN[diff] || 10;
-  const { idx: oldIdx } = getRank(G.xp);
-  G.xp += gained;
-  saveXP();
-
-  if (G.weapon) {
-    const ws = loadWeaponStats(G.weapon);
-    ws.xp = (ws.xp || 0) + gained;
-    saveWeaponStats(G.weapon, ws);
-  }
-
-  updateSchuetzenpass();
-  showXPPop(gained);
-
-  // Daily Bonus erst beim 1. Duell-Abschluss prüfen
-  if (typeof initDailyLoginRewards === 'function') initDailyLoginRewards();
-
-  // Rank Check
-  const { rank: newRank, idx: newIdx } = getRank(G.xp);
-  if (newIdx > oldIdx) {
-    showLevelUp(newRank);
-  } else {
-    if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.xp(), 500);
-  }
-
-  scheduleCloudSync('profile_changed');
-  return gained;
-}
-
-function awardFlatXP(amount) {
-  const gained = Math.max(0, Math.floor(Number(amount) || 0));
-  if (gained <= 0) return 0;
-
-  const { idx: oldIdx } = getRank(G.xp);
-  G.xp += gained;
-  saveXP();
-
-  if (G.weapon) {
-    const ws = loadWeaponStats(G.weapon);
-    ws.xp = (ws.xp || 0) + gained;
-    saveWeaponStats(G.weapon, ws);
-  }
-
-  updateSchuetzenpass();
-  showXPPop(gained);
-
-  const { rank: newRank, idx: newIdx } = getRank(G.xp);
-  if (newIdx > oldIdx) {
-    showLevelUp(newRank);
-  } else if (typeof Sounds !== 'undefined') {
-    setTimeout(() => Sounds.xp(), 300);
-  }
-
-  scheduleCloudSync('profile_changed');
-  return gained;
-}
-
-function showLevelUp(rank) {
-  const overlay = document.getElementById('levelUpOverlay');
-  const badge = document.getElementById('luBadge');
-  const name = document.getElementById('luRankName');
-  if (!overlay) return;
-
-  badge.textContent = rank.icon;
-  name.textContent = rank.name;
-  overlay.classList.add('active');
-
-  spawnConfetti();
-  triggerHaptic();
-
-  if (typeof Sounds !== 'undefined') Sounds.levelUp();
-}
-
-window.closeLevelUp = function () {
-  const overlay = document.getElementById('levelUpOverlay');
-  if (overlay) overlay.classList.remove('active');
-};
-
-function showXPPop(amount) {
-  const el = document.createElement('div');
-  el.className = 'xp-pop';
-  el.textContent = '+' + amount + ' XP';
-  el.style.left = (Math.random() * 40 + 30) + '%';
-  el.style.top = '35%';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 1700);
-}
 
 function getHeaderStreakValue() {
   const lgStreak = Number(localStorage.getItem('sd_lg_streak') || 0) || 0;
@@ -651,42 +446,6 @@ function stopBotStatusUpdates() {
   if (card) card.style.display = 'none';
 }
 
-function getSupabaseSessionSafe() {
-  try {
-    if (window.SupabaseAuth && typeof window.SupabaseAuth.getSession === 'function') {
-      return window.SupabaseAuth.getSession() || window.SupabaseSession || null;
-    }
-  } catch (error) {
-    console.warn('[SupabaseSync] Session konnte nicht gelesen werden:', error?.message || error);
-  }
-  return window.SupabaseSession || null;
-}
-
-function getSupabaseUserSafe() {
-  const session = getSupabaseSessionSafe();
-  return session && session.user ? session.user : null;
-}
-
-function getSupabaseClientSafe() {
-  if (window.SupabaseClient) return window.SupabaseClient;
-  if (window.SupabaseAuth && window.SupabaseAuth.client) return window.SupabaseAuth.client;
-  return null;
-}
-
-function getSupabaseDisplayName(user) {
-  const meta = (user && user.user_metadata) || {};
-  return meta.full_name || meta.name || meta.display_name || meta.user_name || (user && user.email ? String(user.email).split('@')[0] : '') || G.username || 'Spieler';
-}
-
-function updateSessionFromAuthResult(result) {
-  const session = result && result.data && result.data.session ? result.data.session : null;
-  if (session) {
-    window.SupabaseSession = session;
-    window.dispatchEvent(new CustomEvent('supabaseAuthReady', { detail: { session: session } }));
-  }
-  return session;
-}
-
 window.signInWithGoogle = async function() {
   if (typeof window.__agGoogle === 'function') return window.__agGoogle();
   if (window.SupabaseAuth && typeof window.SupabaseAuth.signInWithGoogle === 'function') return window.SupabaseAuth.signInWithGoogle();
@@ -995,36 +754,6 @@ window.changeProfileName = function() {
   if (!nameInput) return;
   applyProfileNameChange(nameInput.value, { notify: true });
 };
-
-function spawnConfetti() {
-  const colors = ['#ff9600', '#1cb0f6', '#90d838', '#ff4500', '#ffd700', '#ffffff'];
-  for (let i = 0; i < 50; i++) {
-    const c = document.createElement('div');
-    c.className = 'confetti';
-    c.style.left = Math.random() * 100 + 'vw';
-    c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    c.style.animationDelay = Math.random() * 2 + 's';
-    document.body.appendChild(c);
-    setTimeout(() => c.remove(), 4000);
-  }
-}
-
-function triggerHaptic() {
-  if ('vibrate' in navigator) {
-    navigator.vibrate([30, 20, 30]);
-  }
-}
-
-/* ─── GAME STATS (localStorage) ─────────── */
-function loadGameStats() {
-  try { return JSON.parse(localStorage.getItem('sd_gamestats') || '{}'); }
-  catch (e) { return {}; }
-}
-
-function saveGameStats(s) {
-  StorageManager.set('gamestats', s);
-  scheduleCloudSync('gamestats_changed');
-}
 
 const FEEDBACK_MIN_DUELS = 3;
 const FEEDBACK_MAX_DUELS = 5;
@@ -1379,16 +1108,6 @@ function skipSiteFeedback() {
   const totalDuels = getTotalDuels();
   scheduleNextFeedback(totalDuels);
   showScreen('screenSetup');
-}
-
-function loadWeaponStats(w) {
-  try { return JSON.parse(localStorage.getItem(`sd_wstats_${w}`) || '{"wins":0,"losses":0,"draws":0}'); }
-  catch (e) { return { wins: 0, losses: 0, draws: 0 }; }
-}
-
-function saveWeaponStats(w, s) {
-  StorageManager.set(`wstats_${w}`, s);
-  scheduleCloudSync(`weapon_stats_${w}`);
 }
 
 function todayIdLocal() {
