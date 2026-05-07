@@ -315,7 +315,7 @@
     }, Math.max(0, delay || AUTH_STABLE_MS + 50));
   }
 
-  function getAuthClient() {
+  function readAuthSessionClient() {
     if (window.SupabaseClient && window.SupabaseClient.auth) return window.SupabaseClient;
     try {
       if (window.SupabaseAuth && window.SupabaseAuth.client && window.SupabaseAuth.client.auth) {
@@ -326,7 +326,7 @@
   }
 
   async function refreshSessionSnapshot(reason) {
-    var authClient = getAuthClient();
+    var authClient = readAuthSessionClient();
     if (!authClient || !authClient.auth || typeof authClient.auth.getSession !== 'function') {
       return getToken();
     }
