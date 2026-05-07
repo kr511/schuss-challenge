@@ -51,11 +51,66 @@ const MobileFeatures = (function() {
     isOnline: navigator.onLine,
     lastSync: null
   };
+
+  let initialized = false;
+  let connectivityListenersBound = false;
+  let backgroundSyncBound = false;
+
+  function safeStorageGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function safeStorageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (error) {
+      console.warn('[MobileFeatures] localStorage write failed:', error && error.message ? error.message : error);
+      return false;
+    }
+  }
+
+  function readSyncData() {
+    const fallback = {
+      pendingSync: [],
+      lastSync: 0,
+      deviceInfo: {
+        userAgent: navigator.userAgent,
+        timestamp: Date.now()
+      }
+    };
+
+    const raw = safeStorageGet('sd_sync_data');
+    if (!raw) return fallback;
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return fallback;
+      return {
+        ...fallback,
+        ...parsed,
+        pendingSync: Array.isArray(parsed.pendingSync) ? parsed.pendingSync : [],
+        deviceInfo: {
+          ...fallback.deviceInfo,
+          ...(parsed.deviceInfo && typeof parsed.deviceInfo === 'object' ? parsed.deviceInfo : {})
+        }
+      };
+    } catch (error) {
+      console.warn('[MobileFeatures] sd_sync_data corrupt, repairing:', error && error.message ? error.message : error);
+      return fallback;
+    }
+  }
   
   /**
    * Initialisiert Mobile Features
    */
   function init() {
+    if (initialized) return;
+    initialized = true;
     console.log('📱 Mobile Features System initialisiert');
     
     // Prüfe mobile Fähigkeiten
@@ -108,7 +163,7 @@ const MobileFeatures = (function() {
     }
     
     navigator.serviceWorker.getRegistration()
-      .then(registration => registration || navigator.serviceWorker.register('./sw.js?v=3.4'))
+      .then(registration => registration || navigator.serviceWorker.register('./sw.js?v=3.5'))
       .then(registration => {
         mobileState.serviceWorker = registration;
         console.log('✅ Service Worker registriert:', registration.scope);
@@ -210,6 +265,9 @@ const MobileFeatures = (function() {
    * Sendet eine Push-Benachrichtigung
    */
   function sendNotification(title, options = {}) {
+    if (!('Notification' in window)) {
+      return false;
+    }
     if (!CONFIG.pushNotifications.enabled || Notification.permission !== 'granted') {
       console.log('🔔 Push-Notifications deaktiviert oder keine Permission');
       return false;
@@ -387,7 +445,7 @@ const MobileFeatures = (function() {
    * Cacht kritische Assets für Offline-Nutzung
    */
   function cacheCriticalAssets() {
-    if (!caches) {
+    if (typeof caches === 'undefined' || !caches.open) {
       console.warn('⚠️ Cache API nicht verfügbar');
       return;
     }
@@ -419,16 +477,15 @@ const MobileFeatures = (function() {
    */
   function initSyncData() {
     // Speichere lokale Daten für spätere Synchronisation
-    const syncData = {
-      pendingSync: [],
-      lastSync: Date.now(),
-      deviceInfo: {
-        userAgent: navigator.userAgent,
-        timestamp: Date.now()
-      }
+    const syncData = readSyncData();
+    syncData.lastSync = Number(syncData.lastSync) || Date.now();
+    syncData.deviceInfo = {
+      ...(syncData.deviceInfo || {}),
+      userAgent: navigator.userAgent,
+      timestamp: syncData.deviceInfo?.timestamp || Date.now()
     };
-    
-    localStorage.setItem('sd_sync_data', JSON.stringify(syncData));
+
+    safeStorageSet('sd_sync_data', JSON.stringify(syncData));
   }
   
 
@@ -437,6 +494,8 @@ const MobileFeatures = (function() {
    * Connectivity-Listener einrichten
    */
   function setupConnectivityListeners() {
+    if (connectivityListenersBound) return;
+    connectivityListenersBound = true;
     window.addEventListener('online', () => {
       mobileState.isOnline = true;
       console.log('🌐 Online - Sync starten');
@@ -467,9 +526,9 @@ const MobileFeatures = (function() {
    * Synchronisiert Daten wenn online
    */
   function syncData() {
-    if (!mobileState.isOnline) return;
+    if (!mobileState.isOnline) return Promise.resolve(false);
     
-    const syncData = JSON.parse(localStorage.getItem('sd_sync_data') || '{}');
+    const syncData = readSyncData();
     if (syncData.pendingSync && syncData.pendingSync.length > 0) {
       console.log('🔄 Synchronisiere', syncData.pendingSync.length, 'Einträge');
       
@@ -478,7 +537,7 @@ const MobileFeatures = (function() {
       syncData.pendingSync = [];
       syncData.lastSync = Date.now();
       
-      localStorage.setItem('sd_sync_data', JSON.stringify(syncData));
+      safeStorageSet('sd_sync_data', JSON.stringify(syncData));
       
       // Erfolgsmeldung
       sendNotification('✅ Sync erfolgreich', {
@@ -486,7 +545,9 @@ const MobileFeatures = (function() {
         tag: 'sync-success',
         vibrate: CONFIG.hapticFeedback.patterns.achievement
       });
+      return Promise.resolve(true);
     }
+    return Promise.resolve(false);
   }
   
   /**
@@ -497,12 +558,14 @@ const MobileFeatures = (function() {
       console.log('⚠️ Background Sync nicht verfügbar');
       return;
     }
-    
+    if (backgroundSyncBound) return;
+    backgroundSyncBound = true;
+
     // Sync-Event-Listener
     registration.addEventListener('sync', event => {
       if (event.tag === 'background-sync') {
         event.waitUntil(
-          syncData().catch(error => {
+          Promise.resolve(syncData()).catch(error => {
             console.error('❌ Background Sync fehlgeschlagen:', error);
           })
         );

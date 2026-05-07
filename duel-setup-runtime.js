@@ -8,7 +8,7 @@
 
   if (window.DuelSetupRuntime?.initialized) return;
 
-  const ASSET_VERSION = '4.5';
+  const ASSET_VERSION = '4.6';
 
   const state = {
     mode: 'bot',
@@ -529,7 +529,7 @@
         overlay.style.display = 'none';
       }, 250);
     }
-    setTimeout(unlockPageScroll, 260);
+    unlockPageScroll();
   }
 
   function showModeSelection() {

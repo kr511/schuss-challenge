@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  const VERSION = '4.9';
+  const VERSION = '5.0';
   if (window.DuelSetupScrollLock?.version === VERSION) return;
 
   const state = {
@@ -223,7 +223,7 @@
       const overlay = getOverlay();
       const shouldClose = !event || event.target === overlay;
       const result = typeof originalClose === 'function' ? originalClose.call(this, event, ...args) : undefined;
-      if (shouldClose) setTimeout(unlock, 280);
+      if (shouldClose) unlock();
       return result;
     };
 

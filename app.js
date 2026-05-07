@@ -1398,8 +1398,11 @@ function showFeedbackScreen(totalDuels, duelData) {
 let fbRating = null;
 let fbTags = [];
 let fbDuelData = null; // { discipline, opponent, result, score }
+let fbSubmitPending = false;
+let siteFeedbackPending = false;
 
 function fbSetDuel(data) {
+  data = data || {};
   fbDuelData = data;
   fbRating = null;
   fbTags = [];
@@ -1418,7 +1421,8 @@ function fbSetDuel(data) {
   // Reset UI
   fbResetEmojiUI();
   fbResetTagsUI();
-  document.getElementById('fbComment').value = '';
+  const commentInput = document.getElementById('fbComment');
+  if (commentInput) commentInput.value = '';
   fbUpdateCounter();
   fbUpdateSubmitBtn();
 }
@@ -1440,6 +1444,7 @@ function fbUpdateEmojiUI() {
     const i = parseInt(el.dataset.idx);
     const btn = el.querySelector('.fb-emoji-btn');
     const label = el.querySelector('span');
+    if (!btn || !label) return;
     if (i === fbRating) {
       btn.style.cssText = 'width:58px;height:58px;background:rgba(15,35,10,.8);border:2px solid #39FF14;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;transition:all .15s ease;';
       label.style.color = '#39FF14';
@@ -1476,7 +1481,8 @@ function fbResetTagsUI() {
 }
 
 function fbUpdateCounter() {
-  const comment = document.getElementById('fbComment').value;
+  const input = document.getElementById('fbComment');
+  const comment = input ? input.value : '';
   const counter = document.getElementById('fbCounter');
   if (counter) counter.textContent = `${comment.length} / 300`;
 }
@@ -1484,6 +1490,11 @@ function fbUpdateCounter() {
 function fbUpdateSubmitBtn() {
   const btn = document.getElementById('fbSubmitBtn');
   if (btn) {
+    if (fbSubmitPending) {
+      btn.style.opacity = '.6';
+      btn.style.pointerEvents = 'none';
+      return;
+    }
     if (fbRating !== null) {
       btn.style.opacity = '1';
       btn.style.pointerEvents = 'auto';
@@ -1495,8 +1506,16 @@ function fbUpdateSubmitBtn() {
 }
 
 function fbSubmit() {
-  if (fbRating === null) return;
-  const comment = document.getElementById('fbComment').value || '';
+  if (fbRating === null || fbSubmitPending) return;
+  fbSubmitPending = true;
+  const btn = document.getElementById('fbSubmitBtn');
+  if (btn) {
+    btn.dataset.originalPointerEvents = btn.style.pointerEvents || '';
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '.6';
+  }
+  const commentInput = document.getElementById('fbComment');
+  const comment = commentInput ? commentInput.value || '' : '';
   const score = fbRating + 1; // 1-5 scale
   const totalDuels = getTotalDuels();
 
@@ -1511,6 +1530,14 @@ function fbSubmit() {
   const resultTitle = duelResult.title || `${G.weapon || 'LG'} ${duelResult.result || 'Unbekannt'}`;
   const resultScore = duelResult.score || duelResult.myScore || 'N/A';
 
+  // Save locally first so optional network failures never lose feedback.
+  let entries = [];
+  try { entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]'); } catch (e) { entries = []; }
+  if (!Array.isArray(entries)) entries = [];
+  entries.unshift({ score, totalDuels, weapon: G.weapon, discipline: fbDuelData?.discipline || G.discipline, ts: Date.now(), tags: fbTags, comment });
+  while (entries.length > 100) entries.pop();
+  try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
+
   fetch('https://schuss-challenge.eliaskummel.workers.dev/api/feedback', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1522,14 +1549,6 @@ function fbSubmit() {
     })
   }).catch(err => console.warn('Feedback an Worker fehlgeschlagen:', err));
 
-  // Save to localStorage (compat with existing feedback system)
-  let entries = [];
-  try { entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]'); } catch (e) { entries = []; }
-  if (!Array.isArray(entries)) entries = [];
-  entries.unshift({ score, totalDuels, weapon: G.weapon, discipline: fbDuelData?.discipline || G.discipline, ts: Date.now(), tags: fbTags, comment });
-  while (entries.length > 100) entries.pop();
-  try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
-
   console.log('[Feedback]', { rating: fbRating + 1, tags: fbTags, comment, duel: fbDuelData });
 
   // Thank you animation
@@ -1539,12 +1558,21 @@ function fbSubmit() {
     if (typeof Sounds !== 'undefined') Sounds.win();
     setTimeout(() => {
       scheduleNextFeedback(totalDuels);
+      fbSubmitPending = false;
       showScreen('screenSetup');
     }, 1500);
+  } else {
+    fbSubmitPending = false;
+    if (btn) {
+      btn.style.pointerEvents = btn.dataset.originalPointerEvents || 'auto';
+      btn.style.opacity = '1';
+    }
   }
 }
 
 function submitSiteFeedback(rating) {
+  if (siteFeedbackPending) return;
+  siteFeedbackPending = true;
   clearPendingFeedbackPrompt();
   const score = parseInt(rating);
   const totalDuels = getTotalDuels();
@@ -1620,6 +1648,7 @@ function submitSiteFeedback(rating) {
       if (typeof Sounds !== 'undefined') Sounds.win();
       setTimeout(() => {
         scheduleNextFeedback(totalDuels);
+        siteFeedbackPending = false;
         showScreen('screenSetup');
       }, 2000);
       return;
@@ -1627,12 +1656,14 @@ function submitSiteFeedback(rating) {
   }
 
   scheduleNextFeedback(totalDuels);
+  siteFeedbackPending = false;
   showScreen('screenSetup');
   // Dashboard mit frischen Daten aktualisieren
   if (typeof refreshPremiumDashboard === 'function') setTimeout(refreshPremiumDashboard, 200);
 }
 
 function skipSiteFeedback() {
+  if (siteFeedbackPending) return;
   clearPendingFeedbackPrompt();
   const totalDuels = getTotalDuels();
   scheduleNextFeedback(totalDuels);
@@ -4013,6 +4044,20 @@ function syncBotScoreToPlayerProgress() {
 
 function startBattle() {
   const dc = DISC[G.discipline];
+  if (!dc) {
+    console.error('[startBattle] Ungueltige Disziplin:', G.discipline);
+    G.discipline = 'lg40';
+    G.weapon = 'lg';
+    return startBattle();
+  }
+  if (!DIFF[G.diff]) {
+    console.error('[startBattle] Ungueltige Schwierigkeit:', G.diff);
+    G.diff = 'easy';
+  }
+  if (!WEAPON_CFG[G.weapon]) {
+    console.error('[startBattle] Ungueltige Waffe:', G.weapon);
+    G.weapon = 'lg';
+  }
   G.maxShots = dc.shots;
   G.playerShotsLeft = dc.shots;
   G.botShotsLeft = dc.shots;
@@ -4022,7 +4067,9 @@ function startBattle() {
   G.playerShots = [];
   G._gameStartTime = Date.now();
   G._lastPlayerShotAt = G._gameStartTime;
-  HealthyEngagement.onBattleStart();
+  if (typeof HealthyEngagement !== 'undefined' && typeof HealthyEngagement.onBattleStart === 'function') {
+    HealthyEngagement.onBattleStart();
+  }
   G.dnf = false;
   G.probeActive = true;  // Probezeit ist aktiv
   G.probeSecsLeft = (G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
@@ -4083,6 +4130,12 @@ function startBattle() {
 
   const diffCfg = DIFF[G.diff];
   const weapCfg = WEAPON_CFG[G.weapon];
+  const requiredBattleRefs = ['battleBadge', 'battleWeaponBadge', 'entryTag', 'posBar', 'battleFireBtn', 'battleBurstBtn', 'skipProbeBtn'];
+  const missingBattleRefs = requiredBattleRefs.filter((key) => !DOM[key]);
+  if (missingBattleRefs.length) {
+    console.error('[startBattle] Battle-DOM nicht vollstaendig:', missingBattleRefs.join(', '));
+    return;
+  }
 
   DOM.battleBadge.textContent = diffCfg.lbl;
   DOM.battleBadge.className = 'diff-badge ' + diffCfg.cls;
