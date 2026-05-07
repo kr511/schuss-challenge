@@ -3,73 +3,259 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin – Schützen Challenge</title>
+  <title>Admin - Schuetzen Challenge</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      color: #e5e7eb;
-      background: #10151f;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-    main {
-      width: min(680px, 100%);
-      padding: 32px;
-      border: 1px solid #263241;
-      border-radius: 12px;
-      background: #151d29;
-      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.24);
-    }
-    h1 { margin: 0 0 12px; font-size: 1.8rem; }
-    p { margin: 0 0 18px; color: #b6c2d1; line-height: 1.6; }
-    .status {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border: 1px solid #3f5f8f;
-      border-radius: 999px;
-      color: #bfdbfe;
-      background: rgba(37, 99, 235, 0.16);
-      font-size: 0.9rem;
-      font-weight: 650;
-    }
-    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
-    a {
-      display: inline-flex;
-      min-height: 42px;
-      align-items: center;
-      justify-content: center;
-      padding: 0 16px;
-      border-radius: 8px;
-      color: #ffffff;
-      background: #2563eb;
-      text-decoration: none;
-      font-weight: 650;
-    }
-    a.secondary { color: #dbeafe; background: #263241; }
+    body { margin: 0; min-height: 100vh; color: #eef2f7; background: #0b1118; font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { position: sticky; top: 0; z-index: 2; display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 18px clamp(16px, 4vw, 34px); background: rgba(11,17,24,.92); border-bottom: 1px solid rgba(255,255,255,.08); backdrop-filter: blur(14px); }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 1.25rem; letter-spacing: .02em; }
+    h2 { font-size: 1rem; margin-bottom: 14px; }
+    button, input, select { font: inherit; }
+    button, a.button { min-height: 38px; border: 0; border-radius: 8px; padding: 0 14px; color: #07100b; background: #7ab030; font-weight: 750; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+    button.secondary, a.secondary { color: #dbe7f2; background: #263241; }
+    button.danger { color: #fff; background: #a93434; }
+    button:disabled { opacity: .45; cursor: wait; }
+    main { width: min(1160px, 100%); margin: 0 auto; padding: 22px clamp(14px, 4vw, 34px) 44px; display: grid; gap: 16px; }
+    .grid { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+    .panel { border: 1px solid rgba(255,255,255,.09); border-radius: 8px; background: #111a24; padding: 18px; box-shadow: 0 16px 36px rgba(0,0,0,.2); }
+    label { display: grid; gap: 6px; color: #aebacc; font-size: .82rem; margin-bottom: 10px; }
+    input, select { width: 100%; min-height: 38px; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; background: #0b1118; color: #eef2f7; padding: 0 10px; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .muted { color: #9ba9ba; font-size: .86rem; line-height: 1.5; }
+    .msg { min-height: 22px; color: #9ba9ba; font-size: .88rem; }
+    .msg.ok { color: #91d36f; } .msg.err { color: #ff9388; } .msg.warn { color: #ffd166; }
+    .stats { display: grid; grid-template-columns: repeat(5, minmax(84px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .stat { border: 1px solid rgba(255,255,255,.08); border-radius: 8px; background: #0d1520; padding: 12px; }
+    .stat b { display: block; font-size: 1.25rem; color: #fff; }
+    .toolbar { display: grid; grid-template-columns: 1fr 150px 170px auto; gap: 10px; margin-bottom: 14px; }
+    .list { display: grid; gap: 10px; }
+    .item { border: 1px solid rgba(255,255,255,.08); border-radius: 8px; background: #0d1520; padding: 14px; display: grid; gap: 10px; }
+    .item-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .title { font-weight: 800; color: #fff; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; color: #9ba9ba; font-size: .8rem; }
+    .pill { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border-radius: 999px; background: rgba(122,176,48,.14); color: #bdec91; font-size: .76rem; font-weight: 800; }
+    .message { white-space: pre-wrap; color: #dce5ef; line-height: 1.45; }
+    @media (max-width: 820px) { .grid, .toolbar { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2, 1fr); } header { align-items: flex-start; flex-direction: column; } }
   </style>
 </head>
 <body>
+  <header>
+    <div>
+      <h1>Schuetzen Challenge Admin</h1>
+      <p class="muted" id="workerLabel">Worker wird ermittelt...</p>
+    </div>
+    <div class="row">
+      <a class="button secondary" href="./index.html">Zur App</a>
+      <button id="refreshBtn" type="button">Aktualisieren</button>
+      <button id="logoutBtn" class="secondary" type="button">Logout</button>
+    </div>
+  </header>
+
   <main>
-    <div class="status">Supabase Admin noch nicht implementiert</div>
-    <h1>Adminbereich deaktiviert</h1>
-    <p>
-      Diese statische Admin-Seite lädt keine Legacy-Backend-Skripte mehr. Administrative Funktionen werden erst wieder
-      aktiviert, wenn sie vollständig über Supabase oder die Worker-API abgesichert sind.
-    </p>
-    <p>
-      Bis dahin bleiben Updates, Feedback-Moderation und Aktivitätsdaten in der normalen App über Supabase- und lokale
-      Fallback-Pfade verfügbar.
-    </p>
-    <div class="actions">
-      <a href="./index.html">Zur App</a>
-      <a class="secondary" href="./SUPABASE_SETUP.md">Supabase-Setup</a>
+    <div class="grid">
+      <section class="panel">
+        <h2>Zugang</h2>
+        <p class="muted" style="margin-bottom:12px">Admin-Zugriff braucht eine User-ID in <code>ADMIN_USER_IDS</code>. Worker-Fehler werden direkt angezeigt.</p>
+        <label>E-Mail <input id="emailInput" type="email" autocomplete="email"></label>
+        <label>Passwort <input id="passwordInput" type="password" autocomplete="current-password"></label>
+        <div class="row" style="margin-bottom:12px">
+          <button id="loginBtn" type="button">Login</button>
+          <button id="googleBtn" type="button" class="secondary">Google</button>
+        </div>
+        <div id="devBox" style="display:none">
+          <label>Lokale Dev User-ID <input id="devUserInput" type="text" value="local-admin" autocomplete="off"></label>
+          <button id="devLoadBtn" type="button" class="secondary">Mit Dev-ID laden</button>
+        </div>
+        <p id="sessionInfo" class="muted" style="margin-top:14px">Keine Session.</p>
+        <p id="message" class="msg"></p>
+      </section>
+
+      <section class="panel">
+        <div class="toolbar">
+          <input id="searchInput" type="search" placeholder="Suchen nach Titel, Mail, Nachricht">
+          <select id="statusFilter"><option value="all">Alle Status</option></select>
+          <select id="typeFilter">
+            <option value="all">Alle Typen</option>
+            <option value="bug">Bug</option>
+            <option value="feature_request">Feature</option>
+            <option value="general">Allgemein</option>
+          </select>
+          <button id="resetBtn" type="button" class="secondary">Reset</button>
+        </div>
+        <div id="stats" class="stats"></div>
+        <div id="feedbackList" class="list"></div>
+      </section>
     </div>
   </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const DEFAULT_SUPABASE_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
+      const DEFAULT_SUPABASE_ANON = [
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9',
+        'eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0',
+        'pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg'
+      ].join('.');
+      const STATUS_OPTIONS = ['pending', 'sent', 'failed', 'done', 'archived'];
+      const state = { client: null, session: null, feedbacks: [], loading: false };
+
+      const $ = (id) => document.getElementById(id);
+      const els = {
+        email: $('emailInput'), password: $('passwordInput'), login: $('loginBtn'), google: $('googleBtn'), logout: $('logoutBtn'),
+        refresh: $('refreshBtn'), message: $('message'), session: $('sessionInfo'), devBox: $('devBox'), devUser: $('devUserInput'), devLoad: $('devLoadBtn'),
+        search: $('searchInput'), status: $('statusFilter'), type: $('typeFilter'), reset: $('resetBtn'), stats: $('stats'), list: $('feedbackList'), worker: $('workerLabel')
+      };
+
+      function isLocal() { return ['localhost', '127.0.0.1', '0.0.0.0'].includes(location.hostname); }
+      function workerBase() { return isLocal() ? '' : 'https://schuss-challenge.eliaskummel.workers.dev'; }
+      function setMessage(text, cls) { els.message.className = 'msg ' + (cls || ''); els.message.textContent = text || ''; }
+      function setLoading(on) { state.loading = on; [els.login, els.google, els.refresh, els.devLoad].forEach((b) => { if (b) b.disabled = on; }); }
+      function fmt(ts) { const n = Number(ts); return Number.isFinite(n) ? new Date(n).toLocaleString('de-DE') : '-'; }
+
+      function supabaseConfig() {
+        const cfg = window.SCHUETZEN_CHALLENGE_CONFIG || {};
+        return {
+          url: String(cfg.SUPABASE_URL || DEFAULT_SUPABASE_URL).trim(),
+          anon: String(cfg.SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON).trim()
+        };
+      }
+
+      async function initSupabase() {
+        if (!window.supabase || !window.supabase.createClient) {
+          setMessage('Supabase-JS konnte nicht geladen werden. Lokal bleibt Dev-ID moeglich.', 'warn');
+          return;
+        }
+        const cfg = supabaseConfig();
+        state.client = window.supabase.createClient(cfg.url, cfg.anon, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+        const res = await state.client.auth.getSession();
+        state.session = res.data && res.data.session;
+        state.client.auth.onAuthStateChange((_event, session) => { state.session = session; renderSession(); });
+        renderSession();
+      }
+
+      function renderSession() {
+        const user = state.session && state.session.user;
+        els.session.textContent = user ? 'Angemeldet als ' + (user.email || user.id) : 'Keine aktive Supabase-Session.';
+      }
+
+      async function login() {
+        if (!state.client) return setMessage('Supabase ist nicht bereit.', 'warn');
+        setLoading(true);
+        try {
+          const res = await state.client.auth.signInWithPassword({ email: els.email.value.trim(), password: els.password.value });
+          if (res.error) throw res.error;
+          state.session = res.data.session;
+          renderSession();
+          await loadFeedback();
+        } catch (error) { setMessage(error.message || String(error), 'err'); }
+        finally { setLoading(false); }
+      }
+
+      async function googleLogin() {
+        if (!state.client) return setMessage('Supabase ist nicht bereit.', 'warn');
+        const res = await state.client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.href.split('#')[0] } });
+        if (res.error) setMessage(res.error.message, 'err');
+      }
+
+      async function logout() {
+        if (state.client) await state.client.auth.signOut();
+        state.session = null; state.feedbacks = []; renderSession(); render();
+      }
+
+      async function apiFetch(path, options) {
+        const headers = { 'content-type': 'application/json' };
+        if (state.session && state.session.access_token) headers.Authorization = 'Bearer ' + state.session.access_token;
+        if (isLocal() && els.devUser.value.trim()) headers['x-dev-user-id'] = els.devUser.value.trim();
+        const res = await fetch(workerBase() + path, Object.assign({}, options, { headers: Object.assign(headers, (options && options.headers) || {}) }));
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.error) throw new Error(data.message || data.code || res.statusText);
+        return data;
+      }
+
+      async function loadFeedback() {
+        setLoading(true);
+        try {
+          const data = await apiFetch('/api/admin/feedbacks', { method: 'GET' });
+          state.feedbacks = Array.isArray(data.feedbacks) ? data.feedbacks : [];
+          setMessage(state.feedbacks.length + ' Feedbacks geladen.', 'ok');
+          render();
+        } catch (error) { setMessage(error.message || String(error), 'err'); }
+        finally { setLoading(false); }
+      }
+
+      async function updateStatus(id, status) {
+        if (!STATUS_OPTIONS.includes(status)) return;
+        try {
+          await apiFetch('/api/admin/feedbacks/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify({ status }) });
+          const item = state.feedbacks.find((f) => f.id === id);
+          if (item) { item.status = status; item.updatedAt = Date.now(); }
+          render(); setMessage('Status aktualisiert.', 'ok');
+        } catch (error) { setMessage(error.message || String(error), 'err'); }
+      }
+
+      function filtered() {
+        const q = els.search.value.trim().toLowerCase();
+        const status = els.status.value;
+        const type = els.type.value;
+        return state.feedbacks.filter((item) => {
+          if (status !== 'all' && item.status !== status) return false;
+          if (type !== 'all' && item.feedbackType !== type) return false;
+          if (!q) return true;
+          return [item.title, item.message, item.userEmail, item.feedbackType, item.status].some((v) => String(v || '').toLowerCase().includes(q));
+        });
+      }
+
+      function renderStats(items) {
+        const counts = Object.fromEntries(STATUS_OPTIONS.map((s) => [s, 0]));
+        state.feedbacks.forEach((f) => { counts[f.status || 'pending'] = (counts[f.status || 'pending'] || 0) + 1; });
+        els.stats.replaceChildren();
+        [['Gesamt', state.feedbacks.length], ['Gefiltert', items.length]].concat(STATUS_OPTIONS.map((s) => [s, counts[s] || 0])).forEach(([label, value]) => {
+          const div = document.createElement('div'); div.className = 'stat';
+          const b = document.createElement('b'); b.textContent = String(value);
+          const span = document.createElement('span'); span.className = 'muted'; span.textContent = label;
+          div.append(b, span); els.stats.appendChild(div);
+        });
+      }
+
+      function render() {
+        const items = filtered();
+        renderStats(items);
+        els.list.replaceChildren();
+        if (!items.length) {
+          const empty = document.createElement('p'); empty.className = 'muted'; empty.textContent = state.feedbacks.length ? 'Keine Eintraege fuer diese Filter.' : 'Noch keine Daten geladen.'; els.list.appendChild(empty); return;
+        }
+        items.forEach((item) => {
+          const card = document.createElement('article'); card.className = 'item';
+          const head = document.createElement('div'); head.className = 'item-head';
+          const left = document.createElement('div');
+          const title = document.createElement('div'); title.className = 'title'; title.textContent = item.title || '(Ohne Titel)';
+          const meta = document.createElement('div'); meta.className = 'meta';
+          [item.userEmail || '-', item.feedbackType || '-', 'Eingang: ' + fmt(item.sentAt), 'Update: ' + fmt(item.updatedAt)].forEach((v) => { const s = document.createElement('span'); s.textContent = v; meta.appendChild(s); });
+          left.append(title, meta);
+          const pill = document.createElement('span'); pill.className = 'pill'; pill.textContent = item.status || 'pending';
+          head.append(left, pill);
+          const msg = document.createElement('div'); msg.className = 'message'; msg.textContent = item.message || '';
+          const row = document.createElement('div'); row.className = 'row';
+          const select = document.createElement('select');
+          STATUS_OPTIONS.forEach((status) => { const opt = document.createElement('option'); opt.value = status; opt.textContent = status; if ((item.status || 'pending') === status) opt.selected = true; select.appendChild(opt); });
+          select.addEventListener('change', () => updateStatus(item.id, select.value));
+          row.appendChild(select);
+          card.append(head, msg, row); els.list.appendChild(card);
+        });
+      }
+
+      STATUS_OPTIONS.forEach((status) => { const opt = document.createElement('option'); opt.value = status; opt.textContent = status; els.status.appendChild(opt); });
+      els.worker.textContent = 'Worker: ' + (workerBase() || location.origin);
+      els.devBox.style.display = isLocal() ? 'block' : 'none';
+      els.login.addEventListener('click', login); els.google.addEventListener('click', googleLogin); els.logout.addEventListener('click', logout);
+      els.refresh.addEventListener('click', loadFeedback); els.devLoad.addEventListener('click', loadFeedback); els.reset.addEventListener('click', () => { els.search.value = ''; els.status.value = 'all'; els.type.value = 'all'; render(); });
+      [els.search, els.status, els.type].forEach((el) => el.addEventListener('input', render));
+      initSupabase().then(render);
+    })();
+  </script>
 </body>
 </html>
