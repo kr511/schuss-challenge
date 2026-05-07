@@ -69,7 +69,7 @@
   }
 
   function loadProfileControls() {
-    loadScriptOnce('logout-control.js?v=1.0', 'schussLogoutControlScript');
+    loadScriptOnce('logout-control.js?v=1.1', 'schussLogoutControlScript');
     loadScriptOnce('profile-settings.js?v=1.0', 'schussProfileSettingsScript');
   }
 
