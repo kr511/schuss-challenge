@@ -24,17 +24,6 @@
     syncingLocalId: null,
   };
 
-  function escHtml(input) {
-    if (input === null || input === undefined) return '';
-    return String(input)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;')
-      .replace(/`/g, '&#96;')
-      .replace(/\//g, '&#47;');
-  }
 
   function newLocalId() {
     const ts = Date.now().toString(36);

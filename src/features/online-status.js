@@ -12,16 +12,6 @@
   const HOST_ID = 'onlineStatusBanner';
   const STATE = { mounted: false, visible: false, dismissed: false, kind: '' };
 
-  function escHtml(value) {
-    if (value === null || value === undefined) return '';
-    return String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
   function safeStorageGet(key) {
     try {
       return localStorage.getItem(key);
