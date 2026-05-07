@@ -9,7 +9,7 @@
   const hotfixes = [
     'duel-setup-hotfix.js?v=1.3',
     'highscore-sync.js?v=1.0',
-    'dashboard-compact-panel.js?v=2.1',
+    'dashboard-compact-panel.js?v=2.2',
     'dashboard-friends-button.js?v=1.2'
   ];
 
