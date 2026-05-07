@@ -181,8 +181,6 @@
     return d === 'kk' ? 'kk50' : 'lg40';
   }
 
-  // TODO: Wenn `local_id` als echte Spalte in `training_results` ergaenzt wird
-  // (additive Migration), kann der `notes`-Marker durch die echte Spalte ersetzt werden.
   async function trySupabaseSync(entry) {
     const supabase = getSupabase();
     const userId = getUserId();
@@ -190,13 +188,12 @@
     if (entry.syncStatus === 'synced') return true;
 
     try {
-      // Dedup-Check: gibt es bereits ein training_results mit diesem local_id-Marker?
-      const marker = 'qt:' + entry.local_id;
+      // Dedup-Check via echter local_id-Spalte (training_results_user_local_id_uidx).
       const existing = await supabase
         .from('training_results')
         .select('id, session_id')
         .eq('user_id', userId)
-        .eq('notes', marker)
+        .eq('local_id', entry.local_id)
         .limit(1);
       if (existing && Array.isArray(existing.data) && existing.data.length > 0) {
         const remote = existing.data[0];
@@ -230,13 +227,13 @@
         .insert({
           session_id: sessionId,
           user_id: userId,
+          local_id: entry.local_id,
           score: entry.total,
           average: entry.avg,
           best_series: entry.best,
           worst_series: entry.worst,
           manual_corrected: true,
           photo_used: false,
-          notes: marker,
         });
       if (resultsRes.error) {
         // Session ist da, Result fehlte - markiere pending, beim Retry greift Dedup-Check.
