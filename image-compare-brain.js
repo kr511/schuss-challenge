@@ -3,8 +3,8 @@ window.ImageCompareBrain = (function () {
     'use strict';
 
     const MODEL_PATH = './model.json';
-    const MODEL_TYPE = 'graph';
-    const MODEL_OUTPUT_MODE = 'detection';
+    const MODEL_TYPE = 'graph';          // 'graph', 'layers' oder 'auto'
+    const MODEL_OUTPUT_MODE = 'detection'; // 'classification' fuer Papier/Monitor-Softmax, 'detection' fuer YOLO/V2
     const TFJS_SRC = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
 
     const MODEL_INPUT_SIZE = 64;
