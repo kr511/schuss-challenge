@@ -3,77 +3,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const ROOT = process.cwd();
-
-const ORIGINAL_VERIFIER = String.raw`const fs = require('node:fs');
-const path = require('node:path');
-const { execFileSync } = require('node:child_process');
-
-const ROOT = process.cwd();
-const LEGACY = 'fire' + 'base';
-const LEGACY_CAP = 'Fire' + 'base';
-const LEGACY_UPPER = LEGACY.toUpperCase();
-
-const forbidden = [
-  LEGACY,
-  LEGACY_CAP,
-  LEGACY_UPPER,
-  LEGACY + 'js',
-  LEGACY + '-auth-compat',
-  'fb' + 'Db',
-  'fb' + 'Ready',
-  'fb' + 'Auth',
-  'fb' + 'App',
-  'get' + LEGACY_CAP + 'OwnerId',
-  'resolve' + LEGACY_CAP + 'OwnerId',
-  LEGACY_UPPER + '_PATHS',
-  'fire' + 'store',
-  'get' + 'Firestore',
-  'get' + 'Auth',
-  'initialize' + 'App',
-  LEGACY + 'Config',
-];
-
-const runtimeFiles = [
-  'index.html',
-  'admin.html',
-  'app.js',
-  'auth-gate.js',
-  'backend-sync.js',
-  'debug-panel.js',
-  'friend-challenges.js',
-  'friends.js',
-  'leaderboard-modern.js',
-  'local-entry.js',
-  'logout-control.js',
-  'mobile-features.js',
-  'site-cleanup.js',
-  'supabase-client.js',
-  'supabase-social.js',
-  'updates.js',
-  'src/features/async-challenge.js',
-  'src/features/friends-realtime.js',
-  'src/features/friends-system.js',
-  'src/game/daily-challenge.js',
-].filter((name) => fs.existsSync(path.join(ROOT, name)));
-
-const leftovers = [];
-for (const name of runtimeFiles) {
-  const text = fs.readFileSync(path.join(ROOT, name), 'utf8');
-  for (const token of forbidden) {
-    if (text.includes(token)) leftovers.push(\`${name} -> ${token}\`);
-  }
-}
-
-if (leftovers.length > 0) {
-  throw new Error('Legacy backend leftovers found:\\n' + leftovers.join('\\n'));
-}
-
-for (const name of runtimeFiles.filter((file) => file.endsWith('.js'))) {
-  execFileSync(process.execPath, ['--check', path.join(ROOT, name)], { stdio: 'inherit' });
-}
-
-console.log('Legacy realtime verifier passed. Runtime uses Supabase/local fallback only.');
-`;
+const ORIGINAL_SCRIPT_COMMIT = 'bc3d1d9d4a675eb9654c8e695cdaa0ab743fc1b6';
 
 function absolute(file) {
   return path.join(ROOT, file);
@@ -196,9 +126,6 @@ const IMAGE_COMPARE_MODEL_BLOCK = String.raw`  let _mlModel = null;
     if (typeof value.dispose === 'function') value.dispose();
   }
 
-  /**
-   * Laedt das trainierte CNN-Modell zur Monitor-Erkennung
-   */
   async function loadMLModel() {
     if (_mlModel || _mlModelLoading) return _mlModel;
     if (!Brain || !Brain.MODEL_PATH) return null;
@@ -232,16 +159,12 @@ const IMAGE_COMPARE_MODEL_BLOCK = String.raw`  let _mlModel = null;
     }
   }
 
-  /**
-   * Klassifiziert ein Bild mit dem ML-Modell (0=Papier, 1=Monitor)
-   */
   async function predictMonitorType(canvas) {
     const model = await loadMLModel();
     if (!model) return null;
 
     try {
       const inputSize = Brain.MODEL_INPUT_SIZE || 64;
-
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = inputSize;
       tempCanvas.height = inputSize;
@@ -314,11 +237,10 @@ const V2_CONSTANTS_AND_HELPERS = String.raw`  // Das GraphModel liegt im Repo-Ro
   const MODEL_PATH = './model.json';
   const TFJS_SRC = (window.ImageCompareBrain && window.ImageCompareBrain.TFJS_SRC) ||
     'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
-  const INPUT_SIZE = 640; // YOLOv8 Standard-Groesse
-  const CONF_THRESHOLD = 0.50; // Mindest-Wahrscheinlichkeit
-  const IOU_THRESHOLD = 0.45; // Fuer Ueberlappungen (NMS)
+  const INPUT_SIZE = 640;
+  const CONF_THRESHOLD = 0.50;
+  const IOU_THRESHOLD = 0.45;
 
-  // Klassen-Namen (Reihenfolge genau wie in Colab 'names' Array!)
   const CLASSES = ['discipline', 'score']; 
   const NUM_OUTPUT_COLS = 4 + CLASSES.length;
 
@@ -388,13 +310,9 @@ const V2_LOAD_MODEL = String.raw`  async function loadModel() {
 
     try {
       const tfLib = await ensureTensorFlow();
-      
       _isModelLoading = true;
       console.log('Lade YOLOv8 Vision Modell aus:', MODEL_PATH);
-      
-      // YOLO Modelle sind GraphModels, keine LayersModels!
       _model = await tfLib.loadGraphModel(MODEL_PATH);
-      
       console.log('YOLOv8 Scanner scharf geschaltet!');
       _isModelLoading = false;
       return _model;
@@ -416,7 +334,7 @@ const V2_SCAN_FUNCTION = String.raw`  async function scanCurrentFrame(videoEleme
       let tensor = tf.browser.fromPixels(video);
       const resizeParams = [INPUT_SIZE, INPUT_SIZE];
       tensor = tf.image.resizeBilinear(tensor, resizeParams);
-      tensor = tensor.div(255.0).expandDims(0); // [1, 640, 640, 3]
+      tensor = tensor.div(255.0).expandDims(0);
       return tensor;
     });
 
@@ -452,14 +370,12 @@ const V2_SCAN_FUNCTION = String.raw`  async function scanCurrentFrame(videoEleme
 
     const outputShape = boxesAndScores.shape || [];
     const data = await boxesAndScores.data();
-    
     imgTensor.dispose();
     disposeTensorOrArray(predictions);
     boxesAndScores.dispose();
 
     const numCols = NUM_OUTPUT_COLS;
     const numRows = outputShape[0] || Math.floor(data.length / numCols);
-    
     let rawBoxes = [];
     let rawScores = [];
     let rawClasses = [];
@@ -467,7 +383,6 @@ const V2_SCAN_FUNCTION = String.raw`  async function scanCurrentFrame(videoEleme
     for (let r = 0; r < numRows; r++) {
       let maxProb = 0;
       let maxClass = -1;
-      
       for (let c = 0; c < CLASSES.length; c++) {
         let prob = data[r * numCols + 4 + c];
         if (prob > maxProb) {
@@ -481,12 +396,10 @@ const V2_SCAN_FUNCTION = String.raw`  async function scanCurrentFrame(videoEleme
         const yc = data[r * numCols + 1];
         const w = data[r * numCols + 2];
         const h = data[r * numCols + 3];
-
         const x1 = xc - w / 2;
         const y1 = yc - h / 2;
         const x2 = xc + w / 2;
         const y2 = yc + h / 2;
-
         const divisor = Math.max(Math.abs(x1), Math.abs(y1), Math.abs(x2), Math.abs(y2)) > 2 ? INPUT_SIZE : 1;
         rawBoxes.push([
           clamp01(y1 / divisor),
@@ -519,7 +432,6 @@ const V2_SCAN_FUNCTION = String.raw`  async function scanCurrentFrame(videoEleme
     for (let i = 0; i < nmsIndices.length; i++) {
       const idx = nmsIndices[i];
       const box = rawBoxes[idx];
-      
       results.push({
         class: CLASSES[rawClasses[idx]],
         confidence: rawScores[idx],
@@ -618,7 +530,7 @@ function runVerifier() {
   for (const name of runtimeFiles) {
     const text = fs.readFileSync(path.join(ROOT, name), 'utf8');
     for (const token of forbidden) {
-      if (text.includes(token)) leftovers.push(`${name} -> ${token}`);
+      if (text.includes(token)) leftovers.push(name + ' -> ' + token);
     }
   }
 
@@ -634,6 +546,11 @@ function runVerifier() {
   }
 
   console.log('Legacy realtime verifier passed. Scanner files parse successfully.');
+}
+
+function restoreOriginalScript() {
+  const original = execFileSync('git', ['show', ORIGINAL_SCRIPT_COMMIT + ':scripts/remove-legacy-realtime.cjs'], { encoding: 'utf8' });
+  fs.writeFileSync(__filename, original, 'utf8');
 }
 
 function hasStagedChanges() {
@@ -669,5 +586,5 @@ updateIndexAndCache();
 updateImageCompare();
 updateV2Engine();
 runVerifier();
-fs.writeFileSync(__filename, ORIGINAL_VERIFIER, 'utf8');
+restoreOriginalScript();
 commitAndPush();
