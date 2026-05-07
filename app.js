@@ -755,17 +755,6 @@ window.changeProfileName = function() {
   applyProfileNameChange(nameInput.value, { notify: true });
 };
 
-/* ─── GAME STATS (localStorage) ─────────── */
-function loadGameStats() {
-  try { return JSON.parse(localStorage.getItem('sd_gamestats') || '{}'); }
-  catch (e) { return {}; }
-}
-
-function saveGameStats(s) {
-  StorageManager.set('gamestats', s);
-  scheduleCloudSync('gamestats_changed');
-}
-
 const FEEDBACK_MIN_DUELS = 3;
 const FEEDBACK_MAX_DUELS = 5;
 let _feedbackPromptTimeout = null;
@@ -1088,16 +1077,6 @@ function skipSiteFeedback() {
   const totalDuels = getTotalDuels();
   scheduleNextFeedback(totalDuels);
   showScreen('screenSetup');
-}
-
-function loadWeaponStats(w) {
-  try { return JSON.parse(localStorage.getItem(`sd_wstats_${w}`) || '{"wins":0,"losses":0,"draws":0}'); }
-  catch (e) { return { wins: 0, losses: 0, draws: 0 }; }
-}
-
-function saveWeaponStats(w, s) {
-  StorageManager.set(`wstats_${w}`, s);
-  scheduleCloudSync(`weapon_stats_${w}`);
 }
 
 function todayIdLocal() {
