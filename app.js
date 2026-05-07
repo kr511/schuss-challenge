@@ -446,42 +446,6 @@ function stopBotStatusUpdates() {
   if (card) card.style.display = 'none';
 }
 
-function getSupabaseSessionSafe() {
-  try {
-    if (window.SupabaseAuth && typeof window.SupabaseAuth.getSession === 'function') {
-      return window.SupabaseAuth.getSession() || window.SupabaseSession || null;
-    }
-  } catch (error) {
-    console.warn('[SupabaseSync] Session konnte nicht gelesen werden:', error?.message || error);
-  }
-  return window.SupabaseSession || null;
-}
-
-function getSupabaseUserSafe() {
-  const session = getSupabaseSessionSafe();
-  return session && session.user ? session.user : null;
-}
-
-function getSupabaseClientSafe() {
-  if (window.SupabaseClient) return window.SupabaseClient;
-  if (window.SupabaseAuth && window.SupabaseAuth.client) return window.SupabaseAuth.client;
-  return null;
-}
-
-function getSupabaseDisplayName(user) {
-  const meta = (user && user.user_metadata) || {};
-  return meta.full_name || meta.name || meta.display_name || meta.user_name || (user && user.email ? String(user.email).split('@')[0] : '') || G.username || 'Spieler';
-}
-
-function updateSessionFromAuthResult(result) {
-  const session = result && result.data && result.data.session ? result.data.session : null;
-  if (session) {
-    window.SupabaseSession = session;
-    window.dispatchEvent(new CustomEvent('supabaseAuthReady', { detail: { session: session } }));
-  }
-  return session;
-}
-
 window.signInWithGoogle = async function() {
   if (typeof window.__agGoogle === 'function') return window.__agGoogle();
   if (window.SupabaseAuth && typeof window.SupabaseAuth.signInWithGoogle === 'function') return window.SupabaseAuth.signInWithGoogle();
@@ -790,25 +754,6 @@ window.changeProfileName = function() {
   if (!nameInput) return;
   applyProfileNameChange(nameInput.value, { notify: true });
 };
-
-function spawnConfetti() {
-  const colors = ['#ff9600', '#1cb0f6', '#90d838', '#ff4500', '#ffd700', '#ffffff'];
-  for (let i = 0; i < 50; i++) {
-    const c = document.createElement('div');
-    c.className = 'confetti';
-    c.style.left = Math.random() * 100 + 'vw';
-    c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-    c.style.animationDelay = Math.random() * 2 + 's';
-    document.body.appendChild(c);
-    setTimeout(() => c.remove(), 4000);
-  }
-}
-
-function triggerHaptic() {
-  if ('vibrate' in navigator) {
-    navigator.vibrate([30, 20, 30]);
-  }
-}
 
 /* ─── GAME STATS (localStorage) ─────────── */
 function loadGameStats() {
