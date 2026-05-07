@@ -7,24 +7,81 @@ window.ImageCompare = (function () {
   // ═══ MODELL-BASIERTE ERKENNUNG (Optional) ═══
   let _mlModel = null;
   let _mlModelLoading = false;
+  let _tfLoadingPromise = null;
+  const DEFAULT_TFJS_SRC = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
 
-  /**
-   * Lädt das trainierte CNN-Modell zur Monitor-Erkennung
-   */
+  function ensureTensorFlow() {
+    if (typeof tf !== 'undefined') return Promise.resolve(tf);
+    if (_tfLoadingPromise) return _tfLoadingPromise;
+
+    _tfLoadingPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-ic-tfjs]');
+      if (existing) {
+        const started = Date.now();
+        const timer = setInterval(() => {
+          if (typeof tf !== 'undefined') {
+            clearInterval(timer);
+            resolve(tf);
+            return;
+          }
+          if (Date.now() - started > 30000) {
+            clearInterval(timer);
+            reject(new Error('TensorFlow.js load timeout'));
+          }
+        }, 120);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = (Brain && Brain.TFJS_SRC) || DEFAULT_TFJS_SRC;
+      script.async = true;
+      script.dataset.icTfjs = '1';
+      script.onload = () => {
+        if (typeof tf !== 'undefined') resolve(tf);
+        else reject(new Error('TensorFlow.js loaded without global tf'));
+      };
+      script.onerror = () => reject(new Error('TensorFlow.js could not be loaded'));
+      document.head.appendChild(script);
+    }).catch((error) => {
+      _tfLoadingPromise = null;
+      throw error;
+    });
+
+    return _tfLoadingPromise;
+  }
+
+  function disposePrediction(value) {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach(disposePrediction);
+      return;
+    }
+    if (typeof value.dispose === 'function') value.dispose();
+  }
+
   async function loadMLModel() {
     if (_mlModel || _mlModelLoading) return _mlModel;
     if (!Brain || !Brain.MODEL_PATH) return null;
+    if (Brain.MODEL_OUTPUT_MODE && Brain.MODEL_OUTPUT_MODE !== 'classification') return null;
 
     _mlModelLoading = true;
     try {
-      // Prüfe ob TensorFlow.js verfügbar ist
-      if (typeof tf === 'undefined' || !tf.loadLayersModel) {
-        console.warn('[ImageCompare] TensorFlow.js nicht verfügbar – ML-Modell deaktiviert');
-        return null;
-      }
+      const tfLib = await ensureTensorFlow();
 
       console.log('[ImageCompare] Lade ML-Modell:', Brain.MODEL_PATH);
-      _mlModel = await tf.loadLayersModel(Brain.MODEL_PATH);
+      const modelType = Brain.MODEL_TYPE || 'auto';
+      if (modelType === 'graph') {
+        _mlModel = await tfLib.loadGraphModel(Brain.MODEL_PATH);
+      } else if (modelType === 'layers') {
+        _mlModel = await tfLib.loadLayersModel(Brain.MODEL_PATH);
+      } else {
+        try {
+          _mlModel = await tfLib.loadLayersModel(Brain.MODEL_PATH);
+        } catch (layersError) {
+          console.warn('[ImageCompare] LayersModel nicht passend, versuche GraphModel:', layersError.message);
+          _mlModel = await tfLib.loadGraphModel(Brain.MODEL_PATH);
+        }
+      }
       console.log('[ImageCompare] ML-Modell erfolgreich geladen');
       return _mlModel;
     } catch (err) {
@@ -35,17 +92,12 @@ window.ImageCompare = (function () {
     }
   }
 
-  /**
-   * Klassifiziert ein Bild mit dem ML-Modell (0=Papier, 1=Monitor)
-   */
   async function predictMonitorType(canvas) {
     const model = await loadMLModel();
     if (!model) return null;
 
     try {
       const inputSize = Brain.MODEL_INPUT_SIZE || 64;
-
-      // Canvas auf Modellgröße skalieren und in Graustufen konvertieren
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = inputSize;
       tempCanvas.height = inputSize;
@@ -53,7 +105,6 @@ window.ImageCompare = (function () {
       ctx.drawImage(canvas, 0, 0, inputSize, inputSize);
       const imageData = ctx.getImageData(0, 0, inputSize, inputSize);
 
-      // Tensor erstellen [1, height, width, 1]
       const pixels = [];
       for (let i = 0; i < imageData.data.length; i += 4) {
         const r = imageData.data[i];
@@ -63,10 +114,34 @@ window.ImageCompare = (function () {
       }
 
       const inputTensor = tf.tensor4d(pixels, [1, inputSize, inputSize, 1]);
-      const prediction = model.predict(inputTensor);
-      const probabilities = await prediction.data();
-      inputTensor.dispose();
-      prediction.dispose();
+      let prediction = null;
+      try {
+        if (typeof model.predict === 'function') prediction = model.predict(inputTensor);
+        else if (typeof model.executeAsync === 'function') prediction = await model.executeAsync(inputTensor);
+        else if (typeof model.execute === 'function') prediction = model.execute(inputTensor);
+      } finally {
+        inputTensor.dispose();
+      }
+
+      const outputTensor = Array.isArray(prediction) ? prediction[0] : prediction;
+      if (!outputTensor || typeof outputTensor.data !== 'function') {
+        disposePrediction(prediction);
+        return null;
+      }
+
+      const raw = await outputTensor.data();
+      disposePrediction(prediction);
+      if (!raw || raw.length < 2) return null;
+
+      const first = Number(raw[0]);
+      const second = Number(raw[1]);
+      if (!Number.isFinite(first) || !Number.isFinite(second)) return null;
+
+      const sum = Math.max(0.000001, Math.abs(first) + Math.abs(second));
+      const probabilities = [
+        Math.max(0, first) / sum,
+        Math.max(0, second) / sum
+      ];
 
       return {
         isMonitor: probabilities[1] > (Brain.MONITOR_CONFIDENCE_THRESHOLD || 0.55),

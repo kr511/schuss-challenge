@@ -8,15 +8,78 @@ const V2VisionEngine = (function() {
   let _model = null;
   let _isModelLoading = false;
   let _videoStream = null;
+  let _tfLoadingPromise = null;
 
-  // Hier entpackst du deine ZIP-Datei hinein (model.json und .bin Dateien)
-  const MODEL_PATH = './models/v2_tfjs_model/model.json';
-  const INPUT_SIZE = 640; // YOLOv8 Standard-Größe
-  const CONF_THRESHOLD = 0.50; // Mindest-Wahrscheinlichkeit
-  const IOU_THRESHOLD = 0.45; // Für Überlappungen (NMS)
+  // Das GraphModel liegt im Repo-Root neben den .bin-Shards.
+  const MODEL_PATH = './model.json';
+  const TFJS_SRC = (window.ImageCompareBrain && window.ImageCompareBrain.TFJS_SRC) ||
+    'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
+  const INPUT_SIZE = 640;
+  const CONF_THRESHOLD = 0.50;
+  const IOU_THRESHOLD = 0.45;
 
-  // Klassen-Namen (Reihenfolge genau wie in Colab 'names' Array!)
   const CLASSES = ['discipline', 'score']; 
+  const NUM_OUTPUT_COLS = 4 + CLASSES.length;
+
+  function ensureTensorFlow() {
+    if (typeof tf !== 'undefined') return Promise.resolve(tf);
+    if (_tfLoadingPromise) return _tfLoadingPromise;
+
+    _tfLoadingPromise = new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-ic-tfjs],script[data-v2-tfjs]');
+      if (existing) {
+        const started = Date.now();
+        const timer = setInterval(() => {
+          if (typeof tf !== 'undefined') {
+            clearInterval(timer);
+            resolve(tf);
+            return;
+          }
+          if (Date.now() - started > 30000) {
+            clearInterval(timer);
+            reject(new Error('TensorFlow.js load timeout'));
+          }
+        }, 120);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = TFJS_SRC;
+      script.async = true;
+      script.dataset.v2Tfjs = '1';
+      script.onload = () => {
+        if (typeof tf !== 'undefined') resolve(tf);
+        else reject(new Error('TensorFlow.js loaded without global tf'));
+      };
+      script.onerror = () => reject(new Error('TensorFlow.js could not be loaded'));
+      document.head.appendChild(script);
+    }).catch((error) => {
+      _tfLoadingPromise = null;
+      throw error;
+    });
+
+    return _tfLoadingPromise;
+  }
+
+  function disposeTensorOrArray(value) {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach(disposeTensorOrArray);
+      return;
+    }
+    if (typeof value.dispose === 'function') value.dispose();
+  }
+
+  function primaryTensor(value) {
+    return Array.isArray(value) ? value[0] : value;
+  }
+
+  function clamp01(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return 0;
+    return Math.max(0, Math.min(1, num));
+  }
+
 
   /**
    * Lädt das YOLOv8 TensorFlow Graph-Modell
@@ -26,18 +89,11 @@ const V2VisionEngine = (function() {
     if (_isModelLoading) return null;
 
     try {
-      if (typeof tf === 'undefined') {
-        console.error('TensorFlow.js ist nicht geladen!');
-        return null;
-      }
-      
+      const tfLib = await ensureTensorFlow();
       _isModelLoading = true;
       console.log('Lade YOLOv8 Vision Modell aus:', MODEL_PATH);
-      
-      // YOLO Modelle sind GraphModels, keine LayersModels!
-      _model = await tf.loadGraphModel(MODEL_PATH);
-      
-      console.log('✅ YOLOv8 Scanner scharf geschaltet!');
+      _model = await tfLib.loadGraphModel(MODEL_PATH);
+      console.log('YOLOv8 Scanner scharf geschaltet!');
       _isModelLoading = false;
       return _model;
     } catch (err) {
@@ -99,45 +155,52 @@ const V2VisionEngine = (function() {
     const video = document.getElementById(videoElementId);
     if (!video) return null;
 
-    // 1. Vorbereitung (Tensor erstellen)
     const imgTensor = tf.tidy(() => {
       let tensor = tf.browser.fromPixels(video);
       const resizeParams = [INPUT_SIZE, INPUT_SIZE];
-      // YOLO braucht 640x640 und RGB format / 255
       tensor = tf.image.resizeBilinear(tensor, resizeParams);
-      tensor = tensor.div(255.0).expandDims(0); // [1, 640, 640, 3]
+      tensor = tensor.div(255.0).expandDims(0);
       return tensor;
     });
 
-    // 2. Vorhersage (Inference)
     let predictions;
     try {
       predictions = await _model.executeAsync(imgTensor);
     } catch(e) {
-      console.error("YOLO Inference Fehler:", e);
+      console.error('YOLO Inference Fehler:', e);
       imgTensor.dispose();
       return null;
     }
 
-    // 3. Ausgabe konvertieren (YOLOv8 Format: [1, 4+Klassen, 8400])
+    const outputTensor = primaryTensor(predictions);
+    if (!outputTensor || typeof outputTensor.transpose !== 'function') {
+      imgTensor.dispose();
+      disposeTensorOrArray(predictions);
+      return null;
+    }
+
     const boxesAndScores = tf.tidy(() => {
-      // Transponieren auf [1, 8400, 6] (bei 2 Klassen)
-      const transPrediction = predictions.transpose([0, 2, 1]);
-      return transPrediction.squeeze(); // [8400, 6]
+      const shape = outputTensor.shape || [];
+      if (shape.length === 3 && shape[1] === NUM_OUTPUT_COLS) {
+        return outputTensor.transpose([0, 2, 1]).squeeze();
+      }
+      if (shape.length === 3 && shape[2] === NUM_OUTPUT_COLS) {
+        return outputTensor.squeeze();
+      }
+      if (shape.length === 2 && shape[0] === NUM_OUTPUT_COLS) {
+        return outputTensor.transpose();
+      }
+      return outputTensor.squeeze();
     });
 
-    // Wir laden die Rohdaten aus der Grafikkarte ins normale JavaScript
+    const outputShape = boxesAndScores.shape || [];
     const data = await boxesAndScores.data();
-    
-    // Aufräumen
     imgTensor.dispose();
-    predictions.dispose();
+    disposeTensorOrArray(predictions);
     boxesAndScores.dispose();
 
-    // 4. Filtern der Ergebnisse (Die 8400 Anker durchsuchen)
-    const numRows = 8400;
-    const numCols = 4 + CLASSES.length; // 4 Koordinaten + 2 Klassen = 6
-    
+    const numCols = NUM_OUTPUT_COLS;
+    const numRows = outputShape[0] || Math.floor(data.length / numCols);
     let rawBoxes = [];
     let rawScores = [];
     let rawClasses = [];
@@ -145,8 +208,6 @@ const V2VisionEngine = (function() {
     for (let r = 0; r < numRows; r++) {
       let maxProb = 0;
       let maxClass = -1;
-      
-      // Finde die Klasse mit der höchsten Wahrscheinlichkeit für diese Box
       for (let c = 0; c < CLASSES.length; c++) {
         let prob = data[r * numCols + 4 + c];
         if (prob > maxProb) {
@@ -156,19 +217,21 @@ const V2VisionEngine = (function() {
       }
 
       if (maxProb > CONF_THRESHOLD) {
-        // Koordinaten extrahieren (x_center, y_center, width, height)
         const xc = data[r * numCols + 0];
         const yc = data[r * numCols + 1];
         const w = data[r * numCols + 2];
         const h = data[r * numCols + 3];
-
-        // Umwandeln in [y_min, x_min, y_max, x_max] für TFs Non-Max Suppression
         const x1 = xc - w / 2;
         const y1 = yc - h / 2;
         const x2 = xc + w / 2;
         const y2 = yc + h / 2;
-
-        rawBoxes.push([y1, x1, y2, x2]);
+        const divisor = Math.max(Math.abs(x1), Math.abs(y1), Math.abs(x2), Math.abs(y2)) > 2 ? INPUT_SIZE : 1;
+        rawBoxes.push([
+          clamp01(y1 / divisor),
+          clamp01(x1 / divisor),
+          clamp01(y2 / divisor),
+          clamp01(x2 / divisor)
+        ]);
         rawScores.push(maxProb);
         rawClasses.push(maxClass);
       }
@@ -176,33 +239,32 @@ const V2VisionEngine = (function() {
 
     if (rawBoxes.length === 0) return [];
 
-    // 5. Non-Maximum Suppression (Überlappungen löschen)
+    const nmsBoxesTensor = tf.tensor2d(rawBoxes);
+    const nmsScoresTensor = tf.tensor1d(rawScores);
     const nmsIndicesTensor = await tf.image.nonMaxSuppressionAsync(
-      tf.tensor2d(rawBoxes),
-      tf.tensor1d(rawScores),
-      10, // Max 10 Boxen
+      nmsBoxesTensor,
+      nmsScoresTensor,
+      10,
       IOU_THRESHOLD,
       CONF_THRESHOLD
     );
     const nmsIndices = await nmsIndicesTensor.data();
+    nmsBoxesTensor.dispose();
+    nmsScoresTensor.dispose();
     nmsIndicesTensor.dispose();
 
-    // 6. Finale Boxen berechnen
     const results = [];
     for (let i = 0; i < nmsIndices.length; i++) {
       const idx = nmsIndices[i];
       const box = rawBoxes[idx];
-      
-      // Box Koordinaten zurück auf Prozent (0.0 bis 1.0) rechnen!
-      // Da wir 640x640 reingeworfen haben:
       results.push({
         class: CLASSES[rawClasses[idx]],
         confidence: rawScores[idx],
         boxPercent: {
-          xMin: box[1] / INPUT_SIZE,
-          yMin: box[0] / INPUT_SIZE,
-          xMax: box[3] / INPUT_SIZE,
-          yMax: box[2] / INPUT_SIZE
+          xMin: box[1],
+          yMin: box[0],
+          xMax: box[3],
+          yMax: box[2]
         }
       });
     }
@@ -300,8 +362,8 @@ const V2VisionEngine = (function() {
           _scanLoop();
         } else {
           // Falls Kamera fehlschlägt, wieder zurück zum Menü
-          scannerView.style.display = 'none';
-          modeSelection.style.display = 'flex';
+          if (scannerView) scannerView.style.display = 'none';
+          if (modeSelection) modeSelection.style.display = 'flex';
         }
       });
     }
@@ -313,8 +375,8 @@ const V2VisionEngine = (function() {
         stopLiveScanner();
         
         // UI Zurücksetzen
-        scannerView.style.display = 'none';
-        modeSelection.style.display = 'flex';
+        if (scannerView) scannerView.style.display = 'none';
+        if (modeSelection) modeSelection.style.display = 'flex';
       });
     }
   }
