@@ -468,7 +468,6 @@ const StreakTracker = (function () {
     saveState();
 
     if (previousFreezes > 0) {
-      console.log('[StreakTracker] Weekly freeze reset:', previousFreezes, '→ 0');
       showWeeklyResetNotification();
     }
 
@@ -477,6 +476,7 @@ const StreakTracker = (function () {
 
   function showWeeklyResetNotification() {
     const overlay = document.createElement('div');
+    overlay.className = 'streak-reset-popup';
     overlay.style.cssText = `
       position: fixed;
       top: 20px;
@@ -537,6 +537,7 @@ const StreakTracker = (function () {
 
   function showFreezeNotification() {
     const overlay = document.createElement('div');
+    overlay.className = 'streak-freeze-popup';
     overlay.style.cssText = `
       position: fixed;
       top: 20px;
@@ -717,8 +718,6 @@ const StreakTracker = (function () {
 
     // UI Updates starten
     startUIUpdates();
-
-    console.log('[StreakTracker] Initialized. Current streak:', state.currentStreak, 'Freezes:', state.weeklyFreezes);
   }
 
   function shutdown() {
@@ -766,6 +765,40 @@ if (typeof document !== 'undefined') {
       }
       50% {
         transform: scale(1.2);
+      }
+    }
+
+    /* Mobile-Responsive: Streak-Notifications & Banner */
+    @media (max-width: 480px) {
+      .streak-milestone-popup,
+      .streak-decay-popup,
+      .streak-freeze-popup,
+      .streak-reset-popup {
+        max-width: calc(100vw - 24px) !important;
+        padding: 14px 16px !important;
+        font-size: 0.92em !important;
+      }
+      .streak-banner-content {
+        gap: 8px !important;
+        padding: 10px 12px !important;
+      }
+      .streak-banner-content .streak-icon {
+        font-size: 1.4rem !important;
+      }
+      .streak-banner-content .streak-count {
+        font-size: 0.95rem !important;
+      }
+      .streak-banner-content .streak-next {
+        font-size: 0.65rem !important;
+      }
+      .streak-banner-content .streak-timer {
+        font-size: 0.68rem !important;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .streak-banner-content .streak-timer {
+        display: none;
       }
     }
   `;
