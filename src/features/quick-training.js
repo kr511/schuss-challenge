@@ -22,6 +22,8 @@
     expandedHistory: false,
     pendingFlushTried: false,
     syncingLocalId: null,
+    retryTimeoutId: null,
+    isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
   };
 
 
@@ -524,9 +526,7 @@
   }
 
   function flushPendingSyncs() {
-    if (STATE.pendingFlushTried) return;
     if (!getSupabase() || !getUserId()) return;
-    STATE.pendingFlushTried = true;
     const pending = readHistory().filter((e) => e && e.syncStatus === 'pending');
     if (!pending.length) return;
     pending.reduce((p, entry) => p.then(() => trySupabaseSync(entry).catch(() => false)), Promise.resolve())
@@ -537,12 +537,24 @@
       .catch(() => { /* noop */ });
   }
 
+  function schedulePendingRetry() {
+    if (STATE.retryTimeoutId !== null) return;
+    if (!getSupabase() || !getUserId()) return;
+    const pending = readHistory().filter((e) => e && e.syncStatus === 'pending');
+    if (!pending.length) return;
+    STATE.retryTimeoutId = setTimeout(() => {
+      STATE.retryTimeoutId = null;
+      flushPendingSyncs();
+      schedulePendingRetry();
+    }, 30000);
+  }
+
   function init() {
     if (STATE.initialized) return;
     STATE.initialized = true;
     render();
-    // Falls Supabase bereits ready ist beim Start.
     setTimeout(flushPendingSyncs, 1500);
+    setTimeout(schedulePendingRetry, 2000);
   }
 
   function bootstrap() {
@@ -553,7 +565,26 @@
       init();
     }
     try {
-      window.addEventListener('supabaseReady', () => { flushPendingSyncs(); }, { passive: true });
+      window.addEventListener('supabaseReady', () => {
+        flushPendingSyncs();
+        schedulePendingRetry();
+      }, { passive: true });
+    } catch (_e) { /* noop */ }
+    try {
+      window.addEventListener('online', () => {
+        STATE.isOnline = true;
+        flushPendingSyncs();
+        schedulePendingRetry();
+      }, { passive: true });
+    } catch (_e) { /* noop */ }
+    try {
+      window.addEventListener('offline', () => {
+        STATE.isOnline = false;
+        if (STATE.retryTimeoutId !== null) {
+          clearTimeout(STATE.retryTimeoutId);
+          STATE.retryTimeoutId = null;
+        }
+      }, { passive: true });
     } catch (_e) { /* noop */ }
   }
 
@@ -561,6 +592,7 @@
     render,
     readHistory,
     flushPendingSyncs,
+    schedulePendingRetry,
     _parseShotInput: parseShotInput,
     _computeStats: computeStats,
     _buildRecommendation: buildRecommendation,
