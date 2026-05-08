@@ -5490,127 +5490,8 @@ body.slow-network .profile-sheet {
 }
 
 /* ═══════════════════════════════════════════
-   ROOKIE ONBOARDING + HEALTHY ENGAGEMENT
+   HEALTHY ENGAGEMENT
 ═══════════════════════════════════════════ */
-#rookiePlanMount {
-  margin: 14px 0 18px;
-}
-
-.rookie-plan-card.profile-mode {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: none;
-  margin-top: 10px;
-}
-
-.rookie-plan-card.profile-mode .rookie-plan-title {
-  color: #fff;
-  font-size: 0.85rem;
-}
-
-.rookie-plan-card.profile-mode .rookie-plan-bar {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.rookie-plan-card.profile-mode .rookie-plan-item {
-  border-bottom-color: rgba(255, 255, 255, 0.05);
-}
-
-.rookie-plan-card.profile-mode .rookie-plan-text {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.75rem;
-}
-
-
-.rookie-plan-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.rookie-plan-title {
-  color: #a9e7ff;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  font-size: 0.95rem;
-}
-
-.rookie-plan-progress {
-  color: #d2f4ff;
-  font-weight: 700;
-  font-size: 0.8rem;
-  opacity: 0.95;
-}
-
-.rookie-plan-bar {
-  height: 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.09);
-  overflow: hidden;
-  margin-bottom: 12px;
-}
-
-.rookie-plan-bar-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #1cb0f6, #8cc83c);
-  transition: width 0.35s ease;
-}
-
-.rookie-plan-list {
-  display: grid;
-  gap: 8px;
-}
-
-.rookie-plan-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 9px 10px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.rookie-plan-item.done {
-  border-color: rgba(140, 200, 60, 0.5);
-  background: rgba(140, 200, 60, 0.12);
-}
-
-.rookie-plan-dot {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.82rem;
-  font-weight: 800;
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.16);
-  flex: 0 0 22px;
-}
-
-.rookie-plan-item.done .rookie-plan-dot {
-  background: rgba(140, 200, 60, 0.85);
-  color: #182420;
-}
-
-.rookie-plan-text {
-  color: rgba(240, 248, 255, 0.9);
-  font-size: 0.82rem;
-  line-height: 1.3;
-}
-
-.rookie-plan-hint {
-  margin-top: 10px;
-  color: rgba(170, 204, 218, 0.82);
-  font-size: 0.76rem;
-}
-
-#rookieIntroOverlay,
 #healthyBreakOverlay {
   position: fixed;
   inset: 0;
@@ -5627,13 +5508,11 @@ body.slow-network .profile-sheet {
   transition: opacity 0.25s ease;
 }
 
-#rookieIntroOverlay.active,
 #healthyBreakOverlay.active {
   opacity: 1;
   pointer-events: auto;
 }
 
-.rookie-intro-card,
 .healthy-break-card {
   width: 100%;
   max-width: 420px;
@@ -5644,12 +5523,6 @@ body.slow-network .profile-sheet {
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
 }
 
-.rookie-intro-icon {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
-
-.rookie-intro-title,
 .healthy-break-title {
   color: #ecfbff;
   font-family: 'Bebas Neue', cursive;
@@ -5657,7 +5530,6 @@ body.slow-network .profile-sheet {
   letter-spacing: 0.05em;
 }
 
-.rookie-intro-sub,
 .healthy-break-sub {
   color: rgba(225, 240, 250, 0.86);
   line-height: 1.35;
@@ -5665,24 +5537,11 @@ body.slow-network .profile-sheet {
   font-size: 0.95rem;
 }
 
-.rookie-intro-list {
-  display: grid;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.rookie-intro-item {
-  color: rgba(203, 231, 244, 0.9);
-  font-size: 0.84rem;
-}
-
-.rookie-intro-actions,
 .healthy-break-actions {
   display: flex;
   gap: 10px;
 }
 
-.rookie-intro-btn,
 .healthy-break-btn {
   flex: 1;
   border-radius: 12px;
@@ -5695,7 +5554,6 @@ body.slow-network .profile-sheet {
   cursor: pointer;
 }
 
-.rookie-intro-btn.primary,
 .healthy-break-btn.primary {
   background: linear-gradient(135deg, #1cb0f6, #1899d6);
   border-color: rgba(28, 176, 246, 0.7);

@@ -1143,175 +1143,6 @@ function showEngagementToast(message, durationMs = 4200) {
   }, Math.max(1200, durationMs));
 }
 
-const RookiePlan = (function () {
-  const STORAGE_KEY = 'sd_rookie_plan_v1';
-  const PLAN_REWARD_XP = 120;
-  const STEPS = [
-    { id: 'profile', title: 'Tag 1 · Profil anlegen', check: (m) => m.hasUsername },
-    { id: 'first_duel', title: 'Tag 2 · Erstes Duell spielen', check: (m) => m.totalDuels >= 1 },
-    { id: 'first_win', title: 'Tag 3 · Ersten Sieg holen', check: (m) => m.wins >= 1 },
-    { id: 'both_weapons', title: 'Tag 4 · LG + KK testen', check: (m) => m.lgGames >= 1 && m.kkGames >= 1 },
-    { id: 'daily_mission', title: 'Tag 5 · 1 Daily-Mission erledigen', check: (m) => m.dailyCompleted >= 1 },
-    { id: 'streak_3', title: 'Tag 6 · 3er-Streak erreichen', check: (m) => m.bestStreak >= 3 },
-    { id: 'five_duels', title: 'Tag 7 · 5 Duelle insgesamt', check: (m) => m.totalDuels >= 5 }
-  ];
-
-  let state = {
-    introSeen: false,
-    lastDoneCount: 0,
-    completedAt: 0,
-    rewardClaimed: false
-  };
-
-  function loadState() {
-    const raw = StorageManager.get('rookie_plan_v1', {});
-    state = {
-      introSeen: !!raw.introSeen,
-      lastDoneCount: Math.max(0, Number(raw.lastDoneCount) || 0),
-      completedAt: Number(raw.completedAt) || 0,
-      rewardClaimed: !!raw.rewardClaimed
-    };
-  }
-
-  function saveState() {
-    StorageManager.set('rookie_plan_v1', state);
-  }
-
-  function getMetrics() {
-    const gs = loadGameStats();
-    const totalDuels = (gs.wins || 0) + (gs.losses || 0) + (gs.draws || 0);
-    const wins = gs.wins || 0;
-    const lg = loadWeaponStats('lg');
-    const kk = loadWeaponStats('kk');
-    const lgGames = (lg.wins || 0) + (lg.losses || 0) + (lg.draws || 0);
-    const kkGames = (kk.wins || 0) + (kk.losses || 0) + (kk.draws || 0);
-    const bestStreak = Math.max(
-      Number(localStorage.getItem('sd_lg_best') || 0) || 0,
-      Number(localStorage.getItem('sd_kk_best') || 0) || 0
-    );
-    const dailyState = StorageManager.get('daily_challenge', {});
-    const dailyCompleted = Array.isArray(dailyState.challenges)
-      ? dailyState.challenges.filter(c => c && c.completed).length
-      : 0;
-
-    return {
-      hasUsername: !!(G.username || StorageManager.getRaw('username')),
-      totalDuels,
-      wins,
-      lgGames,
-      kkGames,
-      bestStreak,
-      dailyCompleted
-    };
-  }
-
-  function evaluate() {
-    const metrics = getMetrics();
-    const steps = STEPS.map(s => ({ ...s, done: !!s.check(metrics) }));
-    const doneCount = steps.filter(s => s.done).length;
-    return { metrics, steps, doneCount, total: STEPS.length, completed: doneCount === STEPS.length };
-  }
-
-  function render(evalResult = null) {
-    const mount = document.getElementById('rookiePlanMount');
-    if (!mount) return;
-
-    // Only show in profile sheet
-    const isProfileVisible = document.getElementById('profileOverlay')?.classList.contains('active');
-    if (!isProfileVisible && !evalResult) return;
-
-    if (!(G.username || localStorage.getItem('sd_username'))) {
-      mount.innerHTML = '';
-      return;
-    }
-
-    const res = evalResult || evaluate();
-    const pct = Math.round((res.doneCount / res.total) * 100);
-    const doneBadge = res.completed ? '🏁 Woche abgeschlossen' : '🧭 Rookie-Woche';
-    const hint = res.completed
-      ? 'Stark! Du hast den kompletten Einstieg abgeschlossen.'
-      : 'Kurze Sessions mit klaren Zielen bringen dich am schnellsten voran.';
-
-    mount.innerHTML = `
-          <div class="rookie-plan-card profile-mode">
-            <div class="rookie-plan-head">
-              <div class="rookie-plan-title">${doneBadge}</div>
-              <div class="rookie-plan-progress">${res.doneCount} / ${res.total}</div>
-            </div>
-            <div class="rookie-plan-bar">
-              <div class="rookie-plan-bar-fill" style="width:${pct}%"></div>
-            </div>
-            <div class="rookie-plan-list">
-              ${res.steps.map((s, i) => `
-                <div class="rookie-plan-item ${s.done ? 'done' : ''}">
-                  <div class="rookie-plan-dot">${s.done ? '✓' : (i + 1)}</div>
-                  <div class="rookie-plan-text">${s.title}</div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-  }
-
-  function showIntroIfNeeded(force = false) {
-    const overlay = document.getElementById('rookieIntroOverlay');
-    if (!overlay) return;
-    if (!(G.username || localStorage.getItem('sd_username'))) return;
-    if (state.introSeen && !force) return;
-    overlay.classList.add('active');
-  }
-
-  function hideIntro() {
-    const overlay = document.getElementById('rookieIntroOverlay');
-    if (overlay) overlay.classList.remove('active');
-  }
-
-  function dismissIntro(started) {
-    state.introSeen = true;
-    saveState();
-    hideIntro();
-    if (started) {
-      showEngagementToast('Rookie-Woche gestartet. Schritt für Schritt zum sicheren Flow.');
-    }
-    evaluateAndRender(true);
-  }
-
-  function evaluateAndRender(silent = false) {
-    const res = evaluate();
-    const prevDone = state.lastDoneCount || 0;
-
-    if (res.doneCount > prevDone && !silent) {
-      showEngagementToast(`Rookie-Fortschritt: ${res.doneCount}/${res.total} abgeschlossen.`);
-    }
-
-    state.lastDoneCount = res.doneCount;
-
-    if (res.completed && !state.rewardClaimed) {
-      state.rewardClaimed = true;
-      state.completedAt = Date.now();
-      const gained = awardFlatXP(PLAN_REWARD_XP);
-      if (!silent && gained > 0) {
-        showEngagementToast(`Rookie-Woche geschafft! +${gained} XP Bonus.`);
-      }
-    }
-
-    saveState();
-    render(res);
-  }
-
-  function init() {
-    loadState();
-    evaluateAndRender(true);
-  }
-
-  return {
-    init,
-    evaluateAndRender,
-    showIntroIfNeeded,
-    dismissIntro
-  };
-})();
-
 const HealthyEngagement = (function () {
   const STORAGE_KEY = 'sd_healthy_engagement_v1';
   const BREAK_INTERVAL_SECS = 20 * 60;
@@ -1397,7 +1228,7 @@ const HealthyEngagement = (function () {
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
         new Notification('🎯 Schützen Challenge erinnert dich', {
-          body: 'Deine Rookie-Woche und Tagesmission warten auf dich.',
+          body: 'Deine Tagesmission wartet auf dich.',
           tag: 'sd-gentle-reminder'
         });
       } catch (e) { }
@@ -1462,14 +1293,6 @@ const HealthyEngagement = (function () {
     hideBreakOverlay
   };
 })();
-
-window.startRookieOnboarding = function () {
-  RookiePlan.dismissIntro(true);
-};
-
-window.dismissRookieOnboarding = function () {
-  RookiePlan.dismissIntro(false);
-};
 
 window.healthyTakeBreak = function () {
   HealthyEngagement.takeBreak();
@@ -2486,7 +2309,7 @@ function updateProfileMenu() {
 const LEADERBOARD_CACHE_KEY = 'sd_lb_cache_v1';
 const CLOUD_SYNC_SCHEMA_VERSION = 2;
 const CLOUD_SYNC_META_KEY = 'cloud_sync_meta_v1';
-const CLOUD_SYNC_KEYS = ['username','xp','gamestats','history','feedback_meta','lg_streak','lg_best','kk_streak','kk_best','wstats_lg','wstats_kk','rookie_plan_v1','healthy_engagement_v1','adaptive_data','daily_challenge','tutorial_done','sound','lb_scope','lb_period','enhanced_analytics','enhanced_achievements','sun'];
+const CLOUD_SYNC_KEYS = ['username','xp','gamestats','history','feedback_meta','lg_streak','lg_best','kk_streak','kk_best','wstats_lg','wstats_kk','healthy_engagement_v1','adaptive_data','daily_challenge','tutorial_done','sound','lb_scope','lb_period','enhanced_analytics','enhanced_achievements','sun'];
 let supabaseSyncTimer = null;
 let supabaseSyncWarned = false;
 let debugRemoteState = null;
@@ -2596,7 +2419,7 @@ function renderDebugFeedbackSection() { const state = debugFeedbackState || { mo
 function renderDebugPanel() { const mount = document.getElementById('psDebugMount'); if (!mount) return; if (!isDebugToolsEnabled()) { mount.innerHTML = '<div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>'; return; } const meta = loadCloudSyncMeta(); const history = StorageManager.get('history', []); const feedbackEntries = StorageManager.get('feedback_entries', []); const analyticsRaw = StorageManager.get('enhanced_analytics', {}); const analyticsGames = Array.isArray(analyticsRaw?.games) ? analyticsRaw.games : []; const scope = getActiveLeaderboardScope(); const period = getActiveLeaderboardPeriod(); const accountId = getCurrentAccountId(); const user = getSupabaseUserSafe(); const currentDisciplineEntry = Object.prototype.hasOwnProperty.call(DISC, G.discipline) ? buildDisciplineLeaderboardEntry(G.discipline) : null; const currentScopeLabel = getLeaderboardScopeLabel(scope) + ' · ' + (period === 'season' ? getCurrentSeasonInfo().label : 'All-Time'); const backendReady = isSupabaseBackendAvailable('syncProfile') && (!window.SupabaseBackendSync.isReady || window.SupabaseBackendSync.isReady()); debugRemoteState = { summary: backendReady ? 'Supabase Backend bereit' : 'Lokaler Fallback aktiv' }; mount.innerHTML = ['<div class="ps-stats-grid">','<div class="ps-stat-card"><div class="ps-sc-label">Supabase</div><div class="ps-sc-val">' + (user ? 'AN' : 'LOKAL') + '</div><div class="ps-sc-sub">' + (backendReady ? 'Backend aktiv' : 'Fallback') + '</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Queue</div><div class="ps-sc-val">0</div><div class="ps-sc-sub">keine Remote-Warteschlange</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Matches</div><div class="ps-sc-val">' + (Array.isArray(history) ? history.length : 0) + '</div><div class="ps-sc-sub">lokal gespeichert</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Analytics</div><div class="ps-sc-val">' + analyticsGames.length + '</div><div class="ps-sc-sub">Spiele im Analytics-Speicher</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Feedback</div><div class="ps-sc-val">' + (Array.isArray(feedbackEntries) ? feedbackEntries.length : 0) + '</div><div class="ps-sc-sub">lokale Vorschau</div></div>','</div>','<div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Sync-Status</div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">User</div><div class="phi-meta">Username: ' + escHtml(G.username || '–') + ' · Konto: ' + escHtml(accountId || '–') + ' · Login: ' + escHtml(user?.email || 'lokal') + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Laufzeit</div><div class="phi-meta">Disziplin: ' + escHtml(G.discipline) + ' · Schwierigkeit: ' + escHtml(G.diff) + ' · Leaderboard: ' + escHtml(currentScopeLabel) + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Sync-Meta</div><div class="phi-meta">Letzte lokale Aenderung: ' + escHtml(formatDebugTimestamp(meta.lastLocalChangeAt)) + ' · Letzter Sync: ' + escHtml(formatDebugTimestamp(meta.lastSyncOkAt)) + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Aktuelle Disziplin-Leistung</div><div class="phi-meta">' + (currentDisciplineEntry ? 'Best ' + formatLeaderboardScore(currentDisciplineEntry.bestScore, G.discipline) + ' · Ø ' + formatLeaderboardScore(currentDisciplineEntry.averageScore, G.discipline) + ' · ' + currentDisciplineEntry.totalGames + ' Spiele' : 'Noch keine Daten fuer diese Disziplin.') + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Remote-Status</div><div class="phi-meta">' + escHtml(debugRemoteState.summary) + '</div></div></div>',renderDebugFeedbackSection(),'<div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;"><button class="btn-sec" style="font-size:0.6rem;" onclick="debugSyncNow()">Sync jetzt</button><button class="btn-sec" style="font-size:0.6rem;" onclick="refreshDebugPanel()">Neu laden</button><button class="btn-sec" style="font-size:0.6rem;" onclick="disableDebugTools()">Debug aus</button></div>'].join(''); }
 function refreshDebugPanel() { debugFeedbackState = { mode: 'local', entries: StorageManager.get('feedback_entries', []) }; renderDebugPanel(); }
 function debugSyncNow() { scheduleCloudSync('debug_manual_sync', { immediate: true }); refreshDebugPanel(); }
-function refreshStateFromLocalStorage() { const savedName = StorageManager.getRaw('username', ''); G.username = savedName ? sanitizeUsername(savedName) : ''; loadXP(); loadAllStreaks(); updateSchuetzenpass(); updateProfileMenu(); if (DOM.psUsername) DOM.psUsername.textContent = G.username || 'Anonym'; if (DOM.profileOverlay?.classList.contains('active')) refreshProfileSheet(); updateLeaderboardScopeControl(); refreshDebugToolsVisibility(); updateAccountSyncStatus(); if (DOM.diffInfoTxt && typeof AdaptiveBotSystem !== 'undefined' && typeof AdaptiveBotSystem.getCurrentDifficulty === 'function') { const syncedDiff = AdaptiveBotSystem.getCurrentDifficulty(G.discipline); if (syncedDiff && DIFF[syncedDiff]) setDifficulty(syncedDiff, { persist: false }); } const welcomeOverlay = document.getElementById('welcomeOverlay'); if (welcomeOverlay && G.username) welcomeOverlay.classList.remove('active'); if (typeof RookiePlan !== 'undefined') { RookiePlan.evaluateAndRender(true); RookiePlan.showIntroIfNeeded(false); } }
+function refreshStateFromLocalStorage() { const savedName = StorageManager.getRaw('username', ''); G.username = savedName ? sanitizeUsername(savedName) : ''; loadXP(); loadAllStreaks(); updateSchuetzenpass(); updateProfileMenu(); if (DOM.psUsername) DOM.psUsername.textContent = G.username || 'Anonym'; if (DOM.profileOverlay?.classList.contains('active')) refreshProfileSheet(); updateLeaderboardScopeControl(); refreshDebugToolsVisibility(); updateAccountSyncStatus(); if (DOM.diffInfoTxt && typeof AdaptiveBotSystem !== 'undefined' && typeof AdaptiveBotSystem.getCurrentDifficulty === 'function') { const syncedDiff = AdaptiveBotSystem.getCurrentDifficulty(G.discipline); if (syncedDiff && DIFF[syncedDiff]) setDifficulty(syncedDiff, { persist: false }); } const welcomeOverlay = document.getElementById('welcomeOverlay'); if (welcomeOverlay && G.username) welcomeOverlay.classList.remove('active'); }
 window.addEventListener('supabaseAuthReady', () => { setTimeout(() => { refreshStateFromLocalStorage(); const welcomeOverlay = document.getElementById('welcomeOverlay'); if (welcomeOverlay && StorageManager.getRaw('username', '')) welcomeOverlay.classList.remove('active'); syncProfileWithBackend(null, { reason: 'auth_ready' }); }, 0); });
 const DOM = {};
 function initDOMCache() {
@@ -4838,7 +4661,6 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
   }
 
   HealthyEngagement.onMatchFinished(G.gameDuration);
-  setTimeout(() => RookiePlan.evaluateAndRender(false), 120);
 }
 
 /* ─── SHARE TARGET ────────────────────────── */
@@ -5057,7 +4879,6 @@ function showScreen(id) {
   }
   target.classList.add('active');
   if (id === 'screenSetup') {
-    RookiePlan.evaluateAndRender(true);
     if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
     if (typeof updatePDGreeting === 'function') updatePDGreeting();
   } else if (id === 'screenBattle') {
@@ -5138,7 +4959,6 @@ function checkFirstVisit() {
     G.username = savedName;
     // Bekannter User: Profil im Hintergrund synchronisieren
     setTimeout(() => syncProfileWithBackend(null, { reason: 'known_user' }), 1500);
-    RookiePlan.evaluateAndRender(true);
   }
 }
 
@@ -5168,8 +4988,6 @@ function saveWelcomeName() {
 
   // Premium Dashboard sofort mit neuem Namen aktualisieren
   if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
-
-  RookiePlan.evaluateAndRender(true);
 }
 
 // Make inline onclick handlers robustly available from global scope.
@@ -5232,7 +5050,6 @@ document.getElementById('playerInpInt')?.addEventListener('keypress', function (
   if (e.key === 'Enter') calcResult();
 });
 
-RookiePlan.init();
 checkFirstVisit();
 HealthyEngagement.init();
 
