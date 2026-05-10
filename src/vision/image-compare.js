@@ -1980,6 +1980,21 @@ window.ImageCompare = (function () {
         maybeSendToFormspree(overlay._currentFile, playerScore, detected);
       }
 
+      try {
+        if (window.OCRFeedback && typeof window.OCRFeedback.saveOCRFeedback === 'function') {
+          const quality = overlay._qualityInfo || {};
+          const confidenceValue = parseFloat(overlay.dataset.ocrConfidence || '0') || 0;
+          window.OCRFeedback.saveOCRFeedback({
+            detected: Number.isNaN(detected) ? null : detected,
+            corrected: playerScore,
+            confidence: confidenceValue,
+            rotation: Number.isFinite(quality.rotation) ? quality.rotation : 0,
+            blur: Number.isFinite(quality.blur) ? quality.blur : 0,
+            timestamp: Date.now(),
+          });
+        }
+      } catch (_feedbackErr) { /* noop */ }
+
       if (typeof ContextualOCR !== 'undefined') {
         ContextualOCR.setGameContext(discipline, isKK ? 'kk' : 'lg');
         ContextualOCR.addConfirmedScore(playerScore);
@@ -2056,6 +2071,134 @@ window.ImageCompare = (function () {
       resolveCapture(null);
     }
     _isProcessing = false;
+  }
+
+  // ═══ QUALITY CHECK + AUTO-CORRECT (Pre-OCR Hook) ═══
+
+  function buildQualityBannerHtml(info) {
+    if (!info) return '';
+    const brightness = Number.isFinite(info.brightness) ? info.brightness : 0;
+    const blur = Number.isFinite(info.blur) ? info.blur : 0;
+    const rotation = Number.isFinite(info.rotation) ? info.rotation : 0;
+    const tone = info.isUsable ? '#bce18e' : '#f1bd52';
+    const tipsHtml = (info.suggestions && info.suggestions.length)
+      ? '<div style="margin-top:6px;font-size:.72rem;color:' + tone + ';">' + info.suggestions.map(s => '• ' + s).join('<br>') + '</div>'
+      : '';
+    const showButton = !info.isUsable
+      || Math.abs(rotation) > 1
+      || brightness < 35
+      || brightness > 80;
+    const buttonHtml = showButton
+      ? '<button type="button" id="icAutoCorrectBtn" class="ic-go-upload-btn" style="margin-top:8px;padding:8px 12px;font-size:.78rem;">Auto-Korrigieren</button>'
+      : '';
+    return '<div id="icQualityBanner" style="margin:8px 0;padding:10px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;font-size:.78rem;color:#fff;">'
+      + '<div style="font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:.7rem;opacity:.7;margin-bottom:4px;">Qualitaets-Check</div>'
+      + '<div>Helligkeit: <strong>' + brightness + '</strong>/100</div>'
+      + '<div>Schaerfe: <strong>' + blur + '</strong>/100</div>'
+      + '<div>Rotation: <strong>' + rotation + '&deg;</strong></div>'
+      + tipsHtml
+      + buttonHtml
+      + '</div>';
+  }
+
+  function removeQualityBanner(overlay) {
+    const existing = overlay && overlay.querySelector ? overlay.querySelector('#icQualityBanner') : null;
+    if (existing) existing.remove();
+  }
+
+  function pickAutoBrightnessFactor(brightness) {
+    if (!Number.isFinite(brightness)) return 1;
+    if (brightness < 25) return 1.6;
+    if (brightness < 35) return 1.3;
+    if (brightness > 85) return 0.75;
+    if (brightness > 80) return 0.9;
+    return 1;
+  }
+
+  function canvasToFile(canvas, originalFile) {
+    return new Promise((resolve) => {
+      try {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            resolve(null);
+            return;
+          }
+          const name = (originalFile && originalFile.name) ? ('corrected-' + originalFile.name) : 'corrected.png';
+          try {
+            resolve(new File([blob], name, { type: blob.type || 'image/png' }));
+          } catch (_e) {
+            blob.name = name;
+            resolve(blob);
+          }
+        }, 'image/png');
+      } catch (err) {
+        console.warn('[ImageCompare] canvasToFile fehlgeschlagen:', err);
+        resolve(null);
+      }
+    });
+  }
+
+  async function runQualityCheck(file, overlay) {
+    if (!file || !overlay) return null;
+    if (!window.ImageQualityAnalyzer || typeof window.ImageQualityAnalyzer.analyzeImageQuality !== 'function') {
+      return null;
+    }
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await loadImage(url);
+      const canvas = createSourceCanvas(img);
+      const info = window.ImageQualityAnalyzer.analyzeImageQuality(canvas);
+      overlay._qualityInfo = info;
+
+      removeQualityBanner(overlay);
+      const sheet = overlay.querySelector('.ic-sheet') || overlay;
+      const resultCard = overlay.querySelector('#icResultCard');
+      const banner = document.createElement('div');
+      banner.innerHTML = buildQualityBannerHtml(info);
+      const node = banner.firstChild;
+      if (node && sheet) {
+        if (resultCard && resultCard.parentNode === sheet) {
+          sheet.insertBefore(node, resultCard);
+        } else {
+          sheet.appendChild(node);
+        }
+      }
+
+      const correctBtn = overlay.querySelector('#icAutoCorrectBtn');
+      if (correctBtn) {
+        correctBtn.addEventListener('click', async () => {
+          if (!window.ImagePreprocessor) return;
+          correctBtn.disabled = true;
+          correctBtn.textContent = 'Wird korrigiert...';
+          try {
+            let corrected = canvas;
+            const factor = pickAutoBrightnessFactor(info.brightness);
+            if (Math.abs(factor - 1) > 0.001) {
+              corrected = window.ImagePreprocessor.adjustBrightness(corrected, factor);
+            }
+            if (Math.abs(info.rotation || 0) > 1) {
+              corrected = window.ImagePreprocessor.autoRotate(corrected, -info.rotation);
+            }
+            const newFile = await canvasToFile(corrected, file);
+            if (newFile) {
+              overlay._wasAutoCorrected = true;
+              resetUploadZone(overlay, overlay.dataset.isKK === 'true');
+              setTimeout(() => handleImageFileEnhanced(newFile, overlay), 30);
+            }
+          } catch (err) {
+            console.warn('[ImageCompare] Auto-Korrektur fehlgeschlagen:', err);
+            correctBtn.disabled = false;
+            correctBtn.textContent = 'Auto-Korrigieren';
+          }
+        }, { once: true });
+      }
+      return info;
+    } catch (err) {
+      console.warn('[ImageCompare] Quality-Check fehlgeschlagen:', err);
+      return null;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
   }
 
   async function handleImageFile(file, overlay) {
@@ -2248,6 +2391,7 @@ window.ImageCompare = (function () {
     resultCard.classList.remove('active');
 
     try {
+      try { await runQualityCheck(file, overlay); } catch (_e) { /* noop */ }
       const parsed = await performEnhancedLocalOCR(objectUrl, overlay, isKK, discipline);
 
       if (parsed.bestMatch) {
@@ -2381,7 +2525,9 @@ window.ImageCompare = (function () {
     delete overlay.dataset.ocrConfidence;
     delete overlay._currentFile;
     delete overlay._detectedShots;
+    delete overlay._qualityInfo;
 
+    removeQualityBanner(overlay);
   }
 
   function maybeSendToFormspree(file, expectedScore, detectedScore) {
@@ -2503,6 +2649,7 @@ window.ImageCompare = (function () {
 
     detectDisciplineFromImage,
     parseDisciplineText,
+    parseScoreFromText,
 
     open(botScore, isKK, discipline = null) {
       injectStyles();
