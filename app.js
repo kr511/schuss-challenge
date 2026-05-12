@@ -4661,6 +4661,10 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
   }
 
   HealthyEngagement.onMatchFinished(G.gameDuration);
+
+  if (result === 'win' && window.ClubsSystem) {
+    window.ClubsSystem.recordBotDuel(G.discipline, G.playerTotal, G.botTotal);
+  }
 }
 
 /* ─── SHARE TARGET ────────────────────────── */
