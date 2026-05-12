@@ -40,7 +40,10 @@
   }
 
   function wait(ms) {
-    return new Promise(function (resolve) { setTimeout(resolve, Math.max(0, ms || 0)); });
+    var delay = Math.max(0, ms || 0);
+    return delay > 0
+      ? new Promise(function (resolve) { setTimeout(resolve, delay); })
+      : Promise.resolve();
   }
 
   function debugSync(message, detail, warn) {
