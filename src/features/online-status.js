@@ -10,6 +10,18 @@
   if (typeof document === 'undefined' || typeof window === 'undefined') return;
 
   const HOST_ID = 'onlineStatusBanner';
+
+  function escHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/`/g, '&#96;')
+      .replace(/\//g, '&#47;');
+  }
   const STATE = { mounted: false, visible: false, dismissed: false, kind: '' };
 
   function safeStorageGet(key) {

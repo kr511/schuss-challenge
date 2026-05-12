@@ -1153,6 +1153,24 @@ const ClubsSystem = (function () {
     if (event.key === 'Escape' && isOverlayOpen()) closeClubOverlay();
   });
 
+  async function recordBotDuel(discipline, playerScore, botScore) {
+    const client = getClient();
+    const user = getUser();
+    if (!client || !user || !state.myClub) return;
+    try {
+      await client.rpc('record_club_duel', {
+        p_club_id: state.myClub.id,
+        p_winner_id: user.id,
+        p_loser_id: null,
+        p_duel_type: 'bot_fight',
+        p_discipline: String(discipline),
+        p_winner_score: Math.round(Number(playerScore) || 0),
+        p_loser_score: Math.round(Number(botScore) || 0),
+        p_source_id: `bot_${user.id}_${Date.now()}`,
+      });
+    } catch (_e) { /* optional, non-blocking */ }
+  }
+
   return {
     init,
     getMyClub,
@@ -1166,6 +1184,7 @@ const ClubsSystem = (function () {
     showClubOverlay,
     renderDashboardClubCard,
     copyClubCode,
+    recordBotDuel,
     getState: () => ({
       ...state,
       members: state.members.slice(),
