@@ -597,3 +597,33 @@
   font-size: 0.94rem;
   color: rgba(255, 255, 255, 0.86);
 }
+
+.club-leaderboard-nudge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 28px 16px;
+}
+
+.club-leaderboard-nudge-icon {
+  font-size: 2.4rem;
+  margin-bottom: 4px;
+}
+
+.club-leaderboard-nudge strong {
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.club-leaderboard-nudge span {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  max-width: 260px;
+}
+
+.club-leaderboard-nudge .club-btn {
+  margin-top: 8px;
+}

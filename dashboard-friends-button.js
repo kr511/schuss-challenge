@@ -10,6 +10,16 @@
   var pollTimer = null;
   var POLL_INTERVAL_MS = 10000; // alle 10s neue Anfragen prüfen während Seite offen
 
+  // URL-Param: ?friend=XXXXXX — wird beim Öffnen der Freundschaftsseite ausgelesen
+  var pendingFriendCodeFromUrl = (function () {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var code = (params.get('friend') || '').trim().toUpperCase();
+      if (/^[A-Z2-9]{6}$/.test(code)) return code;
+    } catch (e) {}
+    return null;
+  }());
+
   function onReady(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn, { once: true });
     else fn();
@@ -75,7 +85,12 @@
       '#' + PAGE_ID + ' .fp-small-actions{display:flex;gap:6px;align-items:center}' +
       '#' + PAGE_ID + ' .fp-mini{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.07);color:#fff;border-radius:12px;padding:8px 10px;font-weight:900;font-size:.75rem}' +
       '#' + PAGE_ID + ' .fp-mini.good{background:rgba(122,176,48,.18);border-color:rgba(122,176,48,.24);color:#9bd24c}' +
-      '#' + PAGE_ID + ' .fp-mini.bad{background:rgba(255,59,48,.12);border-color:rgba(255,59,48,.22);color:#ff8c83}';
+      '#' + PAGE_ID + ' .fp-mini.bad{background:rgba(255,59,48,.12);border-color:rgba(255,59,48,.22);color:#ff8c83}' +
+      '#' + PAGE_ID + ' .fp-share-hint{font-size:.68rem;color:rgba(255,255,255,.35);margin-top:9px;text-align:center;line-height:1.4}' +
+      '#' + PAGE_ID + ' .fp-notif-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;background:rgba(0,195,255,.06);border:1px solid rgba(0,195,255,.14);border-radius:14px;padding:10px 12px;margin-top:12px}' +
+      '#' + PAGE_ID + ' .fp-notif-label{font-size:.72rem;color:rgba(255,255,255,.6);line-height:1.3}' +
+      '#' + PAGE_ID + ' .fp-notif-btn{flex-shrink:0;border:0;border-radius:10px;padding:7px 10px;font-weight:900;font-size:.7rem;color:#061006;background:linear-gradient(135deg,#00c3ff,#7ab030);cursor:pointer;white-space:nowrap}' +
+      '#' + PAGE_ID + ' .fp-invited-hint{font-size:.75rem;color:#7ab030;font-weight:800;background:rgba(122,176,48,.1);border:1px solid rgba(122,176,48,.2);border-radius:12px;padding:8px 12px;margin-top:10px;text-align:center}';
     document.head.appendChild(style);
   }
 
@@ -85,6 +100,44 @@
     toast.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:13000;background:rgba(15,23,42,.94);color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:10px 14px;font-size:.78rem;font-weight:800;box-shadow:0 10px 28px rgba(0,0,0,.45);';
     document.body.appendChild(toast);
     setTimeout(function () { toast.remove(); }, 1800);
+  }
+
+  function buildInviteLink(code) {
+    return window.location.origin + window.location.pathname + '?friend=' + code;
+  }
+
+  function shareFriendCode(code) {
+    if (!code || code === '------') { showToast('Code wird noch geladen …'); return; }
+    var link = buildInviteLink(code);
+    var text = 'Ich fordere dich zur Schützen-Challenge heraus! Füge mich mit meinem Code hinzu: ' + code;
+    if (navigator.share) {
+      navigator.share({ title: 'Schützen-Challenge – Freundeseinladung', text: text, url: link })
+        .catch(function () {});
+    } else {
+      var toCopy = text + '\n' + link;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(toCopy).then(function () { showToast('🔗 Einladungslink kopiert!'); });
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = toCopy; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+        showToast('🔗 Einladungslink kopiert!');
+      }
+    }
+  }
+
+  function requestNotificationPermission(callback) {
+    if (!('Notification' in window)) { showToast('Browser unterstützt keine Benachrichtigungen'); return; }
+    if (Notification.permission === 'granted') { if (callback) callback(); return; }
+    Notification.requestPermission().then(function (perm) {
+      if (perm === 'granted') { showToast('🔔 Benachrichtigungen aktiviert!'); if (callback) callback(); }
+      else showToast('Benachrichtigungen abgelehnt');
+    });
+  }
+
+  function fireNotification(title, body, tag) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    try { new Notification(title, { body: body, tag: tag || 'sd-friends', icon: '/icon-192.png' }); } catch (e) {}
   }
 
   function avatar(name) {
@@ -122,11 +175,26 @@
     // Zeige "Wird geladen…" wenn noch kein Code vorhanden und loading=true
     var code = state.userCode || (loading ? '…' : '------');
 
+    var inviteHint = pendingFriendCodeFromUrl
+      ? '<div class="fp-invited-hint">📨 Einladungscode <strong>' + esc(pendingFriendCodeFromUrl) + '</strong> wurde vorausgefüllt!</div>'
+      : '';
+    var notifBar = (function () {
+      if (!('Notification' in window)) return '';
+      if (Notification.permission === 'granted') return '';
+      return '<div class="fp-notif-bar"><div class="fp-notif-label">🔔 Benachrichtigungen aktivieren, um Anfragen sofort zu sehen</div>' +
+        '<button type="button" class="fp-notif-btn" data-fp-action="notif-request">Aktivieren</button></div>';
+    }());
+
     page.innerHTML =
       '<div class="fp-wrap">' +
         '<div class="fp-top"><button type="button" class="fp-back" data-fp-action="close">←</button><div><div class="fp-title">Freundschaften</div><div class="fp-sub">Freunde hinzufügen, Codes teilen und Duelle starten</div></div>' +
         '<button type="button" class="fp-btn ghost" data-fp-action="refresh" style="margin-left:auto;flex-shrink:0;font-size:.75rem;padding:8px 10px;" title="Aktualisieren">↻</button></div>' +
-        '<div class="fp-card"><div class="fp-code-label">Dein Freundes-Code</div><div class="fp-code-row"><div class="fp-code">' + esc(code) + '</div><button type="button" class="fp-btn ghost" data-fp-action="copy">Kopieren</button></div>' +
+        notifBar +
+        '<div class="fp-card"><div class="fp-code-label">Dein Freundes-Code</div><div class="fp-code-row"><div class="fp-code">' + esc(code) + '</div>' +
+          '<button type="button" class="fp-btn ghost" data-fp-action="copy">Kopieren</button>' +
+          '<button type="button" class="fp-btn ghost" data-fp-action="share" title="Einladungslink teilen">↗</button></div>' +
+          '<div class="fp-share-hint">Teile deinen Link – Freunde landen direkt mit vorausgefülltem Code</div>' +
+          inviteHint +
           '<div class="fp-add"><input id="fpFriendCodeInput" class="fp-input" maxlength="6" placeholder="Code eingeben"><button type="button" class="fp-btn" data-fp-action="add">Hinzufügen</button></div></div>' +
         '<div class="fp-section-title">Eingehende Anfragen</div>' +
         '<div class="fp-card">' + (pending.length ? pending.map(function (req) {
@@ -143,6 +211,17 @@
       '</div>';
 
     bindPageEvents(page);
+
+    // Pre-fill invite code from URL param and clear the param to avoid repeat
+    if (pendingFriendCodeFromUrl) {
+      var inp = document.getElementById('fpFriendCodeInput');
+      if (inp) inp.value = pendingFriendCodeFromUrl;
+      try {
+        var cleanUrl = window.location.pathname + (window.location.search.replace(/[?&]friend=[^&]*/g, '').replace(/^&/, '?') || '');
+        window.history.replaceState(null, '', cleanUrl);
+      } catch (e) {}
+      pendingFriendCodeFromUrl = null;
+    }
   }
 
   function openFriendshipsPage() {
@@ -199,6 +278,15 @@
           }
           renderFriendshipsPage(false);
           render();
+          // Neue eingehende Anfragen per Browser-Notification melden
+          if (newCount > prevCount) {
+            var diff = newCount - prevCount;
+            fireNotification(
+              '👥 Neue Freundschaftsanfrage' + (diff > 1 ? 'n' : ''),
+              diff + (diff > 1 ? ' Personen möchten' : ' Person möchte') + ' dein Freund sein!',
+              'sd-friend-request'
+            );
+          }
         }
       } catch (e) { /* noop – Polling darf nie crashen */ }
     }, POLL_INTERVAL_MS);
@@ -251,6 +339,17 @@
           return;
         }
 
+        if (action === 'share') {
+          var stateForShare = getFriendsState();
+          shareFriendCode(stateForShare.userCode || '');
+          return;
+        }
+
+        if (action === 'notif-request') {
+          requestNotificationPermission(function () { renderFriendshipsPage(false); });
+          return;
+        }
+
         if (action === 'add') {
           var input = document.getElementById('fpFriendCodeInput');
           var code = input ? input.value.trim().toUpperCase() : '';
@@ -300,6 +399,11 @@
 
         if (action === 'challenge' && id && typeof window.FriendsSystem.challengeFriend === 'function') {
           window.FriendsSystem.challengeFriend(id);
+          fireNotification(
+            '⚔️ Herausforderung gesendet!',
+            'Dein Freund erhält deine Duell-Einladung.',
+            'sd-challenge-sent'
+          );
         }
       };
     });
