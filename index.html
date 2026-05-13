@@ -109,16 +109,31 @@
   <!-- WELCOME OVERLAY -->
   <div id="welcomeOverlay">
     <div class="welcome-card">
-      <div class="welcome-icon">🎯</div>
-      <div class="welcome-title">WILLKOMMEN</div>
-      <div class="welcome-sub">Wähle deinen Schützennamen.<br><span style="font-size:.8em;opacity:.6;">Wird dauerhaft
-          gespeichert · Einmalige Anmeldung</span></div>
-      <input type="text" id="welcomeNameInp" class="welcome-inp" placeholder="Dein Name..." autocomplete="off"
-        maxlength="15">
-      <button class="welcome-btn" onclick="saveWelcomeName()">🚀 JETZT STARTEN</button>
-      <div
-        style="margin-top:12px;font-size:.6rem;letter-spacing:.12em;color:rgba(255,255,255,.2);text-transform:uppercase;">
-        Dein Name erscheint in der Weltrangliste</div>
+      <!-- Schritt 1: Name wählen -->
+      <div id="welcomeStep1">
+        <div class="welcome-icon">🎯</div>
+        <div class="welcome-title">WILLKOMMEN</div>
+        <div class="welcome-sub">Wähle deinen Schützennamen.<br><span style="font-size:.8em;opacity:.6;">Wird dauerhaft
+            gespeichert · Einmalige Anmeldung</span></div>
+        <input type="text" id="welcomeNameInp" class="welcome-inp" placeholder="Dein Name..." autocomplete="off"
+          maxlength="15">
+        <button class="welcome-btn" onclick="saveWelcomeName()">🚀 JETZT STARTEN</button>
+        <div
+          style="margin-top:12px;font-size:.6rem;letter-spacing:.12em;color:rgba(255,255,255,.2);text-transform:uppercase;">
+          Dein Name erscheint in der Weltrangliste</div>
+      </div>
+      <!-- Schritt 2: Verein beitreten (optional) -->
+      <div id="welcomeStep2" style="display:none;">
+        <div class="welcome-icon">🏹</div>
+        <div class="welcome-title">DEIN VEREIN</div>
+        <div class="welcome-sub">Bist du in einem Schützenverein?<br><span style="font-size:.8em;opacity:.6;">Optional – du kannst das jederzeit nachholen</span></div>
+        <input type="text" id="welcomeClubCodeInp" class="welcome-inp" placeholder="Vereinscode (z.B. SV-4821)" autocomplete="off"
+          maxlength="20" style="text-transform:uppercase;">
+        <div id="welcomeClubMsg" style="min-height:20px;font-size:.75rem;color:#7ab030;text-align:center;margin:-12px 0 10px;"></div>
+        <button class="welcome-btn" id="welcomeClubJoinBtn" onclick="saveWelcomeClub()">🏆 VEREIN BEITRETEN</button>
+        <button class="welcome-btn" onclick="skipWelcomeClub()"
+          style="margin-top:10px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);box-shadow:none;border:1px solid rgba(255,255,255,.1);">Überspringen</button>
+      </div>
     </div>
   </div>
 

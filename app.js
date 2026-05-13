@@ -4986,17 +4986,77 @@ function saveWelcomeName() {
   const pdProfileInitial = document.getElementById('pdProfileInitial');
   if (pdProfileInitial) pdProfileInitial.innerText = name.charAt(0).toUpperCase();
 
-  document.getElementById('welcomeOverlay').classList.remove('active');
-
   scheduleCloudSync('username_changed', { immediate: true });
-
-  // Premium Dashboard sofort mit neuem Namen aktualisieren
   if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+
+  // Zeige Schritt 2 (Verein beitreten), wenn ClubsSystem verfügbar und User noch kein Mitglied
+  const step1 = document.getElementById('welcomeStep1');
+  const step2 = document.getElementById('welcomeStep2');
+  const clubsReady = typeof ClubsSystem !== 'undefined' && typeof ClubsSystem.getState === 'function';
+  const alreadyInClub = clubsReady && ClubsSystem.getState().myClub;
+  if (step1 && step2 && clubsReady && !alreadyInClub) {
+    step1.style.display = 'none';
+    step2.style.display = '';
+    setTimeout(() => document.getElementById('welcomeClubCodeInp')?.focus(), 250);
+  } else {
+    document.getElementById('welcomeOverlay').classList.remove('active');
+  }
+}
+
+async function saveWelcomeClub() {
+  const inp = document.getElementById('welcomeClubCodeInp');
+  const msg = document.getElementById('welcomeClubMsg');
+  const btn = document.getElementById('welcomeClubJoinBtn');
+  if (!inp || !msg || !btn) { skipWelcomeClub(); return; }
+
+  const code = inp.value.trim().toUpperCase();
+  if (!code) { msg.style.color = '#ff6b6b'; msg.textContent = 'Bitte einen Vereinscode eingeben.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Wird gesucht…';
+  msg.style.color = 'rgba(255,255,255,.5)';
+  msg.textContent = '';
+
+  try {
+    if (typeof ClubsSystem !== 'undefined' && typeof ClubsSystem.joinByCode === 'function') {
+      const result = await ClubsSystem.joinByCode(code);
+      if (result && result.ok) {
+        msg.style.color = '#7ab030';
+        msg.textContent = '✓ Beigetreten!';
+        setTimeout(() => {
+          document.getElementById('welcomeOverlay').classList.remove('active');
+          if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+        }, 900);
+        return;
+      }
+      msg.style.color = '#ff6b6b';
+      msg.textContent = (result && result.error) ? result.error : 'Vereinscode nicht gefunden.';
+    } else {
+      // ClubsSystem noch nicht bereit – einfach schließen
+      skipWelcomeClub();
+    }
+  } catch (e) {
+    msg.style.color = '#ff6b6b';
+    msg.textContent = 'Fehler beim Beitreten. Code prüfen?';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🏆 VEREIN BEITRETEN';
+  }
+}
+
+function skipWelcomeClub() {
+  document.getElementById('welcomeOverlay').classList.remove('active');
+  const step1 = document.getElementById('welcomeStep1');
+  const step2 = document.getElementById('welcomeStep2');
+  if (step1) step1.style.display = '';
+  if (step2) step2.style.display = 'none';
 }
 
 // Make inline onclick handlers robustly available from global scope.
 Object.assign(window, {
   saveWelcomeName,
+  saveWelcomeClub,
+  skipWelcomeClub,
   toggleMute,
   toggleProfileMenu,
   handleOverlayClick,
@@ -5042,6 +5102,9 @@ Object.assign(window, {
 // Allow Enter key to submit welcome screen or calculation
 document.getElementById('welcomeNameInp')?.addEventListener('keypress', function (e) {
   if (e.key === 'Enter') saveWelcomeName();
+});
+document.getElementById('welcomeClubCodeInp')?.addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') saveWelcomeClub();
 });
 document.getElementById('playerInp')?.addEventListener('keypress', function (e) {
   if (e.key !== 'Enter') return;

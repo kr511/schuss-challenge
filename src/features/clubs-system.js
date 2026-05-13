@@ -1006,7 +1006,12 @@ const ClubsSystem = (function () {
     const list = createEl('div', 'club-list');
 
     if (!state.leaderboard.length) {
-      list.appendChild(emptyState('Noch keine Vereinsergebnisse für diese Auswahl.'));
+      const isFiltered = filters.discipline !== 'all' || filters.timeRange !== 'alltime';
+      if (isFiltered) {
+        list.appendChild(leaderboardEmptyFiltered(filters));
+      } else {
+        list.appendChild(leaderboardEmptyNudge());
+      }
       body.appendChild(list);
       return;
     }
@@ -1121,6 +1126,49 @@ const ClubsSystem = (function () {
     return empty;
   }
 
+  function leaderboardEmptyNudge() {
+    const wrap = createEl('div', 'club-leaderboard-nudge');
+    const icon = createEl('div', 'club-leaderboard-nudge-icon', '🎯');
+    const title = createEl('strong', '', 'Noch kein Vereinsmitglied auf der Rangliste');
+    const sub = createEl('span', '', 'Spiel eine Runde und dein Ergebnis erscheint als Erster hier!');
+    const cta = createButton('Jetzt spielen', 'club-btn club-btn-primary', () => {
+      closeClubOverlay();
+      const startBtn = document.querySelector('#screenSetup .start-btn, #screenSetup button[onclick*="start"], .start-btn');
+      if (startBtn) startBtn.click();
+    });
+    wrap.append(icon, title, sub, cta);
+    return wrap;
+  }
+
+  function leaderboardEmptyFiltered(filters) {
+    const wrap = createEl('div', 'club-leaderboard-nudge');
+    const icon = createEl('div', 'club-leaderboard-nudge-icon', '🔍');
+    const title = createEl('strong', '', 'Keine Ergebnisse für diese Auswahl');
+    const disciplineLabel = DISCIPLINE_LABELS[filters.discipline] || filters.discipline;
+    const timeLabel = TIME_RANGE_LABELS[filters.timeRange] || filters.timeRange;
+    const sub = createEl('span', '', 'Für „' + disciplineLabel + '" / „' + timeLabel + '" liegen noch keine Ergebnisse vor. Probier „Alle Disziplinen" und „Gesamt".');
+    const cta = createButton('Alle anzeigen', 'club-btn club-btn-secondary', async () => {
+      const newFilters = { discipline: 'all', timeRange: 'alltime' };
+      state.clubRankingFilters = newFilters;
+      try {
+        if (window.StorageManager && typeof window.StorageManager.setRaw === 'function') {
+          window.StorageManager.setRaw(RANKING_FILTERS_KEY, JSON.stringify(newFilters));
+        } else {
+          localStorage.setItem('sd_' + RANKING_FILTERS_KEY, JSON.stringify(newFilters));
+        }
+      } catch (_e) {}
+      if (state.myClub && state.myClub.id) {
+        state.leaderboard = await loadClubLeaderboard(state.myClub.id, newFilters);
+        const user = getUser();
+        const ownEntry = user ? state.leaderboard.find((e) => e.userId === user.id) : null;
+        state.myRank = ownEntry ? ownEntry.rank : null;
+      }
+      renderClubOverlay();
+    });
+    wrap.append(icon, title, sub, cta);
+    return wrap;
+  }
+
   async function copyClubCode(code) {
     const value = String(code || '').trim();
     if (!value) return false;
@@ -1176,6 +1224,16 @@ const ClubsSystem = (function () {
     getMyClub,
     createClub,
     joinClubByCode,
+    // Schlankes Wrapper für externe Aufrufer (z.B. Onboarding): gibt { ok, error } zurück
+    async joinByCode(code) {
+      try {
+        const club = await joinClubByCode(code);
+        if (club) return { ok: true };
+        return { ok: false, error: state.lastError || 'Vereinscode nicht gefunden.' };
+      } catch (e) {
+        return { ok: false, error: state.lastError || 'Fehler beim Beitreten.' };
+      }
+    },
     loadClubMembers,
     loadClubLeaderboard,
     loadCurrentClubChallenge,
