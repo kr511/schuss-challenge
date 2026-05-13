@@ -5,6 +5,16 @@
 const ClubsSystem = (function () {
   'use strict';
 
+  // URL-Param: ?club=CODE — wird beim ersten Init ausgewertet
+  let pendingClubCodeFromUrl = (function () {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = (params.get('club') || '').trim().toUpperCase();
+      if (code.length >= 5) return code;
+    } catch (_e) {}
+    return null;
+  }());
+
   const ROLE_LABELS = {
     owner: 'Owner',
     admin: 'Admin',
@@ -221,6 +231,13 @@ const ClubsSystem = (function () {
 
       await refreshClubData();
       state.initialized = true;
+      // Wenn kein Verein und ein Einladungslink-Code wartet → Join-Dialog öffnen
+      if (!state.myClub && pendingClubCodeFromUrl) {
+        const code = pendingClubCodeFromUrl;
+        pendingClubCodeFromUrl = null;
+        cleanClubUrlParam();
+        setTimeout(() => showClubOverlay('join', code), 300);
+      }
       return true;
     } catch (error) {
       state.lastError = friendlyError(error);
@@ -232,6 +249,14 @@ const ClubsSystem = (function () {
       if (isOverlayOpen()) renderClubOverlay();
       dispatchReadyOnce();
     }
+  }
+
+  function cleanClubUrlParam() {
+    try {
+      const clean = window.location.pathname +
+        (window.location.search.replace(/[?&]club=[^&]*/g, '').replace(/^&/, '?') || '');
+      window.history.replaceState(null, '', clean);
+    } catch (_e) {}
   }
 
   async function refreshClubData() {
@@ -752,8 +777,9 @@ const ClubsSystem = (function () {
     }
   }
 
-  function showClubOverlay(tab) {
+  function showClubOverlay(tab, prefillCode) {
     state.activeTab = tab || (state.myClub ? 'overview' : 'create');
+    if (prefillCode) state._prefillJoinCode = String(prefillCode).trim().toUpperCase();
     const overlay = ensureOverlay();
     renderClubOverlay();
     overlay.classList.add('active');
@@ -869,7 +895,19 @@ const ClubsSystem = (function () {
   }
 
   function renderJoinForm(body) {
-    const intro = createEl('p', 'club-form-intro', 'Gib den Vereinscode ein, den du von deinem Verein erhalten hast.');
+    const prefill = state._prefillJoinCode || null;
+    if (prefill) delete state._prefillJoinCode;
+
+    const intro = createEl('p', 'club-form-intro',
+      prefill
+        ? 'Du wurdest eingeladen! Code bereits vorausgefüllt – einfach auf „Beitreten" tippen.'
+        : 'Gib den Vereinscode ein, den du von deinem Verein erhalten hast.');
+
+    if (prefill) {
+      const hint = createEl('div', 'club-invite-hint', '📨 Einladung für Code ' + prefill);
+      body.appendChild(hint);
+    }
+
     const form = createEl('form', 'club-form');
 
     const codeInput = createEl('input', 'club-input club-code-input');
@@ -878,6 +916,7 @@ const ClubsSystem = (function () {
     codeInput.maxLength = 16;
     codeInput.autocapitalize = 'characters';
     codeInput.required = true;
+    if (prefill) codeInput.value = prefill;
 
     const submit = createEl('button', 'club-btn club-btn-primary club-btn-wide', 'Beitreten');
     submit.type = 'submit';
@@ -897,6 +936,9 @@ const ClubsSystem = (function () {
     });
 
     body.append(intro, form);
+
+    // Fokus auf Input setzen wenn nicht vorausgefüllt
+    if (!prefill) setTimeout(() => codeInput.focus(), 100);
   }
 
   function renderOverviewTab(body) {
@@ -918,7 +960,8 @@ const ClubsSystem = (function () {
     const codeBox = createEl('div', 'club-code-box');
     const codeText = createEl('div', 'club-code-large', club.code || '-');
     const copyButton = createButton('Code kopieren', 'club-btn club-btn-secondary', () => copyClubCode(club.code));
-    codeBox.append(codeText, copyButton);
+    const shareButton = createButton('Einladen ↗', 'club-btn club-btn-primary', () => shareClubInvite(club.code, club.name));
+    codeBox.append(codeText, copyButton, shareButton);
 
     body.append(grid, codeBox);
   }
@@ -1194,6 +1237,40 @@ const ClubsSystem = (function () {
       console.warn('[ClubsSystem] copy failed:', error);
       setOverlayMessage('Code konnte nicht kopiert werden.', 'error');
       return false;
+    }
+  }
+
+  function buildClubInviteLink(code) {
+    return window.location.origin + window.location.pathname + '?club=' + encodeURIComponent(code);
+  }
+
+  async function shareClubInvite(code, clubName) {
+    const value = String(code || '').trim();
+    if (!value) return;
+    const link = buildClubInviteLink(value);
+    const text = 'Tritt unserem Schützenverein „' + (clubName || value) + '" bei! Code: ' + value;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Schützen-Challenge – Vereinseinladung', text, url: link });
+        return;
+      } catch (_e) { /* abgebrochen – Fallback */ }
+    }
+
+    // Clipboard-Fallback
+    const toCopy = text + '\n' + link;
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(toCopy);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = toCopy; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+      }
+      setOverlayMessage('Einladungslink kopiert!', 'success');
+      showToast('🔗 Einladungslink kopiert!', 'success');
+    } catch (_e) {
+      setOverlayMessage('Teilen nicht möglich.', 'error');
     }
   }
 

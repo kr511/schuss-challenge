@@ -627,3 +627,28 @@
 .club-leaderboard-nudge .club-btn {
   margin-top: 8px;
 }
+
+.club-invite-hint {
+  background: rgba(122, 176, 48, 0.1);
+  border: 1px solid rgba(122, 176, 48, 0.25);
+  border-radius: 12px;
+  padding: 9px 13px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #9bd24c;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.club-code-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.club-code-box .club-btn {
+  flex: 1;
+  min-width: 0;
+}
