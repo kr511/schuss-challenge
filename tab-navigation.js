@@ -226,6 +226,48 @@
     const sessions = getQuickTrainingSessions();
     refreshTrainingStats(sessions);
     refreshTrainingList(sessions);
+    refreshTrainingStatistiken(sessions);
+  }
+
+  function refreshTrainingStatistiken(sessions) {
+    /* Konstanz: stddev of last 10 sessions */
+    const last10 = sessions.slice(0, 10);
+    let konstanz = '–';
+    if (last10.length >= 3) {
+      const avgs = last10.map(s => s.avg || 0);
+      const mean = avgs.reduce((a,b)=>a+b,0) / avgs.length;
+      const variance = avgs.reduce((a,b)=>a+(b-mean)*(b-mean),0) / avgs.length;
+      const stddev = Math.sqrt(variance);
+      const consistency = Math.max(0, 100 - stddev * 10);
+      konstanz = Math.round(consistency) + '%';
+    }
+    const setEl = (id, v) => { const e=document.getElementById(id); if(e) e.textContent = v; };
+    setEl('sKonstanz', konstanz);
+
+    /* Avg duration */
+    const durations = sessions.filter(s => s.duration).map(s => s.duration);
+    const avgDur = durations.length > 0
+      ? Math.round(durations.reduce((a,b)=>a+b,0) / durations.length / 60) + 'm'
+      : '–';
+    setEl('sAvgDuration', avgDur);
+
+    /* Top shot */
+    const best = sessions.length > 0 ? Math.max(...sessions.map(s => s.best || s.max || s.avg || 0)) : 0;
+    setEl('sTopShot', best > 0 ? best.toFixed(1) : '–');
+
+    /* Discipline breakdown */
+    const lg = sessions.filter(s => /luftgewehr|lg/i.test(s.discipline || s.weapon || ''));
+    const kk = sessions.filter(s => /kleinkaliber|kk/i.test(s.discipline || s.weapon || ''));
+    const lgAvg = lg.length > 0 ? (lg.reduce((a,s)=>a+(s.avg||0),0)/lg.length).toFixed(1) : '–';
+    const kkAvg = kk.length > 0 ? (kk.reduce((a,s)=>a+(s.avg||0),0)/kk.length).toFixed(1) : '–';
+    setEl('dLGAvg', lgAvg);
+    setEl('dKKAvg', kkAvg);
+    setEl('dLGMeta', lg.length + ' Trainings' + (lgAvg !== '–' ? ' · Ø ' + lgAvg : ''));
+    setEl('dKKMeta', kk.length + ' Trainings' + (kkAvg !== '–' ? ' · Ø ' + kkAvg : ''));
+
+    /* Hide chart empty if data exists */
+    const emptyEl = document.getElementById('perfChart2Empty');
+    if (emptyEl) emptyEl.style.display = sessions.length > 0 ? 'none' : 'flex';
   }
 
   function refreshTrainingStats(sessions) {
@@ -270,7 +312,35 @@
   }
 
   function refreshChallengesTab() {
-    /* Daily challenge UI is already mounted in #dailyChallengeUIMount */
+    /* Daily challenge UI is already mounted in #dailyChallengeUI */
+    refreshChallengesStats();
+    refreshInvitationCounts();
+  }
+
+  function refreshChallengesStats() {
+    const state = (typeof StorageManager !== 'undefined') ? JSON.parse(StorageManager.getRaw('gameState') || 'null') : null;
+    const stats = (state && state.stats) || {};
+    const wins = stats.wins || 0;
+    const losses = stats.losses || 0;
+    const games = stats.games || (wins + losses);
+    const winRate = games > 0 ? Math.round((wins / games) * 100) + '%' : '–';
+    const setEl = (id, v) => { const e=document.getElementById(id); if(e) e.textContent = v; };
+    setEl('chWins', wins);
+    setEl('chLosses', losses);
+    setEl('chWinRate', winRate);
+  }
+
+  function refreshInvitationCounts() {
+    const incoming = (window.FriendsSystem && window.FriendsSystem.getIncomingRequests)
+      ? (window.FriendsSystem.getIncomingRequests() || []).length : 0;
+    const outgoing = (window.FriendsSystem && window.FriendsSystem.getOutgoingRequests)
+      ? (window.FriendsSystem.getOutgoingRequests() || []).length : 0;
+    const pending = (window.AsyncChallenge && window.AsyncChallenge.getPending)
+      ? (window.AsyncChallenge.getPending() || []).length : 0;
+    const setEl = (id, v) => { const e=document.getElementById(id); if(e) e.textContent = v; };
+    setEl('invIncomingCount', incoming);
+    setEl('invOutgoingCount', outgoing);
+    setEl('invPendingCount', pending);
   }
 
   function refreshFreundeTab() {
@@ -321,7 +391,134 @@
     if (el) el.textContent = friends.length;
     const badge = document.getElementById('fhcCountBadge');
     if (badge) badge.textContent = friends.length;
+
+    /* Friend code */
+    const codeEl = document.getElementById('myFriendCode');
+    if (codeEl) {
+      let code = '';
+      if (window.FriendsSystem && typeof window.FriendsSystem.getFriendCode === 'function') {
+        try { code = window.FriendsSystem.getFriendCode() || ''; } catch(e) {}
+      }
+      if (!code && typeof StorageManager !== 'undefined') {
+        code = StorageManager.getRaw('friendCode') || '';
+      }
+      if (!code) {
+        /* Generate from username if missing */
+        const u = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('username')) || 'GUEST';
+        code = u.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,3).padEnd(3,'X') + '-' +
+               Math.floor(Math.random() * 900 + 100);
+      }
+      codeEl.textContent = code;
+    }
+
+    /* Pending requests */
+    refreshFriendRequests();
+    refreshBlockedUsers();
+
+    /* Friend stats aggregation */
+    const sumBest = friends.reduce((a,f) => a + (parseFloat(f.bestScore || f.score || 0) || 0), 0);
+    const fStatAvg = document.getElementById('fStatAvg');
+    if (fStatAvg) {
+      fStatAvg.textContent = friends.length > 0
+        ? (sumBest / friends.length).toFixed(1).replace('.', ',')
+        : '–';
+    }
   }
+
+  function refreshFriendRequests() {
+    const incoming = (window.FriendsSystem && window.FriendsSystem.getIncomingRequests)
+      ? (window.FriendsSystem.getIncomingRequests() || []) : [];
+    const outgoing = (window.FriendsSystem && window.FriendsSystem.getOutgoingRequests)
+      ? (window.FriendsSystem.getOutgoingRequests() || []) : [];
+
+    const inBadge = document.getElementById('incomingRequestsBadge');
+    const outBadge = document.getElementById('outgoingRequestsBadge');
+    if (inBadge) inBadge.textContent = incoming.length;
+    if (outBadge) outBadge.textContent = outgoing.length;
+
+    const inContainer = document.getElementById('incomingFriendRequests');
+    if (inContainer) {
+      if (incoming.length === 0) {
+        inContainer.innerHTML = '<div class="empty-state" style="padding:24px 16px;"><div class="empty-state-icon">📥</div><div>Keine eingehenden Anfragen</div></div>';
+      } else {
+        inContainer.innerHTML = incoming.map(r => buildRequestRow(r, 'incoming')).join('');
+      }
+    }
+    const outContainer = document.getElementById('outgoingFriendRequests');
+    if (outContainer) {
+      if (outgoing.length === 0) {
+        outContainer.innerHTML = '<div class="empty-state" style="padding:24px 16px;"><div class="empty-state-icon">📤</div><div>Keine gesendeten Anfragen</div></div>';
+      } else {
+        outContainer.innerHTML = outgoing.map(r => buildRequestRow(r, 'outgoing')).join('');
+      }
+    }
+  }
+
+  function buildRequestRow(r, type) {
+    const name = escapeHtml(r.username || r.name || 'Unbekannt');
+    const avatar = (r.avatar || name.charAt(0)).replace(/[<>&"]/g, '');
+    const meta = r.sentAt ? formatDate(r.sentAt) : (r.code ? 'Code: ' + escapeHtml(r.code) : 'Schütze');
+    const actions = type === 'incoming'
+      ? `<button class="rr-btn accept" onclick="acceptFriendRequest('${escapeHtml(r.id||r.userId||'')}')">Annehmen</button>
+         <button class="rr-btn decline" onclick="declineFriendRequest('${escapeHtml(r.id||r.userId||'')}')">Ablehnen</button>`
+      : `<button class="rr-btn cancel" onclick="cancelFriendRequest('${escapeHtml(r.id||r.userId||'')}')">Abbrechen</button>`;
+    return `<div class="request-row">
+      <div class="rr-avatar">${avatar}</div>
+      <div class="rr-info">
+        <div class="rr-name">${name}</div>
+        <div class="rr-meta">${meta}</div>
+      </div>
+      <div class="rr-actions">${actions}</div>
+    </div>`;
+  }
+
+  function refreshBlockedUsers() {
+    const blocked = (window.FriendsSystem && window.FriendsSystem.getBlockedUsers)
+      ? (window.FriendsSystem.getBlockedUsers() || []) : [];
+    const container = document.getElementById('blockedUsersList');
+    if (!container) return;
+    if (blocked.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="padding:32px 16px;"><div class="empty-state-icon">🚫</div><div>Keine blockierten Nutzer</div><div style="font-size:0.7rem;color:rgba(255,255,255,0.25);margin-top:4px;">Alles in Ordnung – du hast niemanden blockiert</div></div>';
+    } else {
+      container.innerHTML = blocked.map(u => {
+        const name = escapeHtml(u.username || u.name || 'Unbekannt');
+        return `<div class="request-row">
+          <div class="rr-avatar">${(u.avatar || name.charAt(0)).replace(/[<>&"]/g,'')}</div>
+          <div class="rr-info">
+            <div class="rr-name">${name}</div>
+            <div class="rr-meta">Blockiert</div>
+          </div>
+          <div class="rr-actions"><button class="rr-btn cancel" onclick="unblockUser('${escapeHtml(u.id||u.userId||'')}')">Entsperren</button></div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  /* Public helpers for request actions */
+  window.acceptFriendRequest = function(id) {
+    if (window.FriendsSystem && window.FriendsSystem.acceptRequest) {
+      window.FriendsSystem.acceptRequest(id);
+      setTimeout(refreshFriendRequests, 200);
+    }
+  };
+  window.declineFriendRequest = function(id) {
+    if (window.FriendsSystem && window.FriendsSystem.declineRequest) {
+      window.FriendsSystem.declineRequest(id);
+      setTimeout(refreshFriendRequests, 200);
+    }
+  };
+  window.cancelFriendRequest = function(id) {
+    if (window.FriendsSystem && window.FriendsSystem.cancelRequest) {
+      window.FriendsSystem.cancelRequest(id);
+      setTimeout(refreshFriendRequests, 200);
+    }
+  };
+  window.unblockUser = function(id) {
+    if (window.FriendsSystem && window.FriendsSystem.unblock) {
+      window.FriendsSystem.unblock(id);
+      setTimeout(refreshBlockedUsers, 200);
+    }
+  };
 
   function refreshProfilTab() {
     const username = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('username')) || 'Schütze';
