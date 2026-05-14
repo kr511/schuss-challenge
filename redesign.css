@@ -1564,6 +1564,109 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
 .aps-more-link:active { background: rgba(255,255,255,0.08); }
 
 /* ═══════════════════════════════════════════
+   TRAINING FILTER PANEL
+═══════════════════════════════════════════ */
+.tff-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.tff-overlay.tff-open {
+  pointer-events: all;
+  opacity: 1;
+}
+.tff-sheet {
+  width: 100%;
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.25s cubic-bezier(0.32,0.72,0,1);
+}
+.tff-overlay.tff-open .tff-sheet {
+  transform: translateY(0);
+}
+.tff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.tff-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+.tff-close {
+  background: rgba(255,255,255,0.08);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+}
+.tff-group {
+  margin-bottom: 20px;
+}
+.tff-group-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+.tff-btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tf-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.7);
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 8px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+.tf-btn.active {
+  background: rgba(34,197,94,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.tff-reset {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.8rem;
+  padding: 12px;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: background 0.15s;
+}
+.tff-reset:hover { background: rgba(255,255,255,0.1); }
+
+/*
    RESPONSIVE: Larger screens
 ═══════════════════════════════════════════ */
 @media (min-width: 480px) {

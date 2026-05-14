@@ -5,6 +5,8 @@
   const TABS = ['start', 'training', 'challenges', 'freunde', 'profil'];
   let currentTab = 'start';
   let initialized = false;
+  let filterDiscipline = 'alle';
+  let filterPeriod = 'gesamt';
 
   /* ── Header configs ── */
   function renderHeader(tabId) {
@@ -26,8 +28,9 @@
       training: {
         left: `<div class="ah-page-title">Training</div>
                <div class="ah-page-sub">Verbessere dich. Jeden Schuss.</div>`,
-        right: `<button class="ah-icon-btn" onclick="filterTraining()" title="Filter">
+        right: `<button class="ah-icon-btn" onclick="filterTraining()" title="Filter" style="position:relative;">
                   <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                  <span id="trainingFilterBadge" style="display:none;position:absolute;top:4px;right:4px;background:var(--accent);color:#000;font-size:0.55rem;font-weight:700;border-radius:8px;padding:1px 4px;line-height:1.4;"></span>
                 </button>
                 <button class="ah-add-btn" onclick="openDuelSetup()" title="Neues Training">
                   <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -224,9 +227,11 @@
 
   function refreshTrainingTab() {
     const sessions = getQuickTrainingSessions();
-    refreshTrainingStats(sessions);
-    refreshTrainingList(sessions);
-    refreshTrainingStatistiken(sessions);
+    const filtered = getFilteredSessions(sessions);
+    refreshTrainingStats(filtered);
+    refreshTrainingList(filtered);
+    refreshTrainingStatistiken(filtered);
+    updateFilterBadge(sessions.length, filtered.length);
   }
 
   function refreshTrainingStatistiken(sessions) {
@@ -403,10 +408,11 @@
         code = StorageManager.getRaw('friendCode') || '';
       }
       if (!code) {
-        /* Generate from username if missing */
+        /* Generate from username if missing — persist so it stays stable across renders */
         const u = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('username')) || 'GUEST';
         code = u.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,3).padEnd(3,'X') + '-' +
                Math.floor(Math.random() * 900 + 100);
+        try { localStorage.setItem('sd_friendCode', code); } catch(_e) {}
       }
       codeEl.textContent = code;
     }
@@ -571,10 +577,10 @@
   /* ── Helpers ── */
   function getQuickTrainingSessions() {
     try {
-      if (window.QuickTrainingSystem && typeof window.QuickTrainingSystem.getHistory === 'function') {
-        return window.QuickTrainingSystem.getHistory() || [];
+      if (window.QuickTraining && typeof window.QuickTraining.readHistory === 'function') {
+        return window.QuickTraining.readHistory() || [];
       }
-      const raw = localStorage.getItem('quickTrainingHistory') || localStorage.getItem('qt_history') || '[]';
+      const raw = localStorage.getItem('sd_quick_training_log') || '[]';
       return JSON.parse(raw) || [];
     } catch(e) { return []; }
   }
@@ -589,6 +595,113 @@
     } catch(e) { return '–'; }
   }
 
+  /* ── FriendsSystem shims ── */
+  function patchFriendsSystem() {
+    const FS = window.FriendsSystem;
+    if (!FS || typeof FS.getState !== 'function') return;
+
+    if (!FS.getFriends) FS.getFriends = function() {
+      try { return FS.getState().friends || []; } catch(_e) { return []; }
+    };
+    if (!FS.getIncomingRequests) FS.getIncomingRequests = function() {
+      try { return FS.getState().pendingRequests || []; } catch(_e) { return []; }
+    };
+    if (!FS.getOutgoingRequests) FS.getOutgoingRequests = function() {
+      try { return FS.getState().sentRequests || []; } catch(_e) { return []; }
+    };
+    if (!FS.getFriendCode) FS.getFriendCode = function() {
+      try { return FS.getState().userCode || ''; } catch(_e) { return ''; }
+    };
+    if (!FS.getBlockedUsers) FS.getBlockedUsers = function() { return []; };
+    if (!FS.cancelRequest) FS.cancelRequest = function() {};
+    if (!FS.unblock) FS.unblock = function() {};
+    if (!FS.renderInline) FS.renderInline = function(container) {
+      if (!container) return;
+      const friends = FS.getFriends();
+      if (friends.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><div>Noch keine Freunde hinzugefügt</div></div>';
+      } else {
+        container.innerHTML = friends.map(f => buildFriendRow(f)).join('');
+      }
+    };
+  }
+
+  /* ── Training filter ── */
+  window.filterTraining = function() {
+    const panel = document.getElementById('trainingFilterPanel');
+    if (!panel) return;
+    const isOpen = panel.classList.contains('tff-open');
+    if (isOpen) {
+      panel.classList.remove('tff-open');
+    } else {
+      /* Sync button states before opening */
+      panel.querySelectorAll('.tf-btn[data-type="discipline"]').forEach(b => {
+        b.classList.toggle('active', b.dataset.value === filterDiscipline);
+      });
+      panel.querySelectorAll('.tf-btn[data-type="period"]').forEach(b => {
+        b.classList.toggle('active', b.dataset.value === filterPeriod);
+      });
+      panel.classList.add('tff-open');
+    }
+  };
+
+  window.closeTrainingFilter = function() {
+    const panel = document.getElementById('trainingFilterPanel');
+    if (panel) panel.classList.remove('tff-open');
+  };
+
+  window.setTrainingFilter = function(type, value) {
+    if (type === 'discipline') filterDiscipline = value;
+    if (type === 'period') filterPeriod = value;
+    const panel = document.getElementById('trainingFilterPanel');
+    if (panel) {
+      panel.querySelectorAll('.tf-btn[data-type="discipline"]').forEach(b => {
+        b.classList.toggle('active', b.dataset.value === filterDiscipline);
+      });
+      panel.querySelectorAll('.tf-btn[data-type="period"]').forEach(b => {
+        b.classList.toggle('active', b.dataset.value === filterPeriod);
+      });
+    }
+    refreshTrainingTab();
+    window.closeTrainingFilter();
+  };
+
+  window.resetTrainingFilter = function() {
+    filterDiscipline = 'alle';
+    filterPeriod = 'gesamt';
+    window.setTrainingFilter('discipline', 'alle');
+  };
+
+  function getFilteredSessions(sessions) {
+    return sessions.filter(s => {
+      if (filterDiscipline !== 'alle') {
+        const d = (s.discipline || s.weapon || '').toLowerCase();
+        if (filterDiscipline === 'lg' && !/luftgewehr|lg|air/.test(d)) return false;
+        if (filterDiscipline === 'kk' && !/kleinkaliber|kk/.test(d)) return false;
+      }
+      if (filterPeriod !== 'gesamt') {
+        const ts = new Date(s.date || s.timestamp || 0);
+        const now = new Date();
+        if (filterPeriod === 'heute') {
+          if (ts.toDateString() !== now.toDateString()) return false;
+        } else if (filterPeriod === 'woche') {
+          if ((now - ts) > 7 * 24 * 3600 * 1000) return false;
+        } else if (filterPeriod === 'monat') {
+          if ((now - ts) > 30 * 24 * 3600 * 1000) return false;
+        }
+      }
+      return true;
+    });
+  }
+
+  function updateFilterBadge(total, filtered) {
+    const badge = document.getElementById('trainingFilterBadge');
+    if (!badge) return;
+    const hasFilter = filterDiscipline !== 'alle' || filterPeriod !== 'gesamt';
+    badge.style.display = hasFilter ? '' : 'none';
+    badge.textContent = filtered + '/' + total;
+  }
+
   /* ── Init ── */
   function init() {
     if (initialized) return;
@@ -596,6 +709,8 @@
     renderHeader('start');
     updateFABVisibility('start');
     document.body.classList.add('tab-start');
+
+    try { patchFriendsSystem(); } catch(e) {}
 
     /* Defer first refresh to let other systems load */
     setTimeout(() => {
@@ -611,7 +726,10 @@
   } else {
     setTimeout(init, 0);
   }
-  /* Also re-init after all deferred scripts load */
-  window.addEventListener('load', () => { try { refreshStartTab(); } catch(e) {} });
+  /* Re-init after all deferred scripts load; patch FriendsSystem once available */
+  window.addEventListener('load', () => {
+    try { refreshStartTab(); } catch(e) {}
+    try { patchFriendsSystem(); } catch(e) {}
+  });
 
 })();
