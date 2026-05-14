@@ -15,7 +15,8 @@ const DailyChallenge = (function () {
       desc: 'Gewinne 2 Duelle auf Schwierigkeit "Mittel" oder höher.',
       target: 2,
       xpReward: 30,
-      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite')
+      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite'),
+      checkPhoto: null
     },
     {
       id: 'play_1_kk',
@@ -24,7 +25,8 @@ const DailyChallenge = (function () {
       desc: 'Spiele mindestens ein Duell mit dem Kleinkaliber (KK).',
       target: 1,
       xpReward: 25,
-      check: (game, stats) => game.weapon === 'kk'
+      check: (game, stats) => game.weapon === 'kk',
+      checkPhoto: (r) => r.weapon === 'kk'
     },
     {
       id: 'score_above_9',
@@ -38,7 +40,8 @@ const DailyChallenge = (function () {
         const points = game.shots.map(s => Number(s.points ?? s.pts ?? s.ring ?? 0) || 0);
         const sum = points.reduce((a, b) => a + b, 0);
         return (sum / points.length) >= 9.0;
-      }
+      },
+      checkPhoto: (r) => r.shotCount > 0 && (r.totalScore / r.shotCount) >= 9.0
     },
     {
       id: 'win_1_elite',
@@ -47,7 +50,8 @@ const DailyChallenge = (function () {
       desc: 'Gewinne 1 Duell auf Schwierigkeit "Elite" oder "Profi".',
       target: 1,
       xpReward: 50,
-      check: (game, stats) => game.result === 'win' && (game.difficulty === 'hard' || game.difficulty === 'elite')
+      check: (game, stats) => game.result === 'win' && (game.difficulty === 'hard' || game.difficulty === 'elite'),
+      checkPhoto: null
     },
     {
       id: 'play_2_lg',
@@ -56,7 +60,8 @@ const DailyChallenge = (function () {
       desc: 'Absolviere 2 Duelle mit dem Luftgewehr.',
       target: 2,
       xpReward: 30,
-      check: (game, stats) => game.weapon === 'lg'
+      check: (game, stats) => game.weapon === 'lg',
+      checkPhoto: (r) => r.weapon === 'lg'
     },
     {
       id: 'perfect_shot',
@@ -72,7 +77,8 @@ const DailyChallenge = (function () {
           const ring = Number.isFinite(s.ring) ? Number(s.ring) : Math.floor(points);
           return points >= 10.9 || (game.weapon === 'kk' && ring >= 10);
         });
-      }
+      },
+      checkPhoto: (r) => Array.isArray(r.shots) && r.shots.some(s => s >= 10.9 || (r.weapon === 'kk' && s >= 10))
     },
     {
       id: 'consistency_80',
@@ -81,7 +87,8 @@ const DailyChallenge = (function () {
       desc: 'Erreiche eine Konstanz von mind. 80% in einem Duell.',
       target: 1,
       xpReward: 45,
-      check: (game, stats) => (game.consistency || 0) >= 80
+      check: (game, stats) => (game.consistency || 0) >= 80,
+      checkPhoto: null
     },
     // NEUE QUESTS:
     {
@@ -97,7 +104,8 @@ const DailyChallenge = (function () {
           const points = Number(s.points ?? s.pts ?? s.ring ?? 0) || 0;
           return points >= 10.0;
         });
-      }
+      },
+      checkPhoto: (r) => Array.isArray(r.shots) && r.shots.filter(s => s >= 10.0).length >= 5
     },
     {
       id: 'hit_5_tens_kk',
@@ -106,7 +114,8 @@ const DailyChallenge = (function () {
       desc: 'Triff mindestens 5x eine 10 mit dem Kleinkaliber (KK).',
       target: 5,
       xpReward: 40,
-      check: (game, stats) => game.weapon === 'kk' && Array.isArray(game.shots) && game.shots.some(s => (Number(s.points ?? s.pts ?? s.ring ?? 0) || 0) >= 10.0)
+      check: (game, stats) => game.weapon === 'kk' && Array.isArray(game.shots) && game.shots.some(s => (Number(s.points ?? s.pts ?? s.ring ?? 0) || 0) >= 10.0),
+      checkPhoto: (r) => r.weapon === 'kk' && Array.isArray(r.shots) && r.shots.filter(s => s >= 10.0).length >= 5
     },
     {
       id: 'score_perfect_10',
@@ -115,7 +124,8 @@ const DailyChallenge = (function () {
       desc: 'Erreiche ein Duell-Ergebnis von mind. 100.0 Ringen.',
       target: 1,
       xpReward: 50,
-      check: (game, stats) => (game.totalScore || 0) >= 100.0
+      check: (game, stats) => (game.totalScore || 0) >= 100.0,
+      checkPhoto: (r) => (r.totalScore || 0) >= 100.0
     },
     {
       id: 'no_loss_streak_3',
@@ -124,7 +134,8 @@ const DailyChallenge = (function () {
       desc: 'Verliere 3 Duelle nicht hintereinander (Sieg oder Unentschieden).',
       target: 3,
       xpReward: 40,
-      check: (game, stats) => game.result !== 'lose'
+      check: (game, stats) => game.result !== 'lose',
+      checkPhoto: null
     },
     {
       id: 'high_consistency_90',
@@ -133,7 +144,8 @@ const DailyChallenge = (function () {
       desc: 'Erreiche eine Konstanz von mind. 90% in einem Duell.',
       target: 1,
       xpReward: 55,
-      check: (game, stats) => (game.consistency || 0) >= 90
+      check: (game, stats) => (game.consistency || 0) >= 90,
+      checkPhoto: null
     },
     {
       id: 'win_3_hard',
@@ -142,7 +154,39 @@ const DailyChallenge = (function () {
       desc: 'Gewinne 3 Duelle auf "Mittel" oder höher.',
       target: 3,
       xpReward: 50,
-      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite')
+      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite'),
+      checkPhoto: null
+    },
+    // FOTO-NATIVE CHALLENGES:
+    {
+      id: 'photo_lg_any',
+      type: 'photo',
+      difficulty: 'easy',
+      desc: 'Reiche ein Foto deiner LG-Scheibe ein.',
+      target: 1,
+      xpReward: 20,
+      check: () => false,
+      checkPhoto: (r) => r.weapon === 'lg'
+    },
+    {
+      id: 'photo_lg_350',
+      type: 'photo',
+      difficulty: 'medium',
+      desc: 'Erreiche 350+ Ringe in einem LG-Duell (Scheibenfoto).',
+      target: 1,
+      xpReward: 35,
+      check: () => false,
+      checkPhoto: (r) => r.weapon === 'lg' && (r.totalScore || 0) >= 350
+    },
+    {
+      id: 'photo_lg_380',
+      type: 'photo',
+      difficulty: 'hard',
+      desc: 'Erreiche 380+ Ringe in einem LG-Duell (Scheibenfoto).',
+      target: 1,
+      xpReward: 50,
+      check: () => false,
+      checkPhoto: (r) => r.weapon === 'lg' && (r.totalScore || 0) >= 380
     }
   ];
 
@@ -571,6 +615,241 @@ const DailyChallenge = (function () {
     }
   }
 
+  // Tesseract CDN (Fallback falls nicht von image-compare.js bereits geladen)
+  var _dcTesseractPromise = null;
+  function ensureTesseract() {
+    if (typeof Tesseract !== 'undefined') return Promise.resolve();
+    if (_dcTesseractPromise) return _dcTesseractPromise;
+    // Warte auf bereits laufendes Laden (z.B. durch image-compare.js)
+    var existing = document.querySelector('script[data-ic-tesseract]');
+    if (existing) {
+      _dcTesseractPromise = new Promise(function (resolve, reject) {
+        var t = setInterval(function () {
+          if (typeof Tesseract !== 'undefined') { clearInterval(t); resolve(); }
+        }, 150);
+        setTimeout(function () { clearInterval(t); reject(new Error('Tesseract timeout')); }, 20000);
+      });
+      return _dcTesseractPromise;
+    }
+    _dcTesseractPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('Tesseract konnte nicht geladen werden')); };
+      document.head.appendChild(s);
+    });
+    return _dcTesseractPromise;
+  }
+
+  function parseTargetOCR(text) {
+    var norm = text.replace(/,/g, '.').replace(/\s+/g, ' ');
+    var up = norm.toUpperCase();
+
+    // ─── 1. Waffe aus Text ───
+    var weapon = 'unknown';
+    if (/\bKK\b|KLEINKALIBER/.test(up)) weapon = 'kk';
+    else if (/\bLG\b|LUFTGEWEHR/.test(up)) weapon = 'lg';
+
+    // ─── 2. KK-Disziplin erkennen (50m / 100m / 3×20) ───
+    var discipline = 'unknown';
+    if (weapon === 'kk' || weapon === 'unknown') {
+      if (/3\s*[xX×]\s*20|DREISTELLUNG|3X20/.test(up))  discipline = 'kk3x20';
+      else if (/\b100\s*M\b/.test(up))                    discipline = 'kk100';
+      else if (/\b50\s*M\b/.test(up))                     discipline = 'kk50';
+    }
+
+    // ─── 3. Schussanzahl aus Text ───
+    var shotCount = 0;
+    var scM = norm.match(/\b(10|20|40|60)\s*Schuss/i);
+    if (scM) shotCount = parseInt(scM[1], 10);
+
+    // ─── 4. Gesamtergebnis via deutschem Label (höchste Priorität) ───
+    var totalScore = 0;
+    var labelM = norm.match(/(?:Gesamt|Ges\.|Ergebnis|Total|Summe|Endresultat|Result)[.\s:]+(\d{2,3}(?:\.\d)?)/i);
+    if (labelM) totalScore = parseFloat(labelM[1]);
+
+    // ─── 5. KK 3×20: Positions-Serien (Liegend / Kniend / Stehend) ───
+    var positions = {};
+    if (discipline === 'kk3x20' || /LIEGEND|KNIEND|STEHEND/.test(up)) {
+      var lieM = norm.match(/Liegend[.\s:]+(\d{1,3})/i);
+      var kniM = norm.match(/Kni[eë]?nd[.\s:]+(\d{1,3})/i);
+      var steM = norm.match(/Stehend[.\s:]+(\d{1,3})/i);
+      if (lieM) positions.prone    = parseInt(lieM[1], 10);
+      if (kniM) positions.kneeling = parseInt(kniM[1], 10);
+      if (steM) positions.standing = parseInt(steM[1], 10);
+      discipline = 'kk3x20';
+      if (weapon === 'unknown') weapon = 'kk';
+
+      // Total aus Positionen berechnen wenn kein Label vorhanden
+      var posKeys = Object.keys(positions);
+      if (totalScore === 0 && posKeys.length > 0) {
+        totalScore = posKeys.reduce(function (s, k) { return s + positions[k]; }, 0);
+      }
+      shotCount = shotCount || 60;
+    }
+
+    // ─── 6. LG-Disziplin erkennen ───
+    if (weapon === 'lg' && discipline === 'unknown') {
+      // Wird unten aus Gesamtergebnis abgeleitet
+    }
+
+    // ─── 7. Alle Zahlen sammeln ───
+    var allNums = [];
+    var numRe = /\b(\d{1,3}(?:\.\d)?)\b/g, nm;
+    while ((nm = numRe.exec(norm)) !== null) {
+      var n = parseFloat(nm[1]);
+      if (!isNaN(n)) allNums.push(n);
+    }
+
+    // ─── 8. Einzelschüsse ───
+    // LG: Dezimalwerte "X.Y" zwischen 0.0 und 10.9
+    var lgShotRe = /\b(10\.[0-9]|[0-9]\.[0-9])\b/g, sm;
+    var lgShots = [];
+    while ((sm = lgShotRe.exec(norm)) !== null) lgShots.push(parseFloat(sm[1]));
+
+    // KK: Ganzzahlen 1–10 (Einzelschüsse)
+    // Serien-Teilergebnisse (z.B. Liegend 195) herausfiltern
+    var posVals = Object.keys(positions).map(function (k) { return positions[k]; });
+    var kkShots = allNums.filter(function (n) {
+      return n >= 1 && n <= 10 && n % 1 === 0 && posVals.indexOf(n) === -1;
+    });
+
+    // ─── 9. Gesamtergebnis aus Bereich wenn Label fehlt ───
+    if (totalScore === 0) {
+      var lg60c = allNums.filter(function (n) { return n >= 450 && n <= 654; });
+      var lg40c = allNums.filter(function (n) { return n >= 300 && n < 450; });
+      var kk60c = allNums.filter(function (n) { return n >= 400 && n <= 600 && n % 1 === 0; });
+      var lg10c = allNums.filter(function (n) { return n >= 60 && n < 110 && n % 1 !== 0; });
+      var kk10c = allNums.filter(function (n) { return n >= 40 && n <= 100 && n % 1 === 0; });
+
+      var candidates;
+      if (weapon === 'kk')      candidates = kk60c.concat(kk10c);
+      else if (weapon === 'lg') candidates = lg60c.concat(lg40c).concat(lg10c);
+      else                      candidates = lg60c.concat(lg40c).concat(kk60c).concat(lg10c).concat(kk10c);
+
+      if (candidates.length > 0) {
+        totalScore = Math.max.apply(null, candidates);
+        if (weapon === 'unknown') {
+          if (lg60c.indexOf(totalScore) !== -1)     { weapon = 'lg'; discipline = 'lg60'; shotCount = shotCount || 60; }
+          else if (lg40c.indexOf(totalScore) !== -1) { weapon = 'lg'; discipline = 'lg40'; shotCount = shotCount || 40; }
+          else if (kk60c.indexOf(totalScore) !== -1) { weapon = 'kk'; shotCount = shotCount || 60; }
+          else if (lg10c.indexOf(totalScore) !== -1) { weapon = 'lg'; shotCount = shotCount || 10; }
+          else if (kk10c.indexOf(totalScore) !== -1) { weapon = 'kk'; shotCount = shotCount || 10; }
+        }
+      }
+    } else if (shotCount === 0) {
+      if (weapon === 'lg') {
+        shotCount = totalScore >= 450 ? 60 : totalScore >= 300 ? 40 : 10;
+        discipline = shotCount === 60 ? 'lg60' : shotCount === 40 ? 'lg40' : 'lg10';
+      } else if (weapon === 'kk') {
+        shotCount = totalScore >= 400 ? 60 : 10;
+      }
+    }
+
+    // ─── 10. Shots nach Waffe wählen ───
+    var shots = weapon === 'kk' ? kkShots : lgShots;
+    if (shotCount === 0 && shots.length > 0) shotCount = shots.length;
+
+    // ─── 11. Konfidenz: Kreuzvalidierung Summe ↔ Gesamtergebnis ───
+    var confidence = totalScore > 0 ? 0.65 : 0.2;
+    if (shots.length >= 5) {
+      var calcSum = parseFloat(shots.reduce(function (a, b) { return a + b; }, 0).toFixed(1));
+      if (Math.abs(calcSum - totalScore) < 1.5) confidence = 0.92;
+    } else if (discipline === 'kk3x20' && Object.keys(positions).length === 3) {
+      confidence = 0.90; // 3 Positionen vollständig erkannt
+    }
+
+    return {
+      totalScore: totalScore,
+      weapon: weapon,
+      discipline: discipline,  // 'kk50'|'kk100'|'kk3x20'|'lg40'|'lg60'|'lg10'|'unknown'
+      shotCount: shotCount,
+      shots: shots,
+      positions: positions,    // { prone, kneeling, standing } nur bei kk3x20
+      confidence: confidence
+    };
+  }
+
+  async function submitPhoto(file) {
+    await ensureTesseract();
+
+    var worker = await Tesseract.createWorker('deu+eng');
+    try {
+      // PSM 6 = gleichmäßiger Textblock (gut für Ausdruck), PSM 11 = Sparse (gut für Scheibenfoto)
+      await worker.setParameters({ tessedit_pageseg_mode: '6' });
+      var rec = await worker.recognize(file);
+      var result = parseTargetOCR((rec.data && rec.data.text) || '');
+
+      // Challenges gegen OCR-Ergebnis prüfen
+      checkDailyReset();
+      var anyNewlyCompleted = false;
+
+      state.challenges.forEach(function (c) {
+        if (c.completed) return;
+        var ref = getChallengeRef(c.id);
+        if (!ref || typeof ref.checkPhoto !== 'function') return;
+        if (!ref.checkPhoto(result)) return;
+
+        c.progress = ref.target;
+        c.completed = true;
+        anyNewlyCompleted = true;
+
+        if (c.reward && c.reward.type === 'chest') {
+          awardRareChest(c.reward.amount);
+        } else {
+          awardChallengeXP(c.reward ? c.reward.amount : (ref.xpReward || 25));
+        }
+      });
+
+      saveState();
+      renderUI();
+      if (anyNewlyCompleted) checkAllCompleted();
+
+      return result;
+    } finally {
+      await worker.terminate();
+    }
+  }
+
+  function openPhotoModal() {
+    var existing = document.querySelector('.dc-photo-modal');
+    if (existing) existing.remove();
+
+    var modal = document.createElement('div');
+    modal.className = 'dc-photo-modal';
+    modal.innerHTML = [
+      '<div class="dc-photo-content">',
+        '<button class="dcb-close dc-photo-close" onclick="this.closest(\'.dc-photo-modal\').remove()">✕</button>',
+        '<div class="dc-photo-title">📷 Scheibenfoto einreichen</div>',
+        '<div class="dc-photo-sub">Mach ein Foto deiner Scheibe — die Texterkennung liest dein Ergebnis und wertet alle passenden Challenges aus.</div>',
+        '<input type="file" accept="image/*" capture="environment" id="dcPhotoInput" style="display:none;">',
+        '<label for="dcPhotoInput" class="duo-photo-btn">📷 Kamera öffnen / Foto wählen</label>',
+        '<div id="dcPhotoStatus" style="margin-top:12px;color:#8aa3b0;font-size:0.85rem;min-height:20px;"></div>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(modal);
+
+    modal.querySelector('#dcPhotoInput').addEventListener('change', async function (e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var status = modal.querySelector('#dcPhotoStatus');
+      status.textContent = '⏳ Scheibe wird analysiert…';
+      try {
+        var result = await submitPhoto(file);
+        var weaponLabel = result.weapon === 'lg' ? 'LG' : result.weapon === 'kk' ? 'KK' : '?';
+        var scoreText = result.totalScore > 0 ? result.totalScore + ' Ringe' : 'Ergebnis nicht erkannt';
+        status.innerHTML = '✅ ' + scoreText + ' (' + weaponLabel + ')';
+        setTimeout(function () { modal.remove(); }, 2800);
+      } catch (err) {
+        status.innerHTML = '❌ Fehler: ' + err.message;
+      }
+    });
+
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
   function awardChallengeXP(amount) {
     if (typeof awardFlatXP === 'function') {
       awardFlatXP(amount);
@@ -705,7 +984,7 @@ const DailyChallenge = (function () {
     saveState();
     renderUI();
 
-    const extraXP = 200;
+    const extraXP = 250;
     
     const overlay = document.createElement('div');
     overlay.className = 'toolbox-overlay rare-drop'; // Reuse styles
@@ -858,6 +1137,10 @@ const DailyChallenge = (function () {
         html += `<button class="duo-open-btn disabled" disabled>MISSIONEN ERFÜLLT</button>`;
     }
 
+    if (!claimed) {
+      html += `<button class="duo-photo-btn" onclick="DailyChallenge.openPhotoModal()">📷 Scheibenfoto einreichen</button>`;
+    }
+
     container.innerHTML = html;
   }
 
@@ -865,6 +1148,7 @@ const DailyChallenge = (function () {
     init,
     trackGame,
     openFinalChest,
+    openPhotoModal,
     getState: () => state,
     getChallengeRef
   };
