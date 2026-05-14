@@ -8096,3 +8096,67 @@ body.keyboard-visible .bottom-sheet {
     border-color: rgba(100, 150, 200, .25);
   }
 }
+
+/* ═══ DAILY CHALLENGE FOTO-MODAL ═══ */
+.dc-photo-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10002;
+}
+
+.dc-photo-content {
+  background: #1a2332;
+  border: 1px solid rgba(28, 176, 246, 0.25);
+  border-radius: 16px;
+  padding: 28px 24px 24px;
+  max-width: 340px;
+  width: 90%;
+  text-align: center;
+  position: relative;
+}
+
+.dc-photo-title {
+  color: #1cb0f6;
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.dc-photo-sub {
+  color: #8aa3b0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.dc-photo-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #8aa3b0;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.duo-photo-btn {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #1cb0f6, #0d8ecf);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  margin-top: 10px;
+  text-align: center;
+  box-sizing: border-box;
+}

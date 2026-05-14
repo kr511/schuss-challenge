@@ -15,7 +15,8 @@ const DailyChallenge = (function () {
       desc: 'Gewinne 2 Duelle auf Schwierigkeit "Mittel" oder höher.',
       target: 2,
       xpReward: 30,
-      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite')
+      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite'),
+      checkPhoto: null
     },
     {
       id: 'play_1_kk',
@@ -24,7 +25,8 @@ const DailyChallenge = (function () {
       desc: 'Spiele mindestens ein Duell mit dem Kleinkaliber (KK).',
       target: 1,
       xpReward: 25,
-      check: (game, stats) => game.weapon === 'kk'
+      check: (game, stats) => game.weapon === 'kk',
+      checkPhoto: (r) => r.weapon === 'kk'
     },
     {
       id: 'score_above_9',
@@ -38,7 +40,8 @@ const DailyChallenge = (function () {
         const points = game.shots.map(s => Number(s.points ?? s.pts ?? s.ring ?? 0) || 0);
         const sum = points.reduce((a, b) => a + b, 0);
         return (sum / points.length) >= 9.0;
-      }
+      },
+      checkPhoto: (r) => r.shotCount > 0 && (r.totalScore / r.shotCount) >= 9.0
     },
     {
       id: 'win_1_elite',
@@ -47,7 +50,8 @@ const DailyChallenge = (function () {
       desc: 'Gewinne 1 Duell auf Schwierigkeit "Elite" oder "Profi".',
       target: 1,
       xpReward: 50,
-      check: (game, stats) => game.result === 'win' && (game.difficulty === 'hard' || game.difficulty === 'elite')
+      check: (game, stats) => game.result === 'win' && (game.difficulty === 'hard' || game.difficulty === 'elite'),
+      checkPhoto: null
     },
     {
       id: 'play_2_lg',
@@ -56,7 +60,8 @@ const DailyChallenge = (function () {
       desc: 'Absolviere 2 Duelle mit dem Luftgewehr.',
       target: 2,
       xpReward: 30,
-      check: (game, stats) => game.weapon === 'lg'
+      check: (game, stats) => game.weapon === 'lg',
+      checkPhoto: (r) => r.weapon === 'lg'
     },
     {
       id: 'perfect_shot',
@@ -72,7 +77,8 @@ const DailyChallenge = (function () {
           const ring = Number.isFinite(s.ring) ? Number(s.ring) : Math.floor(points);
           return points >= 10.9 || (game.weapon === 'kk' && ring >= 10);
         });
-      }
+      },
+      checkPhoto: (r) => Array.isArray(r.shots) && r.shots.some(s => s >= 10.9 || (r.weapon === 'kk' && s >= 10))
     },
     {
       id: 'consistency_80',
@@ -81,7 +87,8 @@ const DailyChallenge = (function () {
       desc: 'Erreiche eine Konstanz von mind. 80% in einem Duell.',
       target: 1,
       xpReward: 45,
-      check: (game, stats) => (game.consistency || 0) >= 80
+      check: (game, stats) => (game.consistency || 0) >= 80,
+      checkPhoto: null
     },
     // NEUE QUESTS:
     {
@@ -97,7 +104,8 @@ const DailyChallenge = (function () {
           const points = Number(s.points ?? s.pts ?? s.ring ?? 0) || 0;
           return points >= 10.0;
         });
-      }
+      },
+      checkPhoto: (r) => Array.isArray(r.shots) && r.shots.filter(s => s >= 10.0).length >= 5
     },
     {
       id: 'hit_5_tens_kk',
@@ -106,7 +114,8 @@ const DailyChallenge = (function () {
       desc: 'Triff mindestens 5x eine 10 mit dem Kleinkaliber (KK).',
       target: 5,
       xpReward: 40,
-      check: (game, stats) => game.weapon === 'kk' && Array.isArray(game.shots) && game.shots.some(s => (Number(s.points ?? s.pts ?? s.ring ?? 0) || 0) >= 10.0)
+      check: (game, stats) => game.weapon === 'kk' && Array.isArray(game.shots) && game.shots.some(s => (Number(s.points ?? s.pts ?? s.ring ?? 0) || 0) >= 10.0),
+      checkPhoto: (r) => r.weapon === 'kk' && Array.isArray(r.shots) && r.shots.filter(s => s >= 10.0).length >= 5
     },
     {
       id: 'score_perfect_10',
@@ -115,7 +124,8 @@ const DailyChallenge = (function () {
       desc: 'Erreiche ein Duell-Ergebnis von mind. 100.0 Ringen.',
       target: 1,
       xpReward: 50,
-      check: (game, stats) => (game.totalScore || 0) >= 100.0
+      check: (game, stats) => (game.totalScore || 0) >= 100.0,
+      checkPhoto: (r) => (r.totalScore || 0) >= 100.0
     },
     {
       id: 'no_loss_streak_3',
@@ -124,7 +134,8 @@ const DailyChallenge = (function () {
       desc: 'Verliere 3 Duelle nicht hintereinander (Sieg oder Unentschieden).',
       target: 3,
       xpReward: 40,
-      check: (game, stats) => game.result !== 'lose'
+      check: (game, stats) => game.result !== 'lose',
+      checkPhoto: null
     },
     {
       id: 'high_consistency_90',
@@ -133,7 +144,8 @@ const DailyChallenge = (function () {
       desc: 'Erreiche eine Konstanz von mind. 90% in einem Duell.',
       target: 1,
       xpReward: 55,
-      check: (game, stats) => (game.consistency || 0) >= 90
+      check: (game, stats) => (game.consistency || 0) >= 90,
+      checkPhoto: null
     },
     {
       id: 'win_3_hard',
@@ -142,7 +154,39 @@ const DailyChallenge = (function () {
       desc: 'Gewinne 3 Duelle auf "Mittel" oder höher.',
       target: 3,
       xpReward: 50,
-      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite')
+      check: (game, stats) => game.result === 'win' && (game.difficulty === 'real' || game.difficulty === 'hard' || game.difficulty === 'elite'),
+      checkPhoto: null
+    },
+    // FOTO-NATIVE CHALLENGES:
+    {
+      id: 'photo_lg_any',
+      type: 'photo',
+      difficulty: 'easy',
+      desc: 'Reiche ein Foto deiner LG-Scheibe ein.',
+      target: 1,
+      xpReward: 20,
+      check: () => false,
+      checkPhoto: (r) => r.weapon === 'lg'
+    },
+    {
+      id: 'photo_lg_350',
+      type: 'photo',
+      difficulty: 'medium',
+      desc: 'Erreiche 350+ Ringe in einem LG-Duell (Scheibenfoto).',
+      target: 1,
+      xpReward: 35,
+      check: () => false,
+      checkPhoto: (r) => r.weapon === 'lg' && (r.totalScore || 0) >= 350
+    },
+    {
+      id: 'photo_lg_380',
+      type: 'photo',
+      difficulty: 'hard',
+      desc: 'Erreiche 380+ Ringe in einem LG-Duell (Scheibenfoto).',
+      target: 1,
+      xpReward: 50,
+      check: () => false,
+      checkPhoto: (r) => r.weapon === 'lg' && (r.totalScore || 0) >= 380
     }
   ];
 
@@ -571,6 +615,106 @@ const DailyChallenge = (function () {
     }
   }
 
+  const SUPABASE_FN_URL = (function () {
+    const cfg = window.SCHUETZEN_CHALLENGE_CONFIG;
+    const base = (cfg && cfg.url) || 'https://fknftkvozwfkcarldzms.supabase.co';
+    return base + '/functions/v1/analyze-target';
+  })();
+
+  function fileToBase64(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () { resolve(reader.result.split(',')[1]); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function submitPhoto(imageBase64, mediaType) {
+    var cfg = window.SCHUETZEN_CHALLENGE_CONFIG;
+    var anon = cfg && cfg.anon;
+    var url = ((cfg && cfg.url) || 'https://fknftkvozwfkcarldzms.supabase.co') + '/functions/v1/analyze-target';
+
+    var resp = await fetch(url, {
+      method: 'POST',
+      headers: Object.assign(
+        { 'Content-Type': 'application/json' },
+        anon ? { 'Authorization': 'Bearer ' + anon } : {}
+      ),
+      body: JSON.stringify({ image: imageBase64, mediaType: mediaType || 'image/jpeg' })
+    });
+
+    if (!resp.ok) throw new Error('Analyse fehlgeschlagen (' + resp.status + ')');
+    var result = await resp.json();
+    if (result.error) throw new Error(result.error);
+
+    // Challenges gegen Foto-Ergebnis prüfen
+    checkDailyReset();
+    var anyNewlyCompleted = false;
+
+    state.challenges.forEach(function (c) {
+      if (c.completed) return;
+      var ref = getChallengeRef(c.id);
+      if (!ref || typeof ref.checkPhoto !== 'function') return;
+      if (!ref.checkPhoto(result)) return;
+
+      c.progress = ref.target;
+      c.completed = true;
+      anyNewlyCompleted = true;
+
+      if (c.reward && c.reward.type === 'chest') {
+        awardRareChest(c.reward.amount);
+      } else {
+        awardChallengeXP(c.reward ? c.reward.amount : (ref.xpReward || 25));
+      }
+    });
+
+    saveState();
+    renderUI();
+    if (anyNewlyCompleted) checkAllCompleted();
+
+    return result;
+  }
+
+  function openPhotoModal() {
+    var existing = document.querySelector('.dc-photo-modal');
+    if (existing) existing.remove();
+
+    var modal = document.createElement('div');
+    modal.className = 'dc-photo-modal';
+    modal.innerHTML = [
+      '<div class="dc-photo-content">',
+        '<button class="dcb-close dc-photo-close" onclick="this.closest(\'.dc-photo-modal\').remove()">✕</button>',
+        '<div class="dc-photo-title">📷 Scheibenfoto einreichen</div>',
+        '<div class="dc-photo-sub">Mach ein Foto deiner Scheibe — die KI erkennt dein Ergebnis automatisch und wertet alle passenden Challenges aus.</div>',
+        '<input type="file" accept="image/*" capture="environment" id="dcPhotoInput" style="display:none;">',
+        '<label for="dcPhotoInput" class="duo-photo-btn">📷 Kamera öffnen / Foto wählen</label>',
+        '<div id="dcPhotoStatus" style="margin-top:12px;color:#8aa3b0;font-size:0.85rem;min-height:20px;"></div>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(modal);
+
+    modal.querySelector('#dcPhotoInput').addEventListener('change', async function (e) {
+      var file = e.target.files && e.target.files[0];
+      if (!file) return;
+      var status = modal.querySelector('#dcPhotoStatus');
+      status.textContent = '⏳ Scheibe wird analysiert…';
+      try {
+        var b64 = await fileToBase64(file);
+        var result = await submitPhoto(b64, file.type);
+        var weaponLabel = result.weapon === 'lg' ? 'LG' : result.weapon === 'kk' ? 'KK' : '?';
+        status.innerHTML = '✅ Erkannt: <strong>' + (result.totalScore || '?') + ' Ringe</strong> (' + weaponLabel + ', ' + (result.shotCount || '?') + ' Schuss)';
+        setTimeout(function () { modal.remove(); }, 2800);
+      } catch (err) {
+        status.innerHTML = '❌ Fehler: ' + err.message;
+      }
+    });
+
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) modal.remove();
+    });
+  }
+
   function awardChallengeXP(amount) {
     if (typeof awardFlatXP === 'function') {
       awardFlatXP(amount);
@@ -705,7 +849,7 @@ const DailyChallenge = (function () {
     saveState();
     renderUI();
 
-    const extraXP = 200;
+    const extraXP = 250;
     
     const overlay = document.createElement('div');
     overlay.className = 'toolbox-overlay rare-drop'; // Reuse styles
@@ -858,6 +1002,10 @@ const DailyChallenge = (function () {
         html += `<button class="duo-open-btn disabled" disabled>MISSIONEN ERFÜLLT</button>`;
     }
 
+    if (!claimed) {
+      html += `<button class="duo-photo-btn" onclick="DailyChallenge.openPhotoModal()">📷 Scheibenfoto einreichen</button>`;
+    }
+
     container.innerHTML = html;
   }
 
@@ -865,6 +1013,7 @@ const DailyChallenge = (function () {
     init,
     trackGame,
     openFinalChest,
+    openPhotoModal,
     getState: () => state,
     getChallengeRef
   };
