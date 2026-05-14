@@ -2443,6 +2443,45 @@
     </button>
   </nav>
 
+  <!-- Training Filter Panel -->
+  <div id="trainingFilterPanel" class="tff-overlay" onclick="if(event.target===this)closeTrainingFilter()">
+    <div class="tff-sheet">
+      <div class="tff-header">
+        <span class="tff-title">Training filtern</span>
+        <button class="tff-close" onclick="closeTrainingFilter()" aria-label="Schließen">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="tff-group">
+        <div class="tff-group-label">Disziplin</div>
+        <div class="tff-btn-row">
+          <button class="tf-btn active" data-type="discipline" data-value="alle" onclick="setTrainingFilter('discipline','alle')">Alle</button>
+          <button class="tf-btn" data-type="discipline" data-value="lg" onclick="setTrainingFilter('discipline','lg')">
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="9"/></svg>
+            Luftgewehr
+          </button>
+          <button class="tf-btn" data-type="discipline" data-value="kk" onclick="setTrainingFilter('discipline','kk')">
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="9"/></svg>
+            Kleinkaliber
+          </button>
+        </div>
+      </div>
+
+      <div class="tff-group">
+        <div class="tff-group-label">Zeitraum</div>
+        <div class="tff-btn-row">
+          <button class="tf-btn active" data-type="period" data-value="gesamt" onclick="setTrainingFilter('period','gesamt')">Gesamt</button>
+          <button class="tf-btn" data-type="period" data-value="monat" onclick="setTrainingFilter('period','monat')">30 Tage</button>
+          <button class="tf-btn" data-type="period" data-value="woche" onclick="setTrainingFilter('period','woche')">7 Tage</button>
+          <button class="tf-btn" data-type="period" data-value="heute" onclick="setTrainingFilter('period','heute')">Heute</button>
+        </div>
+      </div>
+
+      <button class="tff-reset" onclick="resetTrainingFilter()">Filter zurücksetzen</button>
+    </div>
+  </div>
+
 </body>
 
 </html>
