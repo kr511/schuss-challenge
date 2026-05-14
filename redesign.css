@@ -1030,6 +1030,9 @@ body.game-screen-active .bottom-nav { display: none !important; }
 /* ═══════════════════════════════════════════
    PROFILE TAB
 ═══════════════════════════════════════════ */
+/* Old Schützenpass bottom-sheet — replaced by the Profil tab */
+#profileOverlay { display: none !important; }
+
 .profile-hero-card {
   background: var(--bg-card);
   border: 1px solid rgba(255,255,255,0.08);
@@ -1039,7 +1042,11 @@ body.game-screen-active .bottom-nav { display: none !important; }
   gap: 16px;
   align-items: flex-start;
 }
-.ph-avatar-wrap { position: relative; flex-shrink: 0; }
+.ph-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 72px; height: 72px;
+}
 .ph-avatar {
   width: 72px; height: 72px;
   border-radius: 50%;
@@ -1051,15 +1058,19 @@ body.game-screen-active .bottom-nav { display: none !important; }
 }
 .ph-edit-btn {
   position: absolute;
-  bottom: 0; right: 0;
-  width: 24px; height: 24px;
+  bottom: -2px; right: -2px;
+  width: 22px; height: 22px;
   border-radius: 50%;
   background: var(--accent);
-  border: 2px solid #0a0a0a;
+  border: 2px solid var(--bg-primary);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
-  font-size: 0.65rem;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s;
+  z-index: 1;
 }
+.ph-edit-btn:active { transform: scale(0.88); }
 .ph-info { flex: 1; min-width: 0; }
 .ph-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
 .ph-name { font-size: 1.15rem; font-weight: 800; color: #fff; }
@@ -1497,15 +1508,6 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   color: #000;
 }
 
-/* Edit button improvement */
-.ph-edit-btn {
-  width: 26px; height: 26px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s, box-shadow 0.15s;
-  padding: 0;
-}
-.ph-edit-btn:active { transform: scale(0.88); }
 
 /* ═══════════════════════════════════════════
    AVATAR PICKER OVERLAY
