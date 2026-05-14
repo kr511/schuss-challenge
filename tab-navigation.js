@@ -127,10 +127,13 @@
   window.switchInnerTab = function(groupId, tabId) {
     const group = document.getElementById(groupId);
     if (!group) return;
+    // Tab buttons live inside `group`; panels are siblings of `group` inside
+    // the same parent container (.page-content), so query the parent scope.
+    const scope = group.parentElement || group;
     group.querySelectorAll('.it-tab').forEach(t => t.classList.remove('active'));
-    group.querySelectorAll('.it-panel').forEach(p => p.style.display = 'none');
+    scope.querySelectorAll('.it-panel').forEach(p => p.style.display = 'none');
     const activeBtn = group.querySelector('.it-tab[data-itab="' + tabId + '"]');
-    const activePanel = group.querySelector('.it-panel[data-itab="' + tabId + '"]');
+    const activePanel = scope.querySelector('.it-panel[data-itab="' + tabId + '"]');
     if (activeBtn) activeBtn.classList.add('active');
     if (activePanel) activePanel.style.display = '';
   };
