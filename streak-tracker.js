@@ -576,10 +576,95 @@ const StreakTracker = (function () {
   function startUIUpdates() {
     if (uiUpdateInterval) return;
 
+    // Wochenkalender einmal sofort rendern
+    renderWeekCalendar();
+
     uiUpdateInterval = setInterval(() => {
       updateStreakBanner();
       updateCountdown();
     }, 1000);
+  }
+
+  /**
+   * Rendert eine kompakte Wochen-Übersicht (Mo–So).
+   * Mi/Do/Fr werden als Streak-Tage hervorgehoben.
+   * Tage mit Duell-History bekommen ein Häkchen.
+   */
+  function renderWeekCalendar() {
+    const mount = document.getElementById('streakWeekCalendar');
+    if (!mount) return;
+
+    const now = getNow();
+    // JavaScript: Sunday=0, Monday=1...Saturday=6 → wir wollen Montag als Wochenstart
+    const dayOfWeek = now.getDay();
+    const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const weekStart = new Date(now);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() + offsetToMonday);
+
+    // Gespielte Tage aus History ermitteln (lokal, robust)
+    let playedDates = new Set();
+    try {
+      const hist = (window.StorageManager && typeof window.StorageManager.get === 'function')
+        ? window.StorageManager.get('history', [])
+        : JSON.parse(localStorage.getItem('sd_history') || '[]');
+      if (Array.isArray(hist)) {
+        hist.forEach(entry => {
+          const ts = Number(entry && entry.timestamp);
+          if (Number.isFinite(ts) && ts > 0) {
+            playedDates.add(getDateId(new Date(ts)));
+          }
+        });
+      }
+    } catch (_) { /* ignore */ }
+
+    const labels = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    const todayId = getDateId(now);
+    const cells = [];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      const dId = getDateId(d);
+      const isStreakDay = i >= 2 && i <= 4; // Mi, Do, Fr
+      const isToday = dId === todayId;
+      const isFuture = d.getTime() > now.getTime() && !isToday;
+      const isPlayed = playedDates.has(dId);
+
+      let bg = 'rgba(255,255,255,0.04)';
+      let border = '1px solid rgba(255,255,255,0.06)';
+      let label = 'rgba(255,255,255,0.5)';
+      let dot = '';
+
+      if (isStreakDay) {
+        bg = 'rgba(255,149,0,0.08)';
+        border = '1px solid rgba(255,149,0,0.25)';
+        label = 'rgba(255,149,0,0.9)';
+      }
+      if (isToday) {
+        border = '1px solid rgba(0,195,255,0.6)';
+        bg = isStreakDay ? 'rgba(255,149,0,0.18)' : 'rgba(0,195,255,0.1)';
+      }
+      if (isFuture) {
+        label = 'rgba(255,255,255,0.25)';
+      }
+      if (isPlayed) {
+        dot = '<div style="font-size:0.7rem;line-height:1;color:#7ab030;">✓</div>';
+      } else if (isStreakDay && !isFuture) {
+        dot = '<div style="font-size:0.65rem;line-height:1;color:rgba(255,149,0,0.5);">·</div>';
+      } else {
+        dot = '<div style="font-size:0.65rem;line-height:1;color:rgba(255,255,255,0.15);">·</div>';
+      }
+
+      cells.push(
+        '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;background:' + bg + ';border:' + border + ';border-radius:8px;">' +
+          '<div style="font-size:0.55rem;font-weight:700;letter-spacing:.06em;color:' + label + ';">' + labels[i] + '</div>' +
+          dot +
+        '</div>'
+      );
+    }
+
+    mount.innerHTML = '<div style="display:flex;gap:4px;">' + cells.join('') + '</div>';
   }
 
   function stopUIUpdates() {
@@ -735,6 +820,7 @@ const StreakTracker = (function () {
     canFreeze,
     getStreakStats,
     isInStreakPeriod,
+    renderWeekCalendar,
     getState: () => ({ ...state }),
     STREAK_BONUSES
   };
