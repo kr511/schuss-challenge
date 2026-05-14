@@ -615,65 +615,123 @@ const DailyChallenge = (function () {
     }
   }
 
-  const SUPABASE_FN_URL = (function () {
-    const cfg = window.SCHUETZEN_CHALLENGE_CONFIG;
-    const base = (cfg && cfg.url) || 'https://fknftkvozwfkcarldzms.supabase.co';
-    return base + '/functions/v1/analyze-target';
-  })();
-
-  function fileToBase64(file) {
-    return new Promise(function (resolve, reject) {
-      var reader = new FileReader();
-      reader.onload = function () { resolve(reader.result.split(',')[1]); };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+  // Tesseract CDN (Fallback falls nicht von image-compare.js bereits geladen)
+  var _dcTesseractPromise = null;
+  function ensureTesseract() {
+    if (typeof Tesseract !== 'undefined') return Promise.resolve();
+    if (_dcTesseractPromise) return _dcTesseractPromise;
+    // Warte auf bereits laufendes Laden (z.B. durch image-compare.js)
+    var existing = document.querySelector('script[data-ic-tesseract]');
+    if (existing) {
+      _dcTesseractPromise = new Promise(function (resolve, reject) {
+        var t = setInterval(function () {
+          if (typeof Tesseract !== 'undefined') { clearInterval(t); resolve(); }
+        }, 150);
+        setTimeout(function () { clearInterval(t); reject(new Error('Tesseract timeout')); }, 20000);
+      });
+      return _dcTesseractPromise;
+    }
+    _dcTesseractPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('Tesseract konnte nicht geladen werden')); };
+      document.head.appendChild(s);
     });
+    return _dcTesseractPromise;
   }
 
-  async function submitPhoto(imageBase64, mediaType) {
-    var cfg = window.SCHUETZEN_CHALLENGE_CONFIG;
-    var anon = cfg && cfg.anon;
-    var url = ((cfg && cfg.url) || 'https://fknftkvozwfkcarldzms.supabase.co') + '/functions/v1/analyze-target';
+  function parseTargetOCR(text) {
+    // Normalisieren: Komma → Punkt
+    var norm = text.replace(/,/g, '.').replace(/\s+/g, ' ');
+    var allNums = [];
+    var m;
+    var re = /\b(\d{1,3}(?:\.\d)?)\b/g;
+    while ((m = re.exec(norm)) !== null) {
+      var n = parseFloat(m[1]);
+      if (!isNaN(n)) allNums.push(n);
+    }
 
-    var resp = await fetch(url, {
-      method: 'POST',
-      headers: Object.assign(
-        { 'Content-Type': 'application/json' },
-        anon ? { 'Authorization': 'Bearer ' + anon } : {}
-      ),
-      body: JSON.stringify({ image: imageBase64, mediaType: mediaType || 'image/jpeg' })
-    });
+    // Schuss-Einzelwerte (0–10.9 LG, 0–10 KK)
+    var shotValues = allNums.filter(function (n) { return n >= 0 && n <= 10.9; });
 
-    if (!resp.ok) throw new Error('Analyse fehlgeschlagen (' + resp.status + ')');
-    var result = await resp.json();
-    if (result.error) throw new Error(result.error);
+    // Gesamtring-Kandidaten nach typischen Duell-/Trainingsbereichen
+    var lg40 = allNums.filter(function (n) { return n >= 300 && n <= 436; });   // LG 40-Schuss
+    var lg10 = allNums.filter(function (n) { return n >= 60 && n < 110 && n % 1 !== 0; }); // LG 10-Schuss (Dezimal)
+    var kk10 = allNums.filter(function (n) { return n >= 40 && n <= 100 && n % 1 === 0; }); // KK 10-Schuss
 
-    // Challenges gegen Foto-Ergebnis prüfen
-    checkDailyReset();
-    var anyNewlyCompleted = false;
+    var totalScore = 0;
+    var weapon = 'unknown';
+    var shotCount = 0;
 
-    state.challenges.forEach(function (c) {
-      if (c.completed) return;
-      var ref = getChallengeRef(c.id);
-      if (!ref || typeof ref.checkPhoto !== 'function') return;
-      if (!ref.checkPhoto(result)) return;
+    // Waffe aus Text erkennen
+    var up = text.toUpperCase();
+    if (up.indexOf('LG') !== -1 || up.indexOf('LUFTGEWEHR') !== -1) weapon = 'lg';
+    else if (up.indexOf('KK') !== -1 || up.indexOf('KLEINKALIBER') !== -1) weapon = 'kk';
 
-      c.progress = ref.target;
-      c.completed = true;
-      anyNewlyCompleted = true;
+    if (lg40.length > 0) {
+      totalScore = Math.max.apply(null, lg40);
+      if (weapon === 'unknown') weapon = 'lg';
+      shotCount = shotValues.length || 40;
+    } else if (lg10.length > 0) {
+      totalScore = Math.max.apply(null, lg10);
+      if (weapon === 'unknown') weapon = 'lg';
+      shotCount = shotValues.length || 10;
+    } else if (kk10.length > 0) {
+      totalScore = Math.max.apply(null, kk10);
+      if (weapon === 'unknown') weapon = 'kk';
+      shotCount = shotValues.length || 10;
+    } else {
+      var reasonable = allNums.filter(function (n) { return n >= 40 && n <= 600; });
+      if (reasonable.length > 0) totalScore = Math.max.apply(null, reasonable);
+    }
 
-      if (c.reward && c.reward.type === 'chest') {
-        awardRareChest(c.reward.amount);
-      } else {
-        awardChallengeXP(c.reward ? c.reward.amount : (ref.xpReward || 25));
-      }
-    });
+    return {
+      totalScore: totalScore,
+      weapon: weapon,
+      shotCount: shotCount,
+      shots: shotValues,
+      confidence: totalScore > 0 ? 0.65 : 0.2
+    };
+  }
 
-    saveState();
-    renderUI();
-    if (anyNewlyCompleted) checkAllCompleted();
+  async function submitPhoto(file) {
+    await ensureTesseract();
 
-    return result;
+    var worker = await Tesseract.createWorker('deu+eng');
+    try {
+      var rec = await worker.recognize(file);
+      var result = parseTargetOCR((rec.data && rec.data.text) || '');
+
+      // Challenges gegen OCR-Ergebnis prüfen
+      checkDailyReset();
+      var anyNewlyCompleted = false;
+
+      state.challenges.forEach(function (c) {
+        if (c.completed) return;
+        var ref = getChallengeRef(c.id);
+        if (!ref || typeof ref.checkPhoto !== 'function') return;
+        if (!ref.checkPhoto(result)) return;
+
+        c.progress = ref.target;
+        c.completed = true;
+        anyNewlyCompleted = true;
+
+        if (c.reward && c.reward.type === 'chest') {
+          awardRareChest(c.reward.amount);
+        } else {
+          awardChallengeXP(c.reward ? c.reward.amount : (ref.xpReward || 25));
+        }
+      });
+
+      saveState();
+      renderUI();
+      if (anyNewlyCompleted) checkAllCompleted();
+
+      return result;
+    } finally {
+      await worker.terminate();
+    }
   }
 
   function openPhotoModal() {
@@ -686,7 +744,7 @@ const DailyChallenge = (function () {
       '<div class="dc-photo-content">',
         '<button class="dcb-close dc-photo-close" onclick="this.closest(\'.dc-photo-modal\').remove()">✕</button>',
         '<div class="dc-photo-title">📷 Scheibenfoto einreichen</div>',
-        '<div class="dc-photo-sub">Mach ein Foto deiner Scheibe — die KI erkennt dein Ergebnis automatisch und wertet alle passenden Challenges aus.</div>',
+        '<div class="dc-photo-sub">Mach ein Foto deiner Scheibe — die Texterkennung liest dein Ergebnis und wertet alle passenden Challenges aus.</div>',
         '<input type="file" accept="image/*" capture="environment" id="dcPhotoInput" style="display:none;">',
         '<label for="dcPhotoInput" class="duo-photo-btn">📷 Kamera öffnen / Foto wählen</label>',
         '<div id="dcPhotoStatus" style="margin-top:12px;color:#8aa3b0;font-size:0.85rem;min-height:20px;"></div>',
@@ -700,10 +758,10 @@ const DailyChallenge = (function () {
       var status = modal.querySelector('#dcPhotoStatus');
       status.textContent = '⏳ Scheibe wird analysiert…';
       try {
-        var b64 = await fileToBase64(file);
-        var result = await submitPhoto(b64, file.type);
+        var result = await submitPhoto(file);
         var weaponLabel = result.weapon === 'lg' ? 'LG' : result.weapon === 'kk' ? 'KK' : '?';
-        status.innerHTML = '✅ Erkannt: <strong>' + (result.totalScore || '?') + ' Ringe</strong> (' + weaponLabel + ', ' + (result.shotCount || '?') + ' Schuss)';
+        var scoreText = result.totalScore > 0 ? result.totalScore + ' Ringe' : 'Ergebnis nicht erkannt';
+        status.innerHTML = '✅ ' + scoreText + ' (' + weaponLabel + ')';
         setTimeout(function () { modal.remove(); }, 2800);
       } catch (err) {
         status.innerHTML = '❌ Fehler: ' + err.message;
