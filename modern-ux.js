@@ -304,45 +304,91 @@
   function enableSwipeNavigation() {
     let startX = 0;
     let startY = 0;
+    let startTime = 0;
     let currentX = 0;
+    let currentY = 0;
     let isDragging = false;
+    let isEligible = false;
 
-    const tabs = Array.from(document.querySelectorAll('[data-tab], .tab-btn'));
-    let currentTabIndex = 0;
+    // Skip swipe-to-switch-tab when the touch starts on an interactive surface,
+    // a panel/list/sheet, or any container that has its own touch semantics.
+    // Without this, a tap on a side panel with small finger drift was being
+    // misread as a swipe and accidentally navigated to another tab (profile).
+    const BLOCK_SELECTOR = (
+      'button, a, input, textarea, select, label, [role="button"], [onclick],' +
+      ' .tab-panel, .it-panel, .ps-panel, .ps-tab, .it-tabs, .tab-nav,' +
+      ' .profile-sheet, .bottom-sheet, .modal, .overlay, .tff-overlay,' +
+      ' .leaderboard, .friends-list, .updates-dropdown, #updatesDropdown,' +
+      ' .sun-card, .disc-option, .diff-option, .bot-panel, .debug-panel,' +
+      ' [data-no-swipe], [contenteditable="true"]'
+    );
+
+    const isOverlayOpen = () => !!document.querySelector(
+      '.profile-sheet.active, .bottom-sheet.active,' +
+      ' .modal.active, .overlay.active, .tff-overlay.active,' +
+      ' #profileOverlay.active'
+    );
+
+    const getActiveTabIndex = (tabs) => {
+      const idx = tabs.findIndex((t) => t.classList && t.classList.contains('active'));
+      return idx >= 0 ? idx : 0;
+    };
 
     document.addEventListener('touchstart', (e) => {
+      if (!e.touches || e.touches.length !== 1) {
+        isDragging = false;
+        isEligible = false;
+        return;
+      }
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
+      currentX = startX;
+      currentY = startY;
+      startTime = Date.now();
       isDragging = true;
+      isEligible =
+        !(e.target && typeof e.target.closest === 'function' && e.target.closest(BLOCK_SELECTOR)) &&
+        !isOverlayOpen();
     }, { passive: true });
 
     document.addEventListener('touchmove', (e) => {
-      if (!isDragging) return;
+      if (!isDragging || !isEligible) return;
+      if (!e.touches || !e.touches.length) return;
       currentX = e.touches[0].clientX;
+      currentY = e.touches[0].clientY;
+      if (Math.abs(currentY - startY) > 60) isEligible = false;
     }, { passive: true });
 
     document.addEventListener('touchend', (e) => {
-      if (!isDragging) return;
+      const wasEligible = isEligible;
       isDragging = false;
+      isEligible = false;
+      if (!wasEligible) return;
+      if (Date.now() - startTime > 500) return;
 
       const diffX = currentX - startX;
       const diffY = Math.abs(e.changedTouches[0].clientY - startY);
+      const absX = Math.abs(diffX);
 
-      // Nur horizontale Swipes erkennen
-      if (Math.abs(diffX) > 80 && Math.abs(diffX) > diffY) {
-        if (diffX > 0 && currentTabIndex > 0) {
-          // Swipe rechts - vorheriger Tab
-          currentTabIndex--;
-        } else if (diffX < 0 && currentTabIndex < tabs.length - 1) {
-          // Swipe links - nächster Tab
-          currentTabIndex++;
-        }
+      if (absX <= 90) return;
+      if (diffY > 60) return;
+      if (absX < diffY * 2) return;
 
-        // Tab wechseln
-        if (tabs[currentTabIndex]) {
-          tabs[currentTabIndex].click();
-        }
-      }
+      const tabs = Array.from(document.querySelectorAll('[data-tab], .tab-btn'));
+      if (!tabs.length) return;
+
+      let idx = getActiveTabIndex(tabs);
+      if (diffX > 0 && idx > 0) idx--;
+      else if (diffX < 0 && idx < tabs.length - 1) idx++;
+      else return;
+
+      const next = tabs[idx];
+      if (next) next.click();
+    }, { passive: true });
+
+    document.addEventListener('touchcancel', () => {
+      isDragging = false;
+      isEligible = false;
     }, { passive: true });
   }
 

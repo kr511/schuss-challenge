@@ -25,7 +25,10 @@
 
   const MobileResponsive = {
     config: {
-      swipeThreshold: 50,
+      swipeThreshold: 90,
+      swipeMaxVerticalDrift: 60,
+      swipeMaxDurationMs: 500,
+      swipeEdgeZone: 32,
       touchTargetMinSize: 44,
       bottomSheetMaxHeight: 0.85,
       keyboardOffsetBottom: 20
@@ -36,6 +39,9 @@
     state: {
       swipeStartX: 0,
       swipeStartY: 0,
+      swipeStartTime: 0,
+      swipeViewportWidth: 0,
+      swipeEligible: false,
       isSwiping: false,
       bottomSheetOpen: false,
       keyboardVisible: false,
@@ -89,36 +95,101 @@
       });
     },
 
+    isSwipeBlockedByTarget(target) {
+      if (!target || typeof target.closest !== 'function') return false;
+      // Don't treat touches that start on interactive / scrollable surfaces
+      // (side panels, lists, sheets, buttons, links, inputs) as navigation swipes.
+      // Without this guard a small finger drift while tapping a panel was being
+      // interpreted as a left-swipe and would accidentally open the profile.
+      return !!target.closest(
+        'button, a, input, textarea, select, label, [role="button"], [onclick],' +
+        ' .tab-panel, .it-panel, .ps-panel, .ps-tab, .it-tabs, .tab-nav,' +
+        ' .profile-sheet, .bottom-sheet, .modal, .overlay, .tff-overlay,' +
+        ' .leaderboard, .friends-list, .updates-dropdown, #updatesDropdown,' +
+        ' .sun-card, .disc-option, .diff-option, .bot-panel, .debug-panel,' +
+        ' [data-no-swipe], [contenteditable="true"]'
+      );
+    },
+
+    isAnyOverlayOpen() {
+      // Skip swipe navigation while a sheet/modal/overlay is visible — taps
+      // inside open sheets shouldn't translate into nav gestures.
+      return !!document.querySelector(
+        '.profile-sheet.active, .bottom-sheet.active,' +
+        ' .modal.active, .overlay.active, .tff-overlay.active,' +
+        ' #profileOverlay.active, #duelSetupSheetOverlay[style*="display: block"],' +
+        ' #duelSetupSheetOverlay[style*="display:block"]'
+      );
+    },
+
     setupSwipeGestures() {
       if (this.state.listeners.swipe) return;
       const body = document.body;
       if (!body) return;
 
       body.addEventListener('touchstart', (event) => {
-        if (!event.touches || !event.touches.length) return;
-        this.state.swipeStartX = event.touches[0].clientX;
-        this.state.swipeStartY = event.touches[0].clientY;
+        if (!event.touches || event.touches.length !== 1) {
+          this.state.swipeEligible = false;
+          this.state.isSwiping = false;
+          return;
+        }
+        const t = event.touches[0];
+        this.state.swipeStartX = t.clientX;
+        this.state.swipeStartY = t.clientY;
+        this.state.swipeStartTime = Date.now();
+        this.state.swipeViewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
         this.state.isSwiping = true;
+        this.state.swipeEligible =
+          !this.isSwipeBlockedByTarget(event.target) && !this.isAnyOverlayOpen();
+      }, { passive: true });
+
+      body.addEventListener('touchmove', (event) => {
+        if (!this.state.isSwiping || !this.state.swipeEligible) return;
+        if (!event.touches || !event.touches.length) return;
+        const t = event.touches[0];
+        // Cancel swipe if vertical drift is large (user is scrolling, not swiping).
+        if (Math.abs(t.clientY - this.state.swipeStartY) > this.config.swipeMaxVerticalDrift) {
+          this.state.swipeEligible = false;
+        }
       }, { passive: true });
 
       body.addEventListener('touchend', (event) => {
-        if (!this.state.isSwiping || !event.changedTouches || !event.changedTouches.length) return;
+        const wasEligible = this.state.swipeEligible;
+        this.state.isSwiping = false;
+        this.state.swipeEligible = false;
+
+        if (!wasEligible || !event.changedTouches || !event.changedTouches.length) return;
+        if (Date.now() - this.state.swipeStartTime > this.config.swipeMaxDurationMs) return;
 
         const endX = event.changedTouches[0].clientX;
         const endY = event.changedTouches[0].clientY;
         const deltaX = endX - this.state.swipeStartX;
         const deltaY = endY - this.state.swipeStartY;
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
 
-        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > this.config.swipeThreshold) {
-          if (deltaX > 0) this.handleSwipeRight();
-          else this.handleSwipeLeft();
+        if (absX <= this.config.swipeThreshold) return;
+        if (absY > this.config.swipeMaxVerticalDrift) return;
+        if (absX < absY * 2) return;
+
+        const vw = this.state.swipeViewportWidth || window.innerWidth || 0;
+        const edge = this.config.swipeEdgeZone;
+
+        if (deltaX < 0) {
+          // Left-swipe opens the profile — require it to start near the right edge
+          // so taps in the middle of side panels cannot trigger it.
+          if (vw && this.state.swipeStartX < vw - edge) return;
+          this.handleSwipeLeft();
+        } else {
+          // Right-swipe opens duel setup — require it to start near the left edge.
+          if (this.state.swipeStartX > edge) return;
+          this.handleSwipeRight();
         }
-
-        this.state.isSwiping = false;
       }, { passive: true });
 
       body.addEventListener('touchcancel', () => {
         this.state.isSwiping = false;
+        this.state.swipeEligible = false;
       }, { passive: true });
 
       this.state.listeners.swipe = true;
@@ -126,6 +197,7 @@
 
     handleSwipeLeft() {
       if (isTextInputActive()) return;
+      if (this.isAnyOverlayOpen()) return;
 
       const profileTrigger = document.getElementById('pdProfileBtn') || document.getElementById('profileIcon');
       if (!profileTrigger) return;
@@ -139,6 +211,7 @@
 
     handleSwipeRight() {
       if (isTextInputActive()) return;
+      if (this.isAnyOverlayOpen()) return;
 
       const duelSetupBtn = document.getElementById('btnOpenDuelSetup') ||
         document.querySelector('[onclick*="openDuelSetup"]') ||
