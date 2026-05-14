@@ -2,11 +2,11 @@
    CSS CUSTOM PROPERTIES
 ═══════════════════════════════════════════ */
 :root {
-  --accent: #7ab030;
-  --accent-bright: #8ecf40;
-  --accent-dark: #6aa028;
-  --accent-dim: rgba(122, 176, 48, 0.2);
-  --accent-glow: rgba(140, 200, 60, 0.5);
+  --accent: #22c55e;
+  --accent-bright: #4ade80;
+  --accent-dark: #16a34a;
+  --accent-dim: rgba(34, 197, 94, 0.15);
+  --accent-glow: rgba(34, 197, 94, 0.35);
   
   /* NEU: Premium Glassmorphism Base */
   --glass-bg: rgba(20, 24, 18, 0.65);

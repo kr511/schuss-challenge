@@ -95,6 +95,7 @@
   <link rel="stylesheet" href="styles.css?v=3.2">
   <link rel="stylesheet" href="src/features/clubs-system.css?v=1.2">
   <link rel="stylesheet" href="modern-animations.css?v=1.0">
+  <link rel="stylesheet" href="redesign.css?v=1.0">
   <script src="modern-ux.js?v=1.0" defer></script>
   <script src="reward-system.js?v=1.0" defer></script>
   <script src="src/storage/storage-manager.js?v=3.0"></script>
@@ -103,6 +104,7 @@
   <script src="src/features/online-status.js?v=1.2" defer></script>
   <script src="performance-config.js"></script>
   <script src="src/bot/battle-balance.js" defer></script>
+  <script src="tab-navigation.js?v=1.0" defer></script>
 </head>
 
 <body>
@@ -166,270 +168,665 @@
 
   <!-- ══════════════════════════ SETUP ══════════════════════════ -->
   <div id="screenSetup" class="screen active">
-    <div class="hdr">
-      <!-- Top row: profil left · logo center · spacer right -->
-      <div class="hdr-top">
-        <!-- <div id="hdrStreakMount"></div> -->
-        <div class="logo">SCHÜTZEN<em>CHALLENGE</em></div>
+
+    <!-- ═══ APP HEADER (sticky, dynamic per tab) ═══ -->
+    <header class="app-header hdr" id="appHeader">
+      <div class="ah-title-block" id="ahTitleBlock">
+        <div class="ah-greeting-title">Hallo, <span id="pdUserName2">Schütze</span>! 👋</div>
+        <div class="ah-greeting-sub">Bereit für dein nächstes Training?</div>
       </div>
-      <div class="logo-tag" id="logoTag" style="display:none;">Du vs. Bot · 40 Schuss · Wer trifft besser?</div>
-    </div> <!-- close hdr -->
+      <div class="ah-actions" id="ahActions">
+        <button class="ah-icon-btn" id="updatesButton" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Updates" style="position:relative;">
+          <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <div id="updatesDropdown" style="display:none;position:absolute;top:52px;right:0;width:min(320px,calc(100vw - 40px));max-height:400px;background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);border-radius:16px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow-y:auto;z-index:10000;opacity:0;transform:translateY(-10px);transition:all 0.2s;">
+            <div style="padding:16px;">
+              <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:12px;">🔔 UPDATES</div>
+              <div id="updatesDropdownContent"></div>
+            </div>
+          </div>
+        </button>
+      </div>
+    </header>
 
-    <!-- ════ PREMIUM DASHBOARD (PIXEL-PERFECT REBUILD) ════ -->
+    <!-- ═══ TAB PANELS ═══ -->
+    <div class="tab-panels">
 
-    <!-- PREMIUM GLOW BACKGROUNDS -->
-    <div
-      style="position:fixed;top:-10%;left:-20%;width:70vw;height:70vw;background:radial-gradient(circle, rgba(0,195,255,0.15) 0%, transparent 70%);border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;">
-    </div>
-    <div
-      style="position:fixed;bottom:10%;right:-20%;width:80vw;height:80vw;background:radial-gradient(circle, rgba(122,176,48,0.1) 0%, transparent 70%);border-radius:50%;filter:blur(60px);z-index:0;pointer-events:none;">
-    </div>
+      <!-- ════ TAB: START ════ -->
+      <div class="tab-panel active" id="tabStart">
+        <div class="page-content">
 
-    <div id="premiumDashboard"
-      style="width:100%;max-width:500px;margin:0 auto;padding:18px;position:relative;z-index:10;font-family:'Outfit',sans-serif;">
+          <!-- TAGESZIEL CARD -->
+          <div class="goal-card">
+            <div class="gc-top">
+              <div class="gc-icon">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+              </div>
+              <div class="gc-text">
+                <div class="gc-label">Dein heutiges Ziel</div>
+                <div class="gc-goal" id="gcGoalTitle">Treffe 95+ Ringe</div>
+              </div>
+              <div class="gc-ring">
+                <svg viewBox="0 0 64 64">
+                  <circle class="gc-ring-bg" cx="32" cy="32" r="26"/>
+                  <circle class="gc-ring-fill" id="gcRingFill" cx="32" cy="32" r="26" style="stroke-dashoffset:163;"/>
+                </svg>
+                <div class="gc-ring-pct" id="gcRingPct">0%</div>
+              </div>
+            </div>
+            <div class="gc-bar-wrap">
+              <div class="gc-bar-label">Fortschritt: <span id="gcProgressText">– Ringe</span></div>
+              <div class="gc-bar"><div class="gc-bar-fill" id="gcBarFill" style="width:0%"></div></div>
+            </div>
+          </div>
 
-      <!-- ══ GREETING ROW ══ -->
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;">
-        <div>
-          <h2 id="pdGreeting" style="font-size:1.35rem;margin:0 0 3px 0;font-weight:700;color:#fff;">Guten Tag, <span
-              style="color:#7ab030;" id="pdUserName">Alex</span>!</h2>
-          <div id="pdDate" style="font-size:0.78rem;color:rgba(255,255,255,0.4);">11. Apr. 2026</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="position:relative;">
-            <button id="updatesButton" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Updates & Ankündigungen" style="width:44px;height:44px;border-radius:50%;background:rgba(255,193,7,0.2);border:1px solid rgba(255,193,7,0.3);color:#fff;font-size:1.4rem;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">🔔</button>
-            <div id="updatesDropdown" style="display:none;position:absolute;top:55px;right:0;width:min(320px, calc(100vw - 40px));max-height:400px;background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);border-radius:16px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow-y:auto;z-index:10000;opacity:0;transform:translateY(-10px);transition:all 0.2s;">
-              <div style="padding:16px;">
-                <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:12px;">🔔 UPDATES</div>
-                <div id="updatesDropdownContent"></div>
+          <!-- ÜBERSICHT -->
+          <div>
+            <div class="section-hdr" style="margin-bottom:12px;">
+              <span class="section-title">Übersicht</span>
+              <button class="section-link" onclick="switchTab('training')">Alle anzeigen</button>
+            </div>
+            <div class="stat-tiles">
+              <div class="stat-tile">
+                <div class="st-icon green">
+                  <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                </div>
+                <div class="st-value" id="stWeekAvg">–</div>
+                <div class="st-label">Ø Ringe<br>Diese Woche</div>
+              </div>
+              <div class="stat-tile">
+                <div class="st-icon blue">
+                  <svg viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>
+                </div>
+                <div class="st-value" id="stChallengesWon">–</div>
+                <div class="st-label">Challenges<br>Gewonnen</div>
+              </div>
+              <div class="stat-tile">
+                <div class="st-icon purple">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                </div>
+                <div class="st-value" id="stTotalTrainings">–</div>
+                <div class="st-label">Trainings<br>Gesamt</div>
               </div>
             </div>
           </div>
-          <button id="friendsButton" onclick="if(window.FriendsSystem) window.FriendsSystem.showFriendsOverlay();" title="Freunde" style="width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.15);border:1px solid rgba(0,195,255,0.3);color:#fff;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">👥</button>
-          <div id="pdProfileBtn"
-            onclick="if(window.toggleProfileMenu) window.toggleProfileMenu(); else console.error('toggleProfileMenu missing');"
-            style="position:relative; z-index:9999; cursor:pointer; width:44px;height:44px;border-radius:50%;background:rgba(0,195,255,0.08);border:1.5px solid rgba(0,195,255,0.35);box-shadow:0 0 15px rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:1.1rem;cursor:pointer;">
-            <span id="pdProfileInitial">A</span>
-          </div>
-        </div>
-      </div>
-  
-        <!-- ══ XP PROGRESS BAR ══ -->
-        <div id="pdXPBarContainer" style="margin-bottom:20px;"></div>
 
-      <!-- ══ STREAK BANNER ══ -->
-      <div id="streakBanner" style="margin-bottom:8px;"></div>
-      <div id="streakWeekCalendar" style="margin-bottom:12px;"></div>
-      <div id="streakProgressBar" style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;margin-bottom:16px;overflow:hidden;">
-        <div style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35,#ff9500);border-radius:4px;transition:width 0.5s ease;font-size:0.5rem;color:#fff;text-align:center;line-height:4px;"></div>
-      </div>
-
-      <!-- ══ ÜBERSICHT TITEL ══ -->
-      <div id="pdOverviewHeader" style="margin-bottom:14px;">
-        <div style="font-size:1.1rem;font-weight:600;color:#fff;line-height:1.3;">Deine Übersicht</div>
-        <div style="font-size:0.75rem;color:rgba(255,255,255,0.4);">Letzte Duelle & Statistiken</div>
-      </div>
-
-      <!-- ══ HAUPTKARTE (2-SPALTEN) ══ -->
-      <div id="pdMainStatsRow" style="display:flex;gap:12px;margin-bottom:20px;">
-
-        <!-- LINKS: Letzte 3 Duelle -->
-        <div class="stat-card will-animate"
-          style="flex:1.6;background:linear-gradient(145deg, rgba(50,55,60,0.4) 0%, rgba(15,18,20,0.8) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.08);border-top:1px solid rgba(255,255,255,0.15);border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.05);">
-          <div
-            style="font-size:0.72rem;color:rgba(255,255,255,0.45);margin-bottom:8px;font-weight:600;letter-spacing:0.05em;">
-            LETZTE 3 DUELLE</div>
-
-          <div id="pdLast3Duels" style="display:flex;flex-direction:column;gap:8px;">
-            <div style="padding:10px;text-align:center;color:rgba(255,255,255,0.2);font-size:0.75rem;">Noch keine Duelle absolviert</div>
+          <!-- LETZTES TRAINING -->
+          <div>
+            <div class="section-title" style="margin-bottom:12px;">Letztes Training</div>
+            <div id="lastTrainingContainer">
+              <div class="empty-state"><div class="empty-state-icon">🎯</div><div>Noch kein Training erfasst</div></div>
+            </div>
           </div>
 
-          <!-- UNTERE STATS REIHE -->
-          <div
-            style="display:flex;justify-content:space-between;border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;margin-top:12px;">
-            <div style="text-align:center;flex:1;">
-              <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:3px;">Siege</div>
-              <div id="pdStatWins" style="font-size:0.85rem;font-weight:600;color:#7ab030;">0</div>
+          <!-- AKTIVE CHALLENGES (daily missions mount) -->
+          <div>
+            <div class="section-hdr" style="margin-bottom:12px;">
+              <span class="section-title">Aktive Challenges</span>
+              <button class="section-link" onclick="switchTab('challenges')">Alle anzeigen</button>
             </div>
-            <div
-              style="text-align:center;flex:1;border-left:1px solid rgba(255,255,255,0.06);border-right:1px solid rgba(255,255,255,0.06);">
-              <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:3px;">Siegquote</div>
-              <div id="pdStatWinrate" style="font-size:0.85rem;font-weight:600;color:#fff;">–</div>
-            </div>
-            <div style="text-align:center;flex:1;">
-              <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:3px;">Gesamt XP</div>
-              <div id="pdStatScore"
-                style="font-size:0.85rem;font-weight:600;color:#7ab030;text-shadow:0 0 6px rgba(122,176,48,0.3);">0
+            <div id="activeChallengesStart">
+              <div class="challenge-preview" onclick="switchTab('challenges')">
+                <div class="cp-icon">🎯</div>
+                <div class="cp-info">
+                  <div class="cp-title">Tagesaufgaben</div>
+                  <div class="cp-meta">Tägliche Missionen warten auf dich</div>
+                  <div class="cp-bar"><div class="cp-bar-fill" style="width:0%"></div></div>
+                </div>
+                <div class="cp-right">
+                  <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:rgba(255,255,255,0.25);fill:none;stroke-width:2"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- RECHTS: Tages-Statistik -->
-        <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
-          <div class="stat-card will-animate stagger-1"
-            style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
-            <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Siegesserie</div>
-            <div id="pdSideStreak" style="font-size:1.2rem;font-weight:700;color:#fff;">🔥 0</div>
-            <div style="height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin-top:6px;overflow:hidden;">
-              <div id="pdSideStreakBar"
-                style="height:100%;width:0%;background:linear-gradient(90deg,#ff6b35,#ff9500);border-radius:3px;"></div>
-            </div>
+          <!-- Legacy mounts (hidden, JS still uses them) -->
+          <div style="display:none;">
+            <div id="pdXPBarContainer"></div>
+            <div id="streakBanner"></div>
+            <div id="streakWeekCalendar"></div>
+            <div id="streakProgressBar"></div>
+            <div id="pdOverviewHeader"></div>
+            <div id="pdMainStatsRow"></div>
+            <div id="pdLast3Duels"></div>
+            <div id="pdStatWins"></div>
+            <div id="pdStatWinrate"></div>
+            <div id="pdStatScore"></div>
+            <div id="pdSideStreak"></div>
+            <div id="pdSideStreakBar"></div>
+            <div id="pdSideGamesToday"></div>
+            <div id="pdSideGamesTodayBar"></div>
+            <div id="pdSideRank"></div>
+            <div id="pdRecentListHeader"></div>
+            <div id="pdRecentList"></div>
+            <div id="pdBadgesGrid"></div>
+            <div id="pdDate"></div>
+            <div id="pdGreeting"></div>
+            <div id="pdUserName"></div>
+            <div id="pdProfileBtn"></div>
+            <div id="pdProfileInitial"></div>
           </div>
-          <div class="stat-card will-animate stagger-2"
-            style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
-            <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Spiele heute</div>
-            <div id="pdSideGamesToday" style="font-size:1.2rem;font-weight:700;color:#fff;">0</div>
-            <div style="height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin-top:6px;overflow:hidden;">
-              <div id="pdSideGamesTodayBar"
-                style="height:100%;width:0%;background:linear-gradient(90deg,#00c3ff,#7ab030);border-radius:3px;"></div>
-            </div>
-          </div>
-          <div class="stat-card will-animate stagger-3"
-            style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:12px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.08);">
-            <div style="font-size:0.6rem;color:rgba(255,255,255,0.4);margin-bottom:4px;">Rang</div>
-            <div id="pdSideRank" style="font-size:1rem;font-weight:700;color:#fff;">🎯 Anfänger</div>
-          </div>
-        </div>
-      </div>
 
-      <!-- ══ DAILY MISSIONS ══ -->
-      <div id="dailyChallengeUI" style="margin-bottom:24px;"></div>
+        </div><!-- /page-content -->
+      </div><!-- /tabStart -->
 
-      <!-- ══ SCHNELLTRAINING (10-Schuss, lokal, ohne Account) ══ -->
-      <div id="quickTrainingMount" style="margin-bottom:18px;"></div>
+      <!-- ════ TAB: TRAINING ════ -->
+      <div class="tab-panel" id="tabTraining">
+        <div class="page-content">
 
-      <!-- ══ VEREINSMODUS ══ -->
-      <div id="clubDashboardMount"></div>
-
-      <!-- ══ ACHIEVEMENT BADGES (dynamisch) ══ -->
-      <div style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:12px;">Erfolge</div>
-      <div id="pdBadgesGrid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
-        <!-- Wird von refreshPremiumDashboard() dynamisch befüllt -->
-      </div>
-
-      <!-- ══ RECENT SESSIONS ══ -->
-      <div id="pdRecentListHeader" style="font-size:1.05rem;font-weight:600;color:#fff;margin-bottom:10px;">Letzte Duelle</div>
-      <div id="pdRecentList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
-        <div class="duel-entry will-animate stagger-4"
-          style="background:linear-gradient(145deg, rgba(40,45,50,0.4) 0%, rgba(10,12,15,0.7) 100%);border:1px solid rgba(255,255,255,0.06);border-top:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;text-align:center;color:rgba(255,255,255,0.3);font-size:0.8rem;box-shadow:0 6px 20px rgba(0,0,0,0.4);">
-          Noch keine Duelle gespielt. Starte dein erstes Duell!
-        </div>
-      </div>
-
-      <!-- ══ FLOATING DUELL STARTEN BUTTON ══ -->
-      <button id="btnOpenDuelSetup" onclick="openDuelSetup()"
-        style="position:fixed;bottom:25px;left:50%;transform:translateX(-50%);z-index:8999;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;border:none;border-radius:30px;padding:15px 36px;font-weight:800;font-size:1.05rem;box-shadow:0 8px 30px rgba(122,176,48,0.45),0 0 60px rgba(0,195,255,0.15);cursor:pointer;letter-spacing:0.6px;">
-        <span style="font-size:1.2rem;">🎯</span> DUELL STARTEN
-      </button>
-
-      <!-- ══ BOTTOM SHEET OVERLAY (Duel Setup) ══ -->
-      <div id="duelSetupSheetOverlay" onclick="closeDuelSetup(event)"
-        style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;opacity:0;transition:opacity 0.3s ease;">
-        <div id="duelSetupSheet"
-          style="position:absolute;bottom:-100%;left:0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(18,18,20,0.97);border-top:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;padding:20px 25px 35px 25px;transition:bottom 0.4s cubic-bezier(0.175,0.885,0.32,1);box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
-          <div
-            style="width:40px;height:5px;background:rgba(255,255,255,0.2);border-radius:5px;margin:0 auto 20px auto;">
-          </div>
-          
-          <!-- ══ MODUS AUSWAHL (Bot vs Multiplayer) ══ -->
-          <div id="gameModeSelection">
-            <h3 style="color:#fff;margin:0 0 8px 0;font-weight:700;font-size:1.3rem;text-align:center;">SPIELMODUS</h3>
-            <p style="color:rgba(255,255,255,0.5);margin:0 0 24px 0;font-size:0.9rem;text-align:center;">Wähle deinen Gegner</p>
-            
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
-              <!-- Bot Option -->
-              <button id="modeBotBtn" onclick="selectGameMode('bot')"
-                style="background:linear-gradient(145deg, rgba(0,195,255,0.15) 0%, rgba(122,176,48,0.15) 100%);border:2px solid rgba(0,195,255,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
-                <div style="font-size:3rem;">🤖</div>
-                <div style="color:#fff;font-weight:700;font-size:1.1rem;">GEGEN BOT</div>
-                <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">Bot-Gegner mit verschiedenen Schwierigkeiten</div>
-              </button>
-              
-              <!-- Multiplayer Option -->
-              <button id="modeMultiBtn" onclick="selectGameMode('multiplayer')"
-                style="background:linear-gradient(145deg, rgba(255,59,48,0.15) 0%, rgba(255,149,0,0.15) 100%);border:2px solid rgba(255,59,48,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
-                <div style="font-size:3rem;">👥</div>
-                <div style="color:#fff;font-weight:700;font-size:1.1rem;">MULTIPLAYER</div>
-                <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">Async gegen Freunde</div>
-              </button>
-            </div>
-          </div>
-          
-          <!-- ══ DUELL EINSTELLUNGEN (initial versteckt) ══ -->
-          <div id="duelSettingsContent" style="display:none;">
-            <button onclick="showGameModeSelection()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 16px;color:rgba(255,255,255,0.6);cursor:pointer;margin-bottom:16px;font-size:0.9rem;">
-              ← Zurück zur Modus-Auswahl
+          <!-- Inner Tabs -->
+          <div class="inner-tabs" id="trainingInnerTabsWrap">
+            <button class="it-tab active" data-itab="verlauf" onclick="switchInnerTab('trainingInnerTabsWrap','verlauf')">
+              <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Verlauf
             </button>
-            <h3 id="duelSettingsTitle" style="color:#fff;margin:0 0 20px 0;font-weight:700;font-size:1.3rem;">DUELL EINSTELLUNGEN</h3>
-            <div id="duelSetupContentMount"><!-- Legacy setup elements move here --></div>
-            <button class="btn-fire" id="startBattleBtn" onclick="startBattle();setTimeout(closeDuelSetup,500);"
-              style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(122,176,48,0.35);">
-              🎯 Duell starten
+            <button class="it-tab" data-itab="statistiken" onclick="switchInnerTab('trainingInnerTabsWrap','statistiken')">
+              <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              Statistiken
+            </button>
+            <button class="it-tab" data-itab="uebungen" onclick="switchInnerTab('trainingInnerTabsWrap','uebungen')">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+              Übungen
             </button>
           </div>
-        </div>
-      </div>
 
-      <!-- ══ V2 Scanner View ══ -->
-      <div id="legacyV2ScannerView"
-        style="display:none;position:fixed;top:0;left:0;width:100%;height:100vh;z-index:99999;background:#000;">
-        <video id="legacyV2ScannerVideo" playsinline autoplay muted
-          style="width:100%;height:100%;object-fit:cover;display:block;"></video>
-        <canvas id="legacyV2ScannerCanvas"
-          style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
-        <div style="position:absolute;bottom:40px;left:0;width:100%;text-align:center;">
-          <div
-            style="background:rgba(0,0,0,0.6);display:inline-block;padding:10px 20px;border-radius:30px;font-size:0.9rem;color:#7ab030;font-weight:600;backdrop-filter:blur(8px);border:1px solid rgba(122,176,48,0.3);">
-            Halte den Score in das Bild...
+          <!-- Verlauf Panel -->
+          <div class="it-panel" data-itab="verlauf">
+            <!-- Overview Stats -->
+            <div class="overview-card">
+              <div class="overview-card-hdr">
+                <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                Übersicht
+              </div>
+              <div class="stat-tiles-4">
+                <div class="stat-tile">
+                  <div class="st-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                  <div class="st-label">Ø Ringe</div>
+                  <div class="st-value" id="tAvgRinge">–</div>
+                  <div class="st-delta positive" id="tAvgDelta"></div>
+                </div>
+                <div class="stat-tile">
+                  <div class="st-icon blue"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
+                  <div class="st-label">Bestes Training</div>
+                  <div class="st-value" id="tBestTraining">–</div>
+                  <div class="st-delta" id="tBestDate" style="color:rgba(255,255,255,0.3);font-size:0.6rem;"></div>
+                </div>
+                <div class="stat-tile">
+                  <div class="st-icon purple"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+                  <div class="st-label">Trainings</div>
+                  <div class="st-value" id="tWeekCount">–</div>
+                  <div class="st-delta" style="color:rgba(255,255,255,0.3);font-size:0.6rem;">Diese Woche</div>
+                </div>
+                <div class="stat-tile">
+                  <div class="st-icon gold"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+                  <div class="st-label">Gesamt</div>
+                  <div class="st-value" id="tTotalCount">–</div>
+                  <div class="st-delta" style="color:rgba(255,255,255,0.3);font-size:0.6rem;">Trainings</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Training History -->
+            <div>
+              <div class="section-title" style="margin-bottom:12px;">Training Verlauf</div>
+              <div class="training-list" id="trainingListContainer">
+                <div class="empty-state"><div class="empty-state-icon">📋</div><div>Noch keine Trainingseinheiten</div></div>
+              </div>
+            </div>
+
+            <!-- Quick Training Mount (existing system) -->
+            <div id="quickTrainingMount"></div>
+
+            <!-- CTA -->
+            <button class="cta-card" onclick="openDuelSetup()" style="width:100%;text-align:left;cursor:pointer;">
+              <div class="cta-icon">📷</div>
+              <div class="cta-text">
+                <div class="cta-title">Neues Training erfassen</div>
+                <div class="cta-sub">Ergebnisse hochladen oder manuell eingeben</div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Statistiken Panel (hidden by default) -->
+          <div class="it-panel" data-itab="statistiken" style="display:none;">
+            <div id="enhancedAnalyticsMountTraining" style="margin-top:8px;"></div>
+            <div class="perf-chart-wrap" style="margin-top:12px;">
+              <div class="perf-chart-header">
+                <span class="perf-chart-title">◇ LEISTUNGSKURVE</span>
+                <div class="perf-toggle-group">
+                  <button class="perf-toggle active" id="perfToggleLG2" onclick="setPerfWeapon('lg')">🌬️ LG</button>
+                  <button class="perf-toggle" id="perfToggleKK2" onclick="setPerfWeapon('kk')">🎯 KK</button>
+                </div>
+              </div>
+              <div class="perf-chart-box" style="height:160px;position:relative;width:100%;">
+                <canvas id="perfChart2" style="display:block;"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Übungen Panel (hidden by default) -->
+          <div class="it-panel" data-itab="uebungen" style="display:none;">
+            <div id="trainingModesMount" style="margin-top:8px;"></div>
+          </div>
+
+        </div><!-- /page-content -->
+      </div><!-- /tabTraining -->
+
+      <!-- ════ TAB: CHALLENGES ════ -->
+      <div class="tab-panel" id="tabChallenges">
+        <div class="page-content">
+
+          <!-- Inner Tabs -->
+          <div class="inner-tabs" id="challengesInnerTabsWrap">
+            <button class="it-tab active" data-itab="aktiv" onclick="switchInnerTab('challengesInnerTabsWrap','aktiv')">
+              <svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l3.5 3.5"/><path d="M19 21l-3-3"/></svg>
+              Aktiv
+            </button>
+            <button class="it-tab" data-itab="einladungen" onclick="switchInnerTab('challengesInnerTabsWrap','einladungen')">
+              <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Einladungen
+            </button>
+            <button class="it-tab" data-itab="abgeschlossen" onclick="switchInnerTab('challengesInnerTabsWrap','abgeschlossen')">
+              <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              Abgeschlossen
+            </button>
+          </div>
+
+          <!-- Aktiv Panel -->
+          <div class="it-panel" data-itab="aktiv">
+            <div class="section-title" style="margin-bottom:12px;">Deine aktiven Challenges</div>
+
+            <!-- Daily Challenge mount (existing system renders here) -->
+            <div id="dailyChallengeUI"></div>
+
+            <!-- Club dashboard mount -->
+            <div id="clubDashboardMount" style="margin-top:12px;"></div>
+
+            <!-- Duel vs Bot CTA -->
+            <button class="cta-card" onclick="openDuelSetup()" style="width:100%;text-align:left;cursor:pointer;margin-top:4px;">
+              <div class="cta-icon">⚔️</div>
+              <div class="cta-text">
+                <div class="cta-title" style="color:var(--accent);">Neues Duell starten</div>
+                <div class="cta-sub">Gegen Bot oder Freunde antreten</div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Einladungen Panel -->
+          <div class="it-panel" data-itab="einladungen" style="display:none;">
+            <div class="empty-state"><div class="empty-state-icon">📩</div><div>Keine offenen Einladungen</div></div>
+          </div>
+
+          <!-- Abgeschlossen Panel -->
+          <div class="it-panel" data-itab="abgeschlossen" style="display:none;">
+            <div id="psPanel-history-tab" style="margin-top:8px;"></div>
+            <div class="empty-state"><div class="empty-state-icon">✅</div><div>Abgeschlossene Challenges erscheinen hier</div></div>
+          </div>
+
+          <!-- Beliebte Challenges -->
+          <div style="margin-top:4px;">
+            <div class="section-hdr" style="margin-bottom:12px;">
+              <span class="section-title">Beliebte Challenges</span>
+              <button class="section-link">Alle anzeigen</button>
+            </div>
+            <div class="challenges-scroll">
+              <div class="pop-challenge">
+                <div class="pc-icon">⚔️</div>
+                <div class="pc-title">Freundschaftsduell</div>
+                <div class="pc-meta">Luftgewehr · 10m</div>
+                <div class="pc-meta">1 vs 1</div>
+              </div>
+              <div class="pop-challenge" style="border-color:rgba(170,90,255,0.2);">
+                <div class="pc-icon">👥</div>
+                <div class="pc-title">Vereins-Challenge</div>
+                <div class="pc-meta">Alle Disziplinen</div>
+                <div class="pc-meta">5 – 50 Teilnehmer</div>
+              </div>
+              <div class="pop-challenge" style="border-color:rgba(255,200,64,0.2);">
+                <div class="pc-icon">🏆</div>
+                <div class="pc-title">Monats-Challenge</div>
+                <div class="pc-meta">Wechselnde Disziplin</div>
+                <div class="pc-meta">Global</div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /page-content -->
+      </div><!-- /tabChallenges -->
+
+      <!-- ════ TAB: FREUNDE ════ -->
+      <div class="tab-panel" id="tabFreunde">
+        <div class="page-content">
+
+          <!-- Inner Tabs -->
+          <div class="inner-tabs" id="freundeInnerTabsWrap">
+            <button class="it-tab active" data-itab="liste" onclick="switchInnerTab('freundeInnerTabsWrap','liste')">
+              <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Freundesliste
+            </button>
+            <button class="it-tab" data-itab="anfragen" onclick="switchInnerTab('freundeInnerTabsWrap','anfragen')">
+              <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              Anfragen
+            </button>
+            <button class="it-tab" data-itab="blockiert" onclick="switchInnerTab('freundeInnerTabsWrap','blockiert')">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              Blockiert
+            </button>
+          </div>
+
+          <!-- Freundesliste Panel -->
+          <div class="it-panel" data-itab="liste">
+
+            <!-- Friends Header Card -->
+            <div class="friends-header-card">
+              <div class="fhc-top">
+                <div>
+                  <div class="fhc-title-row">
+                    Deine Freunde
+                    <span class="count-badge" id="fhcCountBadge">0</span>
+                  </div>
+                  <div class="fhc-sub">Gemeinsam besser werden!</div>
+                </div>
+                <button class="outline-btn" onclick="if(window.FriendsSystem) window.FriendsSystem.showFriendsOverlay();">
+                  <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                  Freunde einladen
+                </button>
+              </div>
+              <div class="stat-tiles-4">
+                <div class="stat-tile">
+                  <div class="st-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                  <div class="st-value" id="fStatAvg">–</div>
+                  <div class="st-label">Ø Ringe<br>(Freunde)</div>
+                </div>
+                <div class="stat-tile">
+                  <div class="st-icon blue"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
+                  <div class="st-value" id="fStatTrainings">–</div>
+                  <div class="st-label">Trainings<br>diese Woche</div>
+                </div>
+                <div class="stat-tile">
+                  <div class="st-icon purple"><svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/></svg></div>
+                  <div class="st-value" id="fStatDuels">–</div>
+                  <div class="st-label">Duelle<br>gespielt</div>
+                </div>
+                <div class="stat-tile">
+                  <div class="st-icon orange"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+                  <div class="st-value" id="fStatStreak">–</div>
+                  <div class="st-label">Tage<br>in Folge</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sort row -->
+            <div class="friends-sort-row">
+              <span class="sort-label">Freundesliste</span>
+              <button class="sort-btn">Sortieren: Online ↓</button>
+            </div>
+
+            <!-- Inline Friends List -->
+            <div class="friends-list-card">
+              <div id="inlineFriendsList">
+                <div class="empty-state" style="padding:32px 20px;">
+                  <div class="empty-state-icon">👥</div>
+                  <div>Noch keine Freunde hinzugefügt</div>
+                  <div style="font-size:0.72rem;color:rgba(255,255,255,0.2);margin-top:4px;">Lade Schützenkollegen ein!</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Invite CTA -->
+            <div class="invite-card">
+              <div class="ic-icon">👥</div>
+              <div class="ic-text">
+                <div class="ic-title">Freunde einladen</div>
+                <div class="ic-sub">Lade deine Schießfreunde ein und vergleicht eure Ergebnisse</div>
+              </div>
+              <button class="primary-btn" onclick="if(window.FriendsSystem) window.FriendsSystem.showFriendsOverlay();">Einladung senden</button>
+            </div>
+          </div>
+
+          <!-- Anfragen Panel -->
+          <div class="it-panel" data-itab="anfragen" style="display:none;">
+            <div class="empty-state"><div class="empty-state-icon">📩</div><div>Keine offenen Anfragen</div></div>
+          </div>
+
+          <!-- Blockiert Panel -->
+          <div class="it-panel" data-itab="blockiert" style="display:none;">
+            <div class="empty-state"><div class="empty-state-icon">🚫</div><div>Keine blockierten Nutzer</div></div>
+          </div>
+
+        </div><!-- /page-content -->
+      </div><!-- /tabFreunde -->
+
+      <!-- ════ TAB: PROFIL ════ -->
+      <div class="tab-panel" id="tabProfil">
+        <div class="page-content">
+
+          <!-- Profile Hero -->
+          <div class="profile-hero-card">
+            <div class="ph-avatar-wrap">
+              <div class="ph-avatar" id="ptProfileAvatar">🎯</div>
+              <button class="ph-edit-btn" onclick="if(window.toggleProfileMenu) window.toggleProfileMenu();">✏️</button>
+            </div>
+            <div class="ph-info">
+              <div class="ph-name-row">
+                <span class="ph-name" id="ptProfileName">Schütze</span>
+                <span class="pro-badge">Pro</span>
+              </div>
+              <div class="ph-email" id="ptEmail"></div>
+              <div class="ph-club" id="ptClub"></div>
+              <div class="ph-level-block">
+                <div class="ph-level-row">
+                  <span class="ph-level-label" id="ptLevel">Level 1</span>
+                  <span class="ph-xp-text" id="ptXpText">0 XP</span>
+                </div>
+                <div class="ph-xp-bar"><div class="ph-xp-fill" id="ptXpBar" style="width:0%"></div></div>
+              </div>
+            </div>
+            <div class="ph-level-badge">
+              <div class="ph-badge-icon">🎯</div>
+              <div class="ph-level-text" id="ptLevelBadge">Anfänger</div>
+            </div>
+          </div>
+
+          <!-- Stats Grid -->
+          <div class="stat-tiles-4">
+            <div class="stat-tile">
+              <div class="st-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+              <div class="st-label">Ø Ringe</div>
+              <div class="st-value" id="ptAvgRinge">–</div>
+              <div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Gesamt</div>
+            </div>
+            <div class="stat-tile">
+              <div class="st-icon blue"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
+              <div class="st-label">Trainings</div>
+              <div class="st-value" id="ptStatTrainings">–</div>
+              <div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Gesamt</div>
+            </div>
+            <div class="stat-tile">
+              <div class="st-icon purple"><svg viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg></div>
+              <div class="st-label">Challenges</div>
+              <div class="st-value" id="ptStatWins">–</div>
+              <div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Gewonnen</div>
+            </div>
+            <div class="stat-tile">
+              <div class="st-icon orange"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+              <div class="st-label">Tage in Folge</div>
+              <div class="st-value" id="ptStatStreak">–</div>
+              <div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Aktuell</div>
+            </div>
+          </div>
+
+          <!-- Auszeichnungen -->
+          <div>
+            <div class="section-hdr" style="margin-bottom:12px;">
+              <span class="section-title">Deine Auszeichnungen</span>
+              <button class="section-link" onclick="if(window.toggleProfileMenu) { window.toggleProfileMenu(); setTimeout(()=>switchProfileTab('sun'),300); }">Alle anzeigen</button>
+            </div>
+            <div class="achievements-scroll" id="ptAchievements">
+              <div class="achievement-badge">
+                <div class="ab-hex unlocked">🎯</div>
+                <div class="ab-name">Treffsicher</div>
+              </div>
+              <div class="achievement-badge">
+                <div class="ab-hex blue">📅</div>
+                <div class="ab-name">Konstant</div>
+              </div>
+              <div class="achievement-badge">
+                <div class="ab-hex purple">⚔️</div>
+                <div class="ab-name">Duellant</div>
+              </div>
+              <div class="achievement-badge">
+                <div class="ab-hex gold">🏅</div>
+                <div class="ab-name">Perfektionist</div>
+              </div>
+              <div class="achievement-badge">
+                <div class="ab-hex" style="filter:grayscale(1);opacity:0.4;">🔒</div>
+                <div class="ab-name">Meister</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Persönliche Bestleistungen -->
+          <div>
+            <div class="section-hdr" style="margin-bottom:12px;">
+              <span class="section-title">Persönliche Bestleistungen</span>
+              <button class="section-link" onclick="if(window.toggleProfileMenu) window.toggleProfileMenu();">Alle anzeigen</button>
+            </div>
+            <div class="personal-bests" id="ptPersonalBests">
+              <div class="pb-card">
+                <div class="pb-label">Beste Serie</div>
+                <div class="pb-value" id="ptBestSerie">–</div>
+                <div class="pb-sub">Ringe</div>
+              </div>
+              <div class="pb-card">
+                <div class="pb-label">Bester Ø</div>
+                <div class="pb-value" id="ptBestAvg">–</div>
+                <div class="pb-sub">Ringe · Alle Disziplinen</div>
+              </div>
+              <div class="pb-card">
+                <div class="pb-label">Meiste Ringe</div>
+                <div class="pb-value" id="ptMostRinge">–</div>
+                <div class="pb-sub">Gesamt</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Settings Links -->
+          <div class="settings-list">
+            <div class="settings-row" onclick="switchTab('training')">
+              <span class="sr-icon">📊</span>
+              <div class="sr-text">
+                <div class="sr-title">Mein Training</div>
+                <div class="sr-sub">Verlauf, Statistiken und Analysen</div>
+              </div>
+              <svg class="sr-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="settings-row" onclick="switchTab('challenges')">
+              <span class="sr-icon">⚔️</span>
+              <div class="sr-text">
+                <div class="sr-title">Meine Challenges</div>
+                <div class="sr-sub">Aktive und abgeschlossene Challenges</div>
+              </div>
+              <svg class="sr-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="settings-row" onclick="if(window.toggleProfileMenu) window.toggleProfileMenu();">
+              <span class="sr-icon">🎯</span>
+              <div class="sr-text">
+                <div class="sr-title">Meine Ausrüstung</div>
+                <div class="sr-sub">Gewehre, Optiken und Einstellungen</div>
+              </div>
+              <svg class="sr-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="settings-row" onclick="if(window.toggleProfileMenu) { window.toggleProfileMenu(); setTimeout(()=>switchProfileTab('sun'),300); }">
+              <span class="sr-icon">⭐</span>
+              <div class="sr-text">
+                <div class="sr-title">Meine Erfolge</div>
+                <div class="sr-sub">Alle Auszeichnungen und Meilensteine</div>
+              </div>
+              <svg class="sr-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="settings-row" onclick="if(window.toggleProfileMenu) { window.toggleProfileMenu(); setTimeout(()=>switchProfileTab('settings'),300); }">
+              <span class="sr-icon">⚙️</span>
+              <div class="sr-text">
+                <div class="sr-title">Einstellungen</div>
+                <div class="sr-sub">Konto, Sound und App-Einstellungen</div>
+              </div>
+              <svg class="sr-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+
+        </div><!-- /page-content -->
+      </div><!-- /tabProfil -->
+
+    </div><!-- /tab-panels -->
+
+    <!-- premiumDashboard: kept as invisible wrapper for JS compat (filter effects) -->
+    <div id="premiumDashboard" style="display:none;"></div>
+
+    <!-- ══ DUELL STARTEN FAB ══ -->
+    <button id="btnOpenDuelSetup" onclick="openDuelSetup()">
+      <span style="font-size:1.1rem;">🎯</span> DUELL STARTEN
+    </button>
+
+    <!-- ══ BOTTOM SHEET OVERLAY (Duel Setup) ══ -->
+    <div id="duelSetupSheetOverlay" onclick="closeDuelSetup(event)"
+      style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;opacity:0;transition:opacity 0.3s ease;">
+      <div id="duelSetupSheet"
+        style="position:absolute;bottom:-100%;left:0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(18,18,20,0.97);border-top:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;padding:20px 25px 35px 25px;transition:bottom 0.4s cubic-bezier(0.175,0.885,0.32,1);box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
+        <div style="width:40px;height:5px;background:rgba(255,255,255,0.2);border-radius:5px;margin:0 auto 20px auto;"></div>
+        <div id="gameModeSelection">
+          <h3 style="color:#fff;margin:0 0 8px 0;font-weight:700;font-size:1.3rem;text-align:center;">SPIELMODUS</h3>
+          <p style="color:rgba(255,255,255,0.5);margin:0 0 24px 0;font-size:0.9rem;text-align:center;">Wähle deinen Gegner</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+            <button id="modeBotBtn" onclick="selectGameMode('bot')"
+              style="background:linear-gradient(145deg, rgba(0,195,255,0.15) 0%, rgba(34,197,94,0.15) 100%);border:2px solid rgba(0,195,255,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
+              <div style="font-size:3rem;">🤖</div>
+              <div style="color:#fff;font-weight:700;font-size:1.1rem;">GEGEN BOT</div>
+              <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">Bot-Gegner mit verschiedenen Schwierigkeiten</div>
+            </button>
+            <button id="modeMultiBtn" onclick="selectGameMode('multiplayer')"
+              style="background:linear-gradient(145deg, rgba(255,59,48,0.15) 0%, rgba(255,149,0,0.15) 100%);border:2px solid rgba(255,59,48,0.3);border-radius:20px;padding:30px 20px;cursor:pointer;transition:all 0.3s;display:flex;flex-direction:column;align-items:center;gap:12px;">
+              <div style="font-size:3rem;">👥</div>
+              <div style="color:#fff;font-weight:700;font-size:1.1rem;">MULTIPLAYER</div>
+              <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;text-align:center;">Async gegen Freunde</div>
+            </button>
           </div>
         </div>
-        <button id="legacyBtnStopLiveScan"
-          style="position:absolute;top:50px;right:20px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;line-height:40px;text-align:center;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
+        <div id="duelSettingsContent" style="display:none;">
+          <button onclick="showGameModeSelection()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:10px 16px;color:rgba(255,255,255,0.6);cursor:pointer;margin-bottom:16px;font-size:0.9rem;">← Zurück</button>
+          <h3 id="duelSettingsTitle" style="color:#fff;margin:0 0 20px 0;font-weight:700;font-size:1.3rem;">DUELL EINSTELLUNGEN</h3>
+          <div id="duelSetupContentMount"></div>
+          <button class="btn-fire" id="startBattleBtn" onclick="startBattle();setTimeout(closeDuelSetup,500);"
+            style="margin-top:18px;width:100%;background:linear-gradient(135deg,#00c3ff 0%,#22c55e 100%);color:#000;font-weight:800;border:none;border-radius:14px;padding:16px;font-size:1.1rem;cursor:pointer;box-shadow:0 6px 25px rgba(34,197,94,0.35);">
+            🎯 Duell starten
+          </button>
+        </div>
       </div>
-
     </div>
-    <div style="height:110px;"></div>
+
+    <!-- ══ V2 Scanner View ══ -->
+    <div id="legacyV2ScannerView"
+      style="display:none;position:fixed;top:0;left:0;width:100%;height:100vh;z-index:99999;background:#000;">
+      <video id="legacyV2ScannerVideo" playsinline autoplay muted style="width:100%;height:100%;object-fit:cover;display:block;"></video>
+      <canvas id="legacyV2ScannerCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></canvas>
+      <div style="position:absolute;bottom:40px;left:0;width:100%;text-align:center;">
+        <div style="background:rgba(0,0,0,0.6);display:inline-block;padding:10px 20px;border-radius:30px;font-size:0.9rem;color:#22c55e;font-weight:600;backdrop-filter:blur(8px);border:1px solid rgba(34,197,94,0.3);">
+          Halte den Score in das Bild...
+        </div>
+      </div>
+      <button id="legacyBtnStopLiveScan" style="position:absolute;top:50px;right:20px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:40px;height:40px;font-size:1.2rem;line-height:40px;text-align:center;cursor:pointer;backdrop-filter:blur(4px);">✕</button>
+    </div>
 
     <!-- Script for Dynamic Greeting --><!-- Script for Dynamic Greeting -->
     <script>
       function updatePDGreeting() {
-        if (typeof StorageManager !== 'undefined') {
-          const username = StorageManager.getRaw('username') || "";
-          if (username) {
-            const pdUserName = document.getElementById('pdUserName');
-            if (pdUserName) pdUserName.innerText = username;
-            const pdProfileInitial = document.getElementById('pdProfileInitial');
-            if (pdProfileInitial) pdProfileInitial.innerText = username.charAt(0).toUpperCase();
-          }
-        }
-
-        const hour = new Date().getHours();
-        let greeting = "Guten Abend";
-        if (hour >= 5 && hour < 12) greeting = "Guten Morgen";
-        else if (hour >= 12 && hour < 18) greeting = "Guten Tag";
-
-        const pdGreeting = document.getElementById('pdGreeting');
-        if (pdGreeting) {
-          const pdUserName = document.getElementById('pdUserName');
-          const name = pdUserName ? pdUserName.innerText : "";
-          // XSS hardening: build DOM nodes instead of innerHTML concatenation.
-          pdGreeting.textContent = greeting + ', ';
-          const nameSpan = document.createElement('span');
-          nameSpan.className = 'pd-name';
-          nameSpan.style.color = '#7ab030';
-          nameSpan.textContent = name || 'Schütze';
-          pdGreeting.appendChild(nameSpan);
-          pdGreeting.appendChild(document.createTextNode('!'));
-        }
-
-        const pdDate = document.getElementById('pdDate');
-        if (pdDate) {
-          const options = { year: 'numeric', month: 'short', day: 'numeric' };
-          pdDate.innerText = new Date().toLocaleDateString('de-DE', options);
-        }
+        const username = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('username')) || 'Schütze';
+        const nameEl2 = document.getElementById('pdUserName2');
+        if (nameEl2) nameEl2.textContent = username;
+        /* Also update profile tab */
+        const ptName = document.getElementById('ptProfileName');
+        if (ptName) ptName.textContent = username;
       }
-      document.addEventListener('DOMContentLoaded', () => setTimeout(updatePDGreeting, 100));
+      document.addEventListener('DOMContentLoaded', () => setTimeout(updatePDGreeting, 200));
     </script>
 
 
@@ -1613,6 +2010,40 @@
     window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
   </script>
   <script defer src="/_vercel/speed-insights/script.js"></script>
+
+  <!-- ══════════════════════════ BOTTOM NAVIGATION ══════════════════════════ -->
+  <nav class="bottom-nav" id="bottomNav">
+    <button class="bn-tab active" data-tab="start" onclick="switchTab('start')">
+      <div class="bn-icon-wrap">
+        <svg class="bn-icon" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <span class="bn-label">Start</span>
+    </button>
+    <button class="bn-tab" data-tab="training" onclick="switchTab('training')">
+      <div class="bn-icon-wrap">
+        <svg class="bn-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      </div>
+      <span class="bn-label">Training</span>
+    </button>
+    <button class="bn-tab" data-tab="challenges" onclick="switchTab('challenges')">
+      <div class="bn-icon-wrap">
+        <svg class="bn-icon" viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l3.5 3.5"/><path d="M19 21l-3-3"/></svg>
+      </div>
+      <span class="bn-label">Challenges</span>
+    </button>
+    <button class="bn-tab" data-tab="freunde" onclick="switchTab('freunde')">
+      <div class="bn-icon-wrap">
+        <svg class="bn-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <span class="bn-label">Freunde</span>
+    </button>
+    <button class="bn-tab" data-tab="profil" onclick="switchTab('profil')">
+      <div class="bn-icon-wrap">
+        <svg class="bn-icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <span class="bn-label">Profil</span>
+    </button>
+  </nav>
 
 </body>
 
