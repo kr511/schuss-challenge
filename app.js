@@ -4934,6 +4934,9 @@ function showScreen(id) {
     return;
   }
   target.classList.add('active');
+  /* Hide bottom nav during game screens */
+  const gameScreens = ['screenBattle','screenEntry','screenOver','screenFeedback','screenLeaderboard'];
+  document.body.classList.toggle('game-screen-active', gameScreens.includes(id));
   if (id === 'screenSetup') {
     if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
     if (typeof updatePDGreeting === 'function') updatePDGreeting();
