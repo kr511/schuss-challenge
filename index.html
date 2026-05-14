@@ -329,10 +329,6 @@
               <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
               Statistiken
             </button>
-            <button class="it-tab" data-itab="uebungen" onclick="switchInnerTab('trainingInnerTabsWrap','uebungen')">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-              Übungen
-            </button>
           </div>
 
           <!-- Verlauf Panel -->
@@ -474,70 +470,6 @@
           </div>
 
           <!-- Übungen Panel (hidden by default) -->
-          <div class="it-panel" data-itab="uebungen" style="display:none;">
-
-            <div class="section-title" style="margin-bottom:4px;">Trainingsmodi</div>
-            <div style="font-size:0.75rem;color:rgba(255,255,255,0.4);margin-bottom:8px;">Wähle einen Modus für gezieltes Training</div>
-
-            <div class="exercise-grid">
-              <button class="exercise-card" onclick="startTrainingMode('speed')">
-                <div class="ex-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">⚡</div>
-                <div class="ex-info">
-                  <div class="ex-name">Speed Training</div>
-                  <div class="ex-desc">Schnellschuss · 60 Sek · max. 30 Schuss</div>
-                </div>
-                <svg class="ex-arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-
-              <button class="exercise-card" onclick="startTrainingMode('precision')">
-                <div class="ex-icon" style="background:linear-gradient(135deg,#22c55e,#16a34a);">🎯</div>
-                <div class="ex-info">
-                  <div class="ex-name">Präzision</div>
-                  <div class="ex-desc">Nur 9-10 Ringer zählen · 20 Schuss</div>
-                </div>
-                <svg class="ex-arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-
-              <button class="exercise-card" onclick="startTrainingMode('endurance')">
-                <div class="ex-icon" style="background:linear-gradient(135deg,#3b82f6,#2563eb);">🏃</div>
-                <div class="ex-info">
-                  <div class="ex-name">Ausdauer</div>
-                  <div class="ex-desc">Konstanz über 50 Schuss</div>
-                </div>
-                <svg class="ex-arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-
-              <button class="exercise-card" onclick="startTrainingMode('pressure')">
-                <div class="ex-icon" style="background:linear-gradient(135deg,#ef4444,#dc2626);">⏰</div>
-                <div class="ex-info">
-                  <div class="ex-name">Druck-Training</div>
-                  <div class="ex-desc">Wettkampf-Simulation · 15 Schuss</div>
-                </div>
-                <svg class="ex-arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-
-              <button class="exercise-card" onclick="startTrainingMode('technique')">
-                <div class="ex-icon" style="background:linear-gradient(135deg,#aa5aff,#7c3aed);">🎪</div>
-                <div class="ex-info">
-                  <div class="ex-name">Technik</div>
-                  <div class="ex-desc">Mit Formanalyse · 25 Schuss</div>
-                </div>
-                <svg class="ex-arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-
-              <button class="exercise-card" onclick="openDuelSetup()">
-                <div class="ex-icon" style="background:linear-gradient(135deg,#06b6d4,#0891b2);">📋</div>
-                <div class="ex-info">
-                  <div class="ex-name">Freies Training</div>
-                  <div class="ex-desc">Eigene Konfiguration wählen</div>
-                </div>
-                <svg class="ex-arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-            </div>
-
-            <!-- Training Modes Mount (legacy) -->
-            <div id="trainingModesMount" style="margin-top:8px;"></div>
-          </div>
 
         </div><!-- /page-content -->
       </div><!-- /tabTraining -->

@@ -364,9 +364,14 @@
   }
 
   function refreshChallengesTab() {
-    /* Daily challenge UI is already mounted in #dailyChallengeUI */
+    /* Daily challenge UI is already mounted in #dailyChallengeUI — trigger re-render */
+    if (window.DailyChallenge && typeof window.DailyChallenge.init === 'function') {
+      try { window.DailyChallenge.init(); } catch(_e) {}
+    }
     refreshChallengesStats();
     refreshInvitationCounts();
+    refreshInvitationLists();
+    refreshCompletedChallenges();
   }
 
   function refreshChallengesStats() {
@@ -393,6 +398,92 @@
     setEl('invIncomingCount', incoming);
     setEl('invOutgoingCount', outgoing);
     setEl('invPendingCount', pending);
+  }
+
+  function refreshInvitationLists() {
+    const acState = (window.AsyncChallenge && typeof window.AsyncChallenge.getState === 'function')
+      ? window.AsyncChallenge.getState() : null;
+    const incoming = acState ? (acState.availableChallenges || []) : [];
+    const outgoing = acState ? (acState.myChallenges || []) : [];
+
+    const inEl = document.getElementById('incomingInvitations');
+    if (inEl) {
+      if (incoming.length === 0) {
+        inEl.innerHTML = '<div class="empty-state" style="padding:24px 16px;"><div class="empty-state-icon">📥</div><div>Keine eingehenden Einladungen</div><div style="font-size:0.7rem;color:rgba(255,255,255,0.25);margin-top:4px;">Wenn Freunde dich herausfordern, erscheint es hier</div></div>';
+      } else {
+        inEl.innerHTML = incoming.map(c => buildChallengeInviteRow(c, 'incoming')).join('');
+      }
+    }
+    const outEl = document.getElementById('outgoingInvitations');
+    if (outEl) {
+      if (outgoing.length === 0) {
+        outEl.innerHTML = '<div class="empty-state" style="padding:24px 16px;"><div class="empty-state-icon">📤</div><div>Du hast keine offenen Einladungen gesendet</div></div>';
+      } else {
+        outEl.innerHTML = outgoing.map(c => buildChallengeInviteRow(c, 'outgoing')).join('');
+      }
+    }
+
+    /* Update counts */
+    const setEl = (id, v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+    setEl('invIncomingCount', incoming.length);
+    setEl('invOutgoingCount', outgoing.length);
+    setEl('invPendingCount', incoming.length + outgoing.length);
+  }
+
+  function buildChallengeInviteRow(c, type) {
+    const name = escapeHtml(c.opponentName || c.creatorName || c.username || 'Unbekannt');
+    const disc = escapeHtml(c.disciplineName || c.discipline || 'Duell');
+    const date = formatDate(c.createdAt || c.timestamp);
+    const id = escapeHtml(String(c.id || c.challengeId || ''));
+    const action = type === 'incoming'
+      ? `<button class="rr-btn accept" onclick="if(window.AsyncChallenge)AsyncChallenge.acceptChallenge('${id}')">Annehmen</button>`
+      : `<span style="font-size:0.7rem;color:rgba(255,255,255,0.3);">Wartet auf Antwort</span>`;
+    return `<div class="request-row">
+      <div class="rr-avatar">⚔️</div>
+      <div class="rr-info">
+        <div class="rr-name">${name}</div>
+        <div class="rr-meta">${disc} · ${date}</div>
+      </div>
+      <div class="rr-actions">${action}</div>
+    </div>`;
+  }
+
+  function refreshCompletedChallenges() {
+    const container = document.getElementById('completedChallenges');
+    if (!container) return;
+    let history = [];
+    try {
+      const raw = localStorage.getItem('sd_history') || '[]';
+      history = JSON.parse(raw);
+      if (!Array.isArray(history)) history = [];
+    } catch(_e) { history = []; }
+
+    if (history.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="padding:32px 16px;"><div class="empty-state-icon">🏆</div><div>Noch keine abgeschlossenen Challenges</div><div style="font-size:0.7rem;color:rgba(255,255,255,0.25);margin-top:4px;">Deine Erfolge erscheinen hier</div></div>';
+      return;
+    }
+    container.innerHTML = history.slice(0, 20).map(entry => {
+      const isWin = entry.result === 'win';
+      const isLoss = entry.result === 'loss';
+      const resultIcon = isWin ? '🏆' : isLoss ? '💔' : '🤝';
+      const resultClass = isWin ? 'accent' : isLoss ? '' : '';
+      const discName = escapeHtml(entry.disciplineName || entry.discipline || 'Duell');
+      const playerPts = parseFloat(entry.playerPts || 0).toFixed(0);
+      const botPts = parseFloat(entry.botPts || 0).toFixed(0);
+      const dateStr = formatDate(entry.timestamp || entry.date);
+      const diffName = escapeHtml(entry.diffName || entry.diff || '');
+      return `<div class="request-row" style="gap:12px;">
+        <div class="rr-avatar" style="font-size:1.3rem;">${resultIcon}</div>
+        <div class="rr-info" style="flex:1;">
+          <div class="rr-name">${discName}${diffName ? ' · ' + diffName : ''}</div>
+          <div class="rr-meta">${dateStr}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:1rem;font-weight:700;color:${isWin?'var(--accent)':isLoss?'#ff4a4a':'rgba(255,255,255,0.5)'};">${playerPts} – ${botPts}</div>
+          <div style="font-size:0.65rem;color:rgba(255,255,255,0.3);">Ringe</div>
+        </div>
+      </div>`;
+    }).join('');
   }
 
   function refreshFreundeTab() {
@@ -476,6 +567,20 @@
         ? (sumBest / friends.length).toFixed(1).replace('.', ',')
         : '–';
     }
+
+    /* Own stats for the 3 remaining tiles */
+    const ownSessions = getQuickTrainingSessions();
+    const ownWeek = ownSessions.filter(s => (Date.now() - new Date(s.date || s.timestamp || 0)) < 7*24*3600*1000);
+    const statEl = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    statEl('fStatTrainings', ownWeek.length);
+
+    let duelsCount = 0;
+    try { duelsCount = JSON.parse(localStorage.getItem('sd_history') || '[]').length; } catch(_e) {}
+    statEl('fStatDuels', duelsCount);
+
+    const gsRaw2 = (typeof StorageManager !== 'undefined') ? StorageManager.getRaw('gameState') : null;
+    const gs2 = gsRaw2 ? JSON.parse(gsRaw2) : null;
+    statEl('fStatStreak', gs2 ? (gs2.streak || gs2.currentStreak || 0) : 0);
   }
 
   function refreshFriendRequests() {
@@ -609,6 +714,21 @@
     const setEl = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
     setEl('ptStatTrainings', sessions.length);
     setEl('ptAvgRinge', avg);
+
+    /* Personal bests */
+    const bestSerie = sessions.length > 0 ? Math.max(...sessions.map(s => s.best || s.max || 0)) : 0;
+    const bestAvg   = sessions.length > 0 ? Math.max(...sessions.map(s => s.avg  || 0)) : 0;
+    setEl('ptBestSerie', bestSerie > 0 ? bestSerie.toFixed(1) : '–');
+    setEl('ptBestAvg',   bestAvg   > 0 ? bestAvg.toFixed(1)   : '–');
+
+    let bestGame = 0;
+    try {
+      const hist = JSON.parse(localStorage.getItem('sd_history') || '[]');
+      if (Array.isArray(hist) && hist.length > 0) {
+        bestGame = Math.max(...hist.map(e => parseFloat(e.playerPts || 0)));
+      }
+    } catch(_e) {}
+    setEl('ptMostRinge', bestGame > 0 ? Math.round(bestGame).toString() : '–');
 
     /* Club */
     const club = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('clubName')) || '';
