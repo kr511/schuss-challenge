@@ -202,8 +202,14 @@
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
               </div>
               <div class="gc-text">
-                <div class="gc-label">Dein heutiges Ziel</div>
+                <div class="gc-label">
+                  Dein heutiges Ziel
+                  <button class="gc-edit-btn" onclick="openGoalEditor()" aria-label="Ziel ändern" title="Ziel ändern">
+                    <svg viewBox="0 0 24 24" style="width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                </div>
                 <div class="gc-goal" id="gcGoalTitle">Treffe 95+ Ringe</div>
+                <div class="gc-achieved" id="gcAchieved" style="display:none;">🎯 Tagesziel erreicht!</div>
               </div>
               <div class="gc-ring">
                 <svg viewBox="0 0 64 64">
@@ -2442,6 +2448,42 @@
       <span class="bn-label">Profil</span>
     </button>
   </nav>
+
+  <!-- Daily Goal Editor -->
+  <div id="goalEditorPanel" class="tff-overlay" onclick="if(event.target===this)closeGoalEditor()">
+    <div class="tff-sheet">
+      <div class="tff-header">
+        <span class="tff-title">Tagesziel setzen</span>
+        <button class="tff-close" onclick="closeGoalEditor()" aria-label="Schließen">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="tff-group">
+        <div class="tff-group-label">Schnellauswahl (Ringe)</div>
+        <div class="tff-btn-row" style="flex-wrap:wrap;">
+          <button class="tf-btn" data-goal="85" onclick="setDailyGoal(85)">85</button>
+          <button class="tf-btn" data-goal="88" onclick="setDailyGoal(88)">88</button>
+          <button class="tf-btn" data-goal="90" onclick="setDailyGoal(90)">90</button>
+          <button class="tf-btn" data-goal="92" onclick="setDailyGoal(92)">92</button>
+          <button class="tf-btn" data-goal="95" onclick="setDailyGoal(95)">95</button>
+          <button class="tf-btn" data-goal="97" onclick="setDailyGoal(97)">97</button>
+          <button class="tf-btn" data-goal="99" onclick="setDailyGoal(99)">99</button>
+          <button class="tf-btn" data-goal="100" onclick="setDailyGoal(100)">100</button>
+        </div>
+      </div>
+      <div class="tff-group">
+        <div class="tff-group-label">Eigenes Ziel (50 – 109 Ringe)</div>
+        <div class="ge-custom-row">
+          <input type="number" id="goalCustomInput" class="ge-input" min="50" max="109" placeholder="z.B. 96">
+          <button class="ge-set-btn" onclick="setDailyGoalCustom()">Setzen</button>
+        </div>
+      </div>
+      <div class="ge-xp-hint">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        +50 XP wenn du dein Tagesziel mit einem Training erreichst
+      </div>
+    </div>
+  </div>
 
   <!-- Training Filter Panel -->
   <div id="trainingFilterPanel" class="tff-overlay" onclick="if(event.target===this)closeTrainingFilter()">

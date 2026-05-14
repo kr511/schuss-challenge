@@ -143,25 +143,72 @@
     refreshLastTraining();
   }
 
-  function refreshStartGoalCard() {
-    const sessions = getQuickTrainingSessions();
-    const progress = sessions.length > 0 ? sessions[0].avg || 0 : 0;
-    const goal = 95;
-    const pct = Math.min(100, Math.round((progress / goal) * 100));
+  /* ── Daily Goal helpers ── */
+  function getDailyGoal() {
+    try {
+      const raw = localStorage.getItem('sd_dailyGoal');
+      if (!raw) return { value: 95, achieved: false };
+      const data = JSON.parse(raw);
+      const today = new Date().toDateString();
+      if (data.date !== today) return { value: data.value || 95, achieved: false };
+      return { value: data.value || 95, achieved: !!data.achieved };
+    } catch(_e) { return { value: 95, achieved: false }; }
+  }
 
-    const titleEl = document.getElementById('gcGoalTitle');
-    const textEl = document.getElementById('gcProgressText');
-    const barEl = document.getElementById('gcBarFill');
-    const pctEl = document.getElementById('gcRingPct');
-    const ringFill = document.getElementById('gcRingFill');
+  function saveDailyGoal(value, achieved) {
+    try {
+      localStorage.setItem('sd_dailyGoal', JSON.stringify({
+        value, achieved, date: new Date().toDateString()
+      }));
+    } catch(_e) {}
+  }
+
+  function getTodayBestAvg() {
+    const sessions = getQuickTrainingSessions();
+    const today = new Date().toDateString();
+    const todaySessions = sessions.filter(s => {
+      return new Date(s.date || s.timestamp || 0).toDateString() === today;
+    });
+    if (todaySessions.length === 0) return 0;
+    return Math.max(...todaySessions.map(s => s.avg || 0));
+  }
+
+  function refreshStartGoalCard() {
+    const goalData = getDailyGoal();
+    const goal = goalData.value;
+    const progress = getTodayBestAvg();
+    const pct = Math.min(100, Math.round((progress / goal) * 100));
+    const justAchieved = progress >= goal && !goalData.achieved;
+
+    const titleEl   = document.getElementById('gcGoalTitle');
+    const textEl    = document.getElementById('gcProgressText');
+    const barEl     = document.getElementById('gcBarFill');
+    const pctEl     = document.getElementById('gcRingPct');
+    const ringFill  = document.getElementById('gcRingFill');
+    const achievedEl= document.getElementById('gcAchieved');
 
     if (titleEl) titleEl.textContent = 'Treffe ' + goal + '+ Ringe';
-    if (textEl) textEl.textContent = progress.toFixed(1) + ' / ' + goal + ' Ringe';
+    if (textEl) textEl.textContent = (progress > 0 ? progress.toFixed(1) : '–') + ' / ' + goal + ' Ringe';
     if (barEl) barEl.style.width = pct + '%';
     if (pctEl) pctEl.textContent = pct + '%';
     if (ringFill) {
       const circ = 163;
       ringFill.style.strokeDashoffset = circ - (circ * pct / 100);
+    }
+
+    /* Award XP exactly once per day when goal first reached */
+    if (justAchieved) {
+      saveDailyGoal(goal, true);
+      if (typeof window.awardFlatXP === 'function') window.awardFlatXP(50);
+      if (achievedEl) { achievedEl.style.display = ''; achievedEl.className = 'gc-achieved gc-achieved-new'; achievedEl.textContent = '🎯 Tagesziel erreicht! +50 XP'; }
+    } else if (achievedEl) {
+      if (goalData.achieved && progress >= goal) {
+        achievedEl.style.display = '';
+        achievedEl.className = 'gc-achieved';
+        achievedEl.textContent = '🎯 Tagesziel erreicht!';
+      } else {
+        achievedEl.style.display = 'none';
+      }
     }
   }
 
@@ -594,6 +641,39 @@
         + ' · ' + date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     } catch(e) { return '–'; }
   }
+
+  /* ── Goal editor ── */
+  window.openGoalEditor = function() {
+    const panel = document.getElementById('goalEditorPanel');
+    if (!panel) return;
+    const { value } = getDailyGoal();
+    panel.querySelectorAll('.tf-btn[data-goal]').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.goal) === value);
+    });
+    const inp = document.getElementById('goalCustomInput');
+    if (inp) inp.value = value;
+    panel.classList.add('tff-open');
+  };
+
+  window.closeGoalEditor = function() {
+    const panel = document.getElementById('goalEditorPanel');
+    if (panel) panel.classList.remove('tff-open');
+  };
+
+  window.setDailyGoal = function(value) {
+    const v = Math.max(50, Math.min(109, Math.round(Number(value) || 95)));
+    const existing = getDailyGoal();
+    /* Only keep achieved=true if the goal value didn't change */
+    saveDailyGoal(v, existing.value === v ? existing.achieved : false);
+    refreshStartGoalCard();
+    window.closeGoalEditor();
+  };
+
+  window.setDailyGoalCustom = function() {
+    const inp = document.getElementById('goalCustomInput');
+    const v = inp && inp.value ? parseInt(inp.value) : 0;
+    if (v >= 50 && v <= 109) window.setDailyGoal(v);
+  };
 
   /* ── FriendsSystem shims ── */
   function patchFriendsSystem() {
