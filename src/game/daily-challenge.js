@@ -650,17 +650,50 @@ const DailyChallenge = (function () {
     if (/\bKK\b|KLEINKALIBER/.test(up)) weapon = 'kk';
     else if (/\bLG\b|LUFTGEWEHR/.test(up)) weapon = 'lg';
 
-    // ─── 2. Schussanzahl aus Text ───
+    // ─── 2. KK-Disziplin erkennen (50m / 100m / 3×20) ───
+    var discipline = 'unknown';
+    if (weapon === 'kk' || weapon === 'unknown') {
+      if (/3\s*[xX×]\s*20|DREISTELLUNG|3X20/.test(up))  discipline = 'kk3x20';
+      else if (/\b100\s*M\b/.test(up))                    discipline = 'kk100';
+      else if (/\b50\s*M\b/.test(up))                     discipline = 'kk50';
+    }
+
+    // ─── 3. Schussanzahl aus Text ───
     var shotCount = 0;
-    var scM = norm.match(/\b(10|40|60)\s*Schuss/i);
+    var scM = norm.match(/\b(10|20|40|60)\s*Schuss/i);
     if (scM) shotCount = parseInt(scM[1], 10);
 
-    // ─── 3. Gesamtergebnis via deutschem Label (höchste Priorität) ───
+    // ─── 4. Gesamtergebnis via deutschem Label (höchste Priorität) ───
     var totalScore = 0;
     var labelM = norm.match(/(?:Gesamt|Ges\.|Ergebnis|Total|Summe|Endresultat|Result)[.\s:]+(\d{2,3}(?:\.\d)?)/i);
     if (labelM) totalScore = parseFloat(labelM[1]);
 
-    // ─── 4. Alle Zahlen sammeln ───
+    // ─── 5. KK 3×20: Positions-Serien (Liegend / Kniend / Stehend) ───
+    var positions = {};
+    if (discipline === 'kk3x20' || /LIEGEND|KNIEND|STEHEND/.test(up)) {
+      var lieM = norm.match(/Liegend[.\s:]+(\d{1,3})/i);
+      var kniM = norm.match(/Kni[eë]?nd[.\s:]+(\d{1,3})/i);
+      var steM = norm.match(/Stehend[.\s:]+(\d{1,3})/i);
+      if (lieM) positions.prone    = parseInt(lieM[1], 10);
+      if (kniM) positions.kneeling = parseInt(kniM[1], 10);
+      if (steM) positions.standing = parseInt(steM[1], 10);
+      discipline = 'kk3x20';
+      if (weapon === 'unknown') weapon = 'kk';
+
+      // Total aus Positionen berechnen wenn kein Label vorhanden
+      var posKeys = Object.keys(positions);
+      if (totalScore === 0 && posKeys.length > 0) {
+        totalScore = posKeys.reduce(function (s, k) { return s + positions[k]; }, 0);
+      }
+      shotCount = shotCount || 60;
+    }
+
+    // ─── 6. LG-Disziplin erkennen ───
+    if (weapon === 'lg' && discipline === 'unknown') {
+      // Wird unten aus Gesamtergebnis abgeleitet
+    }
+
+    // ─── 7. Alle Zahlen sammeln ───
     var allNums = [];
     var numRe = /\b(\d{1,3}(?:\.\d)?)\b/g, nm;
     while ((nm = numRe.exec(norm)) !== null) {
@@ -668,16 +701,20 @@ const DailyChallenge = (function () {
       if (!isNaN(n)) allNums.push(n);
     }
 
-    // ─── 5. Einzelschüsse ───
+    // ─── 8. Einzelschüsse ───
     // LG: Dezimalwerte "X.Y" zwischen 0.0 und 10.9
     var lgShotRe = /\b(10\.[0-9]|[0-9]\.[0-9])\b/g, sm;
     var lgShots = [];
     while ((sm = lgShotRe.exec(norm)) !== null) lgShots.push(parseFloat(sm[1]));
 
-    // KK: Ganzzahlen 1–10
-    var kkShots = allNums.filter(function (n) { return n >= 1 && n <= 10 && n % 1 === 0; });
+    // KK: Ganzzahlen 1–10 (Einzelschüsse)
+    // Serien-Teilergebnisse (z.B. Liegend 195) herausfiltern
+    var posVals = Object.keys(positions).map(function (k) { return positions[k]; });
+    var kkShots = allNums.filter(function (n) {
+      return n >= 1 && n <= 10 && n % 1 === 0 && posVals.indexOf(n) === -1;
+    });
 
-    // ─── 6. Gesamtergebnis aus Bereich wenn Label fehlt ───
+    // ─── 9. Gesamtergebnis aus Bereich wenn Label fehlt ───
     if (totalScore === 0) {
       var lg60c = allNums.filter(function (n) { return n >= 450 && n <= 654; });
       var lg40c = allNums.filter(function (n) { return n >= 300 && n < 450; });
@@ -686,45 +723,49 @@ const DailyChallenge = (function () {
       var kk10c = allNums.filter(function (n) { return n >= 40 && n <= 100 && n % 1 === 0; });
 
       var candidates;
-      if (weapon === 'kk')     candidates = kk60c.concat(kk10c);
+      if (weapon === 'kk')      candidates = kk60c.concat(kk10c);
       else if (weapon === 'lg') candidates = lg60c.concat(lg40c).concat(lg10c);
       else                      candidates = lg60c.concat(lg40c).concat(kk60c).concat(lg10c).concat(kk10c);
 
       if (candidates.length > 0) {
         totalScore = Math.max.apply(null, candidates);
         if (weapon === 'unknown') {
-          if (lg60c.indexOf(totalScore) !== -1)      { weapon = 'lg'; shotCount = shotCount || 60; }
-          else if (lg40c.indexOf(totalScore) !== -1)  { weapon = 'lg'; shotCount = shotCount || 40; }
-          else if (kk60c.indexOf(totalScore) !== -1)  { weapon = 'kk'; shotCount = shotCount || 60; }
-          else if (lg10c.indexOf(totalScore) !== -1)  { weapon = 'lg'; shotCount = shotCount || 10; }
-          else if (kk10c.indexOf(totalScore) !== -1)  { weapon = 'kk'; shotCount = shotCount || 10; }
+          if (lg60c.indexOf(totalScore) !== -1)     { weapon = 'lg'; discipline = 'lg60'; shotCount = shotCount || 60; }
+          else if (lg40c.indexOf(totalScore) !== -1) { weapon = 'lg'; discipline = 'lg40'; shotCount = shotCount || 40; }
+          else if (kk60c.indexOf(totalScore) !== -1) { weapon = 'kk'; shotCount = shotCount || 60; }
+          else if (lg10c.indexOf(totalScore) !== -1) { weapon = 'lg'; shotCount = shotCount || 10; }
+          else if (kk10c.indexOf(totalScore) !== -1) { weapon = 'kk'; shotCount = shotCount || 10; }
         }
       }
     } else if (shotCount === 0) {
-      // Schussanzahl aus Gesamtergebnis ableiten
       if (weapon === 'lg') {
         shotCount = totalScore >= 450 ? 60 : totalScore >= 300 ? 40 : 10;
+        discipline = shotCount === 60 ? 'lg60' : shotCount === 40 ? 'lg40' : 'lg10';
       } else if (weapon === 'kk') {
         shotCount = totalScore >= 400 ? 60 : 10;
       }
     }
 
-    // ─── 7. Shots nach Waffe wählen ───
+    // ─── 10. Shots nach Waffe wählen ───
     var shots = weapon === 'kk' ? kkShots : lgShots;
     if (shotCount === 0 && shots.length > 0) shotCount = shots.length;
 
-    // ─── 8. Konfidenz: Kreuzvalidierung Summe ↔ Gesamtergebnis ───
+    // ─── 11. Konfidenz: Kreuzvalidierung Summe ↔ Gesamtergebnis ───
     var confidence = totalScore > 0 ? 0.65 : 0.2;
     if (shots.length >= 5) {
       var calcSum = parseFloat(shots.reduce(function (a, b) { return a + b; }, 0).toFixed(1));
       if (Math.abs(calcSum - totalScore) < 1.5) confidence = 0.92;
+    } else if (discipline === 'kk3x20' && Object.keys(positions).length === 3) {
+      confidence = 0.90; // 3 Positionen vollständig erkannt
     }
 
     return {
       totalScore: totalScore,
       weapon: weapon,
+      discipline: discipline,  // 'kk50'|'kk100'|'kk3x20'|'lg40'|'lg60'|'lg10'|'unknown'
       shotCount: shotCount,
       shots: shots,
+      positions: positions,    // { prone, kneeling, standing } nur bei kk3x20
       confidence: confidence
     };
   }
