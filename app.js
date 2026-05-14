@@ -1604,6 +1604,9 @@ function refreshPremiumDashboard() {
     if (elSideStreakBar && stats.current > 0) {
       elSideStreakBar.style.width = Math.min(stats.current * 10, 100) + '%';
     }
+    if (typeof StreakTracker.renderWeekCalendar === 'function') {
+      StreakTracker.renderWeekCalendar();
+    }
   }
 
   let gamesTodayCount = historyV2.filter(g => g.timestamp && g.timestamp >= startOfDay.getTime()).length;
@@ -4888,6 +4891,35 @@ function restartGame() {
   window.scrollTo(0, 0);
   showScreen('screenSetup');
 }
+
+// Schnell-Rematch: gleiche Disziplin + Schwierigkeit, ohne Umweg über Setup
+function restartSameSettings() {
+  clearPendingFeedbackPrompt();
+  clearBattleTimers();
+  if (typeof stopBotStatusUpdates === 'function') stopBotStatusUpdates();
+  // State leeren wie in restartGame – aber NICHT zurück ins Setup
+  G.targetShots = [];
+  G.botShots = []; G.botPlan = null; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
+  G.playerTotal = 0; G.playerTotalInt = 0; G._playerTotalTenths = 0;
+  G.dnf = false;
+  G._lastPlayerShotAt = 0;
+  G.playerShots = [];
+  G.currentDetectedShots = [];
+  G.probeActive = false;
+  G.probeSecsLeft = 0;
+  G.botStarted = false;
+  G.transitionSecsLeft = 0;
+  G.transitionLabel = '';
+  G.is3x20 = false;
+  G.posIdx = 0; G.posShots = 0; G.posResults = [];
+  G.positions = []; G.posIcons = [];
+  if (DOM.profileOverlay) DOM.profileOverlay.classList.remove('active');
+  if (DOM.profileIcon) DOM.profileIcon.classList.remove('active');
+  window.scrollTo(0, 0);
+  // Direkt neu starten — startBattle nutzt G.discipline/G.diff/G.weapon
+  startBattle();
+}
+window.restartSameSettings = restartSameSettings;
 
 function showScreen(id) {
   if (id !== 'screenOver') clearPendingFeedbackPrompt();
