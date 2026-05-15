@@ -318,6 +318,7 @@
       'button, a, input, textarea, select, label, [role="button"], [onclick],' +
       ' .tab-panel, .it-panel, .ps-panel, .ps-tab, .it-tabs, .tab-nav,' +
       ' .profile-sheet, .bottom-sheet, .modal, .overlay, .tff-overlay,' +
+      ' .fp-overlay, .fp-sheet, #friendProfileOverlay,' +
       ' .leaderboard, .friends-list, .updates-dropdown, #updatesDropdown,' +
       ' .sun-card, .disc-option, .diff-option, .bot-panel, .debug-panel,' +
       ' [data-no-swipe], [contenteditable="true"]'
@@ -326,7 +327,7 @@
     const isOverlayOpen = () => !!document.querySelector(
       '.profile-sheet.active, .bottom-sheet.active,' +
       ' .modal.active, .overlay.active, .tff-overlay.active,' +
-      ' #profileOverlay.active'
+      ' #profileOverlay.active, #friendProfileOverlay.fp-open'
     );
 
     const getActiveTabIndex = (tabs) => {
