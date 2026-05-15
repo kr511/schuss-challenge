@@ -3,7 +3,7 @@
 .cv-overlay {
   position: fixed;
   inset: 0;
-  z-index: 960;
+  z-index: 9500;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -46,11 +46,11 @@
 }
 
 .cv-back-btn {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.14);
   color: #fff;
   display: flex;
   align-items: center;
@@ -63,15 +63,17 @@
 
 .cv-back-btn:active {
   transform: scale(0.94);
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .cv-back-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   stroke: currentColor;
   fill: none;
-  stroke-width: 2.5;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .cv-header-friend {
