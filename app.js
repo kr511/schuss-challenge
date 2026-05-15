@@ -510,7 +510,13 @@ window.signInWithEmail = async function(email, password) {
 };
 
 window.logoutEmail = async function() {
-  if (!confirm('Moechtest du dich wirklich abmelden? Deine lokalen Daten bleiben auf diesem Geraet erhalten.')) return false;
+  const confirmed = window.MobileResponsive && typeof window.MobileResponsive.confirmDialog === 'function'
+    ? await window.MobileResponsive.confirmDialog(
+        'Wirklich abmelden? Deine lokalen Daten bleiben auf diesem Gerät erhalten.',
+        { title: 'Abmelden', confirmText: 'Abmelden', cancelText: 'Abbrechen' }
+      )
+    : confirm('Moechtest du dich wirklich abmelden? Deine lokalen Daten bleiben auf diesem Geraet erhalten.');
+  if (!confirmed) return false;
   try {
     const localData = { username: G.username, xp: G.xp, streak: G.streak, weapon: G.weapon, discipline: G.discipline };
     StorageManager.setRaw('pre_logout_data', JSON.stringify(localData));
@@ -4857,15 +4863,20 @@ function initSoundToggleBtn() {
   btn.textContent = Sounds.enabled ? '🔊 \u00a0Sound: AN' : '🔇 \u00a0Sound: AUS';
 }
 
-function hardResetProgress() {
-  if (!confirm("Möchtest du wirklich deinen gesamten Fortschritt (XP, Siege, Erfolge und Streaks) löschen? Dies kann nicht rückgängig gemacht werden!")) return;
+async function hardResetProgress() {
+  const confirmed = window.MobileResponsive && typeof window.MobileResponsive.confirmDialog === 'function'
+    ? await window.MobileResponsive.confirmDialog(
+        'Wirklich gesamten Fortschritt löschen? XP, Siege, Erfolge und Streaks werden unwiderruflich gelöscht.',
+        { title: 'Fortschritt löschen', confirmText: 'Alles löschen', cancelText: 'Abbrechen', danger: true }
+      )
+    : confirm("Möchtest du wirklich deinen gesamten Fortschritt (XP, Siege, Erfolge und Streaks) löschen? Dies kann nicht rückgängig gemacht werden!");
+  if (!confirmed) return;
 
   const backupName = G.username;
   StorageManager.clearAll(['reset_v3', 'reset_v4', 'username']);
   StorageManager.setRaw('reset_v3', 'true');
   if (backupName) StorageManager.setRaw('username', backupName);
 
-  // Reload everything
   loadXP();
   G.targetShots = [];
   G.botShots = []; G.botPlan = null; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
@@ -4874,8 +4885,7 @@ function hardResetProgress() {
   checkSunAchievements();
   scheduleCloudSync('hard_reset');
 
-  alert("Alle lokalen Daten wurden zurückgesetzt.");
-  location.reload(); // Am sichersten für einen kompletten Reset
+  location.reload();
 }
 
 function restartGame() {
