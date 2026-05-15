@@ -752,6 +752,59 @@
     return resultMap[challengeId] || [];
   }
 
+  async function loadChallengeResults(challengeId) {
+    if (!(await ensureReady())) return [];
+    var resultMap = await loadResultsForChallengeIds([challengeId]);
+    var rows = resultMap[challengeId] || [];
+    if (rows.length === 0) return [];
+    var profileMap = await loadProfiles(rows.map(function (r) { return r.user_id; }));
+    return rows.map(function (r) {
+      var p = profileMap[r.user_id] || {};
+      return {
+        challengerId: r.user_id,
+        challengerUsername: p.display_name || p.username || 'Spieler',
+        score: Number(r.score) || 0,
+        submittedAt: r.submitted_at
+      };
+    });
+  }
+
+  async function submitChallengeResult(challengeId, score, shots) {
+    if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
+
+    var client = getClient();
+    var user = getUser();
+    var now = new Date().toISOString();
+
+    var result = await client
+      .from('async_results')
+      .upsert({
+        challenge_id: challengeId,
+        user_id: user.id,
+        score: Number(score) || 0,
+        shots: Array.isArray(shots) ? shots : [],
+        submitted_at: now,
+        score_source: 'game',
+        confirmed_at: now
+      }, { onConflict: 'challenge_id,user_id' })
+      .select('*')
+      .single();
+
+    if (result.error) throw result.error;
+
+    var allResultMap = await loadResultsForChallengeIds([challengeId]);
+    var allRows = allResultMap[challengeId] || [];
+    if (allRows.length >= 2) {
+      await client
+        .from('async_challenges')
+        .update({ status: 'completed', completed_at: now })
+        .eq('id', challengeId)
+        .neq('status', 'completed');
+    }
+
+    return { ok: true, result: result.data };
+  }
+
   async function submitPhotoDuelResult(challengeId, scorePayload) {
     if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
 
@@ -872,6 +925,8 @@
     loadCreatedChallenges: loadCreatedChallenges,
     loadAvailableChallenges: loadAvailableChallenges,
     acceptChallenge: acceptChallenge,
+    submitChallengeResult: submitChallengeResult,
+    loadChallengeResults: loadChallengeResults,
     createPhotoDuel: createPhotoDuel,
     loadIncomingPhotoDuels: loadIncomingPhotoDuels,
     loadCreatedPhotoDuels: loadCreatedPhotoDuels,
