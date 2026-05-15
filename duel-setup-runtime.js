@@ -17,14 +17,6 @@
     difficulty: 'easy'
   };
 
-  const scrollLock = {
-    locked: false,
-    scrollY: 0,
-    lastTouchY: 0,
-    touchGuardsAttached: false,
-    bodyStyles: {},
-    htmlStyles: {}
-  };
 
   const disciplines = {
     lg40: { weapon: 'lg', label: 'LG 40', shots: 40, dist: '10', desc: '40 Schuss · 10 m', icon: 'target' },
@@ -115,127 +107,6 @@
     }
   }
 
-  function saveScrollStyles() {
-    const body = document.body;
-    const html = document.documentElement;
-
-    scrollLock.bodyStyles = {
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      width: body.style.width,
-      overflow: body.style.overflow,
-      height: body.style.height,
-      overscrollBehavior: body.style.overscrollBehavior,
-      touchAction: body.style.touchAction
-    };
-
-    scrollLock.htmlStyles = {
-      overflow: html.style.overflow,
-      height: html.style.height,
-      overscrollBehavior: html.style.overscrollBehavior,
-      touchAction: html.style.touchAction
-    };
-  }
-
-  function restoreScrollStyles() {
-    const body = document.body;
-    const html = document.documentElement;
-
-    Object.entries(scrollLock.bodyStyles).forEach(([key, value]) => {
-      body.style[key] = value || '';
-    });
-
-    Object.entries(scrollLock.htmlStyles).forEach(([key, value]) => {
-      html.style[key] = value || '';
-    });
-  }
-
-  function prepareSheetScroll() {
-    const sheet = getSheet();
-    if (!sheet) return;
-
-    sheet.style.overflowY = 'auto';
-    sheet.style.webkitOverflowScrolling = 'touch';
-    sheet.style.overscrollBehavior = 'contain';
-    sheet.style.touchAction = 'pan-y';
-  }
-
-  function lockPageScroll() {
-    prepareSheetScroll();
-    if (scrollLock.locked) return;
-
-    const body = document.body;
-    const html = document.documentElement;
-    scrollLock.scrollY = window.scrollY || html.scrollTop || body.scrollTop || 0;
-    saveScrollStyles();
-
-    html.style.overflow = 'hidden';
-    html.style.height = '100%';
-    html.style.overscrollBehavior = 'none';
-    html.style.touchAction = 'none';
-
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollLock.scrollY}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-    body.style.width = '100%';
-    body.style.height = '100%';
-    body.style.overflow = 'hidden';
-    body.style.overscrollBehavior = 'none';
-    body.style.touchAction = 'none';
-    body.classList.add('duel-scroll-lock-active');
-
-    scrollLock.locked = true;
-  }
-
-  function unlockPageScroll() {
-    if (!scrollLock.locked) return;
-
-    document.body.classList.remove('duel-scroll-lock-active');
-    restoreScrollStyles();
-    window.scrollTo(0, scrollLock.scrollY || 0);
-    scrollLock.locked = false;
-  }
-
-  function handleOverlayTouchStart(event) {
-    scrollLock.lastTouchY = event.touches && event.touches.length ? event.touches[0].clientY : 0;
-  }
-
-  function handleOverlayTouchMove(event) {
-    if (!scrollLock.locked) return;
-
-    const sheet = getSheet();
-    if (!sheet) return;
-
-    if (!sheet.contains(event.target)) {
-      event.preventDefault();
-      return;
-    }
-
-    const currentY = event.touches && event.touches.length ? event.touches[0].clientY : scrollLock.lastTouchY;
-    const deltaY = currentY - scrollLock.lastTouchY;
-    scrollLock.lastTouchY = currentY;
-
-    const canScroll = sheet.scrollHeight > sheet.clientHeight + 1;
-    const atTop = sheet.scrollTop <= 0;
-    const atBottom = Math.ceil(sheet.scrollTop + sheet.clientHeight) >= sheet.scrollHeight;
-
-    if (!canScroll || (atTop && deltaY > 0) || (atBottom && deltaY < 0)) {
-      event.preventDefault();
-    }
-  }
-
-  function attachOverlayTouchGuards() {
-    const overlay = getOverlay();
-    if (!overlay || scrollLock.touchGuardsAttached) return;
-
-    overlay.addEventListener('touchstart', handleOverlayTouchStart, { passive: true });
-    overlay.addEventListener('touchmove', handleOverlayTouchMove, { passive: false });
-    scrollLock.touchGuardsAttached = true;
-  }
-
   function closeOverlayImmediately() {
     const overlay = getOverlay();
     const sheet = getSheet();
@@ -249,8 +120,6 @@
       overlay.style.opacity = '0';
       overlay.style.display = 'none';
     }
-
-    unlockPageScroll();
   }
 
   function escapeHtml(value) {
@@ -506,12 +375,10 @@
 
     applyLayoutGuards();
     renderSettings(state.mode);
-    attachOverlayTouchGuards();
     overlay.style.display = 'block';
     overlay.style.opacity = '1';
     sheet.style.bottom = '0';
     sheet.classList.add('is-open');
-    lockPageScroll();
   }
 
   function closeSheet(event) {
@@ -529,7 +396,6 @@
         overlay.style.display = 'none';
       }, 250);
     }
-    unlockPageScroll();
   }
 
   function showModeSelection() {
@@ -578,8 +444,6 @@
     renderSettings,
     showModeSelection,
     startDuel,
-    lockPageScroll,
-    unlockPageScroll,
     setMode(mode) {
       state.mode = mode === 'multiplayer' ? 'multiplayer' : 'bot';
       renderSettings(state.mode);
@@ -603,7 +467,7 @@
     },
     getVisibleDisciplineKeys,
     getState() {
-      return { ...state, visibleDisciplines: getVisibleDisciplineKeys(), scrollLocked: scrollLock.locked };
+      return { ...state, visibleDisciplines: getVisibleDisciplineKeys(), scrollLocked: window.DuelSetupScrollLock?.getState?.()?.locked ?? false };
     }
   };
 

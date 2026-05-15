@@ -184,7 +184,8 @@ function toggleProfileMenu() {
       // Das ließ den Body-Layout-Shift (insb. wenn vorher auto/0 war)
       // permanent stehen — sichtbar als horizontales Scroll-Glitch.
       document.body.style.width = '';
-      requestAnimationFrame(() => { window.scrollTo(0, scrollY); });
+      void document.body.offsetHeight; // Force reflow – iOS 17 Safari requires synchronous restore
+      window.scrollTo(0, scrollY);
     }
 
     // Un-blur
@@ -4753,8 +4754,12 @@ function openShareCard() {
     : '📋 \u00a0Link kopieren';
   document.getElementById('shareCopyRow').style.display = hasShare ? 'none' : 'flex';
 
-  document.getElementById('shareOverlay').classList.add('active');
+  document.body.dataset.shareScrollY = String(window.scrollY || 0);
+  document.body.style.position = 'fixed';
+  document.body.style.top = '-' + (window.scrollY || 0) + 'px';
+  document.body.style.width = '100%';
   document.body.style.overflow = 'hidden';
+  document.getElementById('shareOverlay').classList.add('active');
 }
 
 function closeShareCard(e) {
@@ -4765,11 +4770,21 @@ function closeShareCard(e) {
   // unscrollbar. Jetzt früh raus, aber overflow trotzdem aufräumen.
   if (!overlay) {
     document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
     return;
   }
   if (e && e.target !== overlay && !overlay.contains(e.target)) return;
   overlay.classList.remove('active');
+  const scrollY = parseInt(document.body.dataset.shareScrollY || '0', 10);
   document.body.style.overflow = '';
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.width = '';
+  delete document.body.dataset.shareScrollY;
+  void document.body.offsetHeight; // Force reflow – iOS Safari flush before scroll restore
+  window.scrollTo(0, scrollY);
 }
 
 function getShareText() {

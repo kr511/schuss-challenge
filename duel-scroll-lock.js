@@ -206,15 +206,14 @@
     const originalStart = api.startDuel;
 
     api.openSheet = function patchedOpenSheet(...args) {
-      const result = typeof originalOpen === 'function' ? originalOpen.apply(this, args) : undefined;
       attachGuards();
+      freezeBackground();
+      const result = typeof originalOpen === 'function' ? originalOpen.apply(this, args) : undefined;
       requestAnimationFrame(() => {
         forceSheetScrollable();
-        freezeBackground();
       });
       setTimeout(() => {
         forceSheetScrollable();
-        freezeBackground();
       }, 80);
       return result;
     };

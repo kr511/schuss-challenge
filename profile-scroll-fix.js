@@ -34,6 +34,7 @@
   }
 
   function unlock() {
+    if (window.DuelSetupScrollLock?.getState?.()?.locked) return;
     [
       '#profileMenu', '#profileOverlay', '#profileModal', '#profileViewOverlay', '#schuetzenpassOverlay',
       '.profile-menu', '.profile-overlay', '.profile-modal', '.profile-card', '.profile-view', '.profile-content', '.profile-panel', '.schuetzenpass-card', '.schuetzenpass-overlay'
