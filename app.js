@@ -729,7 +729,7 @@ function applyProfileNameChange(newName, options = {}) {
   const notify = options.notify !== false;
   const cleanName = String(newName || '').trim().substring(0, 15);
   if (!cleanName) {
-    if (notify) alert('Bitte gib einen Namen ein.');
+    if (notify) showEngagementToast('Bitte gib einen Namen ein.');
     return false;
   }
 
@@ -753,7 +753,7 @@ function applyProfileNameChange(newName, options = {}) {
   syncProfileWithBackend(null, { reason: 'profile_name_changed' });
 
   triggerHaptic();
-  if (notify) alert(`Name von "${oldName}" zu "${cleanName}" geändert.`);
+  if (notify) showEngagementToast(`✓ Name auf „${cleanName}" geändert`);
   return true;
 }
 
