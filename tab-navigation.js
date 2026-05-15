@@ -506,13 +506,17 @@
     refreshFreundeStats();
   }
 
+  // Für andere Module (z.B. friend-profile-view.js nach removeFriend) verfügbar machen.
+  window.refreshFreundeTab = refreshFreundeTab;
+
   function buildFriendRow(f) {
     const statusClass = f.isOnline ? 'online' : f.status === 'away' ? 'away' : 'offline';
     const statusText = f.isOnline ? 'Online' : f.status === 'away' ? 'Abwesend' : 'Offline';
     const name = escapeHtml(f.username || f.name || 'Unbekannt');
     const best = f.bestScore || f.score || '–';
     const avg = f.avgScore || f.avgRinge || '–';
-    return `<div class="friend-row">
+    const fid = f.userId ? ` data-friend-id="${escapeHtml(f.userId)}" role="button" tabindex="0"` : '';
+    return `<div class="friend-row"${fid}>
       <div class="fr-avatar-wrap">
         <div class="fr-avatar">${(f.avatar || name.charAt(0)).replace(/[<>&"]/g,'')}</div>
         <span class="fr-status-dot ${statusClass}"></span>
@@ -526,7 +530,7 @@
         <div class="fr-best-val">${best}</div>
         <div class="fr-best-lbl">Bestes Training</div>
       </div>
-      <button class="fr-chat-btn"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:rgba(255,255,255,0.4);fill:none;stroke-width:1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+      <button class="fr-chat-btn" data-chat-btn="1"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:rgba(255,255,255,0.4);fill:none;stroke-width:1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
       <svg class="fr-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
   }

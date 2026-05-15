@@ -691,6 +691,7 @@ const FriendsSystem = (function() {
     copyFriendCode,
     addFriendFromInput,
     addFriendsButton,
+    showToast: showFriendToast,
     getState: () => ({ ...state }),
   };
 })();

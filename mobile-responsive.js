@@ -170,6 +170,7 @@
         'button, a, input, textarea, select, label, [role="button"], [onclick],' +
         ' .tab-panel, .it-panel, .ps-panel, .ps-tab, .it-tabs, .tab-nav,' +
         ' .profile-sheet, .bottom-sheet, .modal, .overlay, .tff-overlay,' +
+        ' .fp-overlay, .fp-sheet, #friendProfileOverlay,' +
         ' .leaderboard, .friends-list, .updates-dropdown, #updatesDropdown,' +
         ' .sun-card, .disc-option, .diff-option, .bot-panel, .debug-panel,' +
         ' [data-no-swipe], [contenteditable="true"]'
@@ -183,7 +184,10 @@
         '.profile-sheet.active, .bottom-sheet.active,' +
         ' .modal.active, .overlay.active, .tff-overlay.active,' +
         ' #profileOverlay.active, #duelSetupSheetOverlay[style*="display: block"],' +
-        ' #duelSetupSheetOverlay[style*="display:block"]'
+        ' #duelSetupSheetOverlay[style*="display:block"],' +
+        ' #friendProfileOverlay.fp-open,' +
+        ' #friendProfileOverlay[style*="display: block"],' +
+        ' #friendProfileOverlay[style*="display:block"]'
       );
     },
 
