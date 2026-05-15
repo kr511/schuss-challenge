@@ -312,6 +312,18 @@ const AsyncChallenge = (function() {
       difficulty: state.currentChallenge.difficulty,
     };
 
+    // Try Supabase first; fall back to localStorage for offline/local-mode
+    if (hasSupabaseSocial() && typeof window.SupabaseSocial.submitChallengeResult === 'function') {
+      try {
+        await window.SupabaseSocial.submitChallengeResult(state.currentChallenge.id, score, shots);
+        state.currentChallenge.status = 'completed';
+        showChallengeToast('📊 Ergebnis gespeichert', 'success');
+        return true;
+      } catch (e) {
+        console.error('[AsyncChallenge] Supabase submitResult failed, falling back to localStorage:', e);
+      }
+    }
+
     try {
       const raw = localStorage.getItem('sd_async_results') || '[]';
       const results = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
@@ -331,10 +343,23 @@ const AsyncChallenge = (function() {
    * Vergleicht die Ergebnisse
    */
   async function compareResults(challengeId, myScore) {
-    const raw = localStorage.getItem('sd_async_results') || '[]';
-    let results = [];
-    try { results = JSON.parse(raw); } catch (e) { results = []; }
-    const resultEntries = Array.isArray(results) ? results.filter(r => r.challengeId === challengeId) : [];
+    let resultEntries = [];
+
+    if (hasSupabaseSocial() && typeof window.SupabaseSocial.loadChallengeResults === 'function') {
+      try {
+        resultEntries = await window.SupabaseSocial.loadChallengeResults(challengeId);
+      } catch (e) {
+        console.error('[AsyncChallenge] Supabase loadChallengeResults failed, falling back to localStorage:', e);
+      }
+    }
+
+    if (resultEntries.length < 2) {
+      const raw = localStorage.getItem('sd_async_results') || '[]';
+      let local = [];
+      try { local = JSON.parse(raw); } catch (e) { local = []; }
+      resultEntries = Array.isArray(local) ? local.filter(r => r.challengeId === challengeId) : [];
+    }
+
     if (resultEntries.length < 2) return;
     const currentUserId = getCurrentUserId();
     const myResult = resultEntries.find(r => r.challengerId === currentUserId) || resultEntries[0];
