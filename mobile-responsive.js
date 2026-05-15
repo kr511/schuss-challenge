@@ -171,6 +171,7 @@
         ' .tab-panel, .it-panel, .ps-panel, .ps-tab, .it-tabs, .tab-nav,' +
         ' .profile-sheet, .bottom-sheet, .modal, .overlay, .tff-overlay,' +
         ' .fp-overlay, .fp-sheet, #friendProfileOverlay,' +
+        ' .cv-overlay, .cv-sheet, #chatOverlay,' +
         ' .leaderboard, .friends-list, .updates-dropdown, #updatesDropdown,' +
         ' .sun-card, .disc-option, .diff-option, .bot-panel, .debug-panel,' +
         ' [data-no-swipe], [contenteditable="true"]'
@@ -187,7 +188,10 @@
         ' #duelSetupSheetOverlay[style*="display:block"],' +
         ' #friendProfileOverlay.fp-open,' +
         ' #friendProfileOverlay[style*="display: block"],' +
-        ' #friendProfileOverlay[style*="display:block"]'
+        ' #friendProfileOverlay[style*="display:block"],' +
+        ' #chatOverlay.cv-open,' +
+        ' #chatOverlay[style*="display: block"],' +
+        ' #chatOverlay[style*="display:block"]'
       );
     },
 
