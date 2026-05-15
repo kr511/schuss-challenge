@@ -78,7 +78,8 @@
       '#' + OVERLAY_ID + ' .hs-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}' +
       '#' + OVERLAY_ID + ' .hs-title{color:#fff;font-size:1.2rem;font-weight:900}' +
       '#' + OVERLAY_ID + ' .hs-sub{color:rgba(255,255,255,.45);font-size:.76rem;margin-top:2px}' +
-      '#' + OVERLAY_ID + ' .hs-close{width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-weight:900;font-size:1rem}' +
+      '#' + OVERLAY_ID + ' .hs-close{min-width:44px;min-height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;font-weight:900;font-size:1rem;display:inline-flex;align-items:center;justify-content:center}' +
+      '#' + OVERLAY_ID + ' .hs-close:active{transform:scale(0.91);background:rgba(255,255,255,.12)}' +
       '#' + OVERLAY_ID + ' .hs-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:12px 0;border-top:1px solid rgba(255,255,255,.07)}' +
       '#' + OVERLAY_ID + ' .hs-rank{width:34px;height:34px;border-radius:12px;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900}' +
       '#' + OVERLAY_ID + ' .hs-name{color:#fff;font-weight:850;font-size:.9rem}' +

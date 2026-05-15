@@ -454,9 +454,7 @@ const AsyncChallenge = (function() {
 
     setTimeout(() => overlay.classList.add('active'), 10);
 
-    if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) {
-      MobileFeatures.triggerHaptic(result === 'win' ? 'strong' : 'medium');
-    }
+    haptic(result === 'win' ? 'strong' : 'medium');
   }
 
   /**
