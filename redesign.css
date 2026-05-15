@@ -856,8 +856,14 @@ body.game-screen-active .bottom-nav { display: none !important; }
   padding-bottom: 4px;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 32px), transparent 100%);
 }
 .challenges-scroll::-webkit-scrollbar { display: none; }
+.challenges-scroll > * { scroll-snap-align: start; }
 .pop-challenge {
   background: var(--bg-card);
   border: 1px solid rgba(255,255,255,0.07);
@@ -1117,8 +1123,13 @@ body.game-screen-active .bottom-nav { display: none !important; }
   overflow-x: auto;
   padding-bottom: 4px;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 28px), transparent 100%);
 }
 .achievements-scroll::-webkit-scrollbar { display: none; }
+.achievements-scroll > * { scroll-snap-align: start; }
 .achievement-badge {
   display: flex;
   flex-direction: column;

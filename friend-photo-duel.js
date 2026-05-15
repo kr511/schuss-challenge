@@ -105,7 +105,17 @@
     return DISCIPLINES[discipline] && DISCIPLINES[discipline].isKK ? String(Math.round(value)) : value.toFixed(1);
   }
 
+  function haptic(type) {
+    try {
+      if (window.MobileResponsive && typeof window.MobileResponsive.triggerHaptic === 'function') {
+        window.MobileResponsive.triggerHaptic(type || 'light');
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
   function notify(message, type) {
+    if (type === 'error') haptic('error');
+    else if (type === 'success') haptic('strong');
     if (typeof window.showEngagementToast === 'function') {
       window.showEngagementToast(message);
       return;
@@ -169,10 +179,10 @@
     style.id = 'fpd-styles';
     style.textContent = [
       '.fpd-overlay{position:fixed;inset:0;z-index:24000;display:none;align-items:flex-end;justify-content:center;background:rgba(3,8,13,.68);backdrop-filter:blur(10px)}',
-      '.fpd-overlay.active{display:flex}.fpd-sheet{width:min(560px,100%);max-height:88vh;overflow:auto;background:#101922;border:1px solid rgba(255,255,255,.12);border-radius:18px 18px 0 0;box-shadow:0 -18px 60px rgba(0,0,0,.48);padding:18px;color:#f4f7fb}',
-      '.fpd-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.fpd-kicker{font-size:.72rem;color:#8ed04b;font-weight:900;letter-spacing:.14em;text-transform:uppercase}.fpd-title{margin-top:4px;font-size:1.26rem;font-weight:950}.fpd-sub{margin-top:4px;color:rgba(244,247,251,.62);font-size:.86rem;line-height:1.35}.fpd-close{width:38px;height:38px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.06);color:#fff;font-size:1.1rem;cursor:pointer}',
-      '.fpd-disc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.fpd-disc{min-height:74px;text-align:left;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.055);color:#fff;border-radius:12px;padding:12px;cursor:pointer}.fpd-disc.active{border-color:rgba(142,208,75,.78);background:rgba(142,208,75,.14);box-shadow:0 0 0 1px rgba(142,208,75,.22)}.fpd-disc strong{display:block;font-size:1rem}.fpd-disc span{display:block;margin-top:5px;color:rgba(244,247,251,.58);font-size:.78rem}',
-      '.fpd-actions{display:grid;grid-template-columns:1fr;gap:9px;margin-top:16px}.fpd-btn{min-height:52px;border:0;border-radius:12px;background:#8ed04b;color:#061006;font-weight:950;letter-spacing:.05em;cursor:pointer}.fpd-btn.secondary{background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.14);color:#f4f7fb}.fpd-btn.danger{background:rgba(242,82,82,.16);border:1px solid rgba(242,82,82,.34);color:#ff8a8a}.fpd-btn:disabled{opacity:.55;cursor:wait}',
+      '.fpd-overlay.active{display:flex}.fpd-sheet{width:min(560px,100%);max-height:88vh;overflow:auto;background:#101922;border:1px solid rgba(255,255,255,.12);border-radius:18px 18px 0 0;box-shadow:0 -18px 60px rgba(0,0,0,.48);padding:18px;padding-bottom:calc(18px + env(safe-area-inset-bottom));color:#f4f7fb;transition:transform .24s cubic-bezier(.4,0,.2,1);will-change:transform}',
+      '.fpd-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.fpd-kicker{font-size:.72rem;color:#8ed04b;font-weight:900;letter-spacing:.14em;text-transform:uppercase}.fpd-title{margin-top:4px;font-size:1.26rem;font-weight:950}.fpd-sub{margin-top:4px;color:rgba(244,247,251,.62);font-size:.86rem;line-height:1.35}.fpd-close{min-width:44px;min-height:44px;border:1px solid rgba(255,255,255,.14);border-radius:999px;background:rgba(255,255,255,.06);color:#fff;font-size:1.1rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform .12s,background .15s}.fpd-close:active{transform:scale(.92);background:rgba(255,255,255,.14)}',
+      '.fpd-disc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.fpd-disc{min-height:74px;text-align:left;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.055);color:#fff;border-radius:12px;padding:12px;cursor:pointer;transition:transform .12s,background .15s}.fpd-disc:active{transform:scale(.98)}.fpd-disc.active{border-color:rgba(142,208,75,.78);background:rgba(142,208,75,.14);box-shadow:0 0 0 1px rgba(142,208,75,.22)}.fpd-disc strong{display:block;font-size:1rem}.fpd-disc span{display:block;margin-top:5px;color:rgba(244,247,251,.58);font-size:.78rem}',
+      '.fpd-actions{display:grid;grid-template-columns:1fr;gap:9px;margin-top:16px}.fpd-btn{min-height:52px;border:0;border-radius:12px;background:#8ed04b;color:#061006;font-weight:950;letter-spacing:.05em;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform .12s,filter .15s}.fpd-btn:active{transform:scale(.98)}.fpd-btn.secondary{background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.14);color:#f4f7fb}.fpd-btn.danger{background:rgba(242,82,82,.16);border:1px solid rgba(242,82,82,.34);color:#ff8a8a}.fpd-btn:disabled{opacity:.72;cursor:wait;pointer-events:none}',
       '.fpd-score-preview{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin:14px 0;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.045)}.fpd-score-side{min-width:0}.fpd-score-label{color:rgba(244,247,251,.52);font-size:.72rem;font-weight:900;text-transform:uppercase}.fpd-score-value{margin-top:5px;font-size:2rem;line-height:1;font-weight:950}.fpd-score-side.winner .fpd-score-value{color:#9fe14f}.fpd-vs{color:rgba(244,247,251,.44);font-weight:950}',
       '.fpd-toast{position:fixed;left:50%;bottom:96px;z-index:26000;transform:translate(-50%,12px);opacity:0;max-width:min(92vw,420px);background:#111c26;color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:10px 14px;font-size:.83rem;font-weight:800;box-shadow:0 14px 34px rgba(0,0,0,.42);transition:opacity .18s,transform .18s}.fpd-toast.active{opacity:1;transform:translate(-50%,0)}',
       '@media(min-width:560px){.fpd-overlay{align-items:center}.fpd-sheet{border-radius:18px}.fpd-actions{grid-template-columns:1fr 1fr}.fpd-actions.single{grid-template-columns:1fr}}'
@@ -192,6 +202,10 @@
       if (event.target === overlay) closeOverlay();
     });
     document.body.appendChild(overlay);
+    var sheet = overlay.querySelector('.fpd-sheet');
+    if (sheet && window.MobileResponsive && typeof window.MobileResponsive.attachSwipeToClose === 'function') {
+      window.MobileResponsive.attachSwipeToClose(sheet, closeOverlay);
+    }
     return overlay;
   }
 
@@ -209,11 +223,15 @@
     state.activePopupId = null;
   }
 
-  function setBusy(button, busy) {
+  function setBusy(button, busy, label) {
     if (!button) return;
+    if (window.MobileResponsive && typeof window.MobileResponsive.setButtonBusy === 'function') {
+      window.MobileResponsive.setButtonBusy(button, !!busy, label);
+      return;
+    }
     button.disabled = !!busy;
     if (!button.dataset.idleText) button.dataset.idleText = button.textContent;
-    button.textContent = busy ? 'Bitte warten...' : button.dataset.idleText;
+    button.textContent = busy ? (label || 'Bitte warten…') : button.dataset.idleText;
   }
 
   function renderCreate() {
@@ -235,14 +253,15 @@
 
     document.querySelectorAll('[data-fpd-disc]').forEach(function (button) {
       button.addEventListener('click', function () {
+        haptic('light');
         state.selectedDiscipline = button.getAttribute('data-fpd-disc') || 'lg40';
         renderCreate();
       });
     });
     var close = document.querySelector('[data-fpd-close]');
-    if (close) close.addEventListener('click', closeOverlay);
+    if (close) close.addEventListener('click', function () { haptic('light'); closeOverlay(); });
     var start = document.querySelector('[data-fpd-start]');
-    if (start) start.addEventListener('click', function () { startCreate(start); });
+    if (start) start.addEventListener('click', function () { haptic('medium'); startCreate(start); });
   }
 
   async function captureScore(discipline, title) {
@@ -336,9 +355,9 @@
     ].join(''));
 
     var decline = document.querySelector('[data-fpd-decline]');
-    if (decline) decline.addEventListener('click', function () { declineIncoming(duel.id, decline); });
+    if (decline) decline.addEventListener('click', function () { haptic('medium'); declineIncoming(duel.id, decline); });
     var accept = document.querySelector('[data-fpd-accept]');
-    if (accept) accept.addEventListener('click', function () { acceptIncoming(duel.id, accept); });
+    if (accept) accept.addEventListener('click', function () { haptic('strong'); acceptIncoming(duel.id, accept); });
   }
 
   async function declineIncoming(id, button) {
@@ -479,6 +498,7 @@
     ].join(''));
     document.querySelectorAll('[data-fpd-close]').forEach(function (button) {
       button.addEventListener('click', function () {
+        haptic('light');
         closeOverlay();
         state.activePopupId = null;
       });

@@ -23,6 +23,15 @@
     return tag === 'INPUT' || tag === 'TEXTAREA';
   }
 
+  function escapeHtmlInline(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   const MobileResponsive = {
     config: {
       swipeThreshold: 90,
@@ -60,12 +69,68 @@
       this.__initialized = true;
       console.log('[MobileResponsive] initialisiert');
 
+      this.injectUxStyles();
       this.enhanceTouchTargets();
+      this.observeDynamicElements();
       this.setupSwipeGestures();
       this.optimizeBottomSheets();
       this.handleKeyboardBehavior();
       this.setupResponsiveGrids();
       this.addMobileFeedback();
+    },
+
+    injectUxStyles() {
+      if (document.getElementById('mobileUxStyles')) return;
+      const style = document.createElement('style');
+      style.id = 'mobileUxStyles';
+      style.textContent = [
+        '.mux-spinner{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:mux-spin .7s linear infinite;vertical-align:-2px;margin-right:7px;opacity:.85}',
+        '@keyframes mux-spin{to{transform:rotate(360deg)}}',
+        '.mux-confirm-overlay{position:fixed;inset:0;z-index:30000;display:flex;align-items:center;justify-content:center;background:rgba(3,8,13,.72);backdrop-filter:blur(8px);opacity:0;transition:opacity .18s;padding:20px;padding-bottom:calc(20px + env(safe-area-inset-bottom))}',
+        '.mux-confirm-overlay.active{opacity:1}',
+        '.mux-confirm-card{width:min(420px,100%);background:#101922;border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:22px;color:#f4f7fb;box-shadow:0 18px 60px rgba(0,0,0,.5);transform:scale(.94);transition:transform .2s cubic-bezier(.4,0,.2,1)}',
+        '.mux-confirm-overlay.active .mux-confirm-card{transform:scale(1)}',
+        '.mux-confirm-title{font-size:1.06rem;font-weight:900;margin:0 0 8px 0;letter-spacing:.01em}',
+        '.mux-confirm-msg{font-size:.93rem;color:rgba(244,247,251,.78);line-height:1.4;margin:0 0 18px 0}',
+        '.mux-confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}',
+        '.mux-confirm-btn{min-height:48px;border-radius:12px;font-weight:800;font-size:.92rem;cursor:pointer;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#f4f7fb;transition:transform .12s,background .15s}',
+        '.mux-confirm-btn:active{transform:scale(.97)}',
+        '.mux-confirm-btn.primary{background:#8ed04b;color:#061006;border-color:transparent}',
+        '.mux-confirm-btn.danger{background:rgba(242,82,82,.18);border-color:rgba(242,82,82,.4);color:#ff9494}',
+        '.mux-scroll-hint{position:relative}',
+        '.mux-scroll-hint::after{content:"";position:absolute;top:0;right:0;bottom:0;width:36px;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(15,18,22,.85));opacity:.7}',
+        '.mux-scroll-hint.at-end::after{opacity:0;transition:opacity .2s}'
+      ].join('');
+      document.head.appendChild(style);
+    },
+
+    observeDynamicElements() {
+      if (this.state.mutationObserver) return;
+      const observer = new MutationObserver(debounce((mutations) => {
+        let hasNewNodes = false;
+        for (const mutation of mutations) {
+          if (mutation.addedNodes && mutation.addedNodes.length > 0) {
+            hasNewNodes = true;
+            break;
+          }
+        }
+        if (!hasNewNodes) return;
+        this.enhanceTouchTargets();
+        this.enhanceNewInputs();
+        this.addMobileFeedback();
+      }, 250));
+      observer.observe(document.body, { childList: true, subtree: true });
+      this.state.mutationObserver = observer;
+    },
+
+    enhanceNewInputs() {
+      document.querySelectorAll('input, textarea').forEach((input) => {
+        if (this.state.enhancedElements.has(input)) return;
+        this.state.enhancedElements.add(input);
+        input.addEventListener('focus', () => {
+          setTimeout(() => this.scrollIntoViewIfNeeded(input), 300);
+        });
+      });
     },
 
     enhanceTouchTargets() {
@@ -452,6 +517,134 @@
 
         el.addEventListener('touchcancel', () => resetTouchFeedback(el), { passive: true });
       });
+    },
+
+    spinnerHtml() {
+      return '<span class="mux-spinner" aria-hidden="true"></span>';
+    },
+
+    setButtonBusy(button, busy, busyLabel) {
+      if (!button) return;
+      button.disabled = !!busy;
+      if (busy) {
+        if (!button.dataset.muxIdleHtml) button.dataset.muxIdleHtml = button.innerHTML;
+        button.setAttribute('aria-busy', 'true');
+        const label = busyLabel || 'Bitte warten…';
+        button.innerHTML = this.spinnerHtml() + escapeHtmlInline(label);
+        button.style.cursor = 'wait';
+      } else {
+        if (button.dataset.muxIdleHtml) {
+          button.innerHTML = button.dataset.muxIdleHtml;
+          delete button.dataset.muxIdleHtml;
+        }
+        button.removeAttribute('aria-busy');
+        button.style.cursor = '';
+      }
+    },
+
+    confirmDialog(message, options) {
+      const opts = options || {};
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'mux-confirm-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        const title = opts.title || 'Bitte bestätigen';
+        const confirmText = opts.confirmText || 'OK';
+        const cancelText = opts.cancelText || 'Abbrechen';
+        const danger = opts.danger === true;
+        overlay.innerHTML =
+          '<div class="mux-confirm-card">' +
+            '<h3 class="mux-confirm-title">' + escapeHtmlInline(title) + '</h3>' +
+            '<p class="mux-confirm-msg">' + escapeHtmlInline(message || '') + '</p>' +
+            '<div class="mux-confirm-actions">' +
+              '<button type="button" class="mux-confirm-btn" data-mux-cancel>' + escapeHtmlInline(cancelText) + '</button>' +
+              '<button type="button" class="mux-confirm-btn ' + (danger ? 'danger' : 'primary') + '" data-mux-confirm>' + escapeHtmlInline(confirmText) + '</button>' +
+            '</div>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('active'));
+
+        const cleanup = (result) => {
+          overlay.classList.remove('active');
+          setTimeout(() => {
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            resolve(result);
+          }, 180);
+        };
+        overlay.querySelector('[data-mux-cancel]').addEventListener('click', () => {
+          this.triggerHaptic('light');
+          cleanup(false);
+        });
+        overlay.querySelector('[data-mux-confirm]').addEventListener('click', () => {
+          this.triggerHaptic(danger ? 'medium' : 'light');
+          cleanup(true);
+        });
+        overlay.addEventListener('click', (event) => {
+          if (event.target === overlay) cleanup(false);
+        });
+        const escHandler = (event) => {
+          if (event.key === 'Escape') {
+            document.removeEventListener('keydown', escHandler);
+            cleanup(false);
+          }
+        };
+        document.addEventListener('keydown', escHandler);
+      });
+    },
+
+    attachSwipeToClose(sheet, onClose, options) {
+      if (!sheet || this.state.dragSheets.has(sheet)) return;
+      const opts = options || {};
+      const threshold = Number.isFinite(opts.threshold) ? opts.threshold : 110;
+      const ignoreSelector = opts.ignoreSelector || 'button, a, input, textarea, select, [data-no-swipe]';
+      this.state.dragSheets.add(sheet);
+
+      let startY = 0;
+      let deltaY = 0;
+      let isDragging = false;
+      let prevTransition = '';
+
+      sheet.addEventListener('touchstart', (event) => {
+        if (!event.touches || !event.touches.length) return;
+        if (sheet.scrollTop > 0) return;
+        const target = event.target;
+        if (target && typeof target.closest === 'function' && target.closest(ignoreSelector)) return;
+        startY = event.touches[0].clientY;
+        deltaY = 0;
+        isDragging = true;
+        prevTransition = sheet.style.transition;
+        sheet.style.transition = 'none';
+      }, { passive: true });
+
+      sheet.addEventListener('touchmove', (event) => {
+        if (!isDragging || !event.touches || !event.touches.length) return;
+        deltaY = event.touches[0].clientY - startY;
+        if (deltaY > 0) {
+          sheet.style.transform = `translateY(${deltaY}px)`;
+        } else {
+          sheet.style.transform = '';
+        }
+      }, { passive: true });
+
+      const finish = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        sheet.style.transition = prevTransition || 'transform .24s cubic-bezier(.4,0,.2,1)';
+        if (deltaY > threshold) {
+          sheet.style.transform = 'translateY(100%)';
+          this.triggerHaptic('light');
+          setTimeout(() => {
+            sheet.style.transform = '';
+            sheet.style.transition = prevTransition;
+            if (typeof onClose === 'function') onClose();
+          }, 220);
+        } else {
+          sheet.style.transform = '';
+        }
+      };
+      sheet.addEventListener('touchend', finish, { passive: true });
+      sheet.addEventListener('touchcancel', finish, { passive: true });
     },
 
     triggerHaptic(type = 'light') {
