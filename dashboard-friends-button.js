@@ -64,7 +64,8 @@
       '#' + PAGE_ID + '.active{display:block}' +
       '#' + PAGE_ID + ' .fp-wrap{width:100%;max-width:520px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 18px 110px}' +
       '#' + PAGE_ID + ' .fp-top{display:flex;align-items:center;gap:12px;margin-bottom:18px}' +
-      '#' + PAGE_ID + ' .fp-back{width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:#fff;font-size:1.15rem;font-weight:900}' +
+      '#' + PAGE_ID + ' .fp-back{min-width:44px;min-height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.07);color:#fff;font-size:1.15rem;font-weight:900;display:inline-flex;align-items:center;justify-content:center}' +
+      '#' + PAGE_ID + ' .fp-back:active{transform:scale(0.91);background:rgba(255,255,255,.12)}' +
       '#' + PAGE_ID + ' .fp-title{font-size:1.55rem;font-weight:950;letter-spacing:-.02em;line-height:1.05}' +
       '#' + PAGE_ID + ' .fp-sub{font-size:.78rem;color:rgba(255,255,255,.45);margin-top:4px}' +
       '#' + PAGE_ID + ' .fp-card{background:linear-gradient(145deg,rgba(45,50,55,.38),rgba(10,12,15,.78));border:1px solid rgba(255,255,255,.08);border-top:1px solid rgba(255,255,255,.14);border-radius:20px;padding:15px;box-shadow:0 10px 30px rgba(0,0,0,.42);margin-bottom:14px}' +
