@@ -335,7 +335,8 @@
   function showStartError(message) {
     const errorEl = byId('duelStartError');
     if (!errorEl) {
-      alert(message);
+      if (typeof showEngagementToast === 'function') showEngagementToast(message, 5000);
+      else alert(message);
       return;
     }
 
@@ -347,7 +348,11 @@
     if (mode) state.mode = mode === 'multiplayer' ? 'multiplayer' : 'bot';
     if (state.mode === 'multiplayer') {
       state.mode = 'bot';
-      setTimeout(() => alert('Multiplayer ist noch nicht stabil. Ich öffne den Bot-Modus.'), 0);
+      setTimeout(() => {
+        const msg = 'Multiplayer ist noch nicht stabil. Bot-Modus wird geöffnet.';
+        if (typeof showEngagementToast === 'function') showEngagementToast(msg, 4000);
+        else alert(msg);
+      }, 0);
     }
 
     ensureValidDisciplineForWeapon();

@@ -119,7 +119,9 @@ const V2VisionEngine = (function() {
         _videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
       } catch (err2) {
         console.error('Kamera-Zugriff komplett verweigert oder keine Kamera vorhanden:', err2);
-        alert("Kamera-Fehler! Bitte erlaube den Kamera-Zugriff in deinem Browser.");
+        const camMsg = 'Kamera-Fehler! Bitte erlaube den Kamera-Zugriff in deinem Browser.';
+        if (typeof showEngagementToast === 'function') showEngagementToast(camMsg, 6000);
+        else alert(camMsg);
         return false;
       }
     }
