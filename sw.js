@@ -7,7 +7,7 @@
 //   • Bei Aktivierung werden alte Caches mit anderem Versionsnamen gelöscht.
 // Hinweis: Bei Releases CACHE_VERSION erhöhen UND ?v=X.X in index.html bumpen.
 
-const CACHE_VERSION = 'sc-shell-v17';
+const CACHE_VERSION = 'sc-shell-v18';
 const OFFLINE_URL = './offline.html';
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -94,4 +94,46 @@ self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING' || event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+});
+
+// ─── Push Notifications ───────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  let data = {};
+  try { data = event.data.json(); } catch (_e) {
+    try { data = { body: event.data.text() }; } catch (_e2) { data = {}; }
+  }
+  const title = data.title || 'Schützen Challenge';
+  const body  = data.body  || 'Neue Nachricht';
+  const tag   = data.type === 'chat' && data.sender_id ? 'chat-' + data.sender_id : 'sc-' + Date.now();
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag,
+      icon:  './icon-192.png',
+      badge: './icon-192.png',
+      data: { url: './', type: data.type || 'chat', sender_id: data.sender_id || null },
+      vibrate: [180, 80, 180],
+      renotify: false,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || './';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        try {
+          if (client.url.startsWith(self.location.origin)) {
+            client.postMessage({ type: 'NOTIFICATION_CLICK', data: event.notification.data || null });
+            return client.focus();
+          }
+        } catch (_e) { /* ignore */ }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });
