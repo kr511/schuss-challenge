@@ -50,32 +50,38 @@
 
 .fp-back-btn,
 .fp-menu-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
   transition: background 0.15s ease, transform 0.15s ease;
 }
 
 .fp-back-btn:active,
 .fp-menu-btn:active {
   transform: scale(0.94);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.18);
 }
 
-.fp-back-btn svg,
-.fp-menu-btn svg {
-  width: 18px;
-  height: 18px;
+.fp-back-btn svg {
+  width: 22px;
+  height: 22px;
   stroke: currentColor;
   fill: none;
-  stroke-width: 2;
+  stroke-width: 2.5;
+}
+
+.fp-menu-btn svg {
+  width: 22px;
+  height: 22px;
 }
 
 .fp-header-title {

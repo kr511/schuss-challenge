@@ -334,7 +334,11 @@
       switch (action) {
         case 'message':
           haptic('light');
-          toast('Nachrichten kommen bald 💬', 'info');
+          if (window.ChatView && typeof window.ChatView.open === 'function') {
+            window.ChatView.open(friend);
+          } else {
+            toast('Chat wird geladen…', 'info');
+          }
           break;
         case 'duel':
           haptic('medium');
