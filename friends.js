@@ -309,10 +309,18 @@ const FriendsSystem = (function() {
     }
 
     const friend = state.friends.find(f => f.userId === friendId);
+    const friendName = friend?.username || 'diesen Freund';
 
-    if (!confirm(`Möchtest du ${friend?.username || 'diesen Freund'} wirklich entfernen?`)) {
-      return false;
+    let confirmed;
+    if (window.MobileResponsive && typeof window.MobileResponsive.confirmDialog === 'function') {
+      confirmed = await window.MobileResponsive.confirmDialog(
+        `${friendName} wirklich aus deiner Freundesliste entfernen?`,
+        { title: 'Freund entfernen', confirmText: 'Entfernen', cancelText: 'Abbrechen', danger: true }
+      );
+    } else {
+      confirmed = confirm(`Möchtest du ${friendName} wirklich entfernen?`);
     }
+    if (!confirmed) return false;
 
     try {
       const result = await window.SupabaseSocial.removeFriend(friendId);

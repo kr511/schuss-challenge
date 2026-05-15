@@ -116,17 +116,40 @@ const AsyncChallenge = (function() {
   /**
    * Erstellt eine neue Challenge
    */
+  function haptic(type) {
+    try {
+      if (window.MobileResponsive && typeof window.MobileResponsive.triggerHaptic === 'function') {
+        window.MobileResponsive.triggerHaptic(type || 'light');
+      } else if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) {
+        MobileFeatures.triggerHaptic(type || 'light');
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
+  function setButtonBusy(button, busy, label) {
+    if (!button) return;
+    if (window.MobileResponsive && typeof window.MobileResponsive.setButtonBusy === 'function') {
+      window.MobileResponsive.setButtonBusy(button, !!busy, label);
+      return;
+    }
+    button.disabled = !!busy;
+  }
+
   async function createChallenge(friendId = null, friendUsername = null) {
     if (!hasSupabaseSocial() || typeof window.SupabaseSocial.createChallenge !== 'function') {
       showChallengeToast('Supabase Login erforderlich', 'error');
       return false;
     }
 
+    haptic('medium');
+    const button = document.querySelector('.challenge-create-btn');
+    setButtonBusy(button, true, 'Erstelle…');
     const settings = getCurrentGameSettings();
     try {
       const result = await window.SupabaseSocial.createChallenge(friendId, settings);
       if (!result || !result.ok || !result.challenge) {
         showChallengeToast('Fehler beim Erstellen', 'error');
+        haptic('error');
         return false;
       }
       const challengeData = mapSupabaseChallenge(Object.assign({}, result.challenge, { opponent_username: friendUsername || '' }), 'created');
@@ -134,11 +157,15 @@ const AsyncChallenge = (function() {
       renderChallengesList();
       console.log('✅ Supabase Challenge erstellt:', challengeData.id);
       showChallengeToast('⚔️ Challenge erstellt!', 'success');
+      haptic('strong');
       return true;
     } catch (e) {
       console.error('Supabase Fehler beim Erstellen:', e);
       showChallengeToast('Fehler beim Erstellen', 'error');
+      haptic('error');
       return false;
+    } finally {
+      setButtonBusy(button, false);
     }
   }
 
@@ -194,22 +221,30 @@ const AsyncChallenge = (function() {
       return false;
     }
 
+    haptic('medium');
+    const safeId = String(challengeId).replace(/['"\\]/g, '');
+    const button = document.querySelector('.challenge-accept-btn[onclick*="' + safeId + '"]');
+    setButtonBusy(button, true, 'Nehme an…');
     try {
       const result = await window.SupabaseSocial.acceptChallenge(challengeId);
       if (!result || !result.ok) {
         showChallengeToast('Challenge nicht gefunden', 'error');
+        haptic('error');
         return false;
       }
       const challenge = mapSupabaseChallenge(result.challenge, 'available');
       state.currentChallenge = challenge;
       startChallengeDuel(challenge);
       showChallengeToast('⚔️ Challenge von ' + (challenge.creatorUsername || 'Spieler') + ' angenommen!', 'success');
-      if (typeof MobileFeatures !== 'undefined' && MobileFeatures.triggerHaptic) MobileFeatures.triggerHaptic('strong');
+      haptic('strong');
       return true;
     } catch (e) {
       console.error('Supabase Fehler beim Annehmen:', e);
       showChallengeToast('Fehler beim Annehmen', 'error');
+      haptic('error');
       return false;
+    } finally {
+      setButtonBusy(button, false);
     }
   }
 
@@ -468,6 +503,16 @@ const AsyncChallenge = (function() {
         closeChallengesOverlay();
       }
     });
+
+    const sheet = overlay.querySelector('.challenges-sheet');
+    if (sheet && window.MobileResponsive && typeof window.MobileResponsive.attachSwipeToClose === 'function') {
+      window.MobileResponsive.attachSwipeToClose(sheet, closeChallengesOverlay);
+    }
+
+    const closeBtn = overlay.querySelector('.challenges-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => haptic('light'));
+    }
   }
 
   /**

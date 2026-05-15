@@ -342,7 +342,7 @@
             <div style="font-size:1.05rem;font-weight:700;color:#fff;">Schnelltraining</div>
             <div style="font-size:0.74rem;color:rgba(255,255,255,0.58);">Alle 10 Ringe eintragen. Erlaubt: 0.0 bis 10.9.</div>
           </div>
-          <button type="button" data-qt-toggle="close" aria-label="Schnelltraining schliessen" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:10px;width:36px;height:36px;cursor:pointer;font-size:1rem;line-height:1;">×</button>
+          <button type="button" data-qt-toggle="close" aria-label="Schnelltraining schliessen" style="background:rgba(255,255,255,0.06);color:#fff;border:1px solid rgba(255,255,255,0.1);border-radius:12px;min-width:44px;min-height:44px;cursor:pointer;font-size:1.1rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;">×</button>
         </div>
         <div style="display:flex;gap:6px;margin:10px 0 12px;flex-wrap:wrap;">
           ${['lg', 'kk'].map((id) => {
@@ -430,19 +430,42 @@
     renderResultBlock(host, entry, stats, savedLocal);
   }
 
+  function qtHaptic(type) {
+    try {
+      if (window.MobileResponsive && typeof window.MobileResponsive.triggerHaptic === 'function') {
+        window.MobileResponsive.triggerHaptic(type || 'light');
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
+  function qtSetButtonBusy(button, busy, label) {
+    if (!button) return;
+    if (window.MobileResponsive && typeof window.MobileResponsive.setButtonBusy === 'function') {
+      window.MobileResponsive.setButtonBusy(button, !!busy, label);
+      return;
+    }
+    button.disabled = !!busy;
+  }
+
   async function onEvaluate(host) {
     const result = host.querySelector('[data-qt-result]');
     if (!result) return;
+    const evaluateBtn = host.querySelector('[data-qt-action="evaluate"]');
     const { values, badInputs } = readShotsFromInputs(host);
     if (badInputs > 0) {
       result.innerHTML = `<div style="color:#ffb4b4;">${badInputs} Eingabe(n) sind ungueltig. Erlaubt sind Werte von 0.0 bis 10.9 mit maximal einer Nachkommastelle.</div>`;
+      qtHaptic('error');
       return;
     }
     const stats = computeStats(values);
     if (stats.missing > 0) {
       result.innerHTML = '<div style="color:#ffe7a3;">Bitte alle 10 Schuesse eintragen, bevor du speicherst.</div>';
+      qtHaptic('error');
       return;
     }
+
+    qtSetButtonBusy(evaluateBtn, true, 'Werte aus…');
+    qtHaptic('medium');
 
     const entry = {
       local_id: newLocalId(),
@@ -463,6 +486,8 @@
 
     renderResultBlock(host, entry, stats, savedLocal);
     refreshHistoryDom(host);
+    qtSetButtonBusy(evaluateBtn, false);
+    qtHaptic(savedLocal ? 'strong' : 'error');
 
     try {
       window.dispatchEvent(new CustomEvent('quickTrainingSaved', { detail: { entry, saved: savedLocal } }));
@@ -497,9 +522,10 @@
 
   function bindOpenEvents(host) {
     const closeBtn = host.querySelector('[data-qt-toggle="close"]');
-    if (closeBtn) closeBtn.addEventListener('click', () => { STATE.open = false; render(); });
+    if (closeBtn) closeBtn.addEventListener('click', () => { qtHaptic('light'); STATE.open = false; render(); });
     host.querySelectorAll('[data-qt-disc]').forEach((btn) => {
       btn.addEventListener('click', () => {
+        qtHaptic('light');
         STATE.discipline = btn.getAttribute('data-qt-disc') === 'kk' ? 'kk' : 'lg';
         render();
       });
@@ -508,6 +534,7 @@
     if (evaluateBtn) evaluateBtn.addEventListener('click', () => { onEvaluate(host); });
     const resetBtn = host.querySelector('[data-qt-action="reset"]');
     if (resetBtn) resetBtn.addEventListener('click', () => {
+      qtHaptic('light');
       host.querySelectorAll('[data-qt-shot]').forEach((input) => {
         input.value = '';
         input.parentElement.style.borderColor = 'rgba(255,255,255,0.08)';
