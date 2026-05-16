@@ -4,6 +4,15 @@
 const ProfileView = (function () {
   'use strict';
 
+  function esc(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function render(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -69,9 +78,9 @@ const ProfileView = (function () {
         <div class="live-list">
           ${data.activity.map(a => `
             <div class="live-entry">
-              <span>👤 Schütze ${a.user_id.slice(0, 4)}</span>
-              <span>🎯 ${a.discipline}</span>
-              <span class="difficulty">${a.difficulty}</span>
+              <span>👤 Schütze ${esc(String(a.user_id || '').slice(0, 4))}</span>
+              <span>🎯 ${esc(a.discipline)}</span>
+              <span class="difficulty">${esc(a.difficulty)}</span>
             </div>
           `).join('')}
         </div>
