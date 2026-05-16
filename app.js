@@ -1006,9 +1006,12 @@ function fbSubmit() {
     // Show brief thank you, then go back
     if (typeof Sounds !== 'undefined') Sounds.win();
     setTimeout(() => {
-      scheduleNextFeedback(totalDuels);
-      fbSubmitPending = false;
-      showScreen('screenSetup');
+      try {
+        scheduleNextFeedback(totalDuels);
+        showScreen('screenSetup');
+      } finally {
+        fbSubmitPending = false;
+      }
     }, 1500);
   } else {
     fbSubmitPending = false;
@@ -3527,7 +3530,7 @@ function updateBattleUI() {
   }
 
   // Overall progress bar
-  DOM.spFill.style.width = ((fired / G.maxShots) * 100) + '%';
+  DOM.spFill.style.width = (G.maxShots > 0 ? (fired / G.maxShots) * 100 : 0) + '%';
   DOM.spFill.className = low ? 'sp-fill low' : 'sp-fill';
   DOM.spCount.textContent = fired + ' / ' + G.maxShots + ' Schuss';
   DOM.spCount.className = low ? 'sp-count low' : 'sp-count';
@@ -5314,6 +5317,7 @@ function startStreakCountdown() {
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(startStreakCountdown, 1000);
+    setTimeout(refreshPremiumDashboard, 300);
 
     // Auth Form Listener initialisieren
     setTimeout(() => {
@@ -5322,10 +5326,3 @@ if (typeof document !== 'undefined') {
     }, 500);
   });
 }
-
-
-
-
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(refreshPremiumDashboard, 300);
-});

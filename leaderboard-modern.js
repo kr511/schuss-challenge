@@ -12,6 +12,7 @@ const LeaderboardModern = {
   currentFilter: 'all',
   searchQuery: '',
   isLoading: false,
+  currentScope: 'global',
 
   init() {
     console.debug('[LeaderboardModern] Initialisiert');
@@ -34,6 +35,7 @@ const LeaderboardModern = {
       const entries = await this.loadEntries(scope, period);
       this.allEntries = entries;
       this.filteredEntries = entries;
+      this.currentScope = scope;
       this.render(entries, scope);
     } catch (error) {
       console.error('[LeaderboardModern] Ladefehler:', error);
@@ -256,7 +258,7 @@ const LeaderboardModern = {
     }
 
     this.filteredEntries = filtered;
-    this.render(filtered);
+    this.render(filtered, this.currentScope);
   },
 
   isCurrentUser(entry) {

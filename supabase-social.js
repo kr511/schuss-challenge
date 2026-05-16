@@ -145,7 +145,8 @@
         return state.friendCode;
       }
 
-      if (!inserted.error || !String(inserted.error.message || '').toLowerCase().includes('duplicate')) {
+      var errMsg = String((inserted.error && (inserted.error.message || inserted.error.details)) || '').toLowerCase();
+      if (!errMsg.includes('duplicate') && !errMsg.includes('unique')) {
         throw inserted.error || new Error('friend code insert failed');
       }
     }
@@ -834,11 +835,12 @@
     var allResultMap = await loadResultsForChallengeIds([challengeId]);
     var allRows = allResultMap[challengeId] || [];
     if (allRows.length >= 2) {
-      await client
+      var completed = await client
         .from('async_challenges')
         .update({ status: 'completed', completed_at: now })
         .eq('id', challengeId)
         .neq('status', 'completed');
+      if (completed.error) throw completed.error;
     }
 
     return { ok: true, result: result.data };

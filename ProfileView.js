@@ -30,8 +30,8 @@ const ProfileView = (function () {
       </div>
     `;
 
-    renderProfile();
-    renderLiveTicker();
+    renderProfile().catch(e => console.error('[ProfileView] renderProfile:', e));
+    renderLiveTicker().catch(e => console.error('[ProfileView] renderLiveTicker:', e));
   }
 
   function switchTab(tabId, e) {
@@ -43,9 +43,11 @@ const ProfileView = (function () {
 
   async function renderProfile() {
     const mount = document.getElementById('profile-card-mount');
-    // Hole Best-Stats von EnhancedAnalytics
-    const bests = EnhancedAnalytics.getPersonalBests();
-    
+    if (!mount) return;
+    const bests = (window.EnhancedAnalytics && typeof window.EnhancedAnalytics.getPersonalBests === 'function')
+      ? window.EnhancedAnalytics.getPersonalBests()
+      : {};
+
     mount.innerHTML = `
       <div class="card">
         <h3>Deine Schützen-Visitenkarte</h3>
@@ -53,11 +55,11 @@ const ProfileView = (function () {
           ${Object.entries(bests).map(([disc, best]) => `
             <div class="stat-card">
               <div class="label">${disc.toUpperCase()} PB</div>
-              <div class="value">${best.score.toFixed(1)}</div>
+              <div class="value">${(best && best.score != null) ? Number(best.score).toFixed(1) : '–'}</div>
             </div>
           `).join('')}
         </div>
-        <button class="btn" onclick="ProfileView.syncProfile()">Profil-Daten synchronisieren</button>
+        <button class="btn" onclick="ProfileView.renderProfile()">Profil-Daten synchronisieren</button>
       </div>
     `;
   }
@@ -90,5 +92,5 @@ const ProfileView = (function () {
     }
   }
 
-  return { render, switchTab, renderProfile, renderLiveTicker };
+  return { render, switchTab, renderProfile, renderLiveTicker, syncProfile: renderProfile };
 })();

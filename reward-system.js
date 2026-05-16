@@ -135,12 +135,13 @@
         document.body.appendChild(lootbox);
 
         // Animation abspielen
-        window.ModernUX.animateLootbox(lootbox, reward).then(() => {
-          // XP gutschreiben
-          this.awardRewardXP(reward.xp);
-          this.state.totalLootboxesOpened++;
-          lootbox.remove();
-        });
+        window.ModernUX.animateLootbox(lootbox, reward)
+          .then(() => {
+            this.awardRewardXP(reward.xp);
+            this.state.totalLootboxesOpened++;
+          })
+          .catch(err => console.warn('[RewardSystem] lootbox animation failed:', err))
+          .finally(() => lootbox.remove());
       } else {
         // Fallback: Direkt Belohnung anzeigen
         this.showRewardDirect(reward);
@@ -235,7 +236,7 @@
      * Öffentliche API: Manuelle Lootbox auslösen
      */
     forceLootbox() {
-      this.state.duelsSinceLastLootbox = this.config.lootboxInterval;
+      this.state.duelsSinceLastLootbox = 0;
       this.dropLootbox();
     },
 
