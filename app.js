@@ -779,8 +779,7 @@ function randomFeedbackInterval() {
 }
 
 function loadFeedbackMeta() {
-  try { return JSON.parse(localStorage.getItem('sd_feedback_meta') || '{}'); }
-  catch (e) { return {}; }
+  return readJsonStorage('sd_feedback_meta', {});
 }
 
 function saveFeedbackMeta(meta) {
@@ -1670,18 +1669,14 @@ function refreshPremiumDashboard() {
     // 3. Streak-basiertes Achievement
     // 4. Präzisions-basiertes Achievement
 
+    const achievementProgress = readJsonStorage('sd_enhanced_achievements', {});
+
     const unlockedAchievements = achievementKeys
-      .filter(key => {
-        const prog = JSON.parse(localStorage.getItem('sd_enhanced_achievements') || '{}');
-        return prog[allAchievements[key].id]?.unlocked;
-      })
+      .filter(key => achievementProgress[allAchievements[key].id]?.unlocked)
       .map(key => allAchievements[key]);
 
     const lockedAchievements = achievementKeys
-      .filter(key => {
-        const prog = JSON.parse(localStorage.getItem('sd_enhanced_achievements') || '{}');
-        return !prog[allAchievements[key].id]?.unlocked;
-      })
+      .filter(key => !achievementProgress[allAchievements[key].id]?.unlocked)
       .map(key => allAchievements[key]);
 
     // Badge-Auswahl: max. 2 freigeschaltete + 2 gesperrte (Fortschritt anzeigen)
@@ -2255,8 +2250,7 @@ function checkSunAchievements() {
 }
 
 function getSunEarned() {
-  try { return JSON.parse(localStorage.getItem('sd_sun') || '{}'); }
-  catch (e) { return {}; }
+  return readJsonStorage('sd_sun', {});
 }
 
 function saveSunEarned(e) {
