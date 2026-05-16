@@ -19,8 +19,8 @@ const ProfileView = (function () {
 
     container.innerHTML = `
       <div class="profile-view-tabs">
-        <button class="tab-btn active" onclick="ProfileView.switchTab('for-you')">Ich</button>
-        <button class="tab-btn" onclick="ProfileView.switchTab('live')">Live</button>
+        <button class="tab-btn active" onclick="ProfileView.switchTab('for-you', event)">Ich</button>
+        <button class="tab-btn" onclick="ProfileView.switchTab('live', event)">Live</button>
       </div>
       <div id="for-you-content" class="tab-content active">
         <div id="profile-card-mount">Lädt Profil...</div>
@@ -34,11 +34,11 @@ const ProfileView = (function () {
     renderLiveTicker();
   }
 
-  function switchTab(tabId) {
+  function switchTab(tabId, e) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(`${tabId}-content`).classList.add('active');
-    event.target.classList.add('active');
+    if (e && e.target) e.target.classList.add('active');
   }
 
   async function renderProfile() {
