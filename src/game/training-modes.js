@@ -206,7 +206,10 @@ const TrainingModes = (function() {
       console.error('Unbekannter Trainings-Modus:', modeId);
       return false;
     }
-    
+    if (currentTraining && currentTraining.status === 'active') {
+      console.warn('Training bereits aktiv, wird neu gestartet:', modeId);
+    }
+
     currentTraining = {
       mode: mode,
       startTime: Date.now(),
@@ -360,7 +363,7 @@ const TrainingModes = (function() {
     const totalShots = currentTraining.shots.length;
     
     // Berechne Genauigkeits-Prozentsatz
-    const accuracy = (validShots / totalShots) * 100;
+    const accuracy = totalShots > 0 ? (validShots / totalShots) * 100 : 0;
     currentTraining.score = accuracy;
     
     // Bonus für X-Ringe
