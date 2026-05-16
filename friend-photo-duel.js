@@ -515,7 +515,7 @@
       state.created = created || [];
 
       var openDuel = state.incoming.find(function (duel) {
-        return duel.status === 'pending' || (duel.status === 'accepted' && !duel.opponent_score);
+        return duel.status === 'pending' || (duel.status === 'accepted' && duel.opponent_score == null);
       });
       if (openDuel && !state.activePopupId) showIncomingPopup(openDuel);
 
