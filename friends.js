@@ -405,6 +405,22 @@ const FriendsSystem = (function() {
     renderPendingRequests();
   }
 
+  function bindFriendListEvents(container) {
+    container.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const card = btn.closest('[data-friend-id]');
+      const friendId = card && card.dataset.friendId;
+      const userId = btn.dataset.userId || friendId;
+      if (!userId) return;
+      const action = btn.dataset.action;
+      if (action === 'challenge') FriendsSystem.challengeFriend(userId);
+      else if (action === 'remove') FriendsSystem.removeFriend(userId);
+      else if (action === 'accept') FriendsSystem.acceptRequest(userId);
+      else if (action === 'decline') FriendsSystem.declineRequest(userId);
+    });
+  }
+
   function renderFriendsList() {
     const container = document.getElementById('friendsListContainer');
     if (!container) return;
@@ -425,19 +441,20 @@ const FriendsSystem = (function() {
 
     container.innerHTML = `
       ${state.friends.map(friend => `
-        <div class="friend-card" data-friend-id="${friend.userId}">
+        <div class="friend-card" data-friend-id="${escapeHtml(friend.userId)}">
           <div class="friend-avatar">${getFriendAvatar(friend.username)}</div>
           <div class="friend-info">
             <div class="friend-name">${escapeHtml(friend.username)}</div>
             <div class="friend-status">${getFriendStatus(friend)}</div>
           </div>
           <div class="friend-actions">
-            <button class="friend-btn challenge" onclick="FriendsSystem.challengeFriend('${friend.userId}')">⚔️ Duell</button>
-            <button class="friend-btn remove" onclick="FriendsSystem.removeFriend('${friend.userId}')">✕</button>
+            <button class="friend-btn challenge" data-action="challenge">⚔️ Duell</button>
+            <button class="friend-btn remove" data-action="remove">✕</button>
           </div>
         </div>
       `).join('')}
     `;
+    bindFriendListEvents(container);
   }
 
   function renderPendingRequests() {
@@ -458,12 +475,13 @@ const FriendsSystem = (function() {
                 <div class="request-time">${formatTime(req.timestamp)}</div>
               </div>
               <div class="request-actions">
-                <button class="request-btn accept" onclick="FriendsSystem.acceptRequest('${req.fromUserId}')">✓</button>
-                <button class="request-btn decline" onclick="FriendsSystem.declineRequest('${req.fromUserId}')">✕</button>
+                <button class="request-btn accept" data-action="accept" data-user-id="${escapeHtml(req.fromUserId)}">✓</button>
+                <button class="request-btn decline" data-action="decline" data-user-id="${escapeHtml(req.fromUserId)}">✕</button>
               </div>
             </div>
           `).join('')}
         `;
+        bindFriendListEvents(receivedContainer);
       }
     }
 
