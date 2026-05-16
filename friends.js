@@ -20,6 +20,7 @@ const FriendsSystem = (function() {
     statusHeartbeatId: null,
     requestBusy: false,
   };
+  let _initInProgress = false;
 
   function resolveCurrentUserId() {
     try {
@@ -142,6 +143,7 @@ const FriendsSystem = (function() {
   }
 
   async function init(force = false) {
+    if (!force && _initInProgress) return true;
     const resolvedUserId = resolveCurrentUserId();
     const sameUser = state.initialized && state.currentUserId === resolvedUserId;
     state.currentUserId = resolvedUserId;
@@ -150,6 +152,8 @@ const FriendsSystem = (function() {
       return true;
     }
 
+    _initInProgress = true;
+    try {
     if (isSupabaseSocialAvailable()) {
       try {
         const ready = await refreshFromSupabaseSocial();
@@ -169,7 +173,8 @@ const FriendsSystem = (function() {
     // Fallback für Gäste: lade lokale Freunde (Read-Only)
     if (!isSupabaseLoggedIn()) {
       const localFriends = StorageManager.getRaw('friends');
-      state.friends = localFriends ? JSON.parse(localFriends) : [];
+      try { state.friends = localFriends ? JSON.parse(localFriends) : []; }
+      catch (_) { state.friends = []; }
       state.pendingRequests = [];
       state.sentRequests = [];
       state.onlineStatusByUserId = {};
@@ -189,6 +194,9 @@ const FriendsSystem = (function() {
     state.initialized = true;
     console.log('FriendsSystem ready (eingeloggt, Supabase-Social nicht verfügbar)');
     return true;
+  } finally {
+    _initInProgress = false;
+  }
   }
 
   async function addFriendByCode(code) {
@@ -379,7 +387,8 @@ const FriendsSystem = (function() {
 
     // Fallback: lokale Read-Only Freunde für Gäste
     const localFriends = StorageManager.getRaw('friends');
-    state.friends = localFriends ? JSON.parse(localFriends) : [];
+    try { state.friends = localFriends ? JSON.parse(localFriends) : []; }
+    catch (_) { state.friends = []; }
     state.onlineStatusByUserId = {};
     renderFriendsList();
   }
@@ -590,10 +599,14 @@ const FriendsSystem = (function() {
     if (!state.userCode) return;
 
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(state.userCode).then(() => {
-        showFriendToast('📋 Code kopiert!', 'success');
-      });
+      navigator.clipboard.writeText(state.userCode)
+        .then(() => showFriendToast('📋 Code kopiert!', 'success'))
+        .catch(() => fallbackCopy());
     } else {
+      fallbackCopy();
+    }
+
+    function fallbackCopy() {
       const textarea = document.createElement('textarea');
       textarea.value = state.userCode;
       document.body.appendChild(textarea);

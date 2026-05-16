@@ -295,7 +295,9 @@
     const ov = document.getElementById(OVERLAY_ID);
     if (!ov) return;
 
-    ov.addEventListener('click', (e) => {
+    if (!ov._cvClickBound) {
+      ov._cvClickBound = true;
+      ov.addEventListener('click', (e) => {
       if (e.target.closest('[data-cv-back]')) {
         if (history.state && history.state.chatView) history.back();
         else close('user');
@@ -314,6 +316,7 @@
         return;
       }
     });
+    }
 
     const input = ov.querySelector('[data-cv-input]');
     if (input) {
