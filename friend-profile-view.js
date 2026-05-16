@@ -215,8 +215,8 @@
     function barRow(label, meVal, themVal, formatter) {
       const me = Number(meVal);
       const them = Number(themVal);
-      const meOk = Number.isFinite(me) && me > 0;
-      const themOk = Number.isFinite(them) && them > 0;
+      const meOk = Number.isFinite(me) && me >= 0;
+      const themOk = Number.isFinite(them) && them >= 0;
       if (!meOk && !themOk) return '';
       const max = Math.max(meOk ? me : 0, themOk ? them : 0) || 1;
       const mePct = meOk ? Math.max(4, Math.round((me / max) * 50)) : 0;
@@ -305,7 +305,8 @@
 
   function wireActions() {
     const ov = document.getElementById(OVERLAY_ID);
-    if (!ov) return;
+    if (!ov || ov._fpWired) return;
+    ov._fpWired = true;
 
     ov.addEventListener('click', (e) => {
       const backBtn = e.target.closest('[data-fp-back]');

@@ -142,8 +142,15 @@ const FriendsSystem = (function() {
     return code;
   }
 
+  function _clearRetryTimer() {
+    if (state.bootstrapRetryTimer) {
+      clearTimeout(state.bootstrapRetryTimer);
+      state.bootstrapRetryTimer = null;
+    }
+  }
+
   async function init(force = false) {
-    if (!force && _initInProgress) return true;
+    if (_initInProgress) return true;
     const resolvedUserId = resolveCurrentUserId();
     const sameUser = state.initialized && state.currentUserId === resolvedUserId;
     state.currentUserId = resolvedUserId;
@@ -162,6 +169,7 @@ const FriendsSystem = (function() {
         renderPendingRequests();
         if (ready) {
           state.initialized = true;
+          _clearRetryTimer();
           console.log('FriendsSystem ready (Supabase)');
           return true;
         }
@@ -182,6 +190,7 @@ const FriendsSystem = (function() {
       // Zeige Login-Aufforderung wenn der User versucht, Freunde zu nutzen
       renderFriendsLoginPrompt();
       state.initialized = true;
+      _clearRetryTimer();
       console.log('FriendsSystem ready (Gast-Modus, Read-only)');
       return true;
     }
@@ -192,6 +201,7 @@ const FriendsSystem = (function() {
     state.sentRequests = [];
     state.onlineStatusByUserId = {};
     state.initialized = true;
+    _clearRetryTimer();
     console.log('FriendsSystem ready (eingeloggt, Supabase-Social nicht verfügbar)');
     return true;
   } finally {

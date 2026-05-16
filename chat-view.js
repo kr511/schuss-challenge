@@ -17,6 +17,7 @@
     popHandler: null,
     scrollY: 0,
     closingFromPop: false,
+    isSending: false,
   };
 
   function esc(v) {
@@ -236,7 +237,7 @@
         const m = payload.new;
         if (!m || m.sender_id !== friendId) return;
         appendMessage({ id: m.id, text: m.text, from: 'friend', ts: m.created_at });
-        markRead(client, myId, friendId);
+        markRead(client, myId, friendId).catch(() => {});
       })
       .subscribe();
   }
@@ -255,7 +256,7 @@
     const input = ov.querySelector('[data-cv-input]');
     if (!input) return;
     const text = input.value.trim();
-    if (!text) return;
+    if (!text || state.isSending) return;
 
     const friendId = state.friend.userId;
     const myId = state.myId;
@@ -268,6 +269,7 @@
     if (window.MobileFeatures && window.MobileFeatures.triggerHaptic) window.MobileFeatures.triggerHaptic('light');
 
     if (client && myId) {
+      state.isSending = true;
       insertMessage(client, myId, friendId, text)
         .then((saved) => {
           if (saved && saved.id) {
@@ -282,7 +284,8 @@
           const el = ov.querySelector('[data-msg-id="' + optimisticId + '"]');
           if (el) el.remove();
           toast('Nachricht konnte nicht gesendet werden', 'error');
-        });
+        })
+        .finally(() => { state.isSending = false; });
     } else {
       const local = loadLocalMessages(friendId);
       local.push({ id: optimisticId, text, from: 'me', ts: new Date().toISOString() });
@@ -336,10 +339,16 @@
     const ov = document.getElementById(OVERLAY_ID);
     if (!ov) return;
 
+    if (state.popHandler) {
+      window.removeEventListener('popstate', state.popHandler);
+      state.popHandler = null;
+    }
+
     state.friend = friend;
     state.myId = getMyId();
     state.client = getClient();
     state.isOpen = true;
+    state.isSending = false;
 
     ov.innerHTML = renderSkeleton(friend);
     ov.style.display = 'block';
