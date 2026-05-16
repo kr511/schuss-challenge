@@ -428,6 +428,45 @@
     return true;
   }
 
+  // Beim beforeunload kann die supabase-js Promise abgebrochen werden, bevor sie
+  // den Request rausschickt. fetch(..., { keepalive: true }) garantiert, dass
+  // der Browser ihn auch nach Unload zu Ende sendet, und erlaubt im Gegensatz
+  // zu navigator.sendBeacon() das Authorization-Header für RLS.
+  function sendOfflineBeacon() {
+    try {
+      if (!isAuthenticated()) return false;
+      if (typeof fetch !== 'function') return false;
+      var client = getClient();
+      var user = getUser();
+      if (!client || !user) return false;
+      var supabaseUrl = (client.supabaseUrl || '').replace(/\/+$/, '');
+      var apiKey = client.supabaseKey || '';
+      var session = getSession();
+      var token = session && session.access_token;
+      if (!supabaseUrl || !apiKey || !token) return false;
+      var body = JSON.stringify({
+        user_id: user.id,
+        online: false,
+        last_seen: new Date().toISOString(),
+        username: getUsername()
+      });
+      fetch(supabaseUrl + '/rest/v1/online_status?on_conflict=user_id', {
+        method: 'POST',
+        keepalive: true,
+        headers: {
+          'apikey': apiKey,
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
+        body: body
+      }).catch(function () { /* beforeunload: best-effort */ });
+      return true;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   function startPresenceHeartbeat() {
     if (state.heartbeatId || !isAuthenticated()) return;
     updateOnlineStatus(true).catch(function (error) {
@@ -903,7 +942,7 @@
 
     window.addEventListener('beforeunload', function () {
       stopPresenceHeartbeat();
-      if (isAuthenticated()) updateOnlineStatus(false).catch(function () {});
+      sendOfflineBeacon();
     });
   }
 
