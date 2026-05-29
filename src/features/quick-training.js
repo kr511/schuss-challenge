@@ -313,11 +313,41 @@
     return `<div style="margin-top:10px;font-size:0.7rem;color:rgba(255,255,255,0.45);">${escHtml(line)}</div>`;
   }
 
+  // Kompakte Verlaufsstatistik aus dem lokalen Trainingslog (sd_quick_training_log).
+  // Sichtbar in der geschlossenen und der offenen Karte; wird via refreshHistoryDom aktualisiert.
+  function renderStatsBox() {
+    const totals = readHistory()
+      .map((entry) => Number(entry && entry.total))
+      .filter((value) => Number.isFinite(value));
+    if (!totals.length) {
+      return '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:10px 12px;font-size:0.76rem;color:rgba(255,255,255,0.5);text-align:center;">Noch keine Trainingsdaten – dein erstes Schnelltraining erscheint hier.</div>';
+    }
+    const last = totals[totals.length - 1];
+    const prev = totals.length >= 2 ? totals[totals.length - 2] : null;
+    const best = Math.max.apply(null, totals);
+    const windowN = Math.min(5, totals.length);
+    const avgN = totals.slice(-windowN).reduce((sum, value) => sum + value, 0) / windowN;
+    let deltaCell;
+    if (prev === null) {
+      deltaCell = '<strong style="color:rgba(255,255,255,0.6);">–</strong>';
+    } else {
+      const delta = last - prev;
+      const sign = delta > 0.05 ? '+' : (delta < -0.05 ? '−' : '±');
+      const color = delta > 0.05 ? '#b4dc78' : (delta < -0.05 ? '#ffb4b4' : 'rgba(255,255,255,0.6)');
+      deltaCell = `<strong style="color:${color};">${sign}${escHtml(Math.abs(delta).toFixed(1))}</strong>`;
+    }
+    const cell = (label, valueHtml) => `<div style="flex:1;min-width:62px;"><span style="color:rgba(255,255,255,0.55);font-size:0.68rem;">${escHtml(label)}</span><br>${valueHtml}</div>`;
+    return `<div style="background:rgba(122,176,48,0.06);border:1px solid rgba(122,176,48,0.22);border-radius:10px;padding:10px 12px;">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:0.92rem;color:#fff;">
+          ${cell('Letztes', `<strong>${escHtml(last.toFixed(1))}</strong>`)}
+          ${cell('Ø ' + windowN, `<strong>${escHtml(avgN.toFixed(1))}</strong>`)}
+          ${cell('Best', `<strong>${escHtml(best.toFixed(1))}</strong>`)}
+          ${cell('Δ vorher', deltaCell)}
+        </div>
+      </div>`;
+  }
+
   function renderClosed(host) {
-    const last = readHistory().slice(-1)[0] || null;
-    const lastSummary = last && Number.isFinite(last.total)
-      ? `Letztes Training: ${Number(last.total).toFixed(1)} Ringe (Ø ${Number(last.avg || 0).toFixed(2)})`
-      : 'Noch kein lokales Training erfasst.';
     host.innerHTML = `
       <section style="background:linear-gradient(145deg,rgba(50,55,60,0.4),rgba(15,18,20,0.85));border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px;box-shadow:0 8px 28px rgba(0,0,0,0.38);">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -327,7 +357,7 @@
           </div>
           <button type="button" data-qt-toggle="open" style="background:linear-gradient(135deg,#7ab030,#5a9020);color:#0a1a06;border:1px solid rgba(122,176,48,0.6);border-radius:12px;padding:10px 14px;font-weight:700;font-size:0.85rem;cursor:pointer;min-height:44px;">Training starten</button>
         </div>
-        <div style="margin-top:8px;font-size:0.78rem;color:rgba(255,255,255,0.58);">${escHtml(lastSummary)}</div>
+        <div data-qt-stats style="margin-top:10px;">${renderStatsBox()}</div>
         ${footerHint()}
       </section>`;
     const toggle = host.querySelector('[data-qt-toggle="open"]');
@@ -357,6 +387,7 @@
           <button type="button" data-qt-action="reset" style="background:rgba(255,255,255,0.05);color:#fff;border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:11px 14px;font-weight:600;font-size:0.85rem;cursor:pointer;min-height:44px;">Felder leeren</button>
         </div>
         <div data-qt-result style="margin-top:12px;font-size:0.85rem;color:rgba(255,255,255,0.85);min-height:1em;"></div>
+        <div data-qt-stats style="margin-top:12px;">${renderStatsBox()}</div>
         <div style="margin-top:14px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.1);">
           <div style="font-size:0.78rem;color:rgba(255,255,255,0.62);margin-bottom:6px;font-weight:700;">Letzte Trainings (lokal)</div>
           <div data-qt-history style="display:flex;flex-direction:column;gap:6px;">${renderHistoryRows()}</div>
@@ -423,6 +454,8 @@
   function refreshHistoryDom(host) {
     const histEl = host.querySelector('[data-qt-history]');
     if (histEl) histEl.innerHTML = renderHistoryRows();
+    const statsEl = host.querySelector('[data-qt-stats]');
+    if (statsEl) statsEl.innerHTML = renderStatsBox();
     bindHistoryToggle(host);
   }
 
