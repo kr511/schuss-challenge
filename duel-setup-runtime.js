@@ -81,6 +81,27 @@
     document.head.appendChild(style);
   }
 
+  // Scroll-Locking liegt seit der Konsolidierung zentral in duel-scroll-lock.js.
+  // Diese Shims delegieren dorthin (oder sind ein sicheres No-op). Vorher
+  // verwiesen renderSettings()/Resize-/Lifecycle-Pfade auf die entfernten
+  // Funktionen prepareSheetScroll/unlockPageScroll/scrollLock – der dadurch
+  // geworfene ReferenceError brach openSheet() ab, sodass sich das Duell-Setup
+  // gar nicht erst öffnete ("Duell starten geht nicht").
+  function prepareSheetScroll() {
+    const sl = window.DuelSetupScrollLock;
+    if (sl && typeof sl.forceSheetScrollable === 'function') sl.forceSheetScrollable();
+  }
+  function unlockPageScroll() {
+    const sl = window.DuelSetupScrollLock;
+    if (sl && typeof sl.unlock === 'function') sl.unlock();
+  }
+  const scrollLock = {
+    get locked() {
+      const sl = window.DuelSetupScrollLock;
+      return !!(sl && typeof sl.getState === 'function' && sl.getState().locked);
+    }
+  };
+
   function applyLayoutGuards() {
     ensureStylesheet();
     ensureRuntimePolishStyles();
