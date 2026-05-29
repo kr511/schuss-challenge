@@ -163,9 +163,14 @@
 
   function getSupabase() {
     try {
-      if (window.SupabaseAuth && window.SupabaseAuth.client) return window.SupabaseAuth.client;
-    } catch (_e) { /* noop */ }
-    return null;
+      // SupabaseClient zuerst (wie clubs-system / leaderboard-modern), damit der
+      // Sync auch greift, falls window.SupabaseAuth noch nicht initialisiert ist.
+      return window.SupabaseClient
+        || (window.SupabaseAuth && window.SupabaseAuth.client)
+        || null;
+    } catch (_e) {
+      return null;
+    }
   }
 
   function getUserId() {

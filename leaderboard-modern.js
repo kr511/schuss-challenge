@@ -13,6 +13,7 @@ const LeaderboardModern = {
   searchQuery: '',
   isLoading: false,
   currentScope: 'global',
+  friendsOnly: false,
 
   init() {
     console.debug('[LeaderboardModern] Initialisiert');
@@ -135,6 +136,24 @@ const LeaderboardModern = {
     if (!container) return;
 
     if (!entries || entries.length === 0) {
+      // Bei aktivem Freunde-Filter die Steuerleiste behalten, damit man wieder
+      // auf "Alle" zurückschalten kann (sonst Sackgasse bei leerer Freundesliste).
+      if (this.friendsOnly) {
+        container.innerHTML = `
+          <div class="lb-modern-search-bar">
+            <input type="text" id="lbModernSearch" class="lb-modern-search-input" placeholder="🔍 Spieler suchen..." value="${this.escapeHtml(this.searchQuery)}" oninput="LeaderboardModern.handleSearch(this.value)">
+            <div class="lb-modern-filter-toggle" onclick="LeaderboardModern.toggleFilterPanel()">⚙️</div>
+          </div>
+          <div id="lbModernFilterPanel" style="display:block;">
+            <div class="lb-modern-filter-chips">
+              <button class="lb-filter-chip" onclick="LeaderboardModern.setFriendsOnly(false, event)">🌍 Alle</button>
+              <button class="lb-filter-chip active" onclick="LeaderboardModern.setFriendsOnly(true, event)">👥 Nur Freunde</button>
+            </div>
+          </div>
+          <div class="lb-modern-empty">Keine deiner Freunde in dieser Rangliste. 👥</div>
+        `;
+        return;
+      }
       const emptyText = scope === 'global'
         ? 'Noch keine Einträge. Sei der Erste! 🏆'
         : `Noch keine Einträge für ${this.getScopeLabel(scope)}.`;
@@ -159,6 +178,10 @@ const LeaderboardModern = {
           <button class="lb-filter-chip ${this.currentFilter === 'lg' ? 'active' : ''}" onclick="LeaderboardModern.setFilter('lg', event)">🌬️ Luftgewehr</button>
           <button class="lb-filter-chip ${this.currentFilter === 'kk' ? 'active' : ''}" onclick="LeaderboardModern.setFilter('kk', event)">🎯 Kleinkaliber</button>
         </div>
+        <div class="lb-modern-filter-chips" style="margin-top:6px;">
+          <button class="lb-filter-chip ${!this.friendsOnly ? 'active' : ''}" onclick="LeaderboardModern.setFriendsOnly(false, event)">🌍 Alle</button>
+          <button class="lb-filter-chip ${this.friendsOnly ? 'active' : ''}" onclick="LeaderboardModern.setFriendsOnly(true, event)">👥 Nur Freunde</button>
+        </div>
       </div>
     `;
 
@@ -166,7 +189,7 @@ const LeaderboardModern = {
 
     container.innerHTML = `
       ${searchHTML}
-      <div class="lb-modern-count">${entries.length} Schützen</div>
+      <div class="lb-modern-count">${entries.length} ${entries.length === 1 ? 'Schütze' : 'Schützen'}${this.friendsOnly ? ' · 👥 Freunde' : ''}</div>
       <div class="lb-modern-list">${entriesHTML}</div>
     `;
   },
@@ -250,6 +273,15 @@ const LeaderboardModern = {
       filtered = filtered.filter(e => e.weapon === 'kk');
     }
 
+    if (this.friendsOnly) {
+      const { ids, names } = this.getFriendIdentities();
+      filtered = filtered.filter(e => {
+        const uid = e.uid ? String(e.uid) : '';
+        const name = (e.name || e.username || '').toLowerCase();
+        return (uid && ids.has(uid)) || (name && names.has(name));
+      });
+    }
+
     if (this.searchQuery) {
       filtered = filtered.filter(e => {
         const name = (e.name || e.username || '').toLowerCase();
@@ -259,6 +291,50 @@ const LeaderboardModern = {
 
     this.filteredEntries = filtered;
     this.render(filtered, this.currentScope);
+  },
+
+  setFriendsOnly(on, evt) {
+    if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+    this.friendsOnly = !!on;
+    this.applyFilters();
+  },
+
+  // Sammelt die Identitäten (User-IDs + Namen) der eigenen Freunde inkl. des
+  // eigenen Accounts. Robust gegen lokale Freunde, die evtl. nur einen Namen
+  // (ohne user_id) haben, und gegen ein nicht geladenes FriendsSystem.
+  getFriendIdentities() {
+    const ids = new Set();
+    const names = new Set();
+    try {
+      const me = window.SupabaseSession && window.SupabaseSession.user && window.SupabaseSession.user.id;
+      if (me) ids.add(String(me));
+      const myName = (window.G && (window.G.username || window.G.name))
+        || localStorage.getItem('sd_username') || localStorage.getItem('username');
+      if (myName) names.add(String(myName).toLowerCase());
+    } catch (e) { /* noop */ }
+
+    let list = [];
+    try {
+      if (window.FriendsSystem && typeof window.FriendsSystem.getFriends === 'function') {
+        const result = window.FriendsSystem.getFriends();
+        if (Array.isArray(result)) list = result;
+      }
+    } catch (e) { /* noop */ }
+    if (!list.length) {
+      try {
+        const raw = localStorage.getItem('sd_friends');
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed)) list = parsed;
+      } catch (e) { /* noop */ }
+    }
+    list.forEach(f => {
+      if (!f) return;
+      if (f.userId) ids.add(String(f.userId));
+      if (f.id) ids.add(String(f.id));
+      const nm = f.username || f.name;
+      if (nm) names.add(String(nm).toLowerCase());
+    });
+    return { ids, names };
   },
 
   isCurrentUser(entry) {

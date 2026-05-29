@@ -111,7 +111,7 @@ const FriendsUI = (function() {
                 <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);">${f.rank} · ${f.xp} XP</div>
               </div>
               <div style="display:flex;gap:8px;">
-                <button onclick="alert('Challenge coming soon!')" style="width:34px;height:34px;border-radius:10px;background:rgba(122,176,48,0.15);border:1px solid rgba(122,176,48,0.3);color:#7ab030;display:flex;align-items:center;justify-content:center;">🎯</button>
+                <button type="button" data-friend-id="${f.userId || ''}" onclick="FriendsUI.challengeFriend(this.dataset.friendId)" title="Herausfordern" aria-label="Herausfordern" style="width:34px;height:34px;border-radius:10px;background:rgba(122,176,48,0.15);border:1px solid rgba(122,176,48,0.3);color:#7ab030;display:flex;align-items:center;justify-content:center;cursor:pointer;">🎯</button>
               </div>
             </div>
           `).join('')}
@@ -159,13 +159,32 @@ const FriendsUI = (function() {
     }
   }
 
+  /**
+   * Fordert einen Freund heraus – delegiert an das echte (geladene) FriendsSystem
+   * bzw. AsyncChallenge. Ersetzt den früheren "coming soon"-Platzhalter.
+   */
+  function challengeFriend(friendId) {
+    if (window.FriendsSystem && typeof window.FriendsSystem.challengeFriend === 'function') {
+      window.FriendsSystem.challengeFriend(friendId);
+      return;
+    }
+    if (window.AsyncChallenge && typeof window.AsyncChallenge.createChallenge === 'function') {
+      window.AsyncChallenge.createChallenge(friendId || null, '');
+      return;
+    }
+    if (typeof window.showEngagementToast === 'function') {
+      window.showEngagementToast('Challenge-System wird geladen…');
+    }
+  }
+
   return {
     init,
     render,
     showDiscovery,
     renderProfileTab,
     performSearch,
-    addAndNotify
+    addAndNotify,
+    challengeFriend
   };
 })();
 
