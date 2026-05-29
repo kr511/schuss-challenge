@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#7ab030">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,6 +29,8 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap"
     rel="stylesheet">
+  <!-- Globaler Error-Guard: muss als erstes Script laden, um Boot-Fehler zu erfassen -->
+  <script src="error-guard.js?v=1.0"></script>
   <!-- Supabase JS (muss vor auth-gate.js geladen sein) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <!-- Zentrale Supabase-Config (muss vor auth-gate.js und supabase-client.js geladen sein) -->
@@ -99,7 +101,7 @@
   <link rel="stylesheet" href="styles.css?v=3.3">
   <link rel="stylesheet" href="src/features/clubs-system.css?v=1.2">
   <link rel="stylesheet" href="modern-animations.css?v=1.0">
-  <link rel="stylesheet" href="redesign.css?v=1.1">
+  <link rel="stylesheet" href="redesign.css?v=1.2">
   <link rel="stylesheet" href="friend-profile.css?v=1.0">
   <link rel="stylesheet" href="chat-view.css?v=2.0">
   <script src="modern-ux.js?v=1.0" defer></script>

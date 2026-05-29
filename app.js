@@ -1,7 +1,7 @@
 /* ─── DATA MIGRATION v3 ─── */
 // Alte Daten-Keys bereinigen ohne Username zu löschen
 // v3: neue Schwierigkeitsnamen (Elite/Profi) + KK-Zehntel-Fix
-if (!localStorage.getItem('sd_reset_v3')) {
+if (!StorageManager.getRaw('reset_v3')) {
   const keepName = StorageManager.getRaw('username');
   const keepXP = StorageManager.getRaw('xp');
   StorageManager.clearAll(['username', 'xp']);

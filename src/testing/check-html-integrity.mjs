@@ -69,6 +69,23 @@ for (const scannerId of ['v2ScannerView', 'v2ScannerVideo', 'v2ScannerCanvas', '
   }
 }
 
+// Mobile: viewport-fit=cover muss gesetzt sein, sonst sind alle env(safe-area-inset-*)
+// Regeln auf Geräten mit Notch/Home-Indicator wirkungslos.
+const viewportTag = (htmlWithoutComments.match(/<meta\b[^>]*\bname\s*=\s*(?:"viewport"|'viewport')[^>]*>/i) || [])[0] || '';
+if (!viewportTag) {
+  errors.push('Viewport meta tag is missing.');
+} else if (!/viewport-fit\s*=\s*cover/i.test(getAttr(viewportTag, 'content'))) {
+  errors.push('Viewport meta is missing "viewport-fit=cover" (safe-area insets would be ignored on notched devices).');
+}
+
+// Der globale Error-Guard muss eingebunden sein und als erstes Script laden.
+const guardIndex = scriptSrcs.findIndex(src => /(^|\/)error-guard\.js(\?|$)/.test(src));
+if (guardIndex === -1) {
+  errors.push('error-guard.js is not loaded in index.html.');
+} else if (guardIndex !== 0) {
+  errors.push(`error-guard.js should be the first script (found at position ${guardIndex + 1}).`);
+}
+
 if (errors.length) {
   console.error('HTML integrity check failed:');
   for (const error of errors) {
