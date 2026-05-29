@@ -40,6 +40,26 @@ for (const [src, count] of duplicates(scriptSrcs)) {
   errors.push(`Duplicate script source "${src}" appears ${count} times.`);
 }
 
+// Linked stylesheets. Overlays mit `position:fixed` brauchen ihr CSS, sonst
+// bleiben sie als in-flow Block im Dokument und erzeugen Phantom-Scrollraum.
+const linkTags = [...htmlWithoutComments.matchAll(/<link\b[^>]*>/gi)].map(match => match[0]);
+const styleHrefs = linkTags
+  .filter(tag => /\brel\s*=\s*(?:"stylesheet"|'stylesheet')/i.test(tag))
+  .map(tag => getAttr(tag, 'href'))
+  .filter(Boolean)
+  .map(href => href.replace(/&amp;/g, '&'));
+
+// duel-setup.css wird zur Laufzeit injiziert; alle anderen Overlay-Stylesheets
+// müssen statisch verlinkt sein.
+const requiredOverlayStylesheets = [
+  { marker: /\bic-overlay\b/, css: 'image-compare.css', what: 'Foto-Auswertungs-Overlay (#icOverlay)' },
+];
+for (const { marker, css, what } of requiredOverlayStylesheets) {
+  if (marker.test(htmlWithoutComments) && !styleHrefs.some(h => h.split('?')[0].endsWith(css))) {
+    errors.push(`${what} ist im HTML, aber "${css}" ist nicht als Stylesheet verlinkt (Overlay bliebe in-flow → Phantom-Scroll).`);
+  }
+}
+
 const profileTabTags = [...htmlWithoutComments.matchAll(/<[^>]*\bclass\s*=\s*(?:"[^"]*\bps-tab\b[^"]*"|'[^']*\bps-tab\b[^']*')[^>]*>/gi)]
   .map(match => match[0]);
 const profileTabs = profileTabTags
