@@ -10,7 +10,8 @@
       "mcp__5666ba52-1021-4454-9203-e0d1f889a4e5__list_migrations",
       "mcp__5666ba52-1021-4454-9203-e0d1f889a4e5__list_tables",
       "mcp__5666ba52-1021-4454-9203-e0d1f889a4e5__deploy_edge_function",
-      "mcp__5666ba52-1021-4454-9203-e0d1f889a4e5__execute_sql"
+      "mcp__5666ba52-1021-4454-9203-e0d1f889a4e5__execute_sql",
+      "mcp__5666ba52-1021-4454-9203-e0d1f889a4e5__restore_project"
     ]
   }
 }
