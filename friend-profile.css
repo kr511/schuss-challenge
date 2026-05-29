@@ -3,7 +3,7 @@
 .fp-overlay {
   position: fixed;
   inset: 0;
-  z-index: 950;
+  z-index: 9400;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -50,11 +50,11 @@
 
 .fp-back-btn,
 .fp-menu-btn {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.14);
   color: #fff;
   display: flex;
   align-items: center;
@@ -68,20 +68,22 @@
 .fp-back-btn:active,
 .fp-menu-btn:active {
   transform: scale(0.94);
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .fp-back-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   stroke: currentColor;
   fill: none;
-  stroke-width: 2.5;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .fp-menu-btn svg {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
 }
 
 .fp-header-title {
