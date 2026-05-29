@@ -2923,8 +2923,8 @@ function selDisc(discKey) {
 
   // Update info text
   if (DOM.distInfo) DOM.distInfo.querySelector('.info-txt').innerHTML = dc.info;
-  DOM.setupTag.textContent = WEAPON_CFG[G.weapon].setupTag(discKey, dc.dist);
-  DOM.logoTag.textContent = `Du vs. Bot · ${dc.name} · ${dc.shots} Schuss · Wer trifft besser?`;
+  if (DOM.setupTag) DOM.setupTag.textContent = WEAPON_CFG[G.weapon].setupTag(discKey, dc.dist);
+  if (DOM.logoTag) DOM.logoTag.textContent = `Du vs. Bot · ${dc.name} · ${dc.shots} Schuss · Wer trifft besser?`;
 
   // Aktualisiere Schwierigkeitsinformation, falls bereits eine Schwierigkeit ausgewählt ist
   const adaptiveDiff = typeof AdaptiveBotSystem !== 'undefined' &&
@@ -2988,7 +2988,7 @@ function selShots(btn) {
   document.querySelectorAll('#shotCountGroup .scb').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   G.shots = parseInt(btn.dataset.shots);
-  DOM.logoTag.textContent = `Du vs. Bot · ${DISC[G.discipline]?.name || G.discipline} · ${G.shots} Schuss · Wer trifft besser?`;
+  if (DOM.logoTag) DOM.logoTag.textContent = `Du vs. Bot · ${DISC[G.discipline]?.name || G.discipline} · ${G.shots} Schuss · Wer trifft besser?`;
 }
 
 function toggleBurst() {
