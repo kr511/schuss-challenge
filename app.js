@@ -1690,42 +1690,6 @@ function todayStr() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function loadAllStreaks() {
-  ['lg', 'kk'].forEach(w => loadStreakForWeapon(w));
-  updateXPCorner(); // XP-Corner beim Start befüllen
-}
-
-function loadStreakForWeapon(w) {
-  const streak = StorageManager.get(`${w}_streak`, 0);
-  const best = StorageManager.get(`${w}_best`, 0);
-  STREAK_CACHE[w] = { streak, best };
-}
-
-function updateStreakCorner() {
-  // Jetzt XP-basiert statt Streak-basiert
-  updateXPCorner();
-}
-
-
-function updateWinStreak(won) {
-  // Increment streak on win, reset to 0 on loss
-  const w = G.weapon;
-  let { streak, best } = STREAK_CACHE[w] || { streak: 0, best: 0 };
-
-  if (won) {
-    streak++;
-  } else {
-    streak = 0;
-  }
-
-  const newBest = Math.max(streak, best);
-  StorageManager.set(`${w}_streak`, streak);
-  StorageManager.set(`${w}_best`, newBest);
-  scheduleCloudSync(`streak_${w}`);
-
-  STREAK_CACHE[w] = { streak, best: newBest };
-  G.streak = streak;
-}
 
 /* ─── TIMER & BOT-INTERVAL HELPERS ──────── */
 function clearBattleTimers() {
