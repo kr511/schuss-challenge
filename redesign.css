@@ -104,7 +104,7 @@ body::before {
 .ah-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
 .ah-icon-btn {
-  width: 40px; height: 40px;
+  width: 44px; height: 44px;
   border-radius: 50%;
   background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.1);
@@ -113,12 +113,13 @@ body::before {
   cursor: pointer;
   transition: background 0.15s, transform 0.12s;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   font-size: 1rem;
 }
 .ah-icon-btn:active { transform: scale(0.93); background: rgba(255,255,255,0.12); }
 
 .ah-add-btn {
-  width: 40px; height: 40px;
+  width: 44px; height: 44px;
   border-radius: 50%;
   background: var(--accent);
   border: none;
@@ -129,6 +130,7 @@ body::before {
   box-shadow: var(--sh-accent);
   transition: transform 0.12s, box-shadow 0.15s;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .ah-add-btn:active { transform: scale(0.91); }
 
