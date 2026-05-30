@@ -136,8 +136,14 @@
     enhanceTouchTargets() {
       const buttons = document.querySelectorAll('button, .btn-fire, .btn-primary, .btn-secondary');
       buttons.forEach((btn) => {
-        /* Small intentional badges (e.g. the avatar edit pencil) must stay small. */
-        if (btn.classList.contains('ph-edit-btn') || btn.hasAttribute('data-no-touch-enhance')) return;
+        /* Fixed-size icon buttons must NOT get extra padding/min-size: it would
+           squish their centered SVG (flex-shrink) to a few px. They are already
+           >=40px touch targets. Covers the avatar edit badge and header/profile
+           icon buttons (settings gear, notification bell). */
+        if (btn.classList.contains('ph-edit-btn') ||
+            btn.classList.contains('ah-icon-btn') ||
+            btn.classList.contains('ah-add-btn') ||
+            btn.hasAttribute('data-no-touch-enhance')) return;
         const rect = btn.getBoundingClientRect();
         if (rect.height < this.config.touchTargetMinSize) {
           btn.style.minHeight = `${this.config.touchTargetMinSize}px`;

@@ -1062,6 +1062,9 @@ body.game-screen-active .bottom-nav { display: none !important; }
   line-height: 1.1;
 }
 .pt-topbar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* Inline SVGs collapse on the main axis inside flex icon-buttons in Chrome
+   unless they are told not to shrink — keeps the gear/bell glyphs full-size. */
+.ah-icon-btn svg, .ah-add-btn svg { flex: 0 0 auto; }
 
 .profile-hero-card {
   background: var(--bg-card);

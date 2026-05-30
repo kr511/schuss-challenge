@@ -1,14 +1,22 @@
-/* Schussduell - Settings tab inside the profile sheet */
+/* Schützen Challenge — Einstellungsseite (komplett neu)
+ *
+ * Eigenständige, markentreue Settings-Seite (eine Seite, keine Tabs) auf
+ * Design-System-Basis: Sport-Grün #22c55e auf fast-schwarz. Ersetzt das alte
+ * 4-Tab-„Schützenpass"-Sheet im Nutzerfluss. Die echten, funktionierenden
+ * Settings-Logiken (Sound, Haptik, Privatsphäre, Cloud-Sync, Export, Lokaler
+ * Modus, Logout, Name) bleiben erhalten.
+ */
 (function () {
   'use strict';
 
-  var PANEL_ID = 'psPanel-settings';
-  var STYLE_ID = 'profileSettingsTabStyles';
+  var OVERLAY_ID = 'settingsOverlay';
+  var STYLE_ID = 'settingsPageStyles';
   var SOUND_KEY = 'sd_sound';
   var HAPTIC_KEY = 'sd_haptics_enabled';
   var PRIVACY_KEY = 'sd_profile_privacy';
   var SYNC_META_KEY = 'sd_cloud_sync_meta_v1';
   var LOCAL_KEYS = ['sd_local_play', 'sd_local_mode'];
+  var AVATARS = ['🎯', '🔫', '⭐', '🏆', '💫', '🔥', '🎮', '🦅', '🐺', '🎖️', '🛡️', '👑'];
 
   function $(id) { return document.getElementById(id); }
 
@@ -18,6 +26,7 @@
     });
   }
 
+  /* ── Storage helpers ──────────────────────────────────────────── */
   function getStorageRaw(key, fallback) {
     try {
       if (window.StorageManager && typeof window.StorageManager.getRaw === 'function') {
@@ -41,9 +50,8 @@
     } catch (e) {}
   }
 
-  function getStoredName() {
-    return getStorageRaw('username', 'Spieler');
-  }
+  function getStoredName() { return getStorageRaw('username', 'Spieler'); }
+  function getStoredAvatar() { return getStorageRaw('avatar', '🎯'); }
 
   function sanitizeName(value) {
     return String(value || '')
@@ -53,6 +61,7 @@
       .slice(0, 15);
   }
 
+  /* ── Account / session ────────────────────────────────────────── */
   function getSession() {
     try {
       if (window.SupabaseAuth && typeof window.SupabaseAuth.getSession === 'function') {
@@ -77,10 +86,10 @@
     return !!(session && session.access_token && !isLocalMode());
   }
 
-  function getAccountLabel() {
-    if (isLocalMode()) return 'Lokal';
-    if (hasSession()) return 'Online';
-    return 'Gast';
+  function getAccountState() {
+    if (hasSession()) return { key: 'online', label: 'Online' };
+    if (isLocalMode()) return { key: 'local', label: 'Lokal' };
+    return { key: 'guest', label: 'Gast' };
   }
 
   function getUserEmail() {
@@ -88,55 +97,39 @@
     return session && session.user && session.user.email ? session.user.email : '';
   }
 
-  function getPrivacy() {
-    return localStorage.getItem(PRIVACY_KEY) === 'private' ? 'private' : 'public';
-  }
-
-  function setPrivacy(value) {
-    localStorage.setItem(PRIVACY_KEY, value === 'private' ? 'private' : 'public');
-  }
+  /* ── Preferences ──────────────────────────────────────────────── */
+  function getPrivacy() { return localStorage.getItem(PRIVACY_KEY) === 'private' ? 'private' : 'public'; }
+  function setPrivacy(value) { localStorage.setItem(PRIVACY_KEY, value === 'private' ? 'private' : 'public'); }
 
   function getSoundEnabled() {
     if (window.Sounds && typeof window.Sounds.enabled === 'boolean') return window.Sounds.enabled;
     return localStorage.getItem(SOUND_KEY) !== '0';
   }
-
   function setSoundEnabled(enabled) {
     if (window.Sounds && typeof window.Sounds.setEnabled === 'function') window.Sounds.setEnabled(enabled);
     else localStorage.setItem(SOUND_KEY, enabled ? '1' : '0');
     if (window.Sfx) window.Sfx.muted = !enabled;
-    var oldButton = $('soundToggleBtn');
-    if (oldButton) oldButton.textContent = enabled ? '🔊  Sound: AN' : '🔇  Sound: AUS';
   }
 
   function getHapticsEnabled() {
     var value = localStorage.getItem(HAPTIC_KEY);
     return value == null ? true : value === '1' || value === 'true';
   }
+  function setHapticsEnabled(enabled) { localStorage.setItem(HAPTIC_KEY, enabled ? '1' : '0'); }
 
-  function setHapticsEnabled(enabled) {
-    localStorage.setItem(HAPTIC_KEY, enabled ? '1' : '0');
-  }
-
+  /* ── Cloud-Sync meta ──────────────────────────────────────────── */
   function readSyncMeta() {
-    try {
-      var raw = localStorage.getItem(SYNC_META_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch (e) {
-      return {};
-    }
+    try { var raw = localStorage.getItem(SYNC_META_KEY); return raw ? JSON.parse(raw) : {}; }
+    catch (e) { return {}; }
   }
-
   function writeSyncMeta(patch) {
     var meta = Object.assign({}, readSyncMeta(), patch || {});
     localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta));
   }
-
   function formatTime(value) {
     var ts = Number(value) || 0;
     return ts > 0 ? new Date(ts).toLocaleString('de-DE') : 'noch nie';
   }
-
   function getSyncStatusText() {
     if (isLocalMode()) return 'Lokaler Gastmodus. Keine Cloud-Synchronisierung.';
     if (!hasSession()) return 'Melde dich an, um Cloud-Sync zu nutzen.';
@@ -146,98 +139,186 @@
     return 'Bereit. Noch kein letzter Sync gespeichert.';
   }
 
+  /* ── Styles (Design-System, self-contained) ───────────────────── */
   function injectStyles() {
     if ($(STYLE_ID)) return;
     var style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = [
-      '.settings-tab{display:flex;flex-direction:column;gap:14px;color:#fff}',
-      '.settings-tab-head{padding:2px 2px 4px}',
-      '.settings-tab-title{font-size:1.05rem;font-weight:900;letter-spacing:.02em;color:#9cc4ff;text-transform:uppercase}',
-      '.settings-tab-sub{margin-top:5px;font-size:.78rem;color:rgba(255,255,255,.48)}',
-      '.settings-block{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:15px 16px}',
-      '.settings-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.42);font-weight:900;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.06)}',
-      '.settings-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid rgba(255,255,255,.06)}',
-      '.settings-row.first{border-top:0;padding-top:0}',
-      '.settings-copy{min-width:0;line-height:1.2}',
-      '.settings-title{font-size:.94rem;font-weight:900;color:#fff}',
-      '.settings-desc{font-size:.76rem;color:rgba(255,255,255,.45);margin-top:3px;overflow:hidden;text-overflow:ellipsis}',
-      '.settings-input-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:10px}',
-      '.settings-input{min-width:0;width:100%;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#fff;padding:12px 12px;font-size:.95rem;outline:0}',
-      '.settings-input:focus{border-color:#7ab030;box-shadow:0 0 0 3px rgba(122,176,48,.16)}',
-      '.settings-btn{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 13px;font-weight:900;cursor:pointer;background:rgba(255,255,255,.08);color:#fff;white-space:nowrap}',
-      '.settings-btn.primary{background:linear-gradient(135deg,#7ab030,#5c9228);border-color:rgba(122,176,48,.62)}',
-      '.settings-btn.warn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35);color:#fde68a}',
-      '.settings-btn.danger{background:rgba(239,68,68,.14);border-color:rgba(239,68,68,.35);color:#fecaca;width:100%;margin-top:4px}',
-      '.settings-btn:disabled{opacity:.5;cursor:not-allowed}',
-      '.settings-pill{display:inline-flex;align-items:center;border-radius:999px;padding:7px 10px;background:rgba(122,176,48,.13);border:1px solid rgba(122,176,48,.35);color:#c9f58b;font-size:.78rem;font-weight:900;white-space:nowrap}',
-      '.settings-pill.private{background:rgba(59,130,246,.13);border-color:rgba(59,130,246,.35);color:#bfdbfe}',
-      '.settings-switch{position:relative;width:52px;height:30px;flex:0 0 auto}',
-      '.settings-switch input{opacity:0;width:0;height:0}',
-      '.settings-slider{position:absolute;inset:0;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.14);border-radius:999px;cursor:pointer;transition:.18s}',
-      '.settings-slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.18s;box-shadow:0 3px 10px rgba(0,0,0,.35)}',
-      '.settings-switch input:checked+.settings-slider{background:rgba(122,176,48,.45);border-color:rgba(122,176,48,.7)}',
-      '.settings-switch input:checked+.settings-slider:before{transform:translateX(22px)}',
-      '.settings-toast{display:none;margin-top:10px;border-radius:12px;padding:10px 12px;font-size:.82rem;font-weight:800;background:rgba(122,176,48,.12);border:1px solid rgba(122,176,48,.28);color:#c9f58b}',
-      '.settings-toast.is-visible{display:block}',
-      '@media(max-width:420px){.settings-input-row{grid-template-columns:1fr}.settings-row{align-items:flex-start}.settings-btn{width:100%}}'
+      '#settingsOverlay{position:fixed;inset:0;z-index:2147483400;display:none}',
+      '#settingsOverlay.active{display:block}',
+      '#settingsOverlay .set-sheet{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;transform:translateY(14px);transition:opacity .2s ease,transform .26s cubic-bezier(.32,1.2,.64,1);',
+      'background:radial-gradient(ellipse 85% 42% at 50% 0%,rgba(34,197,94,.10),transparent 60%),linear-gradient(180deg,#0c0c0c 0%,#070707 100%);color:#e8e8e0;font-family:"Outfit",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}',
+      '#settingsOverlay.active .set-sheet{opacity:1;transform:none}',
+      '.set-header{position:sticky;top:0;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:12px;',
+      'padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 14px;background:rgba(10,10,10,.82);backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);border-bottom:1px solid rgba(255,255,255,.06)}',
+      '.set-h-title{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;color:#fff;line-height:1.1}',
+      '.set-h-sub{font-size:.74rem;color:rgba(255,255,255,.4);margin-top:2px}',
+      '.set-close{width:42px;height:42px;min-width:42px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.82);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;-webkit-tap-highlight-color:transparent;transition:transform .12s,background .15s;padding:0}',
+      '.set-close:active{transform:scale(.92);background:rgba(255,255,255,.14)}',
+      '.set-close svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}',
+      '.set-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;width:100%;max-width:560px;margin:0 auto;',
+      'padding:16px 16px calc(env(safe-area-inset-bottom,0px) + 36px);display:flex;flex-direction:column;gap:14px}',
+      '.set-card{background:rgba(18,18,18,.92);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:6px 16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}',
+      '.set-eyebrow{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.4);font-weight:700;margin:4px 2px 2px}',
+      '.set-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-top:1px solid rgba(255,255,255,.06)}',
+      '.set-row:first-child{border-top:0}',
+      '.set-copy{min-width:0}',
+      '.set-title{font-size:.94rem;font-weight:700;color:#fff}',
+      '.set-desc{font-size:.74rem;color:rgba(255,255,255,.45);margin-top:3px;line-height:1.35}',
+      /* account */
+      '.set-account{display:flex;align-items:center;gap:14px;padding:16px 0}',
+      '.set-avatar{width:62px;height:62px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:1.85rem;background:linear-gradient(135deg,#1e3a1e,#14532d);border:2.5px solid #22c55e;box-shadow:0 0 18px rgba(34,197,94,.25);cursor:pointer;position:relative}',
+      '.set-avatar .set-av-edit{position:absolute;right:-2px;bottom:-2px;width:22px;height:22px;border-radius:50%;background:#22c55e;border:2px solid #0a0a0a;display:flex;align-items:center;justify-content:center}',
+      '.set-avatar .set-av-edit svg{width:11px;height:11px;stroke:#04130a;fill:none;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}',
+      '.set-acc-info{min-width:0;flex:1}',
+      '.set-acc-name{font-size:1.25rem;font-weight:800;color:#fff;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.set-acc-meta{font-size:.74rem;color:rgba(255,255,255,.45);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.set-badge{display:inline-flex;align-items:center;gap:5px;font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:4px 9px;border-radius:999px;margin-top:7px}',
+      '.set-badge.online{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3)}',
+      '.set-badge.local{background:rgba(0,195,255,.12);color:#70aaf0;border:1px solid rgba(0,195,255,.28)}',
+      '.set-badge.guest{background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.14)}',
+      '.set-namebar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:0 0 14px}',
+      '.set-input{min-width:0;width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#fff;padding:12px;font-size:.95rem;font-family:inherit;outline:0}',
+      '.set-input:focus{border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.16)}',
+      '.set-btn{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 16px;font-weight:700;font-size:.86rem;cursor:pointer;background:rgba(255,255,255,.07);color:#fff;font-family:inherit;white-space:nowrap;transition:transform .12s,background .15s;-webkit-tap-highlight-color:transparent}',
+      '.set-btn:active{transform:scale(.97)}',
+      '.set-btn.primary{background:#22c55e;color:#000;border-color:transparent;box-shadow:0 4px 16px rgba(34,197,94,.28)}',
+      '.set-btn.danger{background:rgba(255,74,74,.12);border-color:rgba(255,74,74,.32);color:#ff8a8a;width:100%}',
+      '.set-pill{display:inline-flex;align-items:center;font-size:.72rem;font-weight:800;padding:7px 12px;border-radius:999px;background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.32);color:#86e29b;white-space:nowrap}',
+      '.set-pill.private{background:rgba(0,195,255,.12);border-color:rgba(0,195,255,.3);color:#9fd0f5}',
+      /* switch */
+      '.set-switch{position:relative;width:50px;height:30px;flex:0 0 auto}',
+      '.set-switch input{opacity:0;width:0;height:0}',
+      '.set-slider{position:absolute;inset:0;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.14);border-radius:999px;cursor:pointer;transition:.18s}',
+      '.set-slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.18s;box-shadow:0 3px 8px rgba(0,0,0,.4)}',
+      '.set-switch input:checked+.set-slider{background:rgba(34,197,94,.5);border-color:rgba(34,197,94,.7)}',
+      '.set-switch input:checked+.set-slider:before{transform:translateX(20px);background:#eafff0}',
+      '.set-foot{text-align:center;font-size:.66rem;color:rgba(255,255,255,.3);letter-spacing:.04em;padding:8px 0 2px}',
+      '#settingsToast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);transform:translateX(-50%) translateY(12px);z-index:2147483500;background:rgba(20,20,20,.97);border:1px solid rgba(34,197,94,.32);color:#c9f5b6;font-size:.82rem;font-weight:700;padding:11px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:0 10px 30px rgba(0,0,0,.55);max-width:calc(100vw - 32px);text-align:center}',
+      '#settingsToast.show{opacity:1;transform:translateX(-50%)}',
+      '@media(max-width:420px){.set-namebar{grid-template-columns:1fr}.set-btn{width:100%}}'
     ].join('');
     document.head.appendChild(style);
   }
 
   function makeSwitch(id, checked) {
-    return '<label class="settings-switch"><input id="' + id + '" type="checkbox" ' + (checked ? 'checked' : '') + '><span class="settings-slider"></span></label>';
+    return '<label class="set-switch"><input id="' + id + '" type="checkbox" ' + (checked ? 'checked' : '') + '><span class="set-slider"></span></label>';
   }
 
-  function render() {
-    var panel = $(PANEL_ID);
-    if (!panel) return false;
+  /* ── Build overlay shell (once) ───────────────────────────────── */
+  function buildOverlay() {
     injectStyles();
+    var ov = $(OVERLAY_ID);
+    if (ov) return ov;
+    ov = document.createElement('div');
+    ov.id = OVERLAY_ID;
+    ov.setAttribute('aria-hidden', 'true');
+    ov.innerHTML =
+      '<div class="set-sheet" role="dialog" aria-label="Einstellungen">' +
+        '<header class="set-header">' +
+          '<div><div class="set-h-title">Einstellungen</div><div class="set-h-sub">Konto, Sound &amp; App</div></div>' +
+          '<button class="set-close" type="button" aria-label="Schließen" data-set-close>' +
+            '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+          '</button>' +
+        '</header>' +
+        '<div class="set-scroll" id="settingsScroll"></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+
+    var toast = document.createElement('div');
+    toast.id = 'settingsToast';
+    document.body.appendChild(toast);
+
+    ov.addEventListener('click', function (e) {
+      if (e.target && e.target.closest && e.target.closest('[data-set-close]')) close();
+    });
+    return ov;
+  }
+
+  /* ── Render the page content ──────────────────────────────────── */
+  function render() {
+    buildOverlay();
+    var scroll = $('settingsScroll');
+    if (!scroll) return false;
 
     var name = getStoredName();
+    var avatar = getStoredAvatar();
     var email = getUserEmail();
+    var acc = getAccountState();
     var privacy = getPrivacy();
     var privacyPublic = privacy === 'public';
-    var privacyLabel = privacyPublic ? 'Öffentlich' : 'Privat';
+    var meta = acc.label + (email ? ' · ' + email : (acc.key === 'guest' ? ' · Nicht angemeldet' : ''));
+    var version = (window.APP_VERSION || (window.UpdatesSystem && window.UpdatesSystem.version) || '');
 
-    // Nur den Dynamic-Wrapper ersetzen, statische Kinder (Avatar, Auth) bleiben erhalten
-    var old = panel.querySelector('.ps-settings-dynamic');
-    if (old) old.remove();
-    var wrapper = document.createElement('div');
-    wrapper.className = 'ps-settings-dynamic';
-    wrapper.innerHTML = [
-      '<div class="settings-tab">',
-      '<div class="settings-tab-head"><div class="settings-tab-title">App-Einstellungen</div><div class="settings-tab-sub">Datenschutz, Sound und Cloud-Sync.</div></div>',
-      '<section class="settings-block"><div class="settings-label">Datenschutz</div>',
-      '<div class="settings-row first"><div class="settings-copy"><div class="settings-title">Profil-Sichtbarkeit</div><div class="settings-desc">Öffentlich zeigt dich in Ranglisten; Privat reduziert Sichtbarkeit.</div></div><span id="settingsPrivacyPill" class="settings-pill ' + (privacyPublic ? '' : 'private') + '">' + privacyLabel + '</span></div>',
-      '<div class="settings-row"><div class="settings-copy"><div class="settings-title">Öffentliches Profil</div><div class="settings-desc">Kann später für globale Profile und Freunde genutzt werden.</div></div>' + makeSwitch('settingsPrivacySwitch', privacyPublic) + '</div>',
+    scroll.innerHTML = [
+      // Account
+      '<section class="set-card">',
+        '<div class="set-account">',
+          '<div class="set-avatar" id="settingsAvatar" title="Avatar ändern">' + escapeHtml(avatar) +
+            '<span class="set-av-edit"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span>' +
+          '</div>',
+          '<div class="set-acc-info">',
+            '<div class="set-acc-name">' + escapeHtml(name) + '</div>',
+            '<div class="set-acc-meta">' + escapeHtml(meta) + '</div>',
+            '<span class="set-badge ' + acc.key + '">' + escapeHtml(acc.label) + '</span>',
+          '</div>',
+        '</div>',
+        '<div class="set-namebar">',
+          '<input id="settingsNameInput" class="set-input" type="text" maxlength="15" placeholder="Dein Schützenname" value="' + escapeHtml(name) + '">',
+          '<button id="settingsSaveNameBtn" class="set-btn primary" type="button">Speichern</button>',
+        '</div>',
       '</section>',
-      '<section class="settings-block"><div class="settings-label">App</div>',
-      '<div class="settings-row first"><div class="settings-copy"><div class="settings-title">Soundeffekte</div><div class="settings-desc">Treffer-, Klick- und Sieg-Sounds</div></div>' + makeSwitch('settingsSoundSwitch', getSoundEnabled()) + '</div>',
-      '<div class="settings-row"><div class="settings-copy"><div class="settings-title">Haptisches Feedback</div><div class="settings-desc">Vibrationen auf unterstützten Geräten</div></div>' + makeSwitch('settingsHapticSwitch', getHapticsEnabled()) + '</div>',
+
+      // Präferenzen
+      '<div class="set-eyebrow">Präferenzen</div>',
+      '<section class="set-card">',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Soundeffekte</div><div class="set-desc">Treffer-, Klick- und Sieg-Sounds</div></div>' + makeSwitch('settingsSoundSwitch', getSoundEnabled()) + '</div>',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Haptisches Feedback</div><div class="set-desc">Vibrationen auf unterstützten Geräten</div></div>' + makeSwitch('settingsHapticSwitch', getHapticsEnabled()) + '</div>',
       '</section>',
-      '<section class="settings-block"><div class="settings-label">Cloud</div>',
-      '<div class="settings-row first"><div class="settings-copy"><div class="settings-title">Cloud-Sync</div><div class="settings-desc" id="settingsSyncStatus">' + escapeHtml(getSyncStatusText()) + '</div></div><button id="settingsSyncBtn" class="settings-btn" type="button">Sync</button></div>',
+
+      // Datenschutz
+      '<div class="set-eyebrow">Datenschutz</div>',
+      '<section class="set-card">',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Profil-Sichtbarkeit</div><div class="set-desc">Öffentlich zeigt dich in Ranglisten; Privat reduziert die Sichtbarkeit.</div></div><span id="settingsPrivacyPill" class="set-pill ' + (privacyPublic ? '' : 'private') + '">' + (privacyPublic ? 'Öffentlich' : 'Privat') + '</span></div>',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Öffentliches Profil</div><div class="set-desc">Für globale Profile und Freunde sichtbar.</div></div>' + makeSwitch('settingsPrivacySwitch', privacyPublic) + '</div>',
       '</section>',
-      '<section class="settings-block"><div class="settings-label">Gerätedaten</div>',
-      '<div class="settings-row first"><div class="settings-copy"><div class="settings-title">Lokale Daten exportieren</div><div class="settings-desc">Speichert deine App-Daten als JSON-Datei.</div></div><button id="settingsExportBtn" class="settings-btn" type="button">Export</button></div>',
-      '<div class="settings-row"><div class="settings-copy"><div class="settings-title">Lokaler Modus</div><div class="settings-desc">Ohne Konto spielen, keine Cloud-Rangliste.</div></div><button id="settingsLocalBtn" class="settings-btn" type="button">Lokal</button></div>',
-      '<button id="settingsLogoutBtn" class="settings-btn danger" type="button">Abmelden</button>',
+
+      // Cloud
+      '<div class="set-eyebrow">Cloud</div>',
+      '<section class="set-card">',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Cloud-Sync</div><div class="set-desc" id="settingsSyncStatus">' + escapeHtml(getSyncStatusText()) + '</div></div><button id="settingsSyncBtn" class="set-btn" type="button">Sync</button></div>',
       '</section>',
-      '</div>'
+
+      // Daten
+      '<div class="set-eyebrow">Gerätedaten</div>',
+      '<section class="set-card">',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Lokale Daten exportieren</div><div class="set-desc">Speichert deine App-Daten als JSON-Datei.</div></div><button id="settingsExportBtn" class="set-btn" type="button">Export</button></div>',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Lokaler Modus</div><div class="set-desc">Ohne Konto spielen, keine Cloud-Rangliste.</div></div><button id="settingsLocalBtn" class="set-btn" type="button">Lokal</button></div>',
+      '</section>',
+
+      // Konto-Aktion
+      '<div class="set-eyebrow">Konto</div>',
+      '<section class="set-card">',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">' + (acc.key === 'online' ? 'Abmelden' : 'Konto') + '</div><div class="set-desc">' + (acc.key === 'online' ? 'Von diesem Gerät abmelden.' : 'Du spielst ohne Cloud-Konto.') + '</div></div></div>',
+        '<button id="settingsLogoutBtn" class="set-btn danger" type="button">' + (acc.key === 'online' ? 'Abmelden' : 'Anmeldung / Konto') + '</button>',
+      '</section>',
+
+      '<div class="set-foot">🎯 Schützen Challenge' + (version ? ' · v' + escapeHtml(String(version)) : '') + ' · Beta</div>'
     ].join('');
-    panel.insertBefore(wrapper, panel.firstChild);
 
     bindEvents();
     return true;
   }
 
+  /* ── Toast ────────────────────────────────────────────────────── */
   function showToast(message) {
     var toast = $('settingsToast');
     if (!toast) return;
     toast.textContent = message;
-    toast.classList.add('is-visible');
-    setTimeout(function () { toast.classList.remove('is-visible'); }, 2200);
+    toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toast.classList.remove('show'); }, 2200);
   }
 
   function updateSyncText() {
@@ -245,13 +326,11 @@
     if (node) node.textContent = getSyncStatusText();
   }
 
+  /* ── Actions ──────────────────────────────────────────────────── */
   function saveName() {
     var input = $('settingsNameInput');
     var name = sanitizeName(input && input.value);
-    if (!name) {
-      showToast('Bitte gib einen Namen ein.');
-      return;
-    }
+    if (!name) { showToast('Bitte gib einen Namen ein.'); return; }
 
     var saved = false;
     if (typeof window.applyProfileNameChange === 'function') {
@@ -260,7 +339,6 @@
       setStorageRaw('username', name);
       saved = true;
     }
-
     if (!saved) return;
     showToast('Name gespeichert.');
     render();
@@ -278,7 +356,7 @@
   }
 
   function syncProfile() {
-    writeSyncMeta({ lastSyncAttemptAt: Date.now(), lastSyncReason: 'settings_tab' });
+    writeSyncMeta({ lastSyncAttemptAt: Date.now(), lastSyncReason: 'settings_page' });
     updateSyncText();
     if (window.SupabaseBackendSync && typeof window.SupabaseBackendSync.syncProfile === 'function' && hasSession()) {
       try {
@@ -288,10 +366,10 @@
         showToast('Profil synchronisiert.');
         return;
       } catch (error) {
-        console.warn('[ProfileSettings] Sync fehlgeschlagen:', error && error.message ? error.message : error);
+        console.warn('[Settings] Sync fehlgeschlagen:', error && error.message ? error.message : error);
       }
     }
-    showToast('Lokal gespeichert.');
+    showToast(hasSession() ? 'Lokal gespeichert.' : 'Lokal gespeichert (kein Konto).');
   }
 
   function exportLocalData() {
@@ -319,19 +397,30 @@
   }
 
   function logout() {
-    if (window.SchussLogout && typeof window.SchussLogout.logout === 'function') {
-      window.SchussLogout.logout();
-      return;
-    }
-    if (typeof window.logoutEmail === 'function') {
-      window.logoutEmail();
-      return;
-    }
+    if (window.SchussLogout && typeof window.SchussLogout.logout === 'function') { window.SchussLogout.logout(); return; }
+    if (typeof window.logoutEmail === 'function') { window.logoutEmail(); return; }
     if (window.SupabaseAuth && typeof window.SupabaseAuth.signOut === 'function') {
       window.SupabaseAuth.signOut().finally(function () {
         window.location.replace(window.location.origin + window.location.pathname);
       });
+      return;
     }
+    // Gast/Lokal ohne Session -> Auswahl zurücksetzen, App neu laden
+    LOCAL_KEYS.forEach(function (key) { localStorage.removeItem(key); });
+    window.location.replace(window.location.origin + window.location.pathname);
+  }
+
+  function changeAvatar() {
+    if (typeof window.openAvatarPicker === 'function') { close(); window.openAvatarPicker(); return; }
+    // Fallback: simple Rotation durch die Avatar-Liste
+    var current = getStoredAvatar();
+    var idx = AVATARS.indexOf(current);
+    var next = AVATARS[(idx + 1) % AVATARS.length];
+    setStorageRaw('avatar', next);
+    var ptAvatar = document.getElementById('ptProfileAvatar');
+    if (ptAvatar) ptAvatar.textContent = next;
+    render();
+    showToast('Avatar geändert.');
   }
 
   function bindEvents() {
@@ -344,42 +433,58 @@
     var exportBtn = $('settingsExportBtn');
     var localBtn = $('settingsLocalBtn');
     var logoutBtn = $('settingsLogoutBtn');
+    var avatarBtn = $('settingsAvatar');
 
     if (saveBtn) saveBtn.addEventListener('click', saveName);
-    if (nameInput) nameInput.addEventListener('keydown', function (event) {
-      if (event.key === 'Enter') saveName();
-    });
+    if (nameInput) nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') saveName(); });
     if (privacySwitch) privacySwitch.addEventListener('change', function () { setPrivacyUi(privacySwitch.checked); });
     if (soundSwitch) soundSwitch.addEventListener('change', function () {
-      setSoundEnabled(soundSwitch.checked);
-      showToast(soundSwitch.checked ? 'Sound aktiviert.' : 'Sound deaktiviert.');
+      setSoundEnabled(soundSwitch.checked); showToast(soundSwitch.checked ? 'Sound aktiviert.' : 'Sound deaktiviert.');
     });
     if (hapticSwitch) hapticSwitch.addEventListener('change', function () {
-      setHapticsEnabled(hapticSwitch.checked);
-      showToast(hapticSwitch.checked ? 'Haptik aktiviert.' : 'Haptik deaktiviert.');
+      setHapticsEnabled(hapticSwitch.checked); showToast(hapticSwitch.checked ? 'Haptik aktiviert.' : 'Haptik deaktiviert.');
     });
     if (syncBtn) syncBtn.addEventListener('click', syncProfile);
     if (exportBtn) exportBtn.addEventListener('click', exportLocalData);
     if (localBtn) localBtn.addEventListener('click', enterLocalMode);
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
+    if (avatarBtn) avatarBtn.addEventListener('click', changeAvatar);
   }
 
+  /* ── Open / Close ─────────────────────────────────────────────── */
   function open() {
-    var overlay = $('profileOverlay');
-    if (overlay && !overlay.classList.contains('active') && typeof window.toggleProfileMenu === 'function') {
-      window.toggleProfileMenu();
-    }
+    buildOverlay();
     render();
-    if (typeof window.switchProfileTab === 'function') window.switchProfileTab('settings');
+    var ov = $(OVERLAY_ID);
+    if (!ov) return;
+    ov.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    // force reflow so the slide-up transition plays
+    void ov.offsetWidth;
+    ov.classList.add('active');
+    if (typeof window.triggerHaptic === 'function') window.triggerHaptic();
+  }
+
+  function close() {
+    var ov = $(OVERLAY_ID);
+    if (!ov) return;
+    ov.classList.remove('active');
+    ov.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
   }
 
   function init() {
-    render();
-    window.addEventListener('supabaseAuthReady', render);
-    window.addEventListener('supabaseSessionChanged', render);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        var ov = $(OVERLAY_ID);
+        if (ov && ov.classList.contains('active')) close();
+      }
+    });
+    window.addEventListener('supabaseAuthReady', function () { if ($(OVERLAY_ID) && $(OVERLAY_ID).classList.contains('active')) render(); });
+    window.addEventListener('supabaseSessionChanged', function () { if ($(OVERLAY_ID) && $(OVERLAY_ID).classList.contains('active')) render(); });
   }
 
-  window.ProfileSettings = { open: open, refresh: render, render: render };
+  window.ProfileSettings = { open: open, close: close, refresh: render, render: render };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
