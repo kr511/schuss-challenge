@@ -216,10 +216,21 @@ await waitFor(() => calls.some(([name]) => name === 'submitPhotoDuelResult'));
 assert.deepEqual(calls.find(([name]) => name === 'acceptPhotoDuel'), ['acceptPhotoDuel', 'incoming-accept-1']);
 assert.deepEqual(calls.find(([name]) => name === 'submitPhotoDuelResult'), ['submitPhotoDuelResult', 'incoming-accept-1', 405.2]);
 assert.match(window.document.body.textContent, /Du hast gewonnen/);
-assert.deepEqual(xpCalls, [20]);
+assert.deepEqual(xpCalls, [15]);
 
 window.FriendPhotoDuel.showResult(photoIncoming[0], latestResults);
-assert.deepEqual(xpCalls, [20], 'XP wird pro Duell nur einmal vergeben');
+assert.deepEqual(xpCalls, [15], 'XP wird pro Duell nur einmal vergeben');
+
+// Verlierer-Pfad: aktueller Nutzer hat den niedrigeren Score -> 5 XP, Titel "Leider verloren".
+window.FriendPhotoDuel.showResult(
+  { id: 'photo-lost-1', creator_id: 'friend-2', opponent_id: 'supabase-user-1', kind: 'photo_duel', status: 'completed', discipline: 'lg40', creator_username: 'Alpha', opponent_username: 'Tester' },
+  [
+    { challenge_id: 'photo-lost-1', user_id: 'friend-2', score: 410.0 },
+    { challenge_id: 'photo-lost-1', user_id: 'supabase-user-1', score: 399.0 },
+  ]
+);
+assert.deepEqual(xpCalls, [15, 5], 'Verlierer bekommt 5 XP');
+assert.match(window.document.body.textContent, /Leider verloren/);
 
 window.FriendPhotoDuel.destroy();
 console.log('friend photo duel tests passed');

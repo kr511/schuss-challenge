@@ -398,13 +398,20 @@
           return;
         }
 
-        if (action === 'challenge' && id && typeof window.FriendsSystem.challengeFriend === 'function') {
-          window.FriendsSystem.challengeFriend(id);
-          fireNotification(
-            '⚔️ Herausforderung gesendet!',
-            'Dein Freund erhält deine Duell-Einladung.',
-            'sd-challenge-sent'
-          );
+        if (action === 'challenge') {
+          if (!id) {
+            // userId fehlt (z. B. veraltete lokale Freundesdaten) – nicht still scheitern.
+            showToast('⚠️ Online-ID fehlt – tippe oben auf ↻ und versuche es erneut.');
+            return;
+          }
+          if (typeof window.FriendsSystem.challengeFriend === 'function') {
+            window.FriendsSystem.challengeFriend(id);
+          } else if (window.FriendPhotoDuel && typeof window.FriendPhotoDuel.openCreate === 'function') {
+            window.FriendPhotoDuel.openCreate(id);
+          } else {
+            showToast('Duell-System wird noch geladen…');
+          }
+          return;
         }
       };
     });
