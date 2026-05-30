@@ -530,7 +530,7 @@
         <div class="fr-best-val">${best}</div>
         <div class="fr-best-lbl">Bestes Training</div>
       </div>
-      <button class="fr-chat-btn" data-chat-btn="1"><svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:rgba(255,255,255,0.4);fill:none;stroke-width:1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+      <button class="fr-chat-btn" data-chat-btn="1" aria-label="Nachricht"><svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:rgba(255,255,255,0.72);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
       <svg class="fr-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
     </div>`;
   }

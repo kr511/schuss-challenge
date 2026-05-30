@@ -158,7 +158,7 @@
       : initial;
     const notifBtn = notifNeeded()
       ? '<button class="cv-notif-btn" data-cv-notif aria-label="Benachrichtigungen aktivieren">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
+          '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
         '</button>'
       : '<div class="cv-header-spacer"></div>';
 
@@ -166,7 +166,7 @@
       '<div class="cv-sheet">' +
         '<div class="cv-header">' +
           '<button class="cv-back-btn" data-cv-back aria-label="Zurück">' +
-            '<svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>' +
+            '<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>' +
           '</button>' +
           '<div class="cv-header-friend">' +
             '<div class="cv-header-avatar">' + avatar + '</div>' +
@@ -181,7 +181,7 @@
         '<div class="cv-input-bar">' +
           '<textarea class="cv-input" data-cv-input placeholder="Nachricht…" rows="1" maxlength="1000"></textarea>' +
           '<button class="cv-send-btn" data-cv-send aria-label="Senden">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
+            '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>' +
           '</button>' +
         '</div>' +
       '</div>'
