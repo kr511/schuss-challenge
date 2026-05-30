@@ -981,7 +981,7 @@ body.game-screen-active .bottom-nav { display: none !important; }
 .fr-best-val { font-size: 1rem; font-weight: 800; color: #fff; }
 .fr-best-lbl { font-size: 0.62rem; color: rgba(255,255,255,0.3); margin-top: 1px; }
 .fr-chat-btn {
-  width: 36px; height: 36px;
+  width: 40px; height: 40px;
   border-radius: var(--r-sm);
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.09);
@@ -990,7 +990,7 @@ body.game-screen-active .bottom-nav { display: none !important; }
   flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
 }
-.fr-chat-btn svg { width: 16px; height: 16px; stroke: rgba(255,255,255,0.4); fill: none; stroke-width: 1.8; }
+.fr-chat-btn svg { width: 22px; height: 22px; stroke: rgba(255,255,255,0.72); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .fr-chevron { width: 16px; height: 16px; stroke: rgba(255,255,255,0.18); fill: none; stroke-width: 2; flex-shrink: 0; }
 
 .friends-list-card {
