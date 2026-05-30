@@ -6,7 +6,8 @@
 (function () {
   'use strict';
 
-  var XP_REWARD = 20;
+  var XP_WIN = 15;   // Gewinner-Belohnung
+  var XP_LOSS = 5;   // Verlierer & Unentschieden
   var POLL_MS = 60000;
   var CAPTURE_Z_INDEX = 25000;
   var DISCIPLINES = {
@@ -47,12 +48,16 @@
   }
 
   function socialReady() {
+    // Eine gueltige Supabase-Session ist das eigentliche Tor. Ein
+    // stehengebliebenes Local-Play-Flag (z. B. nach einem Bot-Spiel) darf
+    // eingeloggte Nutzer NICHT blockieren - sonst tut der Duell-Button
+    // scheinbar nichts (das "Melde dich an"-Toast wuerde hinter der opaken
+    // Vollbild-Freundschaftsseite verdeckt).
     return !!(
       window.SupabaseSocial &&
       window.SupabaseSession &&
       window.SupabaseSession.user &&
-      typeof window.SupabaseSocial.createPhotoDuel === 'function' &&
-      !isLocalMode()
+      typeof window.SupabaseSocial.createPhotoDuel === 'function'
     );
   }
 
@@ -310,7 +315,7 @@
         notify('Foto-Duell konnte nicht erstellt werden.', 'error');
         return;
       }
-      notify('Foto-Duell an ' + (state.pendingFriendName || 'Freund') + ' gesendet.', 'success');
+      showSentConfirmation(state.pendingFriendName || 'Freund', discipline, captured.score);
       refreshSoon();
     } catch (error) {
       console.error('[FriendPhotoDuel] create failed:', error);
@@ -446,10 +451,11 @@
     return (results || []).find(function (row) { return row.user_id === userId; }) || null;
   }
 
-  function awardWinnerXp(duel, winnerId) {
-    if (!winnerId || winnerId !== currentUserId()) return 0;
+  // Vergibt XP an den AKTUELLEN Nutzer je nach Ausgang: Sieg 15, Niederlage 5,
+  // Unentschieden 5. Jeder Client vergibt seine eigene XP (genau einmal pro Duell).
+  function awardOutcomeXp(duel, outcome) {
     if (!markOnce('friend_photo_duel_xp_awarded', duel.id)) return 0;
-    var amount = Number(duel.xp_reward || XP_REWARD) || XP_REWARD;
+    var amount = outcome === 'win' ? XP_WIN : XP_LOSS;
     if (typeof window.awardFlatXP === 'function') {
       return window.awardFlatXP(amount) || amount;
     }
@@ -458,6 +464,20 @@
       if (typeof window.saveXP === 'function') window.saveXP();
     }
     return amount;
+  }
+
+  function showSentConfirmation(friendName, discipline, myScore) {
+    var disc = DISCIPLINES[discipline] || DISCIPLINES.lg40;
+    showOverlay([
+      '<div class="fpd-top"><div><div class="fpd-kicker">Herausforderung gesendet</div>',
+      '<div class="fpd-title">' + html(friendName) + ' wurde benachrichtigt</div>',
+      '<div class="fpd-sub">' + html(disc.label) + ' - Dein Ergebnis: ' + html(scoreText(myScore, discipline)) + '. Sobald ' + html(friendName) + ' annimmt und das eigene Foto hochlaedt, erfaehrst du das Ergebnis.</div></div>',
+      '<button class="fpd-close" type="button" data-fpd-close>x</button></div>',
+      '<div class="fpd-actions single"><button class="fpd-btn" type="button" data-fpd-close>Alles klar</button></div>'
+    ].join(''));
+    document.querySelectorAll('[data-fpd-close]').forEach(function (button) {
+      button.addEventListener('click', function () { haptic('light'); closeOverlay(); });
+    });
   }
 
   function showResult(duel, results) {
@@ -475,7 +495,8 @@
     var myId = currentUserId();
     var myWon = winnerId && winnerId === myId;
     var draw = !winnerId;
-    var xp = awardWinnerXp(duel, winnerId);
+    var myOutcome = draw ? 'draw' : (myWon ? 'win' : 'loss');
+    var xp = awardOutcomeXp(duel, myOutcome);
     markOnce('friend_photo_duel_results_seen', duel.id);
 
     if (winnerId) {
@@ -486,14 +507,14 @@
     }
 
     var disc = DISCIPLINES[duel.discipline] || DISCIPLINES.lg40;
-    var title = draw ? 'Unentschieden' : (myWon ? 'Du hast gewonnen' : 'Duell beendet');
+    var title = draw ? 'Unentschieden' : (myWon ? '🏆 Du hast gewonnen!' : 'Leider verloren');
     showOverlay([
       '<div class="fpd-top"><div><div class="fpd-kicker">Foto-Duell Ergebnis</div>',
       '<div class="fpd-title">' + html(title) + '</div>',
       '<div class="fpd-sub">' + html(disc.label) + ' - ' + html(disc.shots) + ' Schuss</div></div>',
       '<button class="fpd-close" type="button" data-fpd-close>x</button></div>',
       '<div class="fpd-score-preview"><div class="fpd-score-side ' + (winnerId === duel.creator_id ? 'winner' : '') + '"><div class="fpd-score-label">' + html(duel.creator_username || 'Spieler A') + '</div><div class="fpd-score-value">' + html(scoreText(creatorScore, duel.discipline)) + '</div></div><div class="fpd-vs">VS</div><div class="fpd-score-side ' + (winnerId === duel.opponent_id ? 'winner' : '') + '"><div class="fpd-score-label">' + html(duel.opponent_username || 'Spieler B') + '</div><div class="fpd-score-value">' + html(scoreText(opponentScore, duel.discipline)) + '</div></div></div>',
-      '<div class="fpd-sub">' + (draw ? 'Beide haben exakt gleich stark geschossen.' : ('Gewinner: ' + html(winnerId === duel.creator_id ? (duel.creator_username || 'Spieler A') : (duel.opponent_username || 'Spieler B')))) + (xp ? ' - +' + html(xp) + ' XP' : '') + '</div>',
+      '<div class="fpd-sub">' + (draw ? 'Unentschieden - beide gleich stark.' : ('Gewinner: ' + html(winnerId === duel.creator_id ? (duel.creator_username || 'Spieler A') : (duel.opponent_username || 'Spieler B')))) + (xp ? ' - Du: +' + html(xp) + ' XP' : '') + '</div>',
       '<div class="fpd-actions single"><button class="fpd-btn" type="button" data-fpd-close>Schliessen</button></div>'
     ].join(''));
     document.querySelectorAll('[data-fpd-close]').forEach(function (button) {

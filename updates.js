@@ -10,7 +10,7 @@
     'duel-setup-hotfix.js?v=1.3',
     'highscore-sync.js?v=1.0',
     'dashboard-compact-panel.js?v=2.3',
-    'dashboard-friends-button.js?v=1.3'
+    'dashboard-friends-button.js?v=1.4'
   ];
 
   hotfixes.forEach((src) => {
