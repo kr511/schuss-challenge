@@ -212,10 +212,11 @@ const UpdatesSystem = (function() {
 
     document.addEventListener('pointerdown', (e) => {
       const dropdown = document.getElementById('updatesDropdown');
-      const button = document.getElementById('updatesButton');
       if (!isDropdownVisible(dropdown)) return;
       if (dropdown.contains(e.target)) return;
-      if (button && button.contains(e.target)) return;
+      // Klicks auf einen Glocken-Button nicht als "außerhalb" werten – der
+      // jeweilige onclick toggelt selbst (sonst: schließen + sofort neu öffnen).
+      if (e.target.closest && e.target.closest('#updatesButton, #ptUpdatesBtn, [data-updates-toggle]')) return;
       hideUpdates();
     }, true);
 
@@ -227,18 +228,44 @@ const UpdatesSystem = (function() {
   }
 
   /**
+   * Stellt sicher, dass ein anzeigbares Updates-Dropdown existiert.
+   *
+   * Das ursprüngliche Dropdown lebte inline im App-Header. Der Header ist je
+   * nach Tab/Redesign aber ausgeblendet (oder wird beim Header-Render ersetzt),
+   * sodass das Dropdown fehlte oder unsichtbar in einem display:none-Container
+   * hing -> die Glocke "tat nichts". Wir hosten es daher robust auf Body-Ebene.
+   */
+  function ensureDropdown() {
+    let host = document.getElementById('updatesDropdownHost');
+    let dropdown = document.getElementById('updatesDropdown');
+
+    // Ein im (ggf. versteckten) Header gefangenes Dropdown lässt sich nicht
+    // zeigen -> verwerfen und sauber auf Body-Ebene neu aufbauen.
+    if (dropdown && (!host || dropdown.parentElement !== host)) {
+      try { dropdown.parentElement && dropdown.parentElement.removeChild(dropdown); } catch (e) {}
+      dropdown = null;
+    }
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'updatesDropdownHost';
+      document.body.appendChild(host);
+    }
+    if (!dropdown) {
+      dropdown = document.createElement('div');
+      dropdown.id = 'updatesDropdown';
+      dropdown.style.cssText = 'display:none;position:fixed;top:64px;right:16px;width:min(340px,calc(100vw - 24px));max-height:70vh;background:linear-gradient(180deg,#141414 0%,#0c0c0c 100%);border-radius:16px;border:1px solid rgba(255,255,255,0.12);box-shadow:0 16px 48px rgba(0,0,0,0.65);overflow-y:auto;z-index:2147483600;opacity:0;transform:translateY(-10px);transition:opacity .2s ease,transform .2s ease;';
+      dropdown.innerHTML = '<div style="padding:16px;"><div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:12px;">🔔 Updates</div><div id="updatesDropdownContent"></div></div>';
+      host.appendChild(dropdown);
+    }
+    return dropdown;
+  }
+
+  /**
    * Toggle Updates-Dropdown
    */
   function toggleUpdates() {
-    const dropdown = document.getElementById('updatesDropdown');
-    if (!dropdown) {
-      console.warn('Updates-Dropdown nicht gefunden');
-      return;
-    }
-
-    const isVisible = isDropdownVisible(dropdown);
-
-    if (isVisible) {
+    const dropdown = ensureDropdown();
+    if (isDropdownVisible(dropdown)) {
       hideUpdates();
     } else {
       showUpdatesDropdown();
@@ -249,7 +276,7 @@ const UpdatesSystem = (function() {
    * Zeigt Updates-Dropdown
    */
   function showUpdatesDropdown() {
-    const dropdown = document.getElementById('updatesDropdown');
+    const dropdown = ensureDropdown();
     if (!dropdown) return;
 
     installDropdownCloseHandlers();
@@ -257,13 +284,21 @@ const UpdatesSystem = (function() {
     dropdown.style.display = 'block';
     renderUpdatesDropdown();
 
-    // Mobile Fix: Auf kleinen Screens fixed + zentriert statt absolute + rechts
+    // Immer fixed positionieren (Dropdown hängt auf Body-Ebene).
+    dropdown.style.position = 'fixed';
     if (window.innerWidth <= 480) {
-      dropdown.style.position = 'fixed';
-      dropdown.style.top = '60px';
+      // Mobil: Vollbreites Panel knapp unter dem Safe-Area-Rand
+      dropdown.style.top = 'calc(env(safe-area-inset-top, 0px) + 60px)';
       dropdown.style.left = '10px';
       dropdown.style.right = '10px';
       dropdown.style.width = 'auto';
+      dropdown.style.maxWidth = 'none';
+    } else {
+      // Desktop: Karte oben rechts
+      dropdown.style.top = '64px';
+      dropdown.style.right = '16px';
+      dropdown.style.left = 'auto';
+      dropdown.style.width = 'min(340px, calc(100vw - 24px))';
       dropdown.style.maxWidth = 'none';
     }
 

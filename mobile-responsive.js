@@ -136,6 +136,8 @@
     enhanceTouchTargets() {
       const buttons = document.querySelectorAll('button, .btn-fire, .btn-primary, .btn-secondary');
       buttons.forEach((btn) => {
+        /* Small intentional badges (e.g. the avatar edit pencil) must stay small. */
+        if (btn.classList.contains('ph-edit-btn') || btn.hasAttribute('data-no-touch-enhance')) return;
         const rect = btn.getBoundingClientRect();
         if (rect.height < this.config.touchTargetMinSize) {
           btn.style.minHeight = `${this.config.touchTargetMinSize}px`;
