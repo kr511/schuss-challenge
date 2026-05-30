@@ -8,7 +8,7 @@
 
   if (window.DuelSetupRuntime?.initialized) return;
 
-  const ASSET_VERSION = '4.6';
+  const ASSET_VERSION = '5.0';
 
   const state = {
     mode: 'bot',
