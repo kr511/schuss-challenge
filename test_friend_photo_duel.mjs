@@ -232,5 +232,17 @@ window.FriendPhotoDuel.showResult(
 assert.deepEqual(xpCalls, [15, 5], 'Verlierer bekommt 5 XP');
 assert.match(window.document.body.textContent, /Leider verloren/);
 
+// Regression: ein stehengebliebenes Local-Play-Flag (z. B. nach einem Bot-Spiel)
+// darf den eingeloggten Nutzer NICHT blockieren - genau das war die Ursache
+// fuer "Duell-Button tut gar nichts".
+window.SchussduellLocalPlay = true;
+assert.equal(
+  window.FriendPhotoDuel.openCreate('friend-1'),
+  true,
+  'openCreate muss trotz Local-Play-Flag oeffnen (socialReady-Fix)',
+);
+assert.match(window.document.body.textContent, /Duell gegen Beta/);
+window.SchussduellLocalPlay = false;
+
 window.FriendPhotoDuel.destroy();
 console.log('friend photo duel tests passed');
