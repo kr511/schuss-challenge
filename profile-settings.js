@@ -126,6 +126,55 @@
     var meta = Object.assign({}, readSyncMeta(), patch || {});
     localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta));
   }
+
+  /* ── Push-Benachrichtigungen ──────────────────────────────────── */
+  function notifSupported() {
+    return ('Notification' in window) && ('serviceWorker' in navigator);
+  }
+  function notifPermission() {
+    return ('Notification' in window) ? Notification.permission : 'unsupported';
+  }
+  // iOS/iPadOS: Web-Push gibt es nur in einer installierten PWA (Home-Bildschirm).
+  function isIOS() {
+    return /iP(hone|ad|od)/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true;
+  }
+  function notifState() {
+    if (!notifSupported()) {
+      if (isIOS() && !isStandalone()) return { key: 'ios-install', label: 'Zum Home-Bildschirm' };
+      return { key: 'unsupported', label: 'Nicht unterstützt' };
+    }
+    var p = notifPermission();
+    if (p === 'granted') return { key: 'granted', label: 'Aktiv' };
+    if (p === 'denied') return { key: 'denied', label: 'Blockiert' };
+    if (isIOS() && !isStandalone()) return { key: 'ios-install', label: 'Zum Home-Bildschirm' };
+    return { key: 'default', label: 'Aktivieren' };
+  }
+  function notifDesc(st) {
+    if (st.key === 'granted') return 'Du erhältst Hinweise zu Anfragen, Duellen und Challenges.';
+    if (st.key === 'denied') return 'In den Browser-/System-Einstellungen wieder erlauben.';
+    if (st.key === 'ios-install') return 'Auf dem iPhone: „Teilen → Zum Home-Bildschirm", dann hier aktivieren.';
+    if (st.key === 'unsupported') return 'Dieses Gerät unterstützt keine Web-Benachrichtigungen.';
+    return 'Anfragen, Duelle und Challenges sofort erfahren.';
+  }
+  async function enableNotifications() {
+    // Bevorzugt das zentrale Push-System (abonniert auch Web-Push).
+    try {
+      if (window.ChatNotifications && typeof window.ChatNotifications.requestPermission === 'function') {
+        var res = await window.ChatNotifications.requestPermission();
+        return res;
+      }
+      if ('Notification' in window) {
+        var perm = await Notification.requestPermission();
+        return perm;
+      }
+    } catch (e) { /* ignore */ }
+    return 'unsupported';
+  }
   function formatTime(value) {
     var ts = Number(value) || 0;
     return ts > 0 ? new Date(ts).toLocaleString('de-DE') : 'noch nie';
@@ -273,6 +322,13 @@
       // Präferenzen
       '<div class="set-eyebrow">Präferenzen</div>',
       '<section class="set-card">',
+        (function () {
+          var st = notifState();
+          var btn = st.key === 'granted'
+            ? '<span class="set-pill">✓ ' + escapeHtml(st.label) + '</span>'
+            : '<button id="settingsNotifBtn" class="set-btn' + (st.key === 'default' ? ' primary' : '') + '" type="button"' + (st.key === 'denied' || st.key === 'unsupported' ? ' disabled' : '') + '>' + escapeHtml(st.label) + '</button>';
+          return '<div class="set-row"><div class="set-copy"><div class="set-title">Benachrichtigungen</div><div class="set-desc" id="settingsNotifDesc">' + escapeHtml(notifDesc(st)) + '</div></div>' + btn + '</div>';
+        })(),
         '<div class="set-row"><div class="set-copy"><div class="set-title">Soundeffekte</div><div class="set-desc">Treffer-, Klick- und Sieg-Sounds</div></div>' + makeSwitch('settingsSoundSwitch', getSoundEnabled()) + '</div>',
         '<div class="set-row"><div class="set-copy"><div class="set-title">Haptisches Feedback</div><div class="set-desc">Vibrationen auf unterstützten Geräten</div></div>' + makeSwitch('settingsHapticSwitch', getHapticsEnabled()) + '</div>',
       '</section>',
@@ -449,6 +505,26 @@
     if (localBtn) localBtn.addEventListener('click', enterLocalMode);
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
     if (avatarBtn) avatarBtn.addEventListener('click', changeAvatar);
+
+    var notifBtn = $('settingsNotifBtn');
+    if (notifBtn) notifBtn.addEventListener('click', async function () {
+      notifBtn.disabled = true;
+      var prev = notifBtn.textContent;
+      notifBtn.textContent = '…';
+      var res = await enableNotifications();
+      if (res === 'granted') {
+        showToast('🔔 Benachrichtigungen aktiviert.');
+      } else if (res === 'denied') {
+        showToast('Benachrichtigungen wurden blockiert.');
+      } else if (res === 'unsupported') {
+        showToast('Dieses Gerät unterstützt keine Benachrichtigungen.');
+      } else {
+        showToast('Benachrichtigungen nicht aktiviert.');
+      }
+      notifBtn.disabled = false;
+      notifBtn.textContent = prev;
+      render(); // Status neu zeichnen (Aktiv/Blockiert/…)
+    });
   }
 
   /* ── Open / Close ─────────────────────────────────────────────── */
