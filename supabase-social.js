@@ -946,22 +946,25 @@
     var incomingIds = {};
     (state.incomingRequests || []).forEach(function (r) { if (r.fromUserId && r.status === 'pending') incomingIds[r.fromUserId] = true; });
 
-    return (rows || []).map(function (p) {
+    return (rows || []).reduce(function (acc, p) {
+      // Das eigene Profil und bestehende Freunde gehören nicht in die Suche.
+      if (myId && p.id === myId) return acc;
+      if (friendIds[p.id]) return acc;
+
       var club = clubsByUser[p.id] || null;
       var relation = 'none';
-      if (myId && p.id === myId) relation = 'self';
-      else if (friendIds[p.id]) relation = 'friend';
-      else if (sentIds[p.id]) relation = 'sent';
+      if (sentIds[p.id]) relation = 'sent';
       else if (incomingIds[p.id]) relation = 'incoming';
-      return {
+      acc.push({
         userId: p.id,
         name: p.display_name || p.username || 'Spieler',
         avatarUrl: p.avatar_url || '',
         club: club ? club.name : '',
         clubLocation: club ? club.location : '',
         relation: relation
-      };
-    });
+      });
+      return acc;
+    }, []);
   }
 
   // Latest registered players (newest first) — shown before any input.
