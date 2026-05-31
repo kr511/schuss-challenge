@@ -904,6 +904,143 @@
     return { ok: true, challenge: nextChallenge, result: result.data, results: results };
   }
 
+  // ── People search (by name) + recent-people directory ─────────────
+  // profiles.RLS = select all (public), so we can query other users.
+  // Club/Verein comes from club_members → clubs (joined separately).
+  async function loadClubsForUsers(userIds) {
+    var client = getClient();
+    var ids = Array.from(new Set((userIds || []).filter(Boolean)));
+    if (!client || ids.length === 0) return {};
+
+    var memberships = await client
+      .from('club_members')
+      .select('user_id, club_id')
+      .in('user_id', ids);
+    if (memberships.error || !memberships.data || memberships.data.length === 0) return {};
+
+    var clubIds = Array.from(new Set(memberships.data.map(function (m) { return m.club_id; }).filter(Boolean)));
+    if (clubIds.length === 0) return {};
+
+    var clubs = await client.from('clubs').select('id, name, location').in('id', clubIds);
+    if (clubs.error) return {};
+
+    var clubById = {};
+    (clubs.data || []).forEach(function (c) { clubById[c.id] = c; });
+
+    var byUser = {};
+    memberships.data.forEach(function (m) {
+      if (byUser[m.user_id]) return; // first club wins
+      var club = clubById[m.club_id];
+      if (club) byUser[m.user_id] = { name: club.name || '', location: club.location || '' };
+    });
+    return byUser;
+  }
+
+  function decoratePeople(rows, clubsByUser) {
+    var user = getUser();
+    var myId = user ? user.id : null;
+    var friendIds = {};
+    (state.friends || []).forEach(function (f) { if (f.userId) friendIds[f.userId] = true; });
+    var sentIds = {};
+    (state.outgoingRequests || []).forEach(function (r) { if (r.toUserId && r.status === 'pending') sentIds[r.toUserId] = true; });
+    var incomingIds = {};
+    (state.incomingRequests || []).forEach(function (r) { if (r.fromUserId && r.status === 'pending') incomingIds[r.fromUserId] = true; });
+
+    return (rows || []).map(function (p) {
+      var club = clubsByUser[p.id] || null;
+      var relation = 'none';
+      if (myId && p.id === myId) relation = 'self';
+      else if (friendIds[p.id]) relation = 'friend';
+      else if (sentIds[p.id]) relation = 'sent';
+      else if (incomingIds[p.id]) relation = 'incoming';
+      return {
+        userId: p.id,
+        name: p.display_name || p.username || 'Spieler',
+        avatarUrl: p.avatar_url || '',
+        club: club ? club.name : '',
+        clubLocation: club ? club.location : '',
+        relation: relation
+      };
+    });
+  }
+
+  // Latest registered players (newest first) — shown before any input.
+  async function listRecentProfiles(limit) {
+    if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError, people: [] };
+    var client = getClient();
+    var max = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
+
+    var rows = await client
+      .from('profiles')
+      .select('id, username, display_name, avatar_url, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(max);
+    if (rows.error) return { ok: false, reason: rows.error.message, people: [] };
+
+    var clubs = await loadClubsForUsers((rows.data || []).map(function (r) { return r.id; }));
+    return { ok: true, people: decoratePeople(rows.data || [], clubs) };
+  }
+
+  // Search players by name (display_name / username, case-insensitive).
+  async function searchProfiles(query, limit) {
+    if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError, people: [] };
+    var term = String(query || '').trim();
+    if (term.length < 2) return { ok: true, people: [], tooShort: true };
+
+    var client = getClient();
+    var max = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 50);
+    var safe = term.replace(/[%,()]/g, ' ').slice(0, 40);
+
+    var rows = await client
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .or('display_name.ilike.%' + safe + '%,username.ilike.%' + safe + '%')
+      .limit(max);
+    if (rows.error) return { ok: false, reason: rows.error.message, people: [] };
+
+    var clubs = await loadClubsForUsers((rows.data || []).map(function (r) { return r.id; }));
+    return { ok: true, people: decoratePeople(rows.data || [], clubs) };
+  }
+
+  // Send a friend request directly to a user id (from search results).
+  async function sendFriendRequest(targetUserId) {
+    if (!(await ensureReady())) return { ok: false, reason: unavailableReason() || state.lastError };
+    var client = getClient();
+    var user = getUser();
+    var targetId = String(targetUserId || '').trim();
+    if (!targetId) return { ok: false, reason: 'invalid-user' };
+    if (targetId === user.id) return { ok: false, reason: 'self' };
+
+    var existingFriend = await client
+      .from('friends')
+      .select('friend_user_id')
+      .eq('user_id', user.id)
+      .eq('friend_user_id', targetId)
+      .maybeSingle();
+    if (existingFriend.error) throw existingFriend.error;
+    if (existingFriend.data && existingFriend.data.friend_user_id) return { ok: false, reason: 'already-friend' };
+
+    var existingRequest = await client
+      .from('friend_requests')
+      .select('id, status, responded_at')
+      .eq('from_user_id', user.id)
+      .eq('to_user_id', targetId)
+      .maybeSingle();
+    if (existingRequest.error) throw existingRequest.error;
+    if (existingRequest.data && existingRequest.data.status === 'pending') {
+      return { ok: false, reason: 'already-sent' };
+    }
+
+    var request = await client
+      .from('friend_requests')
+      .upsert({ from_user_id: user.id, to_user_id: targetId, status: 'pending', responded_at: null }, { onConflict: 'from_user_id,to_user_id' })
+      .select('id')
+      .single();
+    if (request.error) throw request.error;
+    await loadOutgoingRequests();
+    return { ok: true, requestId: request.data.id, toUserId: targetId };
+  }
+
   function getStatus() {
     return {
       available: isAuthenticated(),
@@ -958,6 +1095,9 @@
     loadOutgoingRequests: loadOutgoingRequests,
     loadOnlineStatuses: loadOnlineStatuses,
     addFriendByCode: addFriendByCode,
+    searchProfiles: searchProfiles,
+    listRecentProfiles: listRecentProfiles,
+    sendFriendRequest: sendFriendRequest,
     acceptRequest: acceptRequest,
     declineRequest: declineRequest,
     removeFriend: removeFriend,

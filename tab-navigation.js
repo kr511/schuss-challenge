@@ -51,11 +51,11 @@
                  <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:rgba(255,255,255,0.5);fill:none;stroke-width:2;margin-bottom:2px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                </div>
                <div class="ah-page-sub">Trainiere zusammen. Fordere dich heraus.</div>`,
-        right: `<button class="ah-icon-btn" onclick="if(window.FriendsSystem) window.FriendsSystem.showFriendsOverlay();" title="Freund hinzufügen">
-                  <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        right: `<button class="ah-icon-btn" onclick="if(window.FriendsSystem) window.FriendsSystem.showFriendsOverlay();" title="Freund hinzufügen" aria-label="Freund per Code hinzufügen">
+                  <svg viewBox="0 0 24 24" width="22" height="22" style="width:22px;height:22px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                 </button>
-                <button class="ah-icon-btn" title="Suchen">
-                  <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <button class="ah-icon-btn" id="friendSearchBtn" onclick="if(window.FriendSearch&&window.FriendSearch.open){window.FriendSearch.open();}" title="Suchen" aria-label="Spieler suchen">
+                  <svg viewBox="0 0 24 24" width="22" height="22" style="width:22px;height:22px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 </button>`
       },
       profil: {
