@@ -686,6 +686,9 @@
   };
 
   function refreshProfilTab() {
+    if (window.ProfileClub && typeof window.ProfileClub.render === 'function') {
+      try { window.ProfileClub.render(); } catch (_e) { /* non-blocking */ }
+    }
     const username = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('username')) || 'Schütze';
     const state = (typeof StorageManager !== 'undefined') ? JSON.parse(StorageManager.getRaw('gameState') || 'null') : null;
     const avatar = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('avatar')) || '🎯';
