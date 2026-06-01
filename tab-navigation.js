@@ -740,6 +740,9 @@
     } catch(_e) {}
     setEl('ptMostRinge', bestGame > 0 ? Math.round(bestGame).toString() : '–');
 
+    /* Auszeichnungen (müssen verdient werden) */
+    renderProfileAchievements();
+
     /* Club */
     const club = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('clubName')) || '';
     const clubEl = document.getElementById('ptClub');
@@ -749,6 +752,48 @@
       const email = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('userEmail')) || '';
       emailEl.textContent = email;
     }
+  }
+
+  /* Rendert die verdienten Auszeichnungen ins Profil. Gesperrte erscheinen
+     ausgegraut mit Schloss; verdiente farbig. Quelle: window.getProfileAchievements
+     (echtes, im Spielverlauf freigeschaltetes SUN-Achievement-System). */
+  function renderProfileAchievements() {
+    const host = document.getElementById('ptAchievements');
+    if (!host) return;
+
+    let list = [];
+    try {
+      if (typeof window.getProfileAchievements === 'function') {
+        list = window.getProfileAchievements() || [];
+      }
+    } catch (_e) { list = []; }
+
+    if (!Array.isArray(list) || list.length === 0) {
+      host.innerHTML = '<div style="color:rgba(255,255,255,0.4);font-size:0.8rem;padding:8px 2px;">'
+        + 'Noch keine Auszeichnungen – spiele Duelle und reiche Scheibenfotos ein, um sie zu verdienen.</div>';
+      return;
+    }
+
+    const earned = list.filter(a => a.earned);
+    const locked = list.filter(a => !a.earned);
+    const ordered = earned.concat(locked);
+    const tones = ['unlocked', 'blue', 'purple', 'gold'];
+
+    host.innerHTML = ordered.map((a, i) => {
+      const name = escapeHtml(a.name || '');
+      const icon = a.icon || '🏅';
+      if (a.earned) {
+        const tone = tones[i % tones.length];
+        return '<div class="achievement-badge">'
+          + '<div class="ab-hex ' + tone + '">' + icon + '</div>'
+          + '<div class="ab-name">' + name + '</div>'
+          + '</div>';
+      }
+      return '<div class="achievement-badge">'
+        + '<div class="ab-hex" style="filter:grayscale(1);opacity:0.4;">🔒</div>'
+        + '<div class="ab-name" style="opacity:0.55;">' + name + '</div>'
+        + '</div>';
+    }).join('');
   }
 
   /* ── Helpers ── */

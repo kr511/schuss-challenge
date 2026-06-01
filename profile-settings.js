@@ -353,6 +353,13 @@
         '<div class="set-row"><div class="set-copy"><div class="set-title">Lokaler Modus</div><div class="set-desc">Ohne Konto spielen, keine Cloud-Rangliste.</div></div><button id="settingsLocalBtn" class="set-btn" type="button">Lokal</button></div>',
       '</section>',
 
+      // Fortschritt
+      '<div class="set-eyebrow">Fortschritt</div>',
+      '<section class="set-card">',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Auszeichnungen &amp; Fortschritt</div><div class="set-desc">Auszeichnungen müssen verdient werden. Setzt XP, Rang, Auszeichnungen, Tages-Challenges, Statistiken, Verlauf &amp; Streaks zurück. Name, Avatar und Login bleiben erhalten.</div></div></div>',
+        '<button id="settingsResetBtn" class="set-btn danger" type="button">Gesamten Fortschritt zurücksetzen</button>',
+      '</section>',
+
       // Konto-Aktion
       '<div class="set-eyebrow">Konto</div>',
       '<section class="set-card">',
@@ -452,6 +459,47 @@
     window.location.replace(window.location.origin + window.location.pathname + '?local=1');
   }
 
+  /* Setzt den gesamten lokalen Spielfortschritt zurück. Identität (Name/Avatar),
+     Einstellungen, Modus und Login bleiben erhalten – Auszeichnungen, XP, Rang,
+     Tages-Challenges, Statistiken, Verlauf und Streaks werden gelöscht. */
+  function resetProgress() {
+    var ok = window.confirm(
+      'Wirklich den GESAMTEN Fortschritt zurücksetzen?\n\n' +
+      'XP, Rang, Auszeichnungen, Tages-Challenges, Statistiken, Verlauf und Streaks werden gelöscht.\n' +
+      'Name, Avatar und Login bleiben erhalten.\n\n' +
+      'Dies kann nicht rückgängig gemacht werden.'
+    );
+    if (!ok) return;
+
+    // Schlüssel (ohne sd_-Prefix), die NICHT gelöscht werden.
+    var keep = [
+      'username', 'avatar', 'userId', 'local_user_id', 'anonymous_id', 'userEmail',
+      'clubName', 'clubId', 'club',
+      'sound', 'haptics_enabled', 'profile_privacy',
+      'local_play', 'local_mode', 'cloud_sync_meta_v1',
+      'tutorial_done', 'onboarded', 'welcome_seen'
+    ];
+
+    try {
+      if (window.StorageManager && typeof window.StorageManager.clearAll === 'function') {
+        window.StorageManager.clearAll(keep);
+      } else {
+        // Fallback: alle sd_*-Schlüssel außer keep entfernen (Auth-Tokens sb-* bleiben).
+        var keepFull = keep.map(function (k) { return 'sd_' + k; });
+        var toRemove = [];
+        for (var i = 0; i < localStorage.length; i += 1) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf('sd_') === 0 && keepFull.indexOf(k) === -1) toRemove.push(k);
+        }
+        toRemove.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+      }
+      showToast('Fortschritt zurückgesetzt. App wird neu geladen …');
+      setTimeout(function () { window.location.reload(); }, 700);
+    } catch (e) {
+      showToast('Zurücksetzen fehlgeschlagen.');
+    }
+  }
+
   function logout() {
     if (window.SchussLogout && typeof window.SchussLogout.logout === 'function') { window.SchussLogout.logout(); return; }
     if (typeof window.logoutEmail === 'function') { window.logoutEmail(); return; }
@@ -488,6 +536,7 @@
     var syncBtn = $('settingsSyncBtn');
     var exportBtn = $('settingsExportBtn');
     var localBtn = $('settingsLocalBtn');
+    var resetBtn = $('settingsResetBtn');
     var logoutBtn = $('settingsLogoutBtn');
     var avatarBtn = $('settingsAvatar');
 
@@ -503,6 +552,7 @@
     if (syncBtn) syncBtn.addEventListener('click', syncProfile);
     if (exportBtn) exportBtn.addEventListener('click', exportLocalData);
     if (localBtn) localBtn.addEventListener('click', enterLocalMode);
+    if (resetBtn) resetBtn.addEventListener('click', resetProgress);
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
     if (avatarBtn) avatarBtn.addEventListener('click', changeAvatar);
 

@@ -2237,6 +2237,27 @@ const SUN_ACHIEVEMENTS = [
   { id: 'xp_3000', group: 'master', icon: '🌠', name: 'Übermeister', desc: '3000 XP verdient', check: () => G.xp >= 3000 },
 ];
 
+// Auszeichnungen für die Profil-Ansicht. Werte werden frisch geprüft, damit neu
+// verdiente Erfolge sofort auftauchen. Verdient = im Spielverlauf freigeschaltet.
+window.getProfileAchievements = function getProfileAchievements() {
+  try {
+    if (typeof checkSunAchievements === 'function') checkSunAchievements();
+    const earned = (typeof getSunEarned === 'function') ? getSunEarned() : {};
+    return SUN_ACHIEVEMENTS.map(a => ({
+      id: a.id,
+      icon: a.icon,
+      name: a.name,
+      desc: a.desc,
+      group: a.group,
+      earned: !!earned[a.id],
+      earnedAt: Number(earned[a.id]) || 0
+    }));
+  } catch (e) {
+    console.warn('[Achievements] getProfileAchievements fehlgeschlagen:', e);
+    return [];
+  }
+};
+
 function checkSunAchievements() {
   const earned = getSunEarned();
   let newEarned = false;
@@ -4449,6 +4470,24 @@ function analyzeHitPattern(shots) {
         </div>`;
 }
 
+// XP wird aus dem eigenen Ergebnis des Spielers (Ringe aus Scheibenfoto/Eingabe)
+// berechnet – nicht daraus, ob der Bot geschlagen wurde. Skaliert grob mit den
+// geschossenen Ringen (≈ Ringe/10) und ist nach oben gedeckelt.
+function awardResultXP(playerRings) {
+  const rings = Number(playerRings) || 0;
+  if (rings <= 0) return 0;
+  const xp = Math.max(1, Math.min(120, Math.round(rings / 10)));
+  if (typeof awardFlatXP === 'function') {
+    awardFlatXP(xp);
+  } else {
+    G.xp = (Number(G.xp) || 0) + xp;
+    if (typeof saveXP === 'function') saveXP();
+    if (typeof updateSchuetzenpass === 'function') updateSchuetzenpass();
+  }
+  if (typeof initDailyLoginRewards === 'function') initDailyLoginRewards();
+  return xp;
+}
+
 function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
   G.gameDuration = G._gameStartTime > 0
     ? Math.round((Date.now() - G._gameStartTime) / 1000)
@@ -4542,7 +4581,6 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
       : `+${fmtPts(absDiff)} Punkte Vorsprung`;
     DOM.goMargin.className = 'go-margin win';
     DOM.goMargin.style.display = '';
-    if (!G.dnf) awardXP(G.diff);
     updateWinStreak(!G.dnf && playerWinner);
     // Track hard/elite wins for SUN
     if (!G.dnf && G.diff === 'hard') localStorage.setItem('sd_beat_hard', '1');
@@ -4575,6 +4613,15 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
     DOM.goMargin.className = 'go-margin draw';
     DOM.goMargin.style.display = '';
     updateWinStreak(false);
+  }
+
+  // ── XP aus dem eigenen Ergebnis (Scheibenfoto/Eingabe), unabhängig vom Bot ──
+  // Gezählt werden die tatsächlich geschossenen Ringe des Spielers – Sieg oder
+  // Niederlage gegen den Bot spielen für die XP keine Rolle mehr.
+  {
+    const isQuickXP = reason && reason.includes('Schnellauswahl');
+    const resultRings = Number(ppInt != null ? ppInt : pp) || 0;
+    if (!isQuickXP && resultRings > 0) awardResultXP(resultRings);
   }
 
   // Record stats + history + check SUN
@@ -4619,6 +4666,9 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
         result: gameResult,
         difficulty: G.diff,
         weapon: G.weapon,
+        discipline: G.discipline,
+        shotCount: G.maxShots,
+        totalScore: Number(ppInt != null ? ppInt : pp) || 0,
         shots: questShots,
         consistency: questConsistency
       };
