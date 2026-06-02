@@ -1,84 +1,18 @@
 import { test, expect } from '@playwright/test';
+import { TABS, blockExternalAndHeavy, bootLocalApp, horizontalOverflow } from './helpers.mjs';
 
 /**
  * Real-browser mobile layout verification.
  *
- * These tests render the actual PWA (index.html + its ~60 scripts) in a real
- * Chromium engine at mobile device profiles and assert the things that only
- * show up when the page is actually laid out:
+ * These tests render the actual PWA (index.html + its ~60 scripts) in real
+ * mobile engines (WebKit for iPhone, Chromium for Pixel) and assert the things
+ * that only show up when the page is actually laid out:
  *   - no horizontal overflow (the #1 mobile bug),
  *   - bottom-nav tap targets >= 44px,
  *   - visible inputs use >= 16px font (prevents iOS focus auto-zoom).
+ *
+ * Shared boot/route/measure helpers live in ./helpers.mjs.
  */
-
-const TABS = ['start', 'training', 'challenges', 'freunde', 'profil'];
-
-// Runs in the page BEFORE any app script. Enables the offline "local play"
-// mode so the Supabase auth gate is bypassed and we land on the dashboard.
-function enableLocalMode() {
-  try {
-    localStorage.setItem('sd_local_play', '1');
-    localStorage.setItem('sd_local_mode', '1');
-    localStorage.setItem('username', 'TestGast');
-    localStorage.setItem('sd_username', 'TestGast');
-  } catch (e) { /* ignore */ }
-}
-
-// Block cross-origin (Supabase, CDNs, fonts, analytics) and heavy same-origin
-// assets (TF.js model shards, big PNGs) so the page boots fast and
-// deterministically without network. Same-origin HTML/JS/CSS is allowed.
-async function blockExternalAndHeavy(page, baseURL) {
-  const origin = new URL(baseURL).origin;
-  await page.route('**/*', (route) => {
-    const url = route.request().url();
-    if (url.startsWith('data:') || url.startsWith('blob:')) return route.continue();
-    if (!url.startsWith(origin)) return route.abort();
-    if (/(weights\.bin|model\.json|group1-shard|_toolbox\.png|\.wasm)(\?|$)/i.test(url)) {
-      return route.abort();
-    }
-    return route.continue();
-  });
-}
-
-async function bootLocalApp(page, baseURL) {
-  await page.addInitScript(enableLocalMode);
-  await blockExternalAndHeavy(page, baseURL);
-  await page.goto('/', { waitUntil: 'domcontentloaded' });
-
-  // The auth gate (#authGate) hides itself in local mode; the welcome overlay
-  // auto-dismisses once a username exists. Provide a click fallback in case
-  // the overlay is still up, then wait for the dashboard shell.
-  const welcomeStart = page.locator('#welcomeOverlay.active button.welcome-btn');
-  if (await welcomeStart.count()) {
-    try { await welcomeStart.first().click({ timeout: 2000 }); } catch (e) { /* already gone */ }
-  }
-  await expect(page.locator('#bottomNav')).toBeVisible({ timeout: 20_000 });
-
-  // In local mode the Supabase auth gate removes itself. Offline (its CDN
-  // script is blocked in these tests) it can linger as a full-screen overlay
-  // (#authGate, z-index 99999) and intercept taps on the dashboard beneath it.
-  // Wait for it to disappear, then drop any residual node so interactions hit
-  // the real UI. The gate's own appearance is covered by a dedicated test.
-  await page
-    .waitForFunction(() => {
-      const g = document.getElementById('authGate');
-      return !g || g.offsetParent === null || getComputedStyle(g).display === 'none';
-    }, { timeout: 8_000 })
-    .catch(() => {});
-  await page.evaluate(() => { document.getElementById('authGate')?.remove(); });
-}
-
-// Largest amount by which page content exceeds the viewport horizontally.
-async function horizontalOverflow(page) {
-  return page.evaluate(() => {
-    const de = document.documentElement;
-    const body = document.body;
-    return Math.max(
-      de.scrollWidth - de.clientWidth,
-      body ? body.scrollWidth - body.clientWidth : 0
-    );
-  });
-}
 
 test.describe('mobile dashboard', () => {
   test('shell renders without horizontal overflow', async ({ page, baseURL }) => {
