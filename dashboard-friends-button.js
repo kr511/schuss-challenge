@@ -75,7 +75,7 @@
       '#' + PAGE_ID + ' .fp-btn{border:0;border-radius:15px;padding:12px 13px;font-weight:900;color:#061006;background:linear-gradient(135deg,#00c3ff,#7ab030);box-shadow:0 8px 22px rgba(122,176,48,.22)}' +
       '#' + PAGE_ID + ' .fp-btn.ghost{color:#fff;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);box-shadow:none}' +
       '#' + PAGE_ID + ' .fp-add{display:grid;grid-template-columns:1fr auto;gap:9px;margin-top:12px}' +
-      '#' + PAGE_ID + ' .fp-input{min-width:0;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);color:#fff;border-radius:15px;padding:0 13px;font-size:.95rem;font-weight:800;text-transform:uppercase;outline:none}' +
+      '#' + PAGE_ID + ' .fp-input{min-width:0;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.06);color:#fff;border-radius:15px;padding:0 13px;font-size:1rem;font-weight:800;text-transform:uppercase;outline:none}' +
       '#' + PAGE_ID + ' .fp-section-title{font-size:1rem;font-weight:900;margin:20px 0 10px;color:#fff}' +
       '#' + PAGE_ID + ' .fp-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:11px;padding:12px 0;border-top:1px solid rgba(255,255,255,.07)}' +
       '#' + PAGE_ID + ' .fp-row:first-child{border-top:0}' +
