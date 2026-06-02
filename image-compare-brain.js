@@ -7,6 +7,22 @@ window.ImageCompareBrain = (function () {
   const MODEL_OUTPUT_MODE = 'detection'; // 'classification' fuer Papier/Monitor-Softmax, 'detection' fuer YOLO/V2
   const TFJS_SRC = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
 
+  // ─── Zentrale Konfiguration des YOLO-Detektionsmodells (Live-Scanner / V2) ───
+  // EINZIGE Quelle der Wahrheit. Bei jedem Modell-Tausch nur hier anpassen –
+  // v2-vision-engine.js liest alles hier heraus, inkl. der Klassenzahl.
+  // Schritt-fuer-Schritt-Anleitung: docs/vision-model-upgrade.md
+  const VISION_MODEL = {
+    version: '8.4.37-monitor',         // frei waehlbar; bei jedem Tausch hochzaehlen
+    path: './model.json',              // TFJS graph-model (model.json + *.bin im Repo-Root)
+    task: 'detect',                    // 'detect' (Boxen). 'segment' ist vorgesehen, aber noch nicht aktiv.
+    inputSize: 640,                    // quadratische Netz-Eingabe, muss zum Export passen
+    classes: ['discipline', 'score'],  // Reihenfolge MUSS metadata.yaml "names" entsprechen
+    confThreshold: 0.50,               // minimale Klassen-Konfidenz
+    iouThreshold: 0.45,                // NMS-Overlap
+    maxDetections: 10,                 // max. Boxen pro Frame
+    tfjsBackend: 'auto'                // 'auto' | 'webgl' | 'cpu' (WebGPU/WASM brauchen ein Zusatz-Skript)
+  };
+
     const MODEL_INPUT_SIZE = 64;
     const MONITOR_CONFIDENCE_THRESHOLD = 0.55;
     const MODEL_LABELS = ['Papier', 'Monitor'];
@@ -65,6 +81,7 @@ window.ImageCompareBrain = (function () {
     MODEL_TYPE,
     MODEL_OUTPUT_MODE,
     TFJS_SRC,
+    VISION_MODEL,
     MODEL_INPUT_SIZE,
         MODEL_LABELS,
         MONITOR_CONFIDENCE_THRESHOLD,
