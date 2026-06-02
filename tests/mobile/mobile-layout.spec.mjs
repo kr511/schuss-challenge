@@ -53,6 +53,19 @@ async function bootLocalApp(page, baseURL) {
     try { await welcomeStart.first().click({ timeout: 2000 }); } catch (e) { /* already gone */ }
   }
   await expect(page.locator('#bottomNav')).toBeVisible({ timeout: 20_000 });
+
+  // In local mode the Supabase auth gate removes itself. Offline (its CDN
+  // script is blocked in these tests) it can linger as a full-screen overlay
+  // (#authGate, z-index 99999) and intercept taps on the dashboard beneath it.
+  // Wait for it to disappear, then drop any residual node so interactions hit
+  // the real UI. The gate's own appearance is covered by a dedicated test.
+  await page
+    .waitForFunction(() => {
+      const g = document.getElementById('authGate');
+      return !g || g.offsetParent === null || getComputedStyle(g).display === 'none';
+    }, { timeout: 8_000 })
+    .catch(() => {});
+  await page.evaluate(() => { document.getElementById('authGate')?.remove(); });
 }
 
 // Largest amount by which page content exceeds the viewport horizontally.
