@@ -902,7 +902,7 @@
     }
 
     .pb-lbl {
-      font-size: 0.38rem;
+      font-size: 0.6rem;
       letter-spacing: .16em;
       text-transform: uppercase;
       color: rgba(150, 180, 220, .35);
@@ -8152,7 +8152,8 @@ body.keyboard-visible .bottom-sheet {
   color: #8aa3b0;
   font-size: 1.1rem;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 10px 12px; /* größeres Tap-Target (~40px) für Mobil */
+  line-height: 1;
 }
 
 .duo-photo-btn {
