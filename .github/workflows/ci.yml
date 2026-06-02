@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
 
+# Push + pull_request both fire for a PR branch; cancel the superseded run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
