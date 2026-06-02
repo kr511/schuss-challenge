@@ -1300,7 +1300,7 @@
               <div style="display:flex;flex-direction:column;gap:10px;">
                 <div style="display:flex;gap:8px;align-items:center;">
                   <span style="font-size:0.8rem;color:rgba(255,255,255,0.6);min-width:60px;">Name:</span>
-                  <input type="text" id="profileNameInput" class="score-inp" style="flex:1;padding:8px 12px;font-size:0.8rem;border-radius:8px;" placeholder="Dein Name..." maxlength="15">
+                  <input type="text" id="profileNameInput" class="score-inp" style="flex:1;padding:8px 12px;font-size:16px;border-radius:8px;" placeholder="Dein Name..." maxlength="15">
                   <button class="btn-sec" style="font-size:0.7rem;padding:6px 12px;white-space:nowrap;" onclick="changeProfileName()">Speichern</button>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -1348,14 +1348,14 @@
                 </div>
                 <div id="authMessage" style="display:none;padding:8px 10px;border-radius:8px;font-size:0.7rem;margin-bottom:10px;"></div>
                 <div id="authLoginForm" style="display:flex;flex-direction:column;gap:8px;">
-                  <input type="email" id="authLoginEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
-                  <input type="password" id="authLoginPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort" autocomplete="current-password">
+                  <input type="email" id="authLoginEmail" class="score-inp" style="padding:10px 12px;font-size:16px;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
+                  <input type="password" id="authLoginPassword" class="score-inp" style="padding:10px 12px;font-size:16px;border-radius:10px;" placeholder="Passwort" autocomplete="current-password">
                   <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthLogin()" id="authLoginBtn">🚀 Anmelden</button>
                 </div>
                 <div id="authRegisterForm" style="display:none;flex-direction:column;gap:8px;">
-                  <input type="email" id="authRegisterEmail" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
-                  <input type="password" id="authRegisterPassword" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="new-password">
-                  <input type="password" id="authRegisterPasswordConfirm" class="score-inp" style="padding:10px 12px;font-size:0.8rem;border-radius:10px;" placeholder="Passwort bestätigen" autocomplete="new-password">
+                  <input type="email" id="authRegisterEmail" class="score-inp" style="padding:10px 12px;font-size:16px;border-radius:10px;" placeholder="E-Mail Adresse" autocomplete="email">
+                  <input type="password" id="authRegisterPassword" class="score-inp" style="padding:10px 12px;font-size:16px;border-radius:10px;" placeholder="Passwort (mind. 6 Zeichen)" autocomplete="new-password">
+                  <input type="password" id="authRegisterPasswordConfirm" class="score-inp" style="padding:10px 12px;font-size:16px;border-radius:10px;" placeholder="Passwort bestätigen" autocomplete="new-password">
                   <button class="btn-fire" style="padding:10px;font-size:0.8rem;border-radius:10px;background:linear-gradient(135deg,#00c3ff 0%,#7ab030 100%);color:#000;font-weight:700;border:none;cursor:pointer;" onclick="handleAuthRegister()" id="authRegisterBtn">✨ Konto erstellen</button>
                 </div>
               </div>
@@ -1886,7 +1886,7 @@
     <div style="padding:20px 20px 0;">
       <div style="font-size:.6rem;font-weight:700;letter-spacing:.15em;color:rgba(122,176,48,.6);text-transform:uppercase;margin-bottom:12px;">DEIN KOMMENTAR</div>
       <div style="background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;padding:14px 16px;">
-        <textarea id="fbComment" placeholder="Was können wir besser machen? Bugs, Ideen, Lob..." style="background:transparent;border:none;outline:none;color:rgba(255,255,255,.75);font-size:.8rem;line-height:1.7;min-height:90px;resize:none;width:100%;font-family:var(--font-main);" maxlength="300" rows="3" oninput="fbUpdateCounter()"></textarea>
+        <textarea id="fbComment" placeholder="Was können wir besser machen? Bugs, Ideen, Lob..." style="background:transparent;border:none;outline:none;color:rgba(255,255,255,.75);font-size:16px;line-height:1.7;min-height:90px;resize:none;width:100%;font-family:var(--font-main);" maxlength="300" rows="3" oninput="fbUpdateCounter()"></textarea>
         <div style="margin-top:8px;display:flex;justify-content:flex-end;">
           <span id="fbCounter" style="color:rgba(60,100,40,.4);font-size:.65rem;font-weight:600;">0 / 300</span>
         </div>

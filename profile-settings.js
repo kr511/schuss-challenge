@@ -228,7 +228,7 @@
       '.set-badge.local{background:rgba(0,195,255,.12);color:#70aaf0;border:1px solid rgba(0,195,255,.28)}',
       '.set-badge.guest{background:rgba(255,255,255,.08);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.14)}',
       '.set-namebar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:0 0 14px}',
-      '.set-input{min-width:0;width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#fff;padding:12px;font-size:.95rem;font-family:inherit;outline:0}',
+      '.set-input{min-width:0;width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#fff;padding:12px;font-size:16px;font-family:inherit;outline:0}',
       '.set-input:focus{border-color:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.16)}',
       '.set-btn{border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:11px 16px;font-weight:700;font-size:.86rem;cursor:pointer;background:rgba(255,255,255,.07);color:#fff;font-family:inherit;white-space:nowrap;transition:transform .12s,background .15s;-webkit-tap-highlight-color:transparent}',
       '.set-btn:active{transform:scale(.97)}',
