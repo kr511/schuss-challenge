@@ -1352,17 +1352,17 @@ window.ImageCompare = (function () {
    * Monitor-spezifische OCR-Passes
    */
   const MONITOR_OCR_PASSES = [
-    // 1. Linke Spalte mit starkem Kontrast (Score-Bereich)
-    { name: 'Monitor-Left-Panel', options: { cropKey: 'left_panel', psm: 6, gamma: 1.2, contrast: 1.6, autoThreshold: true, upscale: 2.5 }, triggerBelow: 1.0 },
-    // 2. Top-Left Fokus (Score im oberen Bereich)
-    { name: 'Monitor-Top-Left', options: { cropKey: 'top_left', psm: 6, gamma: 1.3, contrast: 1.5, autoThreshold: true, upscale: 3.0 }, triggerBelow: 0.95 },
-    // 3. Monitor Full (Fallback)
+    // 1. Linke Spalte, adaptiv + Glanzlicht-Knockdown (robust gegen Reflexionen)
+    { name: 'Monitor-Left-Panel', options: { cropKey: 'left_panel', psm: 6, gamma: 1.2, contrast: 1.6, dehighlight: true, localThreshold: true, upscale: 2.5 }, triggerBelow: 1.0 },
+    // 2. Top-Left Fokus, adaptiv
+    { name: 'Monitor-Top-Left', options: { cropKey: 'top_left', psm: 6, gamma: 1.3, contrast: 1.5, dehighlight: true, localThreshold: true, upscale: 3.0 }, triggerBelow: 0.95 },
+    // 3. Monitor Full, globaler Otsu-Schwellwert (Diversitaet fuer Aggregation)
     { name: 'Monitor-Full-BW', options: { cropKey: 'monitor_full', psm: 6, gamma: 1.1, contrast: 1.4, autoThreshold: true, upscale: 2.0 }, triggerBelow: 0.9 },
-    // 4. Mittlere linke Spalte
-    { name: 'Monitor-Mid-Left', options: { cropKey: 'mid_left', psm: 6, gamma: 1.15, contrast: 1.5, autoThreshold: true, upscale: 2.5 }, triggerBelow: 0.85 },
-    // 5. Invertiert (für helle Hintergründe)
-    { name: 'Monitor-Left-Invert', options: { cropKey: 'left_panel', psm: 6, invert: true, contrast: 1.5, autoThreshold: true, upscale: 2.5 }, triggerBelow: 0.8 },
-    // 6. Target Area (für Dezimal-Scores neben der Scheibe)
+    // 4. Mittlere linke Spalte, adaptiv
+    { name: 'Monitor-Mid-Left', options: { cropKey: 'mid_left', psm: 6, gamma: 1.15, contrast: 1.5, dehighlight: true, localThreshold: true, upscale: 2.5 }, triggerBelow: 0.85 },
+    // 5. Invertiert (für helle Hintergründe), adaptiv
+    { name: 'Monitor-Left-Invert', options: { cropKey: 'left_panel', psm: 6, invert: true, contrast: 1.5, localThreshold: true, upscale: 2.5 }, triggerBelow: 0.8 },
+    // 6. Target Area (für Dezimal-Scores neben der Scheibe), globaler Schwellwert
     { name: 'Monitor-Target-Area', options: { cropKey: 'target_area', psm: 6, gamma: 1.1, contrast: 1.4, autoThreshold: true, upscale: 2.0 }, triggerBelow: 0.75 }
   ];
 
@@ -1407,6 +1407,79 @@ window.ImageCompare = (function () {
       width: Math.max(1, Math.round(width * preset[2])),
       height: Math.max(1, Math.round(height * preset[3]))
     };
+  }
+
+  // --- GLARE / UNGLEICHE BELEUCHTUNG (Monitorfotos) ---
+  // Summed-Area-Table ueber den Graukanal (data[i]) fuer schnelle lokale Mittel.
+  function buildGraySAT(data, width, height) {
+    const W = width + 1;
+    const sat = new Float64Array(W * (height + 1));
+    for (let y = 0; y < height; y++) {
+      let rowSum = 0;
+      const rowBase = (y + 1) * W;
+      const prevBase = y * W;
+      for (let x = 0; x < width; x++) {
+        rowSum += data[(y * width + x) * 4];
+        sat[rowBase + (x + 1)] = sat[prevBase + (x + 1)] + rowSum;
+      }
+    }
+    return sat;
+  }
+
+  function satWindowMean(sat, W, width, height, x, y, radius) {
+    const x0 = Math.max(0, x - radius);
+    const y0 = Math.max(0, y - radius);
+    const x1 = Math.min(width - 1, x + radius);
+    const y1 = Math.min(height - 1, y + radius);
+    const area = (x1 - x0 + 1) * (y1 - y0 + 1);
+    if (area <= 0) return 0;
+    const sum = sat[(y1 + 1) * W + (x1 + 1)]
+      - sat[y0 * W + (x1 + 1)]
+      - sat[(y1 + 1) * W + x0]
+      + sat[y0 * W + x0];
+    return sum / area;
+  }
+
+  function pickFieldRadius(width, height) {
+    const r = Math.round(Math.min(width, height) / 8);
+    return Math.max(6, Math.min(40, r));
+  }
+
+  // Spiegelungen/Glanzlichter abschwaechen: sehr helle Pixel, die deutlich ueber
+  // ihrem lokalen Mittel liegen, auf das lokale Mittel zurueckziehen.
+  function dehighlightGray(data, width, height) {
+    const sat = buildGraySAT(data, width, height);
+    const W = width + 1;
+    const radius = pickFieldRadius(width, height);
+    const GLARE_MIN = 200;   // nur echte Glanzlichter
+    const GLARE_DELTA = 35;  // deutlich heller als Umgebung
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        if (data[idx] < GLARE_MIN) continue;
+        const mean = satWindowMean(sat, W, width, height, x, y, radius);
+        if (data[idx] > mean + GLARE_DELTA) {
+          const v = Math.round(mean);
+          data[idx] = data[idx + 1] = data[idx + 2] = v;
+        }
+      }
+    }
+  }
+
+  // Adaptives lokales Thresholding (robust gegen Glare/ungleiche Beleuchtung).
+  function adaptiveThresholdGray(data, width, height, constant) {
+    const sat = buildGraySAT(data, width, height);
+    const W = width + 1;
+    const radius = pickFieldRadius(width, height);
+    const C = Number.isFinite(Number(constant)) ? Number(constant) : 10;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (y * width + x) * 4;
+        const mean = satWindowMean(sat, W, width, height, x, y, radius);
+        const bw = data[idx] >= (mean - C) ? 255 : 0;
+        data[idx] = data[idx + 1] = data[idx + 2] = bw;
+      }
+    }
   }
 
   function applyPreprocessing(canvas, options = {}) {
@@ -1471,7 +1544,15 @@ window.ImageCompare = (function () {
       data[i] = data[i + 1] = data[i + 2] = gray;
     }
 
-    if (options.autoThreshold || Number.isFinite(Number(options.threshold))) {
+    // Glanzlicht-/Reflexionsabschwaechung (vor dem Schwellwert)
+    if (options.dehighlight) {
+      dehighlightGray(data, width, height);
+    }
+
+    if (options.localThreshold) {
+      // Adaptiv: pro Pixel gegen lokales Mittel -> robust gegen Glare
+      adaptiveThresholdGray(data, width, height, options.localThresholdC);
+    } else if (options.autoThreshold || Number.isFinite(Number(options.threshold))) {
       const threshold = Number.isFinite(Number(options.threshold))
         ? Number(options.threshold)
         : computeOtsuThreshold(imageData);
@@ -2415,6 +2496,86 @@ window.ImageCompare = (function () {
     }
   }
 
+  function clearAltChips(overlay) {
+    const container = overlay && overlay.querySelector ? overlay.querySelector('#icAltChips') : null;
+    if (container) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+    }
+  }
+
+  function renderAltChips(overlay, suggestions, isKK, scoreInput, detectedValue, compareBtn) {
+    const resultCard = overlay.querySelector('#icResultCard');
+    if (!resultCard) return;
+    let container = resultCard.querySelector('#icAltChips');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'icAltChips';
+      container.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;align-items:center;';
+      const editScoreBlock = overlay.querySelector('#icEditScoreBlock');
+      if (editScoreBlock && editScoreBlock.parentNode) {
+        editScoreBlock.parentNode.insertBefore(container, editScoreBlock);
+      } else {
+        resultCard.appendChild(container);
+      }
+    }
+    container.innerHTML = '';
+    if (!suggestions || suggestions.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+    const label = document.createElement('span');
+    label.textContent = 'Alternativen:';
+    label.style.cssText = 'font-size:.72rem;opacity:.7;';
+    container.appendChild(label);
+    suggestions.forEach((val) => {
+      const txt = isKK ? String(Math.floor(val)) : Number(val).toFixed(1);
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'ic-alt-chip';
+      chip.textContent = txt;
+      chip.style.cssText = 'padding:6px 12px;border-radius:999px;border:1px solid rgba(122,176,48,.5);background:rgba(122,176,48,.12);color:#cfe9a6;font-size:.82rem;font-weight:600;cursor:pointer;';
+      chip.addEventListener('click', () => {
+        scoreInput.value = txt;
+        if (detectedValue) detectedValue.textContent = txt;
+        overlay.dataset.detectedScore = txt;
+        if (compareBtn) compareBtn.disabled = false;
+        if (navigator.vibrate) { try { navigator.vibrate(10); } catch (_e) { /* noop */ } }
+      });
+      container.appendChild(chip);
+    });
+    container.style.display = 'flex';
+  }
+
+  function buildSuggestionList(parsed, value, discipline, isKK) {
+    const eps = isKK ? 0.5 : 0.05;
+    const suggestions = [];
+    const pushUnique = (candidate) => {
+      if (!Number.isFinite(candidate)) return;
+      if (Math.abs(candidate - value) < eps) return;
+      if (suggestions.some((s) => Math.abs(s - candidate) < eps)) return;
+      suggestions.push(candidate);
+    };
+
+    if (window.OCRConfidence && typeof window.OCRConfidence.suggestDroppedDigit === 'function') {
+      pushUnique(window.OCRConfidence.suggestDroppedDigit(value, discipline, isKK));
+    }
+    (parsed.alternatives || []).forEach((alt) => pushUnique(alt && alt.value));
+    return suggestions.slice(0, 3);
+  }
+
+  function calibrateDisplayConfidence(parsed, value, discipline, isKK, quality) {
+    const rawConf = (parsed.bestMatch && parsed.bestMatch.confidence) || 0;
+    const sourceCount = (parsed.bestMatch && parsed.bestMatch.sourceCount) || 1;
+    if (window.OCRConfidence && typeof window.OCRConfidence.calibrateConfidence === 'function') {
+      return window.OCRConfidence.calibrateConfidence(rawConf, {
+        value, discipline, isKK, quality, sourceCount
+      });
+    }
+    const tier = rawConf >= 0.82 ? 'high' : rawConf >= 0.6 ? 'medium' : 'low';
+    return { confidence: rawConf, tier, warnings: [] };
+  }
+
   function renderOCRResult(parsed, rawTextStr, overlay, isKK) {
     const progress = overlay.querySelector('#icProgress');
     const resultCard = overlay.querySelector('#icResultCard');
@@ -2435,22 +2596,47 @@ window.ImageCompare = (function () {
     if (parsed && parsed.bestMatch) {
       const value = parsed.bestMatch.value;
       const displayValue = isKK ? String(Math.floor(value)) : Number(value).toFixed(1);
+      const discipline = overlay.dataset.discipline || null;
+      const quality = overlay._qualityInfo || {};
 
-      if (detectedValue) detectedValue.textContent = displayValue;
+      const cal = calibrateDisplayConfidence(parsed, value, discipline, isKK, quality);
+      const confPct = Math.round((cal.confidence || 0) * 100);
+      const TONES = { high: '#bce18e', medium: '#f1bd52', low: '#f0816e' };
+      const tone = TONES[cal.tier] || TONES.medium;
+
+      if (detectedValue) {
+        detectedValue.textContent = displayValue;
+        detectedValue.style.color = tone;
+      }
       if (detectedLabel) {
-        const conf = Math.round((parsed.bestMatch.confidence || 0) * 100);
-        detectedLabel.textContent = 'Beta-Erkennung (' + conf + '%) - bitte manuell prüfen';
+        let labelText;
+        if (cal.tier === 'high') labelText = 'Erkannt (' + confPct + '%) – bitte kurz prüfen';
+        else if (cal.tier === 'medium') labelText = 'Unsicher (' + confPct + '%) – bitte prüfen';
+        else labelText = 'Sehr unsicher (' + confPct + '%) – bitte manuell prüfen';
+        if (cal.warnings && cal.warnings.length) labelText += ' · ' + cal.warnings[0].message;
+        detectedLabel.textContent = labelText;
+        detectedLabel.style.color = tone;
       }
 
       scoreInput.value = displayValue;
       compareBtn.disabled = false;
       overlay.dataset.detectedScore = displayValue;
-      overlay.dataset.ocrConfidence = String(parsed.bestMatch.confidence || 0);
-      if (btnWrong) btnWrong.style.display = 'block';
-      if (editScoreBlock) editScoreBlock.style.display = 'none';
+      overlay.dataset.ocrConfidence = String(cal.confidence || 0);
+
+      // Bei niedriger Konfidenz manuelle Eingabe direkt aufklappen
+      if (cal.tier === 'low') {
+        if (btnWrong) btnWrong.style.display = 'none';
+        if (editScoreBlock) editScoreBlock.style.display = 'block';
+      } else {
+        if (btnWrong) btnWrong.style.display = 'block';
+        if (editScoreBlock) editScoreBlock.style.display = 'none';
+      }
+
+      const suggestions = buildSuggestionList(parsed, value, discipline, isKK);
+      renderAltChips(overlay, suggestions, isKK, scoreInput, detectedValue, compareBtn);
     } else {
-      if (detectedValue) detectedValue.textContent = '?';
-      if (detectedLabel) detectedLabel.textContent = 'Keine Punktzahl erkannt - bitte manuell eingeben';
+      if (detectedValue) { detectedValue.textContent = '?'; detectedValue.style.color = ''; }
+      if (detectedLabel) { detectedLabel.textContent = 'Keine Punktzahl erkannt - bitte manuell eingeben'; detectedLabel.style.color = ''; }
       scoreInput.value = '';
       compareBtn.disabled = true;
       if (btnWrong) btnWrong.style.display = 'none';
@@ -2458,6 +2644,7 @@ window.ImageCompare = (function () {
       scoreInput.focus();
       delete overlay.dataset.detectedScore;
       delete overlay.dataset.ocrConfidence;
+      clearAltChips(overlay);
     }
   }
 
@@ -2511,8 +2698,9 @@ window.ImageCompare = (function () {
     }
     if (rawToggle) rawToggle.textContent = '▶ OCR-Rohtext anzeigen';
 
-    if (detectedValue) detectedValue.textContent = '–';
-    if (detectedLabel) detectedLabel.textContent = 'Wird analysiert...';
+    if (detectedValue) { detectedValue.textContent = '–'; detectedValue.style.color = ''; }
+    if (detectedLabel) { detectedLabel.textContent = 'Wird analysiert...'; detectedLabel.style.color = ''; }
+    clearAltChips(overlay);
 
     if (scoreInput) {
       scoreInput.value = '';
