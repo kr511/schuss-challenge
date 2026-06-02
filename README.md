@@ -54,6 +54,15 @@ Abschluss-Speicherreihenfolge:
 
 Mehrfachabschluss am selben Tag überschreibt den lokalen Tagesabschluss statt zu duplizieren.
 
+## Foto-Modell aktualisieren
+
+Das YOLO-Detektionsmodell der Foto-Auswertung ist konfigurations- und
+versionierbar: alle Parameter stehen zentral in `image-compare-brain.js`
+unter `VISION_MODEL`. Trainiert wird extern (Colab/GPU), der Export wird per
+Drop-in übernommen. Anleitung: [`docs/vision-model-upgrade.md`](docs/vision-model-upgrade.md).
+Vor dem Commit `npm run check:vision-model` ausführen (prüft Shards, Klassen-
+Abgleich mit `metadata.yaml` und das `model.json`-Format).
+
 ## Lokal Testen
 
 ```bash

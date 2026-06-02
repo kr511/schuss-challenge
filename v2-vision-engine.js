@@ -10,15 +10,26 @@ const V2VisionEngine = (function() {
   let _videoStream = null;
   let _tfLoadingPromise = null;
 
-  // Das GraphModel liegt im Repo-Root neben den .bin-Shards.
-  const MODEL_PATH = './model.json';
-  const TFJS_SRC = (window.ImageCompareBrain && window.ImageCompareBrain.TFJS_SRC) ||
-    'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
-  const INPUT_SIZE = 640;
-  const CONF_THRESHOLD = 0.50;
-  const IOU_THRESHOLD = 0.45;
+  // Zentrale Modell-Config aus image-compare-brain.js (mit sicheren Fallbacks).
+  // So bringt ein Modell-Tausch keine Code-Aenderung hier mit sich.
+  const _brain = (typeof window !== 'undefined' && window.ImageCompareBrain) || {};
+  const _cfg = _brain.VISION_MODEL || {};
 
-  const CLASSES = ['discipline', 'score']; 
+  // Das GraphModel liegt im Repo-Root neben den .bin-Shards.
+  const MODEL_PATH = _cfg.path || './model.json';
+  const MODEL_VERSION = _cfg.version || 'unknown';
+  const TFJS_SRC = _brain.TFJS_SRC ||
+    'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
+  const INPUT_SIZE = Number.isFinite(_cfg.inputSize) ? _cfg.inputSize : 640;
+  const CONF_THRESHOLD = Number.isFinite(_cfg.confThreshold) ? _cfg.confThreshold : 0.50;
+  const IOU_THRESHOLD = Number.isFinite(_cfg.iouThreshold) ? _cfg.iouThreshold : 0.45;
+  const MAX_DETECTIONS = Number.isFinite(_cfg.maxDetections) ? _cfg.maxDetections : 10;
+  const TFJS_BACKEND = _cfg.tfjsBackend || 'auto';
+
+  // Klassen treiben die Decoder-Geometrie: NUM_OUTPUT_COLS = 4 Box-Werte + Klassen.
+  const CLASSES = Array.isArray(_cfg.classes) && _cfg.classes.length
+    ? _cfg.classes.slice()
+    : ['discipline', 'score'];
   const NUM_OUTPUT_COLS = 4 + CLASSES.length;
 
   function ensureTensorFlow() {
@@ -81,8 +92,21 @@ const V2VisionEngine = (function() {
   }
 
 
+  // Nur gebuendelte Backends ohne Zusatz-Skript erlauben (tf.min.js: webgl/cpu).
+  async function applyBackend(tfLib) {
+    const allowed = ['webgl', 'cpu'];
+    if (TFJS_BACKEND && TFJS_BACKEND !== 'auto' && allowed.includes(TFJS_BACKEND)) {
+      try {
+        await tfLib.setBackend(TFJS_BACKEND);
+        await tfLib.ready();
+      } catch (e) {
+        console.warn('TF.js Backend konnte nicht gesetzt werden:', TFJS_BACKEND, e);
+      }
+    }
+  }
+
   /**
-   * Lädt das YOLOv8 TensorFlow Graph-Modell
+   * Lädt das YOLO TensorFlow Graph-Modell gemäß VISION_MODEL-Config.
    */
   async function loadModel() {
     if (_model) return _model;
@@ -90,14 +114,16 @@ const V2VisionEngine = (function() {
 
     try {
       const tfLib = await ensureTensorFlow();
+      await applyBackend(tfLib);
       _isModelLoading = true;
-      console.log('Lade YOLOv8 Vision Modell aus:', MODEL_PATH);
+      console.log('Lade YOLO Vision Modell', MODEL_VERSION, 'aus:', MODEL_PATH,
+        '(Klassen:', CLASSES.join(', ') + ')');
       _model = await tfLib.loadGraphModel(MODEL_PATH);
-      console.log('YOLOv8 Scanner scharf geschaltet!');
+      console.log('YOLO Scanner scharf geschaltet! Backend:', tfLib.getBackend());
       _isModelLoading = false;
       return _model;
     } catch (err) {
-      console.warn('YOLOv8 Modell noch nicht gefunden. Hast du die ZIP entpackt?', err);
+      console.warn('YOLO Modell konnte nicht geladen werden. Sind model.json + Shards vorhanden?', err);
       _isModelLoading = false;
       return null;
     }
@@ -246,7 +272,7 @@ const V2VisionEngine = (function() {
     const nmsIndicesTensor = await tf.image.nonMaxSuppressionAsync(
       nmsBoxesTensor,
       nmsScoresTensor,
-      10,
+      MAX_DETECTIONS,
       IOU_THRESHOLD,
       CONF_THRESHOLD
     );
