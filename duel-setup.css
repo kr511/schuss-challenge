@@ -72,8 +72,8 @@ body.duel-scroll-lock-active [data-profile-trigger] {
 #duelSetupSheetOverlay {
   position: fixed !important;
   inset: 0 !important;
-  width: 100vw !important;
-  max-width: 100vw !important;
+  width: 100% !important;
+  max-width: 100% !important;
   height: 100dvh !important;
   background:
     radial-gradient(ellipse 70% 50% at 50% 0%, rgba(34, 197, 94, 0.12), transparent 60%),
@@ -90,8 +90,8 @@ body.duel-scroll-lock-active [data-profile-trigger] {
   left: 50% !important;
   right: auto !important;
   bottom: -100% !important;
-  width: min(100vw, 560px) !important;
-  max-width: 100vw !important;
+  width: min(100%, 560px) !important;
+  max-width: 100% !important;
   max-height: 94dvh !important;
   overflow-y: auto !important;
   transform: translateX(-50%) !important;

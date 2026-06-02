@@ -9,6 +9,11 @@
 node_modules/
 dist-react/
 
+# Playwright (mobile E2E) artifacts
+playwright-report/
+test-results/
+/blob-report/
+
 # logs
 wrangler_dev.log
 wrangler_test.log

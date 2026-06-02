@@ -9,6 +9,8 @@
     "verify:balance": "node src/testing/verify-balance.js",
     "cleanup:legacy": "node scripts/remove-legacy-realtime.cjs",
     "test:supabase": "npx tsx test_api_direct.mjs && node test_supabase_social_direct.mjs",
+    "serve:static": "node scripts/static-server.mjs",
+    "test:mobile": "playwright test",
     "test": "npm run cleanup:legacy && npm run check:js && npm run check:html && node test_auth_gate_pkce.mjs && node test_error_guard.mjs && node test_duel_setup_runtime.mjs && node test_backend_sync_auth_retry.mjs && node test_online_status_behavior.mjs && node test_updates_read_persistence.mjs && node test_friends_supabase_bridge.mjs && node test_async_supabase_bridge.mjs && node test_friend_photo_duel.mjs && node test_quick_training_sync.mjs && node test_daily_challenge.mjs && npm run verify:balance",
     "supabase:bundle": "node scripts/build-supabase-sql-bundle.mjs",
     "supabase:apply": "node scripts/apply-supabase-migrations.mjs",
@@ -22,6 +24,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^22.15.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
