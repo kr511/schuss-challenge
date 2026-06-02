@@ -1642,7 +1642,7 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   border-radius: var(--r-md);
   padding: 12px 14px;
   color: #fff;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-family: var(--font-main, 'Outfit', sans-serif);
   outline: none;
   transition: border-color 0.15s, background 0.15s;
