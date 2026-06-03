@@ -5,6 +5,24 @@ Diese Anleitung beschreibt, wie das YOLO-Detektionsmodell der Foto-Auswertung
 Training läuft **extern** (Colab / lokale GPU) – im Repo ist alles so
 vorbereitet, dass der fertige Export per **Drop-in** übernommen wird.
 
+## Schnellster Weg (schlüsselfertig)
+
+1. **Trainieren in Colab:** [`notebooks/train-vision-model.ipynb`](../notebooks/train-vision-model.ipynb)
+   in [Google Colab](https://colab.research.google.com/) öffnen, GPU wählen,
+   Zellen ausführen. Es lädt am Ende `vision_model_dropin.zip` herunter.
+   - **Ohne eigene Fotos testen:** Variante A nutzt den synthetischen
+     Datengenerator [`training/generate_synthetic_monitor.py`](../training/generate_synthetic_monitor.py)
+     (automatisch gelabelte Monitor-Bilder – kein Handlabeln nötig).
+   - **Beste Real-Genauigkeit:** Variante B mit echten Fotos (Roboflow).
+2. **Drop-in ins Repo:** ZIP entpacken und
+   ```bash
+   node scripts/apply-model-export.mjs <export-ordner>
+   ```
+   kopiert die Modell-Dateien, entfernt veraltete Shards, zählt Version +
+   Cache-Busting hoch und validiert. Danach `npm test`, committen, pushen.
+
+Die folgenden Abschnitte beschreiben dieselben Schritte im Detail/manuell.
+
 ## Überblick: was steckt heute drin?
 
 - **Modell**: Ultralytics YOLO (`task=detect`), exportiert nach TensorFlow.js
