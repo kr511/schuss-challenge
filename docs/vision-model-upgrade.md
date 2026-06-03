@@ -13,7 +13,8 @@ vorbereitet, dass der fertige Export per **Drop-in** übernommen wird.
    - **Ohne eigene Fotos testen:** Variante A nutzt den synthetischen
      Datengenerator [`training/generate_synthetic_monitor.py`](../training/generate_synthetic_monitor.py)
      (automatisch gelabelte Monitor-Bilder – kein Handlabeln nötig).
-   - **Beste Real-Genauigkeit:** Variante B mit echten Fotos (Roboflow).
+   - **Beste Real-Genauigkeit:** Variante B mit echten Fotos (Roboflow) –
+     bebilderte Schritt-für-Schritt-Anleitung: [`foto-labeling-anleitung.md`](./foto-labeling-anleitung.md).
 2. **Drop-in ins Repo:** ZIP entpacken und
    ```bash
    node scripts/apply-model-export.mjs <export-ordner>
