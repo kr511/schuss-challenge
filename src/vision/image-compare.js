@@ -2560,6 +2560,11 @@ window.ImageCompare = (function () {
     if (window.OCRConfidence && typeof window.OCRConfidence.suggestDroppedDigit === 'function') {
       pushUnique(window.OCRConfidence.suggestDroppedDigit(value, discipline, isKK));
     }
+    // Ziffern-Verwechslungen (7-Segment/LCD): unmoegliche/untypische Lesung
+    // sauber ins Band ruecken, falls EINE Ziffer der Uebeltaeter ist.
+    if (window.OCRConfidence && typeof window.OCRConfidence.suggestConfusedReadings === 'function') {
+      window.OCRConfidence.suggestConfusedReadings(value, discipline, isKK).forEach(pushUnique);
+    }
     (parsed.alternatives || []).forEach((alt) => pushUnique(alt && alt.value));
     return suggestions.slice(0, 3);
   }
@@ -2765,10 +2770,14 @@ window.ImageCompare = (function () {
     if (!text) return null;
     // Normalize common OCR confusions: O -> 0, I/l -> 1
     const normalized = text.replace(/O/g, '0').replace(/[Il|]/g, '1');
-    // Try patterns: "LG40", "LG 40", "LG-40", "KK 50", "KK 100", "KK 3X20", "KK3x20"
+    // Try patterns: "LG40", "LG 40", "LG-40", "KK 50", "KK 100", "KK 3X20", "KK3x20".
+    // Robust gegen typische LCD-Verwechslungen, jeweils durch die gueltige
+    // Disziplin-Zahl abgesichert (kein Fehlalarm aus Fliesstext):
+    //  - "LG" mit G->6 gelesen ("L6 40" / "L640")
+    //  - 3x20-Trenner X als K/× gelesen ("KK 3K20")
     const patterns = [
-      { regex: /\b(LG)\s*[\-]?\s*(40|60)\b/, mapper: (m) => 'lg' + m[2] },
-      { regex: /\b(KK)\s*[\-]?\s*3\s*[X×*]\s*20\b/, mapper: () => 'kk3x20' },
+      { regex: /\bL[\s\-]*[G6]\s*[\-]?\s*(40|60)\b/, mapper: (m) => 'lg' + m[1] },
+      { regex: /\b(KK)\s*[\-]?\s*3\s*[X×*Kk]\s*20\b/, mapper: () => 'kk3x20' },
       { regex: /\b(KK)\s*[\-]?\s*(50|100)\b/, mapper: (m) => 'kk' + m[2] },
     ];
     for (let i = 0; i < patterns.length; i++) {

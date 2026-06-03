@@ -138,13 +138,95 @@
     return Math.round(scaled * 10) / 10;
   }
 
+  // Haeufige Ziffern-Verwechslungen auf 7-Segment-/LCD-Anzeigen und in Kamera-OCR.
+  // Bewusst kuratiert (nicht erschoepfend) – jede Ziffer zeigt auf real
+  // verwechselbare Ziffern. Fehler #1 in der Praxis: ein einzelnes falsch
+  // gelesenes Segment macht aus einem gueltigen Ergebnis einen unmoeglichen Wert.
+  const CONFUSABLE_DIGITS = {
+    '0': ['8', '6', '9'],
+    '1': ['7'],
+    '2': ['7'],
+    '3': ['8', '9'],
+    '4': ['9'],
+    '5': ['6', '8', '9'],
+    '6': ['8', '5', '0'],
+    '7': ['1', '2'],
+    '8': ['0', '6', '9', '3', '5'],
+    '9': ['8', '4', '0', '5', '3']
+  };
+
+  // "Moeglich" = im realen Wertebereich: nicht unter dem typischen Band und
+  // nicht ueber dem physikalischen Maximum. Elite-Scores (z. B. KK-50 591-600)
+  // liegen ueber dem typischen Band, sind aber gueltig und werden akzeptiert.
+  function inPossibleRange(value, range) {
+    return Number.isFinite(value) && value >= range.low && value <= range.max;
+  }
+
+  /**
+   * Schlaegt plausible Alternativ-Lesungen vor, wenn der erkannte Wert
+   * untypisch/unmoeglich ist und EINE einzelne, real verwechselbare Ziffer
+   * (7-Segment/LCD) das Ergebnis sauber ins typische Band zurueckschiebt.
+   *
+   * Beispiel: KK-50 liest "890" -> unmoeglich (>600). 8->5 ergibt 590, sauber
+   * im typischen Band -> Vorschlag 590. Es wird NIE automatisch geaendert,
+   * nur vorgeschlagen (analog suggestDroppedDigit).
+   *
+   * @returns {number[]} nach Plausibilitaet sortiert, max. `limit` Eintraege
+   */
+  function suggestConfusedReadings(value, discipline, isKK, options) {
+    const opts = options || {};
+    const limit = Number.isFinite(opts.limit) ? opts.limit : 3;
+    const v = Number(value);
+    if (!Number.isFinite(v) || v <= 0) return [];
+
+    const range = getTypicalRange(discipline);
+    // Moegliche Werte (inkl. gueltiger Elite-Scores) nicht "korrigieren" –
+    // nur bei unmoeglicher (> max) oder untypisch niedriger Lesung helfen.
+    if (inPossibleRange(v, range)) return [];
+
+    const integer = !!isKK || range.isInteger;
+    // Ganzzahl-Repraesentation der angezeigten Ziffern:
+    //  - KK/Integer: der Wert selbst
+    //  - LG (1 Nachkommastelle): Ringe x10, damit die Dezimalstelle eine echte Ziffer ist
+    const scale = integer ? 1 : 10;
+    const digits = String(Math.round(v * scale));
+    const center = (range.low + range.high) / 2;
+    const eps = integer ? 0.5 : 0.05;
+
+    const seen = new Set();
+    const out = [];
+    for (let i = 0; i < digits.length; i++) {
+      const swaps = CONFUSABLE_DIGITS[digits[i]];
+      if (!swaps) continue;
+      for (let s = 0; s < swaps.length; s++) {
+        if (swaps[s] === digits[i]) continue;
+        const variantInt = parseInt(digits.slice(0, i) + swaps[s] + digits.slice(i + 1), 10);
+        if (!Number.isFinite(variantInt)) continue;
+        let candidate = variantInt / scale;
+        candidate = integer ? Math.round(candidate) : Math.round(candidate * 10) / 10;
+        if (!inPossibleRange(candidate, range)) continue;    // nur real moegliche Treffer
+        if (Math.abs(candidate - v) < eps) continue;         // == Originalwert
+        const key = candidate.toFixed(integer ? 0 : 1);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(candidate);
+      }
+    }
+
+    // Die naheliegendste (typischste) Lesung zuerst.
+    out.sort((a, b) => Math.abs(a - center) - Math.abs(b - center));
+    return out.slice(0, Math.max(0, limit));
+  }
+
   const api = {
     TYPICAL_RANGES,
     TIER_THRESHOLDS,
+    CONFUSABLE_DIGITS,
     getTypicalRange,
     confidenceTier,
     calibrateConfidence,
-    suggestDroppedDigit
+    suggestDroppedDigit,
+    suggestConfusedReadings
   };
 
   if (typeof module !== 'undefined' && module.exports) {
