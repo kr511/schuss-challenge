@@ -51,6 +51,14 @@ assertEq('lowercase ok', fn('lg 40'), 'lg40');
 assertEq('LG 4O (O instead of 0)', fn('LG 4O'), 'lg40');
 assertEq('LG 6I (I-as-1 not valid for 60)', fn('LG 60'), 'lg60');
 
+// LCD confusion: G→6 in "LG" (gated by valid discipline number)
+assertEq('L6 40 (G-as-6)', fn('L6 40'), 'lg40');
+assertEq('L640 (G-as-6, no space)', fn('L640'), 'lg40');
+assertEq('L6 60 (G-as-6)', fn('L6 60'), 'lg60');
+// LCD confusion: X→K in 3x20 separator
+assertEq('KK 3K20 (X-as-K)', fn('KK 3K20'), 'kk3x20');
+assertEq('KK 3 K 20 (X-as-K, spaced)', fn('KK 3 K 20'), 'kk3x20');
+
 // Negative cases
 assertEq('garbage only', fn('XXXX RING ZAHL'), null);
 assertEq('empty', fn(''), null);

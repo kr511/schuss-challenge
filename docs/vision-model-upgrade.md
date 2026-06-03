@@ -112,6 +112,34 @@ zwischen Config und `metadata.yaml`, ungültigem `model.json`.
 - **WebGPU/WASM** benötigen ein zusätzliches TF.js-Backend-Skript in
   `index.html` und sind hier bewusst noch nicht aktiviert (separater Schritt).
 
+## Erkennungs-Intelligenz & Benchmark (ohne GPU/Neutraining)
+
+Das YOLO-Netz wird extern trainiert (oben). Die *Erkennungs-Intelligenz*, die
+aus verrauschtem Netz-/OCR-Output das **korrekte Ergebnis** macht, ist davon
+getrennt und lebt in reiner, testbarer Logik:
+
+- [`src/vision/ocr-confidence.js`](../src/vision/ocr-confidence.js) –
+  Konfidenz-Kalibrierung, Plausibilitaet und **Korrektur-Vorschlaege**:
+  - `suggestDroppedDigit` – fehlende Dezimalstelle (`40,5` → `405`).
+  - `suggestConfusedReadings` – **Ziffern-Verwechslung** auf 7-Segment-/LCD-
+    Anzeigen (`890` → `590`, weil `8`/`5` ein Segment Unterschied sind). Greift
+    nur bei *unmoeglichen/untypischen* Lesungen und schlaegt nur **vor** –
+    gueltige (auch Elite-)Scores werden nie veraendert.
+- `parseDisciplineText` in [`image-compare.js`](../src/vision/image-compare.js) –
+  robust gegen typische LCD-Verwechslungen (`L6 40` → `lg40`, `KK 3K20` → `kk3x20`).
+
+Diese Schicht laesst sich **ohne GPU** verbessern und messen:
+
+```bash
+npm run bench:ocr   # Disziplin-Erkennung + Score-Recovery (Baseline vs. verbessert)
+```
+
+Der Benchmark ([`scripts/ocr-benchmark.mjs`](../scripts/ocr-benchmark.mjs))
+faehrt eine realistische Menge typischer Kamera-Fehllesungen und liefert harte
+Kennzahlen mit Regressions-Schwellen (Teil von `npm test`). Neue Fehlerbilder
+einfach als Faelle ergaenzen und die Logik so lange schaerfen, bis die Quote
+steigt – das ist der „Trainings"-Loop fuer die Nachverarbeitung.
+
 ## Rollback
 
 Vorherige Modelldateien + den `VISION_MODEL`-Block aus der Git-Historie

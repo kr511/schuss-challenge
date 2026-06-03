@@ -75,6 +75,36 @@ assertEq('lg40 400 (typisch) -> null', OCR.suggestDroppedDigit(400, 'lg40', fals
 assertEq('lg60 70 -> 700 ausserhalb -> null', OCR.suggestDroppedDigit(70, 'lg60', false), null);
 assertEq('lg40 5 -> 50 zu niedrig -> null', OCR.suggestDroppedDigit(5, 'lg40', false), null);
 
+console.log('suggestConfusedReadings:');
+// KK-50: "890" ist unmoeglich (>600). 8->5 ergibt 590, sauber im Band.
+assert('kk50 890 -> enthaelt 590', OCR.suggestConfusedReadings(890, 'kk50', true).includes(590));
+// LG-40: "482.5" ist unmoeglich (>436). 8->0 ergibt 402.5.
+assert('lg40 482.5 -> enthaelt 402.5',
+  OCR.suggestConfusedReadings(482.5, 'lg40', false).some((v) => near(v, 402.5)));
+// LG-60: "698.4" ist unmoeglich (>654). 6->5 ergibt 598.4.
+assert('lg60 698.4 -> enthaelt 598.4',
+  OCR.suggestConfusedReadings(698.4, 'lg60', false).some((v) => near(v, 598.4)));
+// KK-3x20: "980" ist unmoeglich. 9->5 ergibt 580.
+assert('kk3x20 980 -> enthaelt 580', OCR.suggestConfusedReadings(980, 'kk3x20', true).includes(580));
+// KK-50: "896" ist unmoeglich (>600). 8->5 ergibt 596 (gueltiger Elite-Score, > typ. Band).
+assert('kk50 896 -> enthaelt 596 (Elite)', OCR.suggestConfusedReadings(896, 'kk50', true).includes(596));
+// Plausibler Wert wird NICHT angetastet (keine Vorschlaege).
+assertEq('kk50 567 (plausibel) -> leer', OCR.suggestConfusedReadings(567, 'kk50', true).length, 0);
+assertEq('lg40 405.3 (plausibel) -> leer', OCR.suggestConfusedReadings(405.3, 'lg40', false).length, 0);
+// Gueltiger Elite-Score (> typ. Band, <= Maximum) wird NICHT "korrigiert".
+assertEq('kk50 596 (Elite, gueltig) -> leer', OCR.suggestConfusedReadings(596, 'kk50', true).length, 0);
+// KK erwartet Ganzzahlen: keine Dezimal-Vorschlaege.
+assert('kk50 Vorschlaege sind ganzzahlig',
+  OCR.suggestConfusedReadings(890, 'kk50', true).every((v) => Number.isInteger(v)));
+// Nur real moegliche Treffer (alle im Bereich [low, max], inkl. Elite-Top-End).
+assert('kk50 alle Vorschlaege im moeglichen Bereich', (() => {
+  const r = OCR.getTypicalRange('kk50');
+  return OCR.suggestConfusedReadings(896, 'kk50', true).every((v) => v >= r.low && v <= r.max);
+})());
+// Unsinn -> keine Vorschlaege.
+assertEq('NaN -> leer', OCR.suggestConfusedReadings(NaN, 'kk50', true).length, 0);
+assertEq('0 -> leer', OCR.suggestConfusedReadings(0, 'lg40', false).length, 0);
+
 console.log('');
 console.log('Summary: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);
