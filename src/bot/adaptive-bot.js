@@ -479,7 +479,7 @@ const AdaptiveBotSystem = (function () {
    */
   function getBotPersonality() {
     const diff = botState.currentDifficulty || 'easy';
-    return { ...BOT_PERSONALITIES[diff] } || { ...BOT_PERSONALITIES.easy };
+    return { ...(BOT_PERSONALITIES[diff] || BOT_PERSONALITIES.easy) };
   }
 
   /**
@@ -890,121 +890,6 @@ const AdaptiveBotSystem = (function () {
 
     saveData();
     return changed;
-  }
-
-  function trackGame(playerScore, botScore, discipline, difficulty, weapon) {
-    if (!CONFIG.enabled || !adaptiveData.enabled) return;
-
-    const gameData = {
-      timestamp: Date.now(),
-      playerScore: parseFloat(playerScore) || 0,
-      botScore: parseFloat(botScore) || 0,
-      discipline: discipline,
-      difficulty: difficulty,
-      weapon: weapon,
-      scoreDifference: Math.abs(playerScore - botScore),
-      playerWon: playerScore > botScore
-    };
-
-    adaptiveData.games.push(gameData);
-
-    // Alte Spiele aufräumen (letzte 50 behalten)
-    if (adaptiveData.games.length > 50) {
-      adaptiveData.games = adaptiveData.games.slice(-50);
-    }
-
-    saveData();
-
-    // Nach Session-Schüssen: Bot-Müdigkeit leicht erhöhen
-    // EN: After session shots: slightly increase bot fatigue
-    botState.fatigue = Math.min(100, botState.fatigue + 3);
-
-    // Automatische Anpassung prüfen
-    if (shouldAdapt()) {
-      const newDifficulty = analyzePerformanceAndAdapt();
-      if (newDifficulty && newDifficulty !== adaptiveData.currentDifficulty) {
-        const oldDifficulty = adaptiveData.currentDifficulty;
-        adaptiveData.currentDifficulty = newDifficulty;
-        adaptiveData.adaptationHistory.push({
-          timestamp: Date.now(),
-          oldDifficulty: oldDifficulty,
-          newDifficulty: newDifficulty,
-          reason: 'Auto-adaptation'
-        });
-
-        console.log(`🎯 Schwierigkeit angepasst: ${oldDifficulty} → ${newDifficulty}`);
-
-        window.dispatchEvent(new CustomEvent('difficultyAdapted', {
-          detail: { oldDifficulty: oldDifficulty, newDifficulty: newDifficulty }
-        }));
-      }
-    }
-  }
-
-  function shouldAdapt() {
-    if (adaptiveData.games.length < CONFIG.minGamesForAnalysis) return false;
-    return adaptiveData.games.length % CONFIG.adaptationInterval === 0;
-  }
-
-  function analyzePerformanceAndAdapt() {
-    const recentGames = adaptiveData.games.slice(-CONFIG.adaptationInterval);
-    if (recentGames.length === 0) return null;
-
-    const avgPlayerScore = recentGames.reduce((sum, g) => sum + g.playerScore, 0) / recentGames.length;
-    const avgBotScore = recentGames.reduce((sum, g) => sum + g.botScore, 0) / recentGames.length;
-    const avgDifference = Math.abs(avgPlayerScore - avgBotScore);
-    const winRate = recentGames.filter(g => g.playerWon).length / recentGames.length;
-
-    const scoreStdDev = calculateStdDev(recentGames.map(g => g.playerScore));
-    const consistency = Math.max(0, 1 - (scoreStdDev / 100));
-
-    const momentum = calculateMomentum();
-
-    console.log('📊 Performance-Analyse:', {
-      avgDifference: avgDifference.toFixed(1),
-      winRate: (winRate * 100).toFixed(1) + '%',
-      consistency: (consistency * 100).toFixed(1) + '%',
-      momentum: momentum.toFixed(2),
-      botMood: botState.mood
-    });
-
-    return determineOptimalDifficulty(avgDifference, winRate, consistency, momentum);
-  }
-
-  function calculateMomentum() {
-    const games = adaptiveData.games;
-    const n = CONFIG.adaptationInterval;
-    if (games.length < n * 2) return 0;
-
-    const recent = games.slice(-n);
-    const previous = games.slice(-n * 2, -n);
-
-    const recentWinRate = recent.filter(g => g.playerWon).length / n;
-    const prevWinRate = previous.filter(g => g.playerWon).length / n;
-
-    const recentAvgDiff = recent.reduce((s, g) => s + (g.playerScore - g.botScore), 0) / n;
-    const prevAvgDiff = previous.reduce((s, g) => s + (g.playerScore - g.botScore), 0) / n;
-
-    const winMomentum = recentWinRate - prevWinRate;
-    const scoreMomentum = Math.tanh((recentAvgDiff - prevAvgDiff) / 20);
-
-    return (winMomentum * 0.6 + scoreMomentum * 0.4);
-  }
-
-  function determineOptimalDifficulty(avgDifference, winRate, consistency, momentum) {
-    const currentDiff = adaptiveData.currentDifficulty;
-    const difficulties = ['easy', 'real', 'hard', 'elite'];
-    const currentIndex = difficulties.indexOf(currentDiff);
-
-    if (winRate > 0.7 || (winRate > 0.6 && momentum > 0.3)) {
-      return difficulties[Math.min(currentIndex + 1, difficulties.length - 1)];
-    } else if (winRate < 0.3 || (winRate < 0.4 && momentum < -0.3)) {
-      return difficulties[Math.max(currentIndex - 1, 0)];
-    } else if (consistency > 0.8 && avgDifference < 10 && momentum > 0.1) {
-      return difficulties[Math.min(currentIndex + 1, difficulties.length - 1)];
-    }
-
-    return currentDiff;
   }
 
   function calculateStdDev(values) {
