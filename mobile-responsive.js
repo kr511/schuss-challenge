@@ -488,8 +488,18 @@
         updateColumns();
         if (!this.state.resizeHandlers.has(grid)) {
           const debouncedUpdate = debounce(updateColumns, 120);
-          this.state.resizeHandlers.set(grid, debouncedUpdate);
-          window.addEventListener('resize', debouncedUpdate);
+          // Selbstreinigend: Wird das Grid (z.B. per innerHTML-Re-Render) ersetzt,
+          // entfernt sich der window-Listener beim nächsten Resize selbst.
+          const handler = () => {
+            if (!grid.isConnected) {
+              window.removeEventListener('resize', handler);
+              this.state.resizeHandlers.delete(grid);
+              return;
+            }
+            debouncedUpdate();
+          };
+          this.state.resizeHandlers.set(grid, handler);
+          window.addEventListener('resize', handler);
         }
       });
     },

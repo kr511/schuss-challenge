@@ -18,6 +18,9 @@ const MultiScoreDetection = (function() {
     enableContextAnalysis: true
   };
   
+  // Zuletzt erkannte Teil-Scores (für den "Gesamt berechnen"-Button der UI)
+  let lastPartialScores = [];
+
   // Score-Region-Typen
   const REGION_TYPES = {
     TOTAL_SCORE: 'total_score',
@@ -663,8 +666,8 @@ const MultiScoreDetection = (function() {
    */
   function calculateOverallConfidence(results) {
     if (results.length === 0) return 0;
-    
-    const totalConfidence = results.reduce((sum, r) => sum + r.ocr.confidence, 0);
+
+    const totalConfidence = results.reduce((sum, r) => sum + ((r && r.ocr && r.ocr.confidence) || 0), 0);
     return totalConfidence / results.length;
   }
   
@@ -674,7 +677,9 @@ const MultiScoreDetection = (function() {
   function createMultiScoreUI(results) {
     const totalScore = findTotalScore(results);
     const partialScores = findPartialScores(results);
-    
+    // Für den "Gesamt berechnen"-Button merken (onclick hat keine Argumente)
+    lastPartialScores = partialScores;
+
     return `
       <div class="multi-score-detection-ui">
         <h4>📊 Erkannte Scores</h4>
@@ -724,17 +729,34 @@ const MultiScoreDetection = (function() {
    * Berechnet Gesamt-Score aus Teil-Scores
    */
   function calculateTotalFromPartials(partialScores) {
+    // Ohne Argument (z.B. Button-onclick): zuletzt erkannte Teil-Scores nutzen
+    if (!partialScores || partialScores.length === 0) partialScores = lastPartialScores;
     if (!partialScores || partialScores.length === 0) return null;
-    
+
     const total = partialScores.reduce((sum, score) => sum + (score.score || 0), 0);
     const avgConfidence = partialScores.reduce((sum, score) => sum + (score.ocr?.confidence || 0), 0) / partialScores.length;
-    
-    return {
+
+    const computed = {
       score: Math.round(total * 10) / 10, // Runde auf eine Dezimalstelle
       confidence: avgConfidence,
       type: 'calculated',
       source: 'partial_scores'
     };
+
+    // Falls der Multi-Score-Dialog gerade angezeigt wird: Ergebnis sichtbar machen
+    if (typeof document !== 'undefined') {
+      const section = document.querySelector('.multi-score-detection-ui .total-score-section');
+      if (section) {
+        const valueEl = section.querySelector('.score-value');
+        const confEl = section.querySelector('.score-confidence');
+        const typeEl = section.querySelector('.score-type');
+        if (valueEl) valueEl.textContent = String(computed.score);
+        if (confEl) confEl.textContent = '(' + Math.round(avgConfidence * 100) + '%)';
+        if (typeEl) typeEl.textContent = 'berechnet';
+      }
+    }
+
+    return computed;
   }
   
   /**

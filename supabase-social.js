@@ -627,15 +627,20 @@
 
     var client = getClient();
     var user = getUser();
+    // Nur offene (oder bereits angenommene, fuer Idempotenz bei Doppel-Aufruf)
+    // Challenges akzeptieren — verhindert, dass abgelehnte/abgelaufene/fertige
+    // Challenges per Accept wieder "aufgeweckt" werden.
     var result = await client
       .from('async_challenges')
       .update({ status: 'accepted', accepted_at: new Date().toISOString() })
       .eq('id', challengeId)
       .eq('opponent_id', user.id)
+      .in('status', ['pending', 'accepted'])
       .select('*')
-      .single();
+      .maybeSingle();
 
     if (result.error) throw result.error;
+    if (!result.data) return { ok: false, reason: 'not-found' };
     return { ok: true, challenge: result.data };
   }
 
