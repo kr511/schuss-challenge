@@ -223,7 +223,9 @@ const AsyncChallenge = (function() {
 
     haptic('medium');
     const safeId = String(challengeId).replace(/['"\\]/g, '');
-    const button = document.querySelector('.challenge-accept-btn[onclick*="' + safeId + '"]');
+    const button = document.querySelector(
+      '.challenge-accept-btn[data-challenge-id="' + safeId + '"], .rr-btn.accept[data-challenge-id="' + safeId + '"]'
+    );
     setButtonBusy(button, true, 'Nehme an…');
     try {
       const result = await window.SupabaseSocial.acceptChallenge(challengeId);
@@ -550,6 +552,13 @@ const AsyncChallenge = (function() {
     // Verfügbare Challenges
     const availableContainer = document.getElementById('availableChallengesContainer');
     if (availableContainer) {
+      if (!availableContainer.dataset.acceptBound) {
+        availableContainer.dataset.acceptBound = '1';
+        availableContainer.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('.challenge-accept-btn[data-challenge-id]');
+          if (btn) acceptChallenge(btn.dataset.challengeId);
+        });
+      }
       if (state.availableChallenges.length === 0) {
         availableContainer.innerHTML = '<div class="challenges-empty">Keine verfügbaren Challenges</div>';
       } else {
@@ -559,7 +568,7 @@ const AsyncChallenge = (function() {
               <div class="challenge-from">${escapeHtml(ch.fromUsername || 'Spieler')}</div>
               <div class="challenge-details">${escapeHtml(ch.discipline || '-')} · ${escapeHtml(ch.difficulty || '-')}</div>
               <div class="challenge-time">${escapeHtml(formatTime(ch.createdAt))}</div>
-              <button class="challenge-accept-btn" onclick="AsyncChallenge.acceptChallenge('${escapeHtml(ch.challengeId)}')">
+              <button class="challenge-accept-btn" data-challenge-id="${escapeHtml(ch.challengeId)}">
                 ✓ Annehmen
               </button>
             </div>

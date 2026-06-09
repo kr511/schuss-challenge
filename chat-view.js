@@ -59,7 +59,11 @@
   }
 
   /* ─── Supabase ─── */
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   async function loadMessages(client, myId, friendId) {
+    // IDs werden unten in den or()-Filterstring interpoliert — nur echte UUIDs zulassen
+    if (!UUID_RE.test(String(myId)) || !UUID_RE.test(String(friendId))) return [];
     const filter = `and(sender_id.eq.${myId},receiver_id.eq.${friendId}),and(sender_id.eq.${friendId},receiver_id.eq.${myId})`;
     const { data, error } = await client
       .from('messages')

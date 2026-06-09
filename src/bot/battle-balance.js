@@ -1,3 +1,6 @@
+// ACHTUNG: BALANCE_TARGETS/DIFFICULTY_ORDER existieren auch in
+// src/bot/battleBalance.js (ES-Modul-Variante fuer src/main.js). Beide Quellen
+// muessen synchron bleiben — test_balance_consistency.mjs erzwingt das.
 (function (global) {
   'use strict';
 
