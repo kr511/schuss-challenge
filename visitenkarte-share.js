@@ -12,6 +12,34 @@
   'use strict';
 
   var PANEL_ID = 'visitenkarteSharePanel';
+  // Feature-Flag: Button standardmaessig UNSICHTBAR; share() bleibt nutzbar.
+  // Sichtbar machen: VisitenkarteShare.enableUI() bzw. Flag '1'.
+  var UI_FLAG_KEY = 'sd_ff_visitenkarte_ui';
+
+  function uiEnabled() {
+    try {
+      return root.localStorage && root.localStorage.getItem(UI_FLAG_KEY) === '1';
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function setUIEnabled(on) {
+    try {
+      if (on) root.localStorage.setItem(UI_FLAG_KEY, '1');
+      else root.localStorage.removeItem(UI_FLAG_KEY);
+    } catch (_e) { /* noop */ }
+    if (typeof document !== 'undefined') {
+      if (on) mount();
+      else unmountPanel();
+    }
+    return !!on;
+  }
+
+  function unmountPanel() {
+    var panel = document.getElementById(PANEL_ID);
+    if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+  }
 
   function toast(msg, type) {
     if (root.FriendsSystem && typeof root.FriendsSystem.showToast === 'function') {
@@ -84,6 +112,7 @@
   }
 
   function mount() {
+    if (!uiEnabled()) { unmountPanel(); return; }
     var dashboard = document.getElementById('premiumDashboard');
     if (!dashboard || document.getElementById(PANEL_ID)) return;
 
@@ -122,7 +151,13 @@
     }
   }
 
-  root.VisitenkarteShare = { share: share, mount: mount };
+  root.VisitenkarteShare = {
+    share: share,
+    mount: mount,
+    uiEnabled: uiEnabled,
+    enableUI: function () { return setUIEnabled(true); },
+    disableUI: function () { return setUIEnabled(false); }
+  };
 
   init();
 })(typeof window !== 'undefined' ? window : globalThis);

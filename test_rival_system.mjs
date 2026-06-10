@@ -133,5 +133,15 @@ win1.localStorage.setItem('sd_rival_state', '{kaputt');
 const R3 = loadModule({ localStorage: win1.localStorage });
 assert('Kaputter Storage -> leerer State', R3.pickRival(R3.getState(), NOW) === null);
 
+// ─── UI-Feature-Flag (Standard: aus) ───
+console.log('UI-Flag:');
+assert('Ohne Storage: UI aus', loadModule({}).uiEnabled() === false);
+const winFlag = { localStorage: makeFakeStorage() };
+const RF = loadModule(winFlag);
+assert('Default: UI aus', RF.uiEnabled() === false);
+assert('enableUI schaltet ein', RF.enableUI() === true && RF.uiEnabled() === true);
+assert('Flag liegt im Storage', winFlag.localStorage.getItem('sd_ff_rival_ui') === '1');
+assert('disableUI schaltet aus', RF.disableUI() === false && RF.uiEnabled() === false);
+
 console.log(`Summary: ${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

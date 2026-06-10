@@ -20,6 +20,9 @@
   'use strict';
 
   var STORAGE_KEY = 'sd_rival_state';
+  // Feature-Flag: UI ist standardmaessig UNSICHTBAR, die Logik (Tracking)
+  // laeuft trotzdem. Sichtbar machen: RivalSystem.enableUI() bzw. Flag '1'.
+  var UI_FLAG_KEY = 'sd_ff_rival_ui';
   var HISTORY_LIMIT = 10;
   var RECENT_WINDOW_MS = 14 * 24 * 60 * 60 * 1000; // 14 Tage
   var PANEL_ID = 'rivalSystemPanel';
@@ -211,6 +214,39 @@
     return next.pinned;
   }
 
+  // ─── Feature-Flag (UI aus, solange nicht freigeschaltet) ───
+
+  function uiEnabled() {
+    var storage = getStorage();
+    if (!storage) return false;
+    try {
+      return storage.getItem(UI_FLAG_KEY) === '1';
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function setUIEnabled(on) {
+    var storage = getStorage();
+    if (storage) {
+      try {
+        if (on) storage.setItem(UI_FLAG_KEY, '1');
+        else storage.removeItem(UI_FLAG_KEY);
+      } catch (_e) { /* noop */ }
+    }
+    if (hasDom()) {
+      if (on) render();
+      else unmountPanel();
+    }
+    return !!on;
+  }
+
+  function unmountPanel() {
+    if (!hasDom()) return;
+    var panel = document.getElementById(PANEL_ID);
+    if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+  }
+
   // ─── UI (nur im Browser) ───
 
   function hasDom() {
@@ -293,6 +329,7 @@
 
   function render() {
     if (!hasDom()) return;
+    if (!uiEnabled()) { unmountPanel(); return; }
     var dashboard = document.getElementById('premiumDashboard');
     if (!dashboard) return;
     addStyles();
@@ -418,7 +455,10 @@
     recordDuel: recordDuel,
     setRival: setRival,
     getState: getState,
-    render: render
+    render: render,
+    uiEnabled: uiEnabled,
+    enableUI: function () { return setUIEnabled(true); },
+    disableUI: function () { return setUIEnabled(false); }
   };
 
   init();
