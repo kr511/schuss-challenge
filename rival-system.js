@@ -49,7 +49,7 @@
   }
 
   function emptyState() {
-    return { byDifficulty: {} };
+    return { byDifficulty: {}, pinned: '' };
   }
 
   /**
@@ -63,7 +63,10 @@
     if (result !== 'win' && result !== 'loss' && result !== 'draw') return state;
 
     var ts = Number(now) || Date.now();
-    var next = { byDifficulty: {} };
+    var next = {
+      byDifficulty: {},
+      pinned: normalizeDifficulty(state && state.pinned) || ''
+    };
     var key;
     for (key in state.byDifficulty) {
       if (Object.prototype.hasOwnProperty.call(state.byDifficulty, key)) {
@@ -89,6 +92,7 @@
 
   /**
    * Waehlt den aktuellen Rivalen:
+   *  0. Manuell gepinnter Rivale (state.pinned) hat immer Vorrang.
    *  1. Unter den in den letzten 14 Tagen gespielten Schwierigkeiten die mit
    *     der schlechtesten Bilanz (losses - wins maximal).
    *  2. Gleichstand -> zuletzt gespielte.
@@ -96,6 +100,8 @@
    *  4. Nie gespielt -> null.
    */
   function pickRival(state, now) {
+    var pinned = normalizeDifficulty(state && state.pinned);
+    if (pinned) return pinned;
     var ts = Number(now) || Date.now();
     var best = null;
     var bestScore = -Infinity;
@@ -144,6 +150,7 @@
         return emptyState();
       }
       var clean = emptyState();
+      clean.pinned = normalizeDifficulty(parsed.pinned) || '';
       for (var i = 0; i < DIFFICULTIES.length; i++) {
         var diff = DIFFICULTIES[i];
         var t = parsed.byDifficulty[diff];
@@ -190,6 +197,20 @@
     return JSON.parse(JSON.stringify(loadState()));
   }
 
+  /**
+   * Pinnt einen Rivalen manuell (oder null/'' fuer Automatik).
+   */
+  function setRival(value) {
+    var state = loadState();
+    var next = {
+      byDifficulty: state.byDifficulty,
+      pinned: normalizeDifficulty(value) || ''
+    };
+    saveState(next);
+    if (hasDom()) render();
+    return next.pinned;
+  }
+
   // ─── UI (nur im Browser) ───
 
   function hasDom() {
@@ -221,12 +242,22 @@
       '#' + PANEL_ID + ' .rv-cta{margin-left:auto;flex-shrink:0;background:rgba(255,77,77,.85);color:#fff;border:none;',
       'border-radius:12px;padding:10px 14px;font-weight:800;font-size:.78rem;cursor:pointer}',
       '#' + PANEL_ID + ' .rv-cta:active{transform:scale(.96)}',
-      '#' + PANEL_ID + ' .rv-head{font-size:1.05rem;font-weight:800;color:#fff;margin:0 0 10px 0}'
+      '#' + PANEL_ID + ' .rv-head{font-size:1.05rem;font-weight:800;color:#fff;margin:0 0 10px 0;display:flex;align-items:center;justify-content:space-between;gap:10px}',
+      '#' + PANEL_ID + ' .rv-change{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.7);',
+      'border-radius:999px;padding:4px 12px;font-size:.68rem;font-weight:700;cursor:pointer}',
+      '#' + PANEL_ID + ' .rv-chooser{margin-top:8px;display:flex;flex-direction:column;gap:6px}',
+      '#' + PANEL_ID + ' .rv-choice{text-align:left;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#fff;',
+      'border-radius:12px;padding:10px 12px;font-size:.78rem;font-weight:700;cursor:pointer;display:flex;justify-content:space-between;gap:10px}',
+      '#' + PANEL_ID + ' .rv-choice .rv-choice-stats{color:rgba(255,255,255,.45);font-weight:600}',
+      '#' + PANEL_ID + ' .rv-choice.active{border-color:rgba(255,215,130,.5);background:rgba(255,215,130,.10);color:#ffd782}'
     ].join('');
     document.head.appendChild(style);
   }
 
-  function tauntFor(tally) {
+  function tauntFor(tally, rivalName) {
+    if (tally.wins + tally.losses + tally.draws === 0) {
+      return 'Noch kein Duell — fordere ' + rivalName + ' heraus!';
+    }
     var lead = tally.wins - tally.losses;
     if (lead > 0) return 'Du führst — verteidige deinen Vorsprung!';
     if (lead < 0) return 'Zeit für Revanche!';
@@ -277,31 +308,42 @@
 
     var state = loadState();
     var diff = pickRival(state, Date.now());
+    var head =
+      '<div class="rv-head"><span>🥊 Dein Rivale</span>' +
+      '<button class="rv-change" type="button" data-rv-action="toggle-chooser">' +
+      (chooserOpen ? 'schließen' : 'ändern') + '</button></div>';
 
     if (!diff) {
-      panel.innerHTML =
-        '<div class="rv-head">🥊 Dein Rivale</div>' +
+      panel.innerHTML = head +
         '<div class="rv-card">' +
           '<div class="rv-icon">❓</div>' +
           '<div><div class="rv-name">Noch kein Rivale</div>' +
-          '<div class="rv-sub">Spiel ein Duell gegen den Bot — wer dich schlägt, wird dein Rivale.</div></div>' +
+          '<div class="rv-sub">Spiel ein Duell — oder wähle über „ändern" selbst einen Rivalen.</div></div>' +
           '<button class="rv-cta" type="button" data-rv-action="start">Duell starten</button>' +
-        '</div>';
+        '</div>' +
+        (chooserOpen ? chooserHtml(state) : '');
     } else {
       var rival = RIVALS[diff];
-      var tally = state.byDifficulty[diff];
-      panel.innerHTML =
-        '<div class="rv-head">🥊 Dein Rivale</div>' +
+      var tally = state.byDifficulty[diff] || emptyTally();
+      var hasGames = tally.wins + tally.losses + tally.draws > 0;
+      panel.innerHTML = head +
         '<div class="rv-card">' +
           '<div class="rv-icon">' + esc(rival.icon) + '</div>' +
           '<div style="min-width:0">' +
-            '<div class="rv-name">' + esc(rival.name) + ' <span style="font-weight:600;color:rgba(255,255,255,.45)">· ' + esc(rival.label) + '</span></div>' +
-            '<div class="rv-sub">Bilanz <b style="color:#4ade80">' + tally.wins + 'S</b> : <b style="color:#f87171">' + tally.losses + 'N</b>' +
-              (tally.draws ? ' : ' + tally.draws + 'U' : '') + ' — ' + esc(tauntFor(tally)) + '</div>' +
+            '<div class="rv-name">' + esc(rival.name) + ' <span style="font-weight:600;color:rgba(255,255,255,.45)">· ' + esc(rival.label) + '</span>' +
+              (state.pinned ? ' <span title="Manuell gewählt">📌</span>' : '') + '</div>' +
+            '<div class="rv-sub">' +
+              (hasGames
+                ? 'Bilanz <b style="color:#4ade80">' + tally.wins + 'S</b> : <b style="color:#f87171">' + tally.losses + 'N</b>' +
+                  (tally.draws ? ' : ' + tally.draws + 'U' : '') + ' — '
+                : '') +
+              esc(tauntFor(tally, rival.name)) + '</div>' +
             '<div class="rv-dots">' + dotsFor(tally) + '</div>' +
           '</div>' +
-          '<button class="rv-cta" type="button" data-rv-action="revanche" data-rv-diff="' + esc(diff) + '" data-rv-disc="' + esc(tally.lastDiscipline) + '">Revanche</button>' +
-        '</div>';
+          '<button class="rv-cta" type="button" data-rv-action="revanche" data-rv-diff="' + esc(diff) + '" data-rv-disc="' + esc(tally.lastDiscipline) + '">' +
+            (hasGames ? 'Revanche' : 'Herausfordern') + '</button>' +
+        '</div>' +
+        (chooserOpen ? chooserHtml(state) : '');
     }
 
     if (!panel.dataset.rvBound) {
@@ -309,10 +351,35 @@
       panel.addEventListener('click', function (ev) {
         var btn = ev.target.closest('[data-rv-action]');
         if (!btn) return;
-        startRevanche(btn.dataset.rvDiff || 'real', btn.dataset.rvDisc || '');
+        var action = btn.dataset.rvAction;
+        if (action === 'toggle-chooser') {
+          chooserOpen = !chooserOpen;
+          render();
+        } else if (action === 'pick') {
+          chooserOpen = false;
+          setRival(btn.dataset.rvPick || null);
+        } else {
+          startRevanche(btn.dataset.rvDiff || 'real', btn.dataset.rvDisc || '');
+        }
       });
     }
   }
+
+  function chooserHtml(state) {
+    var rows = '<button class="rv-choice' + (state.pinned ? '' : ' active') + '" type="button" data-rv-action="pick" data-rv-pick="">' +
+      '<span>🤖 Automatisch</span><span class="rv-choice-stats">schwächste Bilanz</span></button>';
+    for (var i = 0; i < DIFFICULTIES.length; i++) {
+      var d = DIFFICULTIES[i];
+      var r = RIVALS[d];
+      var t = state.byDifficulty[d] || emptyTally();
+      rows += '<button class="rv-choice' + (state.pinned === d ? ' active' : '') + '" type="button" data-rv-action="pick" data-rv-pick="' + esc(d) + '">' +
+        '<span>' + esc(r.icon) + ' ' + esc(r.name) + ' · ' + esc(r.label) + '</span>' +
+        '<span class="rv-choice-stats">' + t.wins + 'S : ' + t.losses + 'N</span></button>';
+    }
+    return '<div class="rv-chooser">' + rows + '</div>';
+  }
+
+  var chooserOpen = false;
 
   var renderQueued = false;
   function scheduleRender() {
@@ -349,6 +416,7 @@
     applyDuel: applyDuel,
     pickRival: pickRival,
     recordDuel: recordDuel,
+    setRival: setRival,
     getState: getState,
     render: render
   };

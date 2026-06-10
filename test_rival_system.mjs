@@ -94,6 +94,26 @@ let leading = { byDifficulty: {} };
 leading = Rival.applyDuel(leading, { result: 'win', difficulty: 'real' }, NOW - DAY);
 assert('Nur Siege -> trotzdem Rivale (real)', Rival.pickRival(leading, NOW) === 'real');
 
+// ─── Manuell gepinnter Rivale ───
+console.log('setRival/pinned:');
+let pinState = { byDifficulty: {}, pinned: 'easy' };
+pinState = Rival.applyDuel(pinState, { result: 'loss', difficulty: 'hard' }, NOW - DAY);
+assert('Pinned schlaegt schlechteste Bilanz', Rival.pickRival(pinState, NOW) === 'easy');
+assert('applyDuel erhaelt pinned', pinState.pinned === 'easy');
+assert('Pinned ohne Spiele -> trotzdem gewaehlt',
+  Rival.pickRival({ byDifficulty: {}, pinned: 'elite' }, NOW) === 'elite');
+assert('Ungueltiges pinned -> Automatik',
+  Rival.pickRival({ byDifficulty: {}, pinned: 'quatsch' }, NOW) === null);
+
+const winPin = { localStorage: makeFakeStorage() };
+const RP = loadModule(winPin);
+assert("setRival('hard') -> 'hard'", RP.setRival('hard') === 'hard');
+assert('setRival persistiert', RP.getState().pinned === 'hard');
+assert('setRival(null) -> Automatik', RP.setRival(null) === '' && RP.getState().pinned === '');
+RP.recordDuel({ result: 'win', difficulty: 'easy' });
+RP.setRival('elite');
+assert('Bilanz bleibt beim Pinnen erhalten', RP.getState().byDifficulty.easy.wins === 1);
+
 // ─── recordDuel + Storage-Roundtrip ───
 console.log('recordDuel/Storage:');
 const win1 = { localStorage: makeFakeStorage() };
