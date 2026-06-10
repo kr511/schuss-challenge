@@ -48,7 +48,9 @@ const SocialSystem = (function() {
    * Sucht nach einem Schützen via Name
    */
   async function findUser(name) {
-    const query = String(name || '').trim();
+    // %,() wuerden den or()-Filterstring brechen — gleiche Sanitisierung wie
+    // searchProfiles in supabase-social.js
+    const query = String(name || '').replace(/[%,()]/g, ' ').trim().slice(0, 40);
     if (!query) return null;
 
     const client = window.SupabaseAuth?.client || window.SupabaseClient?.client || window.supabaseClient || null;

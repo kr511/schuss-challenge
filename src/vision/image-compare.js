@@ -1779,9 +1779,23 @@ window.ImageCompare = (function () {
         return null;
       }
 
+      // Teil-Scores (Serien/Positionen) mitnehmen: sichtbar in der
+      // Versuchs-Zusammenfassung und als Daten fuer die Korrektur-UI.
+      const partialScores = Array.isArray(result.regions)
+        ? result.regions
+            .filter(r => r && r.region
+              && ['partial_score', 'position_score', 'series_score'].includes(r.region.type)
+              && Number.isFinite(Number(r.score)))
+            .map(r => Number(r.score))
+        : [];
+      const partialSuffix = partialScores.length >= 2
+        ? ` (Teil-Scores: ${partialScores.join(' + ')})`
+        : '';
+
       return {
         pass: { name: 'Multi-Score Detection', options: { cropKey: 'full' } },
-        rawText: `MultiScore=${result.totalScore.score}`,
+        partialScores,
+        rawText: `MultiScore=${result.totalScore.score}${partialSuffix}`,
         parsed: {
           bestMatch: {
             value: Number(result.totalScore.score),

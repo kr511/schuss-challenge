@@ -1,3 +1,6 @@
+// ACHTUNG: BALANCE_TARGETS/DIFFICULTY_ORDER existieren auch in
+// src/bot/battle-balance.js (IIFE-Variante fuer index.html). Beide Quellen
+// muessen synchron bleiben — test_balance_consistency.mjs erzwingt das.
 export const DIFFICULTY_ORDER = Object.freeze(['easy', 'real', 'hard', 'elite']);
 
 export const BALANCE_TARGETS = Object.freeze({

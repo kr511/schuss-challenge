@@ -411,6 +411,16 @@
 
     const inEl = document.getElementById('incomingInvitations');
     if (inEl) {
+      if (!inEl.dataset.acceptBound) {
+        inEl.dataset.acceptBound = '1';
+        inEl.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('.rr-btn.accept[data-challenge-id]');
+          if (!btn) return;
+          if (window.AsyncChallenge && typeof window.AsyncChallenge.acceptChallenge === 'function') {
+            window.AsyncChallenge.acceptChallenge(btn.dataset.challengeId);
+          }
+        });
+      }
       if (incoming.length === 0) {
         inEl.innerHTML = '<div class="empty-state" style="padding:24px 16px;"><div class="empty-state-icon">📥</div><div>Keine eingehenden Einladungen</div><div style="font-size:0.7rem;color:rgba(255,255,255,0.25);margin-top:4px;">Wenn Freunde dich herausfordern, erscheint es hier</div></div>';
       } else {
@@ -439,7 +449,7 @@
     const date = formatDate(c.createdAt || c.timestamp);
     const id = escapeHtml(String(c.id || c.challengeId || ''));
     const action = type === 'incoming'
-      ? `<button class="rr-btn accept" onclick="if(window.AsyncChallenge)AsyncChallenge.acceptChallenge('${id}')">Annehmen</button>`
+      ? `<button class="rr-btn accept" data-challenge-id="${id}">Annehmen</button>`
       : `<span style="font-size:0.7rem;color:rgba(255,255,255,0.3);">Wartet auf Antwort</span>`;
     return `<div class="request-row">
       <div class="rr-avatar">⚔️</div>
