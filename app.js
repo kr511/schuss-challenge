@@ -4634,6 +4634,17 @@ function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
       RewardSystem.trackGame(gameResult, G.diff, currentStreak);
     }
 
+    // Rivalen-System: Bilanz gegen die Bot-Persönlichkeit festhalten
+    if (typeof RivalSystem !== 'undefined') {
+      RivalSystem.recordDuel({
+        result: gameResult,
+        difficulty: G.diff,
+        discipline: G.discipline,
+        playerScore: pp,
+        botScore: bp
+      });
+    }
+
     // Quests nur bei echtem Ergebnis (OCR oder manuelle Eingabe) berechnen
     // Schnellauswahl (reason enthält 'Schnellauswahl') wird ignoriert
     const isQuickResult = reason && reason.includes('Schnellauswahl');
