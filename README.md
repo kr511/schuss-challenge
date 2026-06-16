@@ -6,7 +6,6 @@
 
 ## Was funktioniert heute?
 
-- **Schnelltraining**: 10 Schuss manuell eintragen, Gesamt, Durchschnitt, bester und schwächster Schuss. Speichert lokal unter `sd_quick_training_log` und synchronisiert optional mit Supabase.
 - **Challenges**: Async-/Freundes-Challenges über SupabaseSocial mit lokalem Fallback für Ergebnisse.
 - **Schussduell-Modus**: Bot-Duell für LG/KK mit manuellem Ergebnis und optionaler Foto-Beta-Unterstützung.
 - **Lokaler Modus**: Ohne Login spiel- und trainierbar. Lokale Daten laufen über `StorageManager`/`localStorage` mit `sd_`-Prefix.
@@ -25,7 +24,6 @@
 - `offline.html` wird bei Offline-Navigation durch den Service Worker ausgeliefert.
 - `/api/*`, Supabase-Hosts, `accounts.google.com` und `googleapis.com` werden nicht gecached.
 - Auth-Tokens und sensible Supabase-Daten dürfen nicht im Cache landen.
-- Schnelltraining bleibt offline nutzbar; ausstehende Einträge werden bei Login und Verbindung synchronisiert.
 
 ## Supabase
 
@@ -73,8 +71,7 @@ Hinweis: `npm run dev` startet Wrangler mit Worker und statischen Assets auf `ht
 
 ## Offline-first aktuell
 
-- Schnelltraining (`sd_quick_training_log`, optionaler Supabase-Sync)
-- Gastmodus und lokale Basis-Historie
+- Gastmodus und lokale Duell-/Basis-Historie
 - Lokaler Challenge-Ergebnis-Fallback (`sd_friend_challenge_results`)
 - Teile von XP/Streak/Trainingshistorie, wenn kein Supabase-Login aktiv ist
 

@@ -59,20 +59,15 @@
   function getOwnStats() {
     const stats = { avgRinge: null, trainings: 0, duelsWon: 0, streak: 0 };
     try {
-      const raw = localStorage.getItem('sd_quick_training_log');
-      const sessions = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(sessions) && sessions.length) {
-        stats.trainings = sessions.length;
-        const avgs = sessions.map(s => Number(s && s.avg)).filter(v => Number.isFinite(v) && v > 0);
-        if (avgs.length) stats.avgRinge = avgs.reduce((a, b) => a + b, 0) / avgs.length;
-      }
-    } catch (_e) { /* ignore */ }
-
-    try {
       const raw = localStorage.getItem('sd_history');
       const hist = raw ? JSON.parse(raw) : [];
       if (Array.isArray(hist)) {
+        stats.trainings = hist.length;
         stats.duelsWon = hist.filter(h => h && (h.won === true || h.result === 'win')).length;
+        const scores = hist
+          .map(h => Number(h && (h.playerPts ?? h.playerScore ?? h.score)))
+          .filter(v => Number.isFinite(v) && v > 0);
+        if (scores.length) stats.avgRinge = scores.reduce((a, b) => a + b, 0) / scores.length;
       }
     } catch (_e) { /* ignore */ }
 
@@ -87,8 +82,7 @@
 
     return stats;
   }
-
-  /* ─── Render helpers ─── */
+  /* --- Render helpers --- */
   function renderHeader() {
     return (
       '<div class="fp-header">' +

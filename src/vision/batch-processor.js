@@ -2,15 +2,13 @@
  * Batch Processor
  *
  * Verarbeitet mehrere Foto-Dateien parallel: Quality-Check -> Auto-Correct ->
- * OCR. Stellt zudem eine UI bereit, mit der die Ergebnisse editiert und in
- * den Schnelltraining-Verlauf uebernommen werden koennen.
+ * OCR. Stellt zudem eine UI bereit, mit der die Ergebnisse editiert und als
+ * OCR-Feedback gespeichert werden koennen.
  */
 window.BatchProcessor = (function () {
   'use strict';
 
   const MAX_PARALLEL = 10;
-  const STORAGE_KEY = 'sd_quick_training_log';
-  const QT_HISTORY_LIMIT = 50;
   const STYLE_TAG_ID = 'sd-batch-processor-styles';
 
   function fileToImage(file) {
@@ -221,70 +219,6 @@ window.BatchProcessor = (function () {
       .replace(/'/g, '&#39;');
   }
 
-  function readQuickTrainingHistory() {
-    try {
-      const ls = window.localStorage;
-      if (!ls) return [];
-      const raw = ls.getItem(STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (_e) {
-      return [];
-    }
-  }
-
-  function writeQuickTrainingHistory(history) {
-    try {
-      const ls = window.localStorage;
-      if (!ls) return false;
-      const trimmed = history.slice(-QT_HISTORY_LIMIT);
-      ls.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-      return true;
-    } catch (err) {
-      console.warn('[BatchProcessor] QuickTraining-Speicherung fehlgeschlagen:', err);
-      return false;
-    }
-  }
-
-  function newLocalId() {
-    const ts = Date.now().toString(36);
-    const rnd = Math.random().toString(36).slice(2, 8);
-    return 'qt_' + ts + '_' + rnd;
-  }
-
-  function persistAsQuickTraining(scores, isKK) {
-    const values = scores.filter((v) => Number.isFinite(v));
-    if (!values.length) return false;
-    const total = values.reduce((sum, v) => sum + v, 0);
-    const avg = total / values.length;
-    const best = Math.max.apply(null, values);
-    const worst = Math.min.apply(null, values);
-    const entry = {
-      local_id: newLocalId(),
-      completed_at: new Date().toISOString(),
-      discipline: isKK ? 'kk' : 'lg',
-      shots: values,
-      total,
-      avg,
-      best,
-      worst,
-      count: values.length,
-      syncStatus: 'local',
-      remote_session_id: null,
-      source: 'batch_ocr',
-    };
-    const history = readQuickTrainingHistory();
-    history.push(entry);
-    const ok = writeQuickTrainingHistory(history);
-    if (ok) {
-      try {
-        window.dispatchEvent(new CustomEvent('quickTrainingSaved', { detail: { entry, saved: true } }));
-      } catch (_e) { /* noop */ }
-    }
-    return ok;
-  }
-
   function renderResultsTable(results) {
     const rows = results.map((r, idx) => {
       const display = r.score === null ? '' : (Number.isInteger(r.score) ? String(r.score) : Number(r.score).toFixed(1));
@@ -310,7 +244,6 @@ window.BatchProcessor = (function () {
 
   async function openBatchUI(fileList) {
     injectStyles();
-    const isKK = detectIsKK();
 
     const overlay = document.createElement('div');
     overlay.className = 'sd-batch-overlay';
@@ -318,7 +251,7 @@ window.BatchProcessor = (function () {
       + '<div class="sd-batch-head"><h3>Batch-Foto Auswertung</h3><button class="sd-batch-close" type="button" aria-label="Schliessen">&times;</button></div>'
       + '<div class="sd-batch-body" data-batch-body><div class="sd-batch-status">Verarbeite ' + Math.min(MAX_PARALLEL, (fileList && fileList.length) || 0) + ' Foto(s)...</div></div>'
       + '<div class="sd-batch-foot"><button class="sd-batch-btn sd-batch-btn-secondary" data-batch-cancel type="button">Abbrechen</button>'
-      + '<button class="sd-batch-btn sd-batch-btn-primary" data-batch-apply type="button" disabled>Alle uebernehmen</button></div>'
+      + '<button class="sd-batch-btn sd-batch-btn-primary" data-batch-apply type="button" disabled>Feedback speichern</button></div>'
       + '</div>';
     document.body.appendChild(overlay);
 
@@ -368,8 +301,7 @@ window.BatchProcessor = (function () {
     applyBtn.addEventListener('click', () => {
       const finalScores = editedScores.filter((v) => Number.isFinite(v));
       if (!finalScores.length) return;
-      const ok = persistAsQuickTraining(finalScores, isKK);
-      if (ok && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
         try { navigator.vibrate([10, 30, 10]); } catch (_e) { /* noop */ }
       }
       results.forEach((r, idx) => {

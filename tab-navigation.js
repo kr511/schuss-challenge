@@ -167,7 +167,7 @@
   }
 
   function getTodayBestAvg() {
-    const sessions = getQuickTrainingSessions();
+    const sessions = getTrainingSessions();
     const today = new Date().toDateString();
     const todaySessions = sessions.filter(s => {
       return new Date(s.date || s.timestamp || 0).toDateString() === today;
@@ -216,7 +216,7 @@
   }
 
   function refreshStartStats() {
-    const sessions = getQuickTrainingSessions();
+    const sessions = getTrainingSessions();
     const weekSessions = sessions.filter(s => {
       const d = new Date(s.date || s.timestamp || 0);
       const now = new Date();
@@ -238,7 +238,7 @@
   }
 
   function refreshLastTraining() {
-    const sessions = getQuickTrainingSessions();
+    const sessions = getTrainingSessions();
     const container = document.getElementById('lastTrainingContainer');
     if (!container) return;
 
@@ -276,7 +276,7 @@
   }
 
   function refreshTrainingTab() {
-    const sessions = getQuickTrainingSessions();
+    const sessions = getTrainingSessions();
     const filtered = getFilteredSessions(sessions);
     refreshTrainingStats(filtered);
     refreshTrainingList(filtered);
@@ -586,7 +586,7 @@
     }
 
     /* Own stats for the 3 remaining tiles */
-    const ownSessions = getQuickTrainingSessions();
+    const ownSessions = getTrainingSessions();
     const ownWeek = ownSessions.filter(s => (Date.now() - new Date(s.date || s.timestamp || 0)) < 7*24*3600*1000);
     const statEl = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
     statEl('fStatTrainings', ownWeek.length);
@@ -729,7 +729,7 @@
     }
 
     /* Training stats */
-    const sessions = getQuickTrainingSessions();
+    const sessions = getTrainingSessions();
     const avg = sessions.length > 0 ? (sessions.reduce((a,s)=>a+(s.avg||0),0)/sessions.length).toFixed(1) : '–';
     const setEl = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
     setEl('ptStatTrainings', sessions.length);
@@ -807,14 +807,53 @@
   }
 
   /* ── Helpers ── */
-  function getQuickTrainingSessions() {
+  function getTrainingSessions() {
     try {
-      if (window.QuickTraining && typeof window.QuickTraining.readHistory === 'function') {
-        return window.QuickTraining.readHistory() || [];
-      }
-      const raw = localStorage.getItem('sd_quick_training_log') || '[]';
-      return JSON.parse(raw) || [];
+      const raw = localStorage.getItem('sd_history') || '[]';
+      const history = JSON.parse(raw);
+      if (!Array.isArray(history)) return [];
+      return history
+        .map(normalizeHistoryTraining)
+        .filter(Boolean)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     } catch(e) { return []; }
+  }
+
+  function normalizeHistoryTraining(entry) {
+    if (!entry || typeof entry !== 'object') return null;
+    const score = Number(entry.playerPts ?? entry.playerScore ?? entry.score ?? entry.total);
+    if (!Number.isFinite(score) || score <= 0) return null;
+    const timestamp = Number(entry.timestamp) || Date.parse(entry.date || entry.completed_at || '') || 0;
+    const weaponText = String(entry.weapon || entry.weaponType || entry.discipline || entry.disciplineName || '').toLowerCase();
+    const weapon = (weaponText.includes('kk') || weaponText.includes('kleinkaliber')) ? 'kk' : 'lg';
+    const disciplineLabel = entry.disciplineName
+      || entry.discipline
+      || (weapon === 'kk' ? 'Kleinkaliber' : 'Luftgewehr');
+    const shots = getHistoryShotCount(entry, weapon);
+    return {
+      id: entry.id || String(timestamp || Date.now()),
+      timestamp,
+      date: timestamp || entry.date || entry.completed_at,
+      discipline: disciplineLabel,
+      weapon,
+      total: score,
+      avg: score,
+      best: score,
+      max: score,
+      count: shots,
+      shots,
+      result: entry.result || '',
+      source: 'duel_history',
+    };
+  }
+
+  function getHistoryShotCount(entry, weapon) {
+    if (Array.isArray(entry.shots)) return entry.shots.length;
+    const direct = Number(entry.shots || entry.count || entry.shotsCount || entry.maxShots);
+    if (Number.isFinite(direct) && direct > 0) return direct;
+    const d = String(entry.discipline || entry.disciplineName || '').toLowerCase();
+    if (d.includes('60') || d.includes('kk50') || d.includes('kk100') || d.includes('3x20')) return 60;
+    return weapon === 'kk' ? 60 : 40;
   }
 
   function formatDate(d) {

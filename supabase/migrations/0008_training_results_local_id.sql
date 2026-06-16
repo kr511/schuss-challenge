@@ -1,12 +1,11 @@
--- Schuss Challenge: Quick-Training Sync-Härtung.
--- Additive Migration. Idempotent ausführbar.
+-- Schuss Challenge: Training-Result local_id.
+-- Additive Migration. Idempotent ausfuehrbar.
 --
--- Ziel: Dedup beim Sync von lokal erfassten Quick-Training-Einträgen
--- (src/features/quick-training.js) erfolgt künftig über eine echte Spalte
--- training_results.local_id statt über einen notes-Marker (LIKE 'qt:<id>').
+-- Ziel: Dedup beim Sync lokal erzeugter Trainingsergebnisse ueber
+-- training_results.local_id statt ueber notes-Marker.
 --
--- 1) Spalte training_results.local_id hinzufügen (nullbar, Backfill nicht nötig).
--- 2) Partieller UNIQUE-Index auf (user_id, local_id) für not-null-Werte —
+-- 1) Spalte training_results.local_id hinzufuegen (nullbar, Backfill nicht noetig).
+-- 2) Partieller UNIQUE-Index auf (user_id, local_id) fuer not-null-Werte -
 --    so bleiben bestehende Zeilen ohne local_id erlaubt, neue Inserts mit
 --    local_id sind pro User eindeutig.
 

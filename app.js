@@ -2221,14 +2221,9 @@ const SUN_ACHIEVEMENTS = [
   { id: 'one_hundred_games', group: 'master', icon: '💯', name: 'Hundert Duelle', desc: '100 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 100 },
   { id: 'xp_2000', group: 'master', icon: '💫', name: 'Legende', desc: '2000 XP – Legendenstatus', check: () => G.xp >= 2000 },
   { id: 'xp_5000', group: 'master', icon: '👑', name: 'König', desc: '5000 XP – Wahre Größe', check: () => G.xp >= 5000 },
-  // Erste Schritte & Training
+  // Erste Schritte
   { id: 'first_kk', group: 'basic', icon: '🎯', name: 'KK-Premiere', desc: 'Erstes Kleinkaliber-Duell gespielt', check: () => (loadWeaponStats('kk').wins || 0) + (loadWeaponStats('kk').losses || 0) + (loadWeaponStats('kk').draws || 0) >= 1 },
-  { id: 'first_training', group: 'basic', icon: '📋', name: 'Trainingsstart', desc: 'Erstes Schnelltraining abgeschlossen', check: () => StorageManager.get('quick_training_log', []).length >= 1 },
-  { id: 'training_5', group: 'basic', icon: '💪', name: 'Fleißiger Schütze', desc: '5 Schnelltrainings absolviert', check: () => StorageManager.get('quick_training_log', []).length >= 5 },
-  { id: 'training_both', group: 'basic', icon: '⚔️', name: 'Trainings-Allrounder', desc: 'LG und KK trainiert', check: () => { const l = StorageManager.get('quick_training_log', []); return l.some(e => e.discipline === 'lg') && l.some(e => e.discipline === 'kk'); } },
-  // Training & Score-Meilensteine (battle)
-  { id: 'training_20', group: 'battle', icon: '🏋️', name: 'Trainingsprofi', desc: '20 Schnelltrainings absolviert', check: () => StorageManager.get('quick_training_log', []).length >= 20 },
-  { id: 'training_95', group: 'battle', icon: '🎖️', name: 'Perfekte Serie', desc: 'LG Training: 95+ Ringe (10 Schuss)', check: () => StorageManager.get('quick_training_log', []).some(e => e.discipline === 'lg' && Number(e.total) >= 95) },
+  // Score-Meilensteine (battle)
   { id: 'score_lg_380', group: 'battle', icon: '🏅', name: 'Scharfschütze', desc: 'LG-Duell: 380+ Ringe erzielt', check: () => StorageManager.get('history', []).some(h => h.weapon === 'lg' && parseFloat(h.playerPts) >= 380) },
   { id: 'xp_300', group: 'battle', icon: '📈', name: 'Fortgeschrittener', desc: 'Rang Fortgeschr. erreicht (300 XP)', check: () => G.xp >= 300 },
   // Score-Meilensteine (master)
@@ -5044,10 +5039,6 @@ refreshDebugToolsVisibility();
 
 checkSunAchievements(); // Check on load in case new achievements unlocked
 
-// Training-Erfolge nach jedem gespeicherten Schnelltraining prüfen
-window.addEventListener('quickTrainingSaved', function() {
-  checkSunAchievements();
-});
 
 // NEU: Fallback-System zuerst initialisieren
 if (typeof FeatureFallback !== 'undefined') {
