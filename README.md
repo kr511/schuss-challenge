@@ -6,8 +6,8 @@
 
 ## Was funktioniert heute?
 
-- **Schnelltraining**: 10 Schuss manuell eintragen, Gesamt, Durchschnitt, bester und schwächster Schuss. Speichert lokal unter `sd_quick_training_log`.
-- **Trainings-Challenges**: statische Trainingsaufgaben mit Kategorie, Schwierigkeit, Dauer, Material, Ablauf, Erfolgskriterium und sichtbaren Sicherheitshinweisen.
+- **Schnelltraining**: 10 Schuss manuell eintragen, Gesamt, Durchschnitt, bester und schwächster Schuss. Speichert lokal unter `sd_quick_training_log` und synchronisiert optional mit Supabase.
+- **Challenges**: Async-/Freundes-Challenges über SupabaseSocial mit lokalem Fallback für Ergebnisse.
 - **Schussduell-Modus**: Bot-Duell für LG/KK mit manuellem Ergebnis und optionaler Foto-Beta-Unterstützung.
 - **Lokaler Modus**: Ohne Login spiel- und trainierbar. Lokale Daten laufen über `StorageManager`/`localStorage` mit `sd_`-Prefix.
 - **Optionale Online-Funktionen**: Supabase-Login, Freunde, Async-Challenges, Profile und Ranglisten, wenn Supabase konfiguriert und erreichbar ist.
@@ -25,7 +25,7 @@
 - `offline.html` wird bei Offline-Navigation durch den Service Worker ausgeliefert.
 - `/api/*`, Supabase-Hosts, `accounts.google.com` und `googleapis.com` werden nicht gecached.
 - Auth-Tokens und sensible Supabase-Daten dürfen nicht im Cache landen.
-- Quick Training speichert aktuell lokal; Supabase-Sync ist nächster Schritt.
+- Schnelltraining bleibt offline nutzbar; ausstehende Einträge werden bei Login und Verbindung synchronisiert.
 
 ## Supabase
 
@@ -40,19 +40,14 @@ Config-Reihenfolge im Frontend:
 
 Fehlt Supabase oder ist es offline, muss der lokale Modus weiter funktionieren.
 
-## Challenges
+## Challenge-/Duell-Funktionen
 
-- Daten: [`src/data/shooter-challenges.js`](src/data/shooter-challenges.js)
-- UI und Completion-Flow: [`src/features/shooter-challenges-ui.js`](src/features/shooter-challenges-ui.js)
-- Optionales Supabase-Schema: [`supabase/migrations/0007_shooter_challenges.sql`](supabase/migrations/0007_shooter_challenges.sql)
+- Async-Challenges: [`src/features/async-challenge.js`](src/features/async-challenge.js)
+- Freundes-Challenges: [`friend-challenges.js`](friend-challenges.js)
+- Supabase Social-Basis: [`supabase/schema-social.sql`](supabase/schema-social.sql)
+- Optionale Trainings-Challenge-Tabellen: [`supabase/migrations/0007_shooter_challenges.sql`](supabase/migrations/0007_shooter_challenges.sql)
 
-Abschluss-Speicherreihenfolge:
-
-1. Supabase `challenge_completions`, wenn User eingeloggt ist und die Tabelle verfügbar ist.
-2. Sonst lokaler Fallback unter `sd_shooter_challenge_completions`.
-3. Wenn weder Supabase noch lokales Speichern klappt, wird kein Erfolg gemeldet.
-
-Mehrfachabschluss am selben Tag überschreibt den lokalen Tagesabschluss statt zu duplizieren.
+Async-Ergebnisse laufen online über Supabase und fallen lokal auf `sd_friend_challenge_results` zurück.
 
 ## Foto-Modell aktualisieren
 
@@ -76,11 +71,11 @@ node test_xss_direct.mjs
 
 Hinweis: `npm run dev` startet Wrangler mit Worker und statischen Assets auf `http://localhost:8787`.
 
-## Lokal-only aktuell
+## Offline-first aktuell
 
-- Quick Training (`sd_quick_training_log`)
+- Schnelltraining (`sd_quick_training_log`, optionaler Supabase-Sync)
 - Gastmodus und lokale Basis-Historie
-- Lokaler Challenge-Fallback (`sd_shooter_challenge_completions`)
+- Lokaler Challenge-Ergebnis-Fallback (`sd_friend_challenge_results`)
 - Teile von XP/Streak/Trainingshistorie, wenn kein Supabase-Login aktiv ist
 
 ## Supabase-Migrationen
