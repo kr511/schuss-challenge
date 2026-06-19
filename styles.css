@@ -8157,17 +8157,43 @@ body.keyboard-visible .bottom-sheet {
 }
 
 .duo-photo-btn {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  padding: 12px;
-  background: linear-gradient(135deg, #1cb0f6, #0d8ecf);
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #1cb0f6 0%, #0a7abf 100%);
   color: #fff;
   border: none;
-  border-radius: 10px;
+  border-radius: 14px;
   font-weight: 700;
   font-size: 0.95rem;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  margin-top: 10px;
+  margin-top: 12px;
   text-align: center;
   box-sizing: border-box;
+  box-shadow: 0 4px 16px rgba(28, 176, 246, 0.35), 0 1px 0 rgba(255,255,255,0.12) inset;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  position: relative;
+  overflow: hidden;
+}
+.duo-photo-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 60%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.duo-photo-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(28, 176, 246, 0.25);
+}
+.duo-photo-btn:hover:not(:active) {
+  background: linear-gradient(135deg, #27bcff 0%, #0e8fd4 100%);
+  box-shadow: 0 6px 20px rgba(28, 176, 246, 0.45), 0 1px 0 rgba(255,255,255,0.12) inset;
 }

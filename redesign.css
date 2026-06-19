@@ -209,12 +209,14 @@ body.game-screen-active .bottom-nav { display: none !important; }
   width: 100%;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 .tab-panel {
   display: none;
   flex-direction: column;
   width: 100%;
-  min-height: calc(100dvh - var(--nav-total));
+  height: 100%;
+  min-height: 0;
   padding-bottom: calc(var(--nav-total) + 16px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -1393,6 +1395,7 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
    SCREEN SETUP WRAPPER ADJUSTMENTS
 ═══════════════════════════════════════════ */
 #screenSetup {
+  height: 100dvh;
   padding-bottom: 0 !important;
   overflow: hidden !important;
 }
