@@ -755,7 +755,7 @@ const DailyChallenge = (function () {
         '<div class="dc-photo-title">📷 Scheibenfoto einreichen</div>',
         '<div class="dc-photo-sub">Mach ein Foto deiner Scheibe — die Texterkennung liest dein Ergebnis und wertet alle passenden Challenges aus.</div>',
         '<input type="file" accept="image/*" capture="environment" id="dcPhotoInput" style="display:none;">',
-        '<label for="dcPhotoInput" class="duo-photo-btn">📷 Kamera öffnen / Foto wählen</label>',
+        '<label for="dcPhotoInput" class="duo-photo-btn"><svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Kamera öffnen / Foto wählen</label>',
         '<div id="dcPhotoStatus" style="margin-top:12px;color:#8aa3b0;font-size:0.85rem;min-height:20px;"></div>',
       '</div>'
     ].join('');
@@ -908,7 +908,7 @@ const DailyChallenge = (function () {
       html += `<button class="duo-open-btn disabled" disabled>✅ ALLE MISSIONEN ERFÜLLT</button>`;
     }
 
-    html += `<button class="duo-photo-btn" onclick="DailyChallenge.openPhotoModal()">📷 Scheibenfoto einreichen</button>`;
+    html += `<button class="duo-photo-btn" onclick="DailyChallenge.openPhotoModal()"><svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Scheibenfoto einreichen</button>`;
 
     container.innerHTML = html;
   }
