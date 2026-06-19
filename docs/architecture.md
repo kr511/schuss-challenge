@@ -78,6 +78,6 @@ Die folgenden Dateien wurden in diesem Schritt nicht verschoben (unklar/abhängi
   `duel-setup-hotfix.js`, `duel-setup-runtime.js`, `feature-fallback.js`, `friend-challenges.js`, `friends.js`,
   `gemini-ai.js`, `haptics.js`, `highscore-sync.js`, `image-compare-brain.js`, `leaderboard-modern.js`,
   `local-entry.js`, `mobile-features.js`, `mobile-responsive.js`, `modern-ux.js`, `performance-config.js`,
-  `physics-engine.js`, `profile-scroll-fix.js`, `reward-system.js`, `site-cleanup.js`, `sounds.js`,
+  `profile-scroll-fix.js`, `reward-system.js`, `site-cleanup.js`, `sounds.js`,
   `streak-tracker.js`, `supabase-client.js`, `supabase-social.js`, `timer-system.js`, `tutorial.js`,
-  `updates.js`, `v2-vision-engine.js`, `xp-system.js`.
+  `updates.js`, `v2-vision-engine.js`.
