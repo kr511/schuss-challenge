@@ -8120,12 +8120,11 @@ body.keyboard-visible .bottom-sheet {
 
 .dc-photo-content {
   background: #1a2332;
-  border: 1px solid rgba(28, 176, 246, 0.25);
-  border-radius: 16px;
-  padding: 28px 24px 24px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 24px 20px 20px;
   max-width: 340px;
-  width: 90%;
-  text-align: center;
+  width: 92%;
   position: relative;
 }
 
