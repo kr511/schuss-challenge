@@ -767,7 +767,7 @@ const DailyChallenge = (function () {
     function showStep1() {
       content.innerHTML =
         '<div class="dcm-header">' +
-          '<div class="dcm-title">Disziplin wählen</div>' +
+          '<div class="dcm-title">Gewehr wählen</div>' +
           '<button class="dcm-close">✕</button>' +
         '</div>' +
         '<div class="dcm-disc-grid">' +
@@ -792,13 +792,13 @@ const DailyChallenge = (function () {
       var isLG = sel.weapon === 'lg';
       var items = isLG
         ? [
-            { d: 'lg40', s: 40, name: '40 Schuss', detail: 'LG · Kurzprogramm' },
-            { d: 'lg60', s: 60, name: '60 Schuss', detail: 'LG · Standardprogramm' }
+            { d: 'lg40', s: 40, name: 'LG 40', detail: '40 Schuss · Kurzprogramm' },
+            { d: 'lg60', s: 60, name: 'LG 60', detail: '60 Schuss · Standardprogramm' }
           ]
         : [
-            { d: 'kk3x20', s: 60, name: '3×20', detail: 'KK · Dreistellungskampf' },
-            { d: 'kk50',   s: 60, name: '50 m',  detail: 'KK · 50 Meter' },
-            { d: 'kk100',  s: 60, name: '100 m', detail: 'KK · 100 Meter' }
+            { d: 'kk3x20', s: 60, name: 'KK 3×20',  detail: 'Dreistellungskampf' },
+            { d: 'kk50',   s: 60, name: 'KK 50 m',  detail: '60 Schuss · 50 Meter' },
+            { d: 'kk100',  s: 60, name: 'KK 100 m', detail: '60 Schuss · 100 Meter' }
           ];
 
       var listHTML = items.map(function(item) {
@@ -814,7 +814,7 @@ const DailyChallenge = (function () {
       content.innerHTML =
         '<div class="dcm-header">' +
           '<button class="dcm-back">← zurück</button>' +
-          '<div class="dcm-title">' + (isLG ? 'LG' : 'KK') + ' – Schusszahl</div>' +
+          '<div class="dcm-title">Disziplin</div>' +
           '<button class="dcm-close">✕</button>' +
         '</div>' +
         '<div class="dcm-sub-list">' + listHTML + '</div>';
@@ -841,39 +841,44 @@ const DailyChallenge = (function () {
       content.innerHTML =
         '<div class="dcm-header">' +
           '<button class="dcm-back">← zurück</button>' +
-          '<div class="dcm-title">Foto einreichen</div>' +
+          '<div class="dcm-title">Foto</div>' +
           '<button class="dcm-close">✕</button>' +
         '</div>' +
         '<div class="dcm-badge">🎯 ' + badgeText + '</div>' +
-        '<input type="file" accept="image/*" capture="environment" id="dcPhotoInput" style="display:none;">' +
-        '<label for="dcPhotoInput" class="dcm-upload-label">' +
+        '<input type="file" accept="image/*" capture="environment" id="dcCameraInput" style="display:none;">' +
+        '<input type="file" accept="image/*" id="dcGalleryInput" style="display:none;">' +
+        '<label for="dcCameraInput" class="dcm-upload-label">' +
           '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>' +
-          'Kamera öffnen / Foto wählen' +
+          'Foto machen' +
+        '</label>' +
+        '<label for="dcGalleryInput" class="dcm-upload-label dcm-upload-secondary">' +
+          '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>' +
+          'Foto einreichen' +
         '</label>' +
         '<div id="dcPhotoStatus"></div>';
 
       content.querySelector('.dcm-close').onclick = close;
       content.querySelector('.dcm-back').onclick = showStep2;
 
-      content.querySelector('#dcPhotoInput').addEventListener('change', async function(e) {
+      function handleFile(e) {
         var file = e.target.files && e.target.files[0];
         if (!file) return;
         var status = content.querySelector('#dcPhotoStatus');
-        var label = content.querySelector('.dcm-upload-label');
+        var labels = content.querySelectorAll('.dcm-upload-label');
         status.textContent = '⏳ Scheibe wird analysiert…';
-        label.style.opacity = '0.5';
-        label.style.pointerEvents = 'none';
-        try {
-          var result = await submitPhoto(file, sel);
+        labels.forEach(function(l) { l.style.opacity = '0.5'; l.style.pointerEvents = 'none'; });
+        submitPhoto(file, sel).then(function(result) {
           var scoreText = result.totalScore > 0 ? result.totalScore + ' Ringe' : 'Ergebnis nicht erkannt';
           status.innerHTML = '✅ ' + scoreText;
           setTimeout(function() { modal.remove(); }, 2800);
-        } catch(err) {
+        }).catch(function(err) {
           status.innerHTML = '❌ Fehler: ' + err.message;
-          label.style.opacity = '';
-          label.style.pointerEvents = '';
-        }
-      });
+          labels.forEach(function(l) { l.style.opacity = ''; l.style.pointerEvents = ''; });
+        });
+      }
+
+      content.querySelector('#dcCameraInput').addEventListener('change', handleFile);
+      content.querySelector('#dcGalleryInput').addEventListener('change', handleFile);
     }
 
     showStep1();
