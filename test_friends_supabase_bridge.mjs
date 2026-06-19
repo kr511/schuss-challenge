@@ -46,6 +46,10 @@ const dom = new JSDOM(`<!doctype html><html><body>
   <div id="friendsListContainer"></div>
   <div id="receivedRequestsContainer"></div>
   <div id="sentRequestsContainer"></div>
+  <div role="group" aria-label="Freundesliste sortieren">
+    <button type="button" data-friend-sort="online-first" aria-pressed="false">Online zuerst</button>
+    <button type="button" data-friend-sort="offline-first" aria-pressed="false">Offline zuerst</button>
+  </div>
   <button id="friendsButton"></button>
 </body></html>`, {
   url: 'https://kr511.github.io/',
@@ -60,11 +64,28 @@ const calls = [];
 
 const remoteState = {
   friendCode: 'SUP123',
-  friends: [{
-    userId: 'friend-1',
-    username: 'Beta',
-    addedAt: '2026-04-28T13:00:00.000Z',
-  }],
+  friends: [
+    {
+      userId: 'friend-1',
+      username: 'Beta',
+      addedAt: '2026-04-28T13:00:00.000Z',
+    },
+    {
+      userId: 'friend-2',
+      username: 'Delta',
+      addedAt: '2026-04-28T13:01:00.000Z',
+    },
+    {
+      userId: 'friend-3',
+      username: 'Alpha',
+      addedAt: '2026-04-28T13:02:00.000Z',
+    },
+    {
+      userId: 'friend-4',
+      username: 'Charlie',
+      addedAt: '2026-04-28T13:03:00.000Z',
+    },
+  ],
   incomingRequests: [{
     id: 'request-1',
     fromUserId: 'sender-1',
@@ -81,6 +102,9 @@ const remoteState = {
   }],
   onlineStatus: {
     'friend-1': { online: true, lastSeen: Date.now(), username: 'Beta' },
+    'friend-2': { online: false, lastSeen: Date.now(), username: 'Delta' },
+    'friend-3': { online: true, lastSeen: Date.now(), username: 'Alpha' },
+    'friend-4': { online: true, lastSeen: Date.now() - 130000, username: 'Charlie' },
   },
 };
 
@@ -188,6 +212,36 @@ assert.match(
   /Beta/,
   'Freundesliste enthält Freund Beta'
 );
+
+// ─── 1b. Online-/Offline-Sortierung ─────────────────────────────────────────
+
+assert.equal(window.FriendsSystem.getFriendSortOrder(), 'online-first', 'Online zuerst ist der Standard');
+assert.deepEqual(
+  window.FriendsSystem.getSortedFriends().map(friend => friend.username),
+  ['Alpha', 'Beta', 'Charlie', 'Delta'],
+  'Online-Freunde stehen zuerst; beide Gruppen sind alphabetisch sortiert'
+);
+assert.deepEqual(
+  window.FriendsSystem.getFriends().map(friend => friend.username),
+  ['Beta', 'Delta', 'Alpha', 'Charlie'],
+  'Die geladene Supabase-Reihenfolge wird durch das Sortieren nicht verändert'
+);
+assert.equal(window.FriendsSystem.isFriendOnline(remoteState.friends[3]), false, 'Veralteter Online-Status gilt als offline');
+
+const offlineFirstButton = window.document.querySelector('[data-friend-sort="offline-first"]');
+offlineFirstButton.click();
+assert.equal(window.FriendsSystem.getFriendSortOrder(), 'offline-first', 'Sortierauswahl wechselt auf Offline zuerst');
+assert.equal(store.get('friendSortOrder'), 'offline-first', 'Sortierauswahl wird dauerhaft gespeichert');
+assert.equal(offlineFirstButton.getAttribute('aria-pressed'), 'true', 'Aktive Sortierauswahl ist barrierefrei markiert');
+assert.deepEqual(
+  window.FriendsSystem.getSortedFriends().map(friend => friend.username),
+  ['Charlie', 'Delta', 'Alpha', 'Beta'],
+  'Offline-Freunde stehen nach dem Wechsel zuerst'
+);
+assert.equal(window.FriendsSystem.setFriendSortOrder('invalid'), false, 'Ungültige Sortierreihenfolge wird abgewiesen');
+
+window.document.querySelector('[data-friend-sort="online-first"]').click();
+assert.equal(window.FriendsSystem.getFriendSortOrder(), 'online-first', 'Sortierauswahl kann zurückgeschaltet werden');
 assert.match(
   window.document.getElementById('receivedRequestsContainer').textContent,
   /Alpha/,

@@ -706,7 +706,10 @@
             <!-- Sort row -->
             <div class="friends-sort-row">
               <span class="sort-label">Freundesliste</span>
-              <button class="sort-btn">Sortieren: Online ↓</button>
+              <div class="friends-sort-controls" role="group" aria-label="Freundesliste sortieren">
+                <button class="sort-btn active" type="button" data-friend-sort="online-first" aria-pressed="true">Online zuerst</button>
+                <button class="sort-btn" type="button" data-friend-sort="offline-first" aria-pressed="false">Offline zuerst</button>
+              </div>
             </div>
 
             <!-- Inline Friends List -->
@@ -811,17 +814,17 @@
       <div class="tab-panel" id="tabProfil">
         <div class="page-content">
 
-          <!-- Profil Topbar: Titel + Aktionen (Einstellungen / Benachrichtigungen) -->
+          <!-- Profil Topbar: Titel + Aktionen (Benachrichtigungen / Einstellungen) -->
           <div class="pt-topbar">
             <div class="pt-topbar-title">Profil</div>
             <div class="pt-topbar-actions">
-              <button class="ah-icon-btn" type="button" title="Einstellungen" aria-label="Einstellungen"
-                onclick="if(window.ProfileSettings&&window.ProfileSettings.open){window.ProfileSettings.open();}else if(window.toggleProfileMenu){window.toggleProfileMenu();}">
-                <svg viewBox="0 0 24 24" width="24" height="24" style="width:24px;height:24px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              </button>
               <button class="ah-icon-btn" id="ptUpdatesBtn" type="button" title="Benachrichtigungen" aria-label="Benachrichtigungen" style="position:relative;"
                 onclick="if(window.UpdatesSystem&&window.UpdatesSystem.toggleUpdates){window.UpdatesSystem.toggleUpdates(this);}">
                 <svg viewBox="0 0 24 24" width="24" height="24" style="width:24px;height:24px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </button>
+              <button class="ah-icon-btn" type="button" title="Einstellungen" aria-label="Einstellungen"
+                onclick="if(window.ProfileSettings&&window.ProfileSettings.open){window.ProfileSettings.open();}else if(window.toggleProfileMenu){window.toggleProfileMenu();}">
+                <svg viewBox="0 0 24 24" width="24" height="24" style="width:24px;height:24px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               </button>
             </div>
           </div>

@@ -1040,13 +1040,39 @@ body.game-screen-active .bottom-nav { display: none !important; }
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
 }
 .sort-label { font-size: 0.75rem; color: rgba(255,255,255,0.38); }
+.friends-sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-full);
+  background: rgba(255,255,255,0.035);
+}
 .sort-btn {
   font-size: 0.75rem; font-weight: 600;
   color: rgba(255,255,255,0.5);
-  background: none; border: none; cursor: pointer;
+  min-height: 44px;
+  padding: 8px 11px;
+  background: transparent; border: none; border-radius: var(--r-full); cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.sort-btn.active {
+  color: #07130c;
+  background: var(--accent);
+  box-shadow: 0 3px 12px rgba(34,197,94,0.2);
+}
+.sort-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+@media (max-width: 360px) {
+  .friends-sort-row { align-items: flex-start; flex-direction: column; }
+  .friends-sort-controls { width: 100%; }
+  .sort-btn { flex: 1; }
 }
 
 .friend-row {
