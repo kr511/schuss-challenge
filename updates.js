@@ -451,11 +451,12 @@ const UpdatesSystem = (function() {
     if (minutes < 1) return 'Gerade eben';
     if (minutes < 60) return `vor ${minutes} Min`;
     if (hours < 24) return `vor ${hours} Std`;
-    if (days < 7) return `vor ${days} Tagen`;
+    if (days === 1) return 'vor 1 Tag';
+    if (days < 5) return `vor ${days} Tagen`;
 
     // Datum formatieren
     const date = new Date(timestamp);
-    return date.toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
+    return date.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
   }
 
   /**
