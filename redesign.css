@@ -1894,6 +1894,87 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
 }
 .tff-reset:hover { background: rgba(255,255,255,0.1); }
 
+/* ═══════════════════════════════════════════
+   DAILY CHALLENGE FULL VIEW (Challenge Tab)
+═══════════════════════════════════════════ */
+.dc-full-card {
+  cursor: default !important;
+  margin-bottom: 12px;
+  pointer-events: none;
+}
+.dc-full-card .daily-preview-row {
+  padding: 14px 16px;
+}
+.dc-full-card .daily-preview-title {
+  font-size: 0.85rem;
+}
+.dc-full-card .daily-preview-progress-track {
+  height: 6px;
+}
+
+.dc-streak-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.dc-streak-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 3px;
+}
+.dc-streak-count {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1cb0f6;
+  line-height: 1;
+}
+.dc-streak-unit {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.4);
+  font-weight: 600;
+  margin-left: 3px;
+}
+.dc-streak-right {
+  font-size: 2rem;
+  opacity: 0.6;
+}
+
+/* Photo button — dark & modern */
+.dc-photo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  padding: 13px 16px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--r-md);
+  color: rgba(255,255,255,0.65);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.dc-photo-btn svg { opacity: 0.7; transition: opacity 0.15s; }
+.dc-photo-btn:hover:not(:active) {
+  background: var(--bg-card-2);
+  border-color: rgba(255,255,255,0.18);
+  color: rgba(255,255,255,0.88);
+}
+.dc-photo-btn:hover:not(:active) svg { opacity: 1; }
+.dc-photo-btn:active { transform: scale(0.98); }
+
 /*
    RESPONSIVE: Larger screens
 ═══════════════════════════════════════════ */

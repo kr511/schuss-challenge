@@ -844,7 +844,6 @@ const DailyChallenge = (function () {
       if (distInfo && distInfo.parentNode) {
         container = document.createElement('div');
         container.id = 'dailyChallengeUI';
-        // Remove standard card classes to allow raw duo styling wrapper
         container.style.marginTop = '20px';
         distInfo.parentNode.insertBefore(container, distInfo.nextSibling);
       } else {
@@ -853,62 +852,72 @@ const DailyChallenge = (function () {
     }
 
     const allCompleted = state.challenges.length === 3 && state.challenges.every(c => c.completed);
+    const completedCount = state.challenges.filter(c => c.completed).length;
 
+    // Main challenges card — uses the same daily-preview-card design as Dashboard
     let html = `
-      <div style="color: #1cb0f6; font-size: 1.2rem; font-weight: 800; text-align: center; margin-bottom: 15px;">⭐ Tages-Challenges</div>
-      <div style="color: #8aa3b0; font-size: 0.82rem; text-align: center; margin-top: -10px; margin-bottom: 14px;">Neuer Satz in ${formatResetCountdown()} h · zählt aus deinem Ergebnis/Scheibenfoto</div>
-      <div class="duo-quests-card">
+      <div class="daily-preview-card dc-full-card">
+        <div class="daily-preview-summary">
+          <div class="cp-icon" aria-hidden="true">⭐</div>
+          <div class="cp-info">
+            <div class="cp-title">Tages-Challenges</div>
+            <div class="cp-meta">${completedCount} von 3 erledigt · Neu in ${formatResetCountdown()} h</div>
+          </div>
+        </div>
+        <div class="daily-preview-list">
     `;
 
-    state.challenges.forEach((c, index) => {
-       const ref = getChallengeRef(c.id);
-       if (!ref) return;
+    state.challenges.forEach(c => {
+      const ref = getChallengeRef(c.id);
+      if (!ref) return;
 
-       const isLast = (index === state.challenges.length - 1);
-       const pct = Math.min(100, Math.floor((c.progress / ref.target) * 100));
-       const isComplete = c.completed;
+      const target = Math.max(1, ref.target);
+      const progress = Math.max(0, Math.min(target, c.progress));
+      const pct = c.completed ? 100 : Math.min(100, Math.round((progress / target) * 100));
+      const progressLabel = c.completed ? 'Erledigt' : progress + ' / ' + target;
+      const rewardAmount = (c.reward && Number.isFinite(Number(c.reward.amount)))
+        ? Number(c.reward.amount)
+        : (ref.xpReward || 10);
 
-       const rewardAmount = (c.reward && Number.isFinite(Number(c.reward.amount)))
-         ? Number(c.reward.amount)
-         : (ref.xpReward || 10);
-       const rewardDisplay = `<div class="duo-quest-reward xp-reward" title="${rewardAmount} XP">+${rewardAmount} XP</div>`;
-
-       html += `
-         <div class="duo-quest-row ${isLast ? 'no-border' : ''}">
-            <div class="duo-quest-title">${isComplete ? '✅ ' : ''}${ref.desc}</div>
-            <div class="duo-quest-progress-wrap">
-               <div class="duo-quest-bar-bg">
-                  <div class="duo-quest-bar-fill" style="width: ${pct}%">
-                     ${(c.progress > 0 || isComplete) ? `<span class="duo-quest-bar-text">${c.progress} / ${ref.target}</span>` : ''}
-                  </div>
-                  ${(c.progress === 0 && !isComplete) ? `<span class="duo-quest-bar-text empty">${c.progress} / ${ref.target}</span>` : ''}
-               </div>
-               <div class="duo-quest-reward-container">
-                  ${rewardDisplay}
-               </div>
+      html += `
+        <div class="daily-preview-row ${c.completed ? 'is-complete' : ''}">
+          <div class="daily-preview-row-head">
+            <div class="daily-preview-title">${ref.desc}</div>
+            <div class="daily-preview-reward">+${rewardAmount} XP</div>
+          </div>
+          <div class="daily-preview-row-foot">
+            <div class="daily-preview-progress-track" aria-hidden="true">
+              <div class="daily-preview-progress-fill" style="width:${pct}%"></div>
             </div>
-         </div>
-       `;
+            <div class="daily-preview-progress">${progressLabel}</div>
+          </div>
+        </div>
+      `;
     });
 
-    html += `</div>`; // End of duo-quests-card
+    html += `</div></div>`;
 
     // Streak Card
     html += `
-      <div class="duo-streak-card">
-         <div class="duo-streak-info">
-            <div class="duo-streak-title">🔥 Tages-Streak</div>
-            <div class="duo-streak-count" style="color: #1cb0f6; font-size: 1.1rem; font-weight: 800;">${state.streak} <span style="font-size:0.9rem; color:#888;">Tage</span></div>
-         </div>
-         <div class="duo-streak-icon" style="font-size: 2.2rem;">📅</div>
+      <div class="dc-streak-card">
+        <div>
+          <div class="dc-streak-title">🔥 Tages-Streak</div>
+          <div class="dc-streak-count">${state.streak}<span class="dc-streak-unit">Tage</span></div>
+        </div>
+        <div class="dc-streak-right">📅</div>
       </div>
     `;
 
     if (allCompleted) {
-      html += `<button class="duo-open-btn disabled" disabled>✅ ALLE MISSIONEN ERFÜLLT</button>`;
+      html += `<button class="dc-photo-btn" disabled style="opacity:0.5;margin-bottom:8px;">✅ Alle Missionen erfüllt</button>`;
     }
 
-    html += `<button class="duo-photo-btn" onclick="DailyChallenge.openPhotoModal()"><svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Scheibenfoto einreichen</button>`;
+    html += `
+      <button class="dc-photo-btn" onclick="DailyChallenge.openPhotoModal()">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Scheibenfoto einreichen
+      </button>
+    `;
 
     container.innerHTML = html;
   }
