@@ -755,11 +755,13 @@ const DailyChallenge = (function () {
 
     var modal = document.createElement('div');
     modal.className = 'dc-photo-modal';
+    modal.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);z-index:10002;';
     document.body.appendChild(modal);
     modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 
     var content = document.createElement('div');
     content.className = 'dc-photo-content';
+    content.style.cssText = 'background:#1a2332;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:24px 20px 20px;max-width:340px;width:92%;position:relative;box-sizing:border-box;';
     modal.appendChild(content);
 
     function close() { modal.remove(); }
