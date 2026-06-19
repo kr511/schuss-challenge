@@ -144,6 +144,68 @@
     refreshStartGoalCard();
     refreshStartStats();
     refreshLastTraining();
+    refreshStartChallenges();
+  }
+
+  function refreshStartChallenges() {
+    const container = document.getElementById('activeChallengesStart');
+    if (!container) return;
+
+    const api = window.DailyChallenge;
+    if (!api || typeof api.getPreviewState !== 'function') {
+      container.innerHTML = '<div class="daily-preview-card daily-preview-empty">Tagesaufgaben werden geladen…</div>';
+      return;
+    }
+
+    let preview;
+    try {
+      preview = api.getPreviewState();
+    } catch (_e) {
+      container.innerHTML = '<div class="daily-preview-card daily-preview-empty">Tagesaufgaben konnten nicht geladen werden.</div>';
+      return;
+    }
+
+    const challenges = Array.isArray(preview && preview.challenges) ? preview.challenges.slice(0, 3) : [];
+    if (challenges.length !== 3) {
+      container.innerHTML = '<div class="daily-preview-card daily-preview-empty">Heute sind noch keine Aufgaben verfügbar.</div>';
+      return;
+    }
+
+    const completedCount = challenges.filter(challenge => challenge.completed).length;
+    const resetCountdown = escapeHtml(preview.resetCountdown || '00:00');
+    const rows = challenges.map(challenge => {
+      const target = Math.max(1, Number(challenge.target) || 1);
+      const progress = Math.max(0, Math.min(target, Number(challenge.progress) || 0));
+      const progressPercent = challenge.completed ? 100 : Math.min(100, Math.round((progress / target) * 100));
+      const progressLabel = challenge.completed ? 'Erledigt' : progress + ' / ' + target;
+      const reward = Math.max(0, Number(challenge.xpReward) || 0);
+      const description = escapeHtml(challenge.description || 'Tagesaufgabe');
+
+      return '<div class="daily-preview-row ' + (challenge.completed ? 'is-complete' : '') + '">'
+        + '<div class="daily-preview-row-head">'
+        + '<div class="daily-preview-title">' + description + '</div>'
+        + '<div class="daily-preview-reward">+' + reward + ' XP</div>'
+        + '</div>'
+        + '<div class="daily-preview-row-foot">'
+        + '<div class="daily-preview-progress-track" aria-hidden="true">'
+        + '<div class="daily-preview-progress-fill" style="width:' + progressPercent + '%"></div>'
+        + '</div>'
+        + '<div class="daily-preview-progress">' + progressLabel + '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+
+    container.innerHTML = '<button class="daily-preview-card" type="button" onclick="switchTab(\'challenges\')"'
+      + ' aria-label="Tagesaufgaben öffnen. ' + completedCount + ' von 3 erledigt.">'
+      + '<div class="daily-preview-summary">'
+      + '<div class="cp-icon" aria-hidden="true">🎯</div>'
+      + '<div class="cp-info">'
+      + '<div class="cp-title">Tagesaufgaben</div>'
+      + '<div class="cp-meta">' + completedCount + ' von 3 erledigt · Neu in ' + resetCountdown + ' h</div>'
+      + '</div>'
+      + '</div>'
+      + '<div class="daily-preview-list">' + rows + '</div>'
+      + '</button>';
   }
 
   /* ── Daily Goal helpers ── */
@@ -1005,6 +1067,10 @@
     badge.style.display = hasFilter ? '' : 'none';
     badge.textContent = filtered + '/' + total;
   }
+
+  window.addEventListener('dailyChallengesUpdated', () => {
+    try { refreshStartChallenges(); } catch (_e) {}
+  });
 
   /* ── Init ── */
   function init() {

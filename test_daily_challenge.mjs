@@ -10,6 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import vm from 'node:vm';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const src = readFileSync(join(__dirname, 'src/game/daily-challenge.js'), 'utf8');
@@ -74,6 +75,85 @@ t('hit_ten photo matches numeric 10', byId.hit_ten.checkPhoto(photoKk3x20) === t
 // Difficulty tiers cover the daily selection patterns (easy/medium/hard)
 const tiers = CHALLENGES.reduce((a, c) => { a[c.difficulty] = (a[c.difficulty] || 0) + 1; return a; }, {});
 t('has easy + medium + hard tiers', tiers.easy > 0 && tiers.medium > 0 && tiers.hard > 0);
+
+// Runtime contract for the three-task start-page preview and midnight reset.
+function createDailyRuntime(fixedTime, previousState) {
+  const storage = new Map([['sd_anonymous_id', 'anon_test']]);
+  if (previousState) storage.set('sd_daily_challenge', JSON.stringify(previousState));
+
+  const NativeDate = Date;
+  class FixedDate extends NativeDate {
+    constructor(...args) {
+      super(...(args.length ? args : [fixedTime]));
+    }
+    static now() {
+      return fixedTime;
+    }
+  }
+
+  const events = [];
+  const sandbox = {
+    console,
+    Date: FixedDate,
+    Notification: { permission: 'default' },
+    CustomEvent: class {
+      constructor(type, options) {
+        this.type = type;
+        this.detail = options && options.detail;
+      }
+    },
+    localStorage: {
+      getItem: (key) => storage.has(key) ? storage.get(key) : null,
+      setItem: (key, value) => storage.set(key, String(value))
+    },
+    document: {
+      getElementById: () => null,
+      querySelector: () => null
+    },
+    navigator: { onLine: true },
+    setInterval: () => 1,
+    clearInterval: () => {},
+    setTimeout: () => 1,
+    clearTimeout: () => {},
+    dispatchEvent: (event) => {
+      events.push(event.type);
+      return true;
+    }
+  };
+  sandbox.window = sandbox;
+
+  vm.createContext(sandbox);
+  vm.runInContext(src, sandbox);
+  return { api: sandbox.DailyChallenge, events, storage };
+}
+
+const previousIds = ['play_lg40', 'play_lg60', 'play_kk60'];
+const previousState = {
+  dateId: '2026-06-18',
+  challenges: previousIds.map((id) => ({
+    id,
+    progress: 0,
+    completed: false,
+    reward: { type: 'xp', amount: 15 }
+  })),
+  streak: 0,
+  toolboxDroppedForDate: ''
+};
+const fixedTime = new Date(2026, 5, 19, 12, 0, 0).getTime();
+const runtime = createDailyRuntime(fixedTime, previousState);
+const preview = runtime.api.getPreviewState();
+
+t('start preview exposes exactly 3 tasks', preview.challenges.length === 3);
+t('start preview tasks are unique', new Set(preview.challenges.map((c) => c.id)).size === 3);
+t('start preview includes progress, text and XP', preview.challenges.every((c) =>
+  typeof c.description === 'string'
+  && Number.isFinite(c.progress)
+  && Number.isFinite(c.target)
+  && Number.isFinite(c.xpReward)
+));
+t('midnight reset replaces all 3 previous tasks', preview.challenges.every((c) => !previousIds.includes(c.id)));
+t('reset countdown uses HH:MM format', /^\d{2}:\d{2}$/.test(preview.resetCountdown));
+t('daily challenge update event is dispatched', runtime.events.includes('dailyChallengesUpdated'));
 
 console.log('');
 console.log('Summary: ' + pass + ' passed, ' + fail + ' failed');

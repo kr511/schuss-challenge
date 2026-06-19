@@ -122,12 +122,20 @@ const DailyChallenge = (function () {
     toolboxDroppedForDate: ''
   };
   let uiRefreshTimer = null;
+  let initialized = false;
 
   function init() {
+    if (initialized) {
+      checkDailyReset();
+      renderUI();
+      return;
+    }
+    initialized = true;
     loadState();
     checkDailyReset();
     renderUI();
     startUIRefresh();
+    notifyStateChanged('init');
   }
 
   function getDateId(date = new Date()) {
@@ -199,10 +207,11 @@ const DailyChallenge = (function () {
       if (currentDate !== lastCheckedDate) {
         console.log('🔄 Midnight Reset: Neue Daily Challenges geladen');
         const userId = getUserId();
+        const previousIds = state.challenges.map(c => c.id);
         state.dateId = currentDate;
-        state.challenges = getDailyChallenges(currentDate, userId);
+        state.challenges = getDailyChallenges(currentDate, userId, previousIds);
         state.toolboxDroppedForDate = '';
-        saveState();
+        saveState('reset');
         lastCheckedDate = currentDate;
         
         // UI aktualisieren
@@ -223,6 +232,7 @@ const DailyChallenge = (function () {
       // Regelmäßige UI-Aktualisierung (Countdown, Progress)
       checkDailyReset();
       renderUI();
+      notifyStateChanged('tick');
       
       // Dashboard auch aktualisieren
       if (typeof window.refreshPremiumDashboard === 'function') {
@@ -307,11 +317,12 @@ const DailyChallenge = (function () {
     return pool.splice(selectedCandidate, 1)[0];
   }
 
-  function getDailyChallenges(dateId, userId = '') {
+  function getDailyChallenges(dateId, userId = '', excludeIds = []) {
     // User-spezifischer Seed: Datum + User-ID = persönliche Challenges
     const userSeed = dateId + '_' + (userId || 'global');
     const rng = createDailyRng(userSeed);
-    const pool = [...CHALLENGES];
+    const excluded = new Set(Array.isArray(excludeIds) ? excludeIds : []);
+    const pool = CHALLENGES.filter(challenge => !excluded.has(challenge.id));
     const selected = [];
     let hardCount = 0;
 
@@ -399,12 +410,21 @@ const DailyChallenge = (function () {
     }
   }
 
-  function saveState() {
+  function notifyStateChanged(reason) {
+    try {
+      window.dispatchEvent(new CustomEvent('dailyChallengesUpdated', {
+        detail: { reason: reason || 'update', dateId: state.dateId }
+      }));
+    } catch (_e) { /* noop */ }
+  }
+
+  function saveState(reason) {
     try {
       localStorage.setItem('sd_daily_challenge', JSON.stringify(state));
     } catch (e) {
       console.warn("Could not save daily challenge state", e);
     }
+    notifyStateChanged(reason || 'update');
   }
 
   function checkDailyReset() {
@@ -416,13 +436,14 @@ const DailyChallenge = (function () {
     if (state.dateId === today && !hasValidTodayChallenges) {
       const userId = getUserId();
       state.challenges = getDailyChallenges(today, userId);
-      saveState();
+      saveState('repair');
       return;
     }
 
     if (state.dateId !== today) {
       // Neuen Tag prüfen - Streak logik
       const userId = getUserId();
+      const previousIds = state.challenges.map(c => c.id);
       const prevIsYesterday = isYesterday(state.dateId, today);
       const allCompletedYesterday = state.challenges && state.challenges.length === 3 && state.challenges.every(c => c.completed);
 
@@ -438,8 +459,8 @@ const DailyChallenge = (function () {
       }
 
       state.dateId = today;
-      state.challenges = getDailyChallenges(today, userId);
-      saveState();
+      state.challenges = getDailyChallenges(today, userId, previousIds);
+      saveState('reset');
     }
   }
 
@@ -455,6 +476,34 @@ const DailyChallenge = (function () {
 
   function getChallengeRef(id) {
     return CHALLENGES.find(c => c.id === id);
+  }
+
+  function getPreviewState() {
+    if (!initialized) init();
+    else checkDailyReset();
+
+    return {
+      dateId: state.dateId,
+      streak: state.streak,
+      resetCountdown: formatResetCountdown(),
+      challenges: state.challenges.map(entry => {
+        const ref = getChallengeRef(entry.id);
+        if (!ref) return null;
+        const rewardAmount = entry.reward && Number.isFinite(Number(entry.reward.amount))
+          ? Number(entry.reward.amount)
+          : Number(ref.xpReward) || 10;
+        return {
+          id: entry.id,
+          description: ref.desc,
+          type: ref.type,
+          difficulty: ref.difficulty,
+          target: ref.target,
+          progress: entry.progress,
+          completed: entry.completed,
+          xpReward: rewardAmount
+        };
+      }).filter(Boolean)
+    };
   }
 
   function trackGame(gameData, statsData) {
@@ -487,7 +536,7 @@ const DailyChallenge = (function () {
     });
 
     if (updatedAny) {
-      saveState();
+      saveState('progress');
       renderUI();
     }
 
@@ -684,7 +733,7 @@ const DailyChallenge = (function () {
         awardChallengeXP(c.reward ? c.reward.amount : (ref.xpReward || 10));
       });
 
-      saveState();
+      saveState('progress');
       renderUI();
       if (anyNewlyCompleted) checkAllCompleted();
 
@@ -869,6 +918,12 @@ const DailyChallenge = (function () {
     trackGame,
     openPhotoModal,
     getState: () => state,
+    getPreviewState,
+    getResetCountdown: formatResetCountdown,
     getChallengeRef
   };
 })();
+
+if (typeof window !== 'undefined') {
+  window.DailyChallenge = DailyChallenge;
+}

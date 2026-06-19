@@ -283,19 +283,7 @@
               <span class="section-title">Aktive Challenges</span>
               <button class="section-link" onclick="switchTab('challenges')">Alle anzeigen</button>
             </div>
-            <div id="activeChallengesStart">
-              <div class="challenge-preview" onclick="switchTab('challenges')">
-                <div class="cp-icon">🎯</div>
-                <div class="cp-info">
-                  <div class="cp-title">Tagesaufgaben</div>
-                  <div class="cp-meta">Tägliche Missionen warten auf dich</div>
-                  <div class="cp-bar"><div class="cp-bar-fill" style="width:0%"></div></div>
-                </div>
-                <div class="cp-right">
-                  <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:rgba(255,255,255,0.25);fill:none;stroke-width:2"><polyline points="9 18 15 12 9 6"/></svg>
-                </div>
-              </div>
-            </div>
+            <div id="activeChallengesStart" aria-live="polite"></div>
           </div>
 
           <!-- Legacy mounts (hidden, JS still uses them) -->
