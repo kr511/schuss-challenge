@@ -2132,6 +2132,13 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   -webkit-tap-highlight-color: transparent;
 }
 .dcm-upload-label:active { background: rgba(28,176,246,0.2); }
+.dcm-upload-secondary {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.55);
+  margin-top: 8px;
+}
+.dcm-upload-secondary:active { background: rgba(255,255,255,0.08); }
 #dcPhotoStatus {
   margin-top: 10px;
   min-height: 22px;
