@@ -1,33 +1,59 @@
-# Schützen Challenge
+# Schussduell
 
-> Repository-Slug: `schuss-challenge`. Sichtbarer Produktname: **Schützen Challenge**.
+> Repo-Slug: `schuss-challenge`. Der installierte PWA-Name lautet aktuell noch **„Schützen Challenge"** (`manifest.json` / `<title>`); im Code und im Alltag heißt die App meist **Schussduell**.
 
-**Schützen Challenge** ist eine Beta-PWA für Sportschützen (Luftgewehr und Kleinkaliber). Der Fokus liegt auf Training, sicherer Dokumentation und klarer manueller Auswertung. „Schussduell“ bleibt als Modusname für Bot-/Duelle erhalten, ist aber nicht mehr der Produktname.
+**Schussduell** ist eine Beta-PWA für Sportschützen (Luftgewehr & Kleinkaliber). Der Kern der App ist ein **Du-vs.-Bot-Duell** mit einem darauf aufgebauten **Gamification-System** (XP, Level/Ränge, Streak, Achievements, Rangliste, Schützenpass). Online-Funktionen (Freunde, Challenges, Chat, Vereine) sind optional über Supabase – ohne Login läuft alles im lokalen Modus weiter.
 
-## Was funktioniert heute?
+## So funktioniert ein Duell
 
-- **Challenges**: Async-/Freundes-Challenges über SupabaseSocial mit lokalem Fallback für Ergebnisse.
-- **Schussduell-Modus**: Bot-Duell für LG/KK mit manuellem Ergebnis und optionaler Foto-Beta-Unterstützung.
-- **Lokaler Modus**: Ohne Login spiel- und trainierbar. Lokale Daten laufen über `StorageManager`/`localStorage` mit `sd_`-Prefix.
-- **Optionale Online-Funktionen**: Supabase-Login, Freunde, Async-Challenges, Profile und Ranglisten, wenn Supabase konfiguriert und erreichbar ist.
+1. **Disziplin & Schwierigkeit wählen** – LG 40/60, KK 50/100 m, KK 3×20; Bot-Stufen von „easy" bis „elite".
+2. **Gegen den adaptiven Bot antreten** – der Bot simuliert eine realistische Gegnerleistung (heuristisch, je nach Disziplin/Stufe balanciert; `src/bot/adaptive-bot.js`, `src/bot/battleBalance.js`).
+3. **Dein Ergebnis erfassen** – entweder per **manueller Eingabe** (Zehntel & Ganze, bei KK Ringe) oder über die **Quick-Buttons „Gewonnen" / „Verloren"**.
+4. **Auswertung** – Sieg/Niederlage fließt in XP, Streak, Statistiken und den Schützenpass ein.
 
-## Beta und Grenzen
+Schussduell ist **keine elektronische Trefferanlage** und kein automatisches Foto-Scoring-Tool: Das Ergebnis gibst du selbst ein.
 
-- **Foto-Auswertung / automatische Ringerkennung ist Beta**: Ergebnis bitte immer manuell prüfen. Keine elektronische Trefferanlage.
-- Foto-/OCR-Hilfen können bei Licht, Perspektive, Monitorfotos oder unscharfen Bildern falsch liegen.
-- Manuelle Eingabe und Korrektur bleiben der verlässliche Weg.
-- Der adaptive Bot ist heuristisch und wird über `npm run verify:balance` stichprobenartig geprüft.
+## Gamification (der Kern)
 
-## Offline und PWA
+- **XP & Level/Ränge** – XP pro Sieg (nach Schwierigkeit gestaffelt), Aufstieg durch Ränge (`src/game/xp.js`, `src/game/xp-system.js`).
+- **Streak** – Serien/Tages-Streaks (`streak-tracker.js`).
+- **Achievements** – gestufte Erfolge (`src/features/enhanced-achievements.js`).
+- **Analytics** – Trends, Konsistenz und Verlauf (`src/features/enhanced-analytics.js`).
+- **Rangliste** – online über Supabase (`leaderboard-modern.js`).
+- **Schützenpass** – persönliches Profil/Pass mit Statistiken, Rang und Tabs (`updateSchuetzenpass()` in `app.js`, UI in `index.html`).
+- **Daily Challenge & Login-Rewards** – tägliche Aufgaben und Belohnungen (`src/game/daily-challenge.js`, `src/features/daily-login-rewards.js`).
 
-- Nach dem ersten Laden ist die App installierbar und lokale Trainingsflows funktionieren weiter.
-- `offline.html` wird bei Offline-Navigation durch den Service Worker ausgeliefert.
-- `/api/*`, Supabase-Hosts, `accounts.google.com` und `googleapis.com` werden nicht gecached.
-- Auth-Tokens und sensible Supabase-Daten dürfen nicht im Cache landen.
+## Online-Funktionen (optional, Supabase)
+
+- **Freunde** – Suche, Profile, Anfragen (`friends.js`, `friend-search.js`, `friend-profile-view.js`).
+- **Async-Challenges** – foto-freie Herausforderungen nach Disziplin/Score (`src/features/async-challenge.js`, `supabase-social.js`).
+- **Freundes-Foto-Duell** – optionales Duell, bei dem beide Seiten ihr Scheiben-Foto **lokal** auswerten; nur Disziplin, bestätigter Score und OCR-Konfidenz gehen an Supabase, das Foto bleibt auf dem Gerät (`friend-photo-duel.js`).
+- **Chat** – (`chat-view.js`, `chat-badge.js`, `chat-notifications.js`).
+- **Vereine/Clubs** – Teams und Vereins-Ranglisten (`src/features/clubs-system.js`).
+
+Ohne Supabase oder offline läuft der lokale Modus weiter (Daten via `StorageManager`/`localStorage`, `sd_`-Prefix).
+
+## Optionale Foto-Auswertung (Beta) – vollständig lokal
+
+Zusätzlich zur manuellen Eingabe gibt es eine **optionale** Foto-Auswertung („Wettkampf-Foto vergleichen", Beta):
+
+- Läuft **komplett lokal im Browser**: YOLO-Detektion via TensorFlow.js (`model.json` + `group1-shard*.bin`) plus Tesseract-OCR.
+- **Kein** Cloud-Dienst und **kein** Google Gemini – Fotos verlassen das Gerät nicht. (`gemini-ai.js` ist nur ein leerer Kompatibilitäts-Stub für alte Caches.)
+- Ergebnis bitte **immer manuell prüfen**: Licht, Perspektive, Monitorfotos oder unscharfe Bilder können die Erkennung verfälschen.
+- Engine und Konfiguration: `src/vision/*`, zentrale Parameter in `image-compare-brain.js` (`VISION_MODEL`).
+
+Modell aktualisieren: Training extern (Colab/GPU), Export per Drop-in. Anleitung in [`docs/vision-model-upgrade.md`](docs/vision-model-upgrade.md); vor dem Commit `npm run check:vision-model` ausführen (prüft Shards, Klassen-Abgleich und `model.json`-Format).
+
+## Projektstruktur
+
+- `index.html` – lädt die App über klassische `<script>`-Tags in fester Reihenfolge (Boot/Auth → Core → Features → Social).
+- `src/main.js` – kleines ES-Modul-Shim, das ausgewählte Module (`state`, `dom`, `scoring`, `xp`, `battleBalance`) unter `window.SchussChallenge` bereitstellt und das Event `schusschallenge:modules-ready` feuert.
+- `src/` – modularer Code: `core/`, `game/`, `bot/`, `features/`, `ui/`, `vision/`, `storage/`, `testing/`.
+- Weitere Root-`*.js` – historisch gewachsene Skripte, die `index.html` direkt einbindet (Stand der Migration siehe [`docs/architecture.md`](docs/architecture.md)).
 
 ## Supabase
 
-Supabase ist die Single Source of Truth für Online-Funktionen. Im Frontend dürfen nur Supabase URL und Anon Key stehen; Service-Role-Keys gehören ausschließlich in Worker-Secrets.
+Supabase ist die Single Source of Truth für Online-Funktionen. Im Frontend dürfen nur Supabase-URL und Anon-Key stehen; Service-Role-Keys gehören ausschließlich in Worker-Secrets.
 
 Config-Reihenfolge im Frontend:
 
@@ -38,43 +64,28 @@ Config-Reihenfolge im Frontend:
 
 Fehlt Supabase oder ist es offline, muss der lokale Modus weiter funktionieren.
 
-## Challenge-/Duell-Funktionen
+Für Social/Friends/Challenges ist `supabase/schema-social.sql` die kanonische Basis. Die SQL-Dateien in `supabase/migrations/` werden in Reihenfolge angewendet; `0007_shooter_challenges.sql` ergänzt Trainings-Challenges und `challenge_completions`.
 
-- Async-Challenges: [`src/features/async-challenge.js`](src/features/async-challenge.js)
-- Freundes-Challenges: [`friend-challenges.js`](friend-challenges.js)
-- Supabase Social-Basis: [`supabase/schema-social.sql`](supabase/schema-social.sql)
-- Optionale Trainings-Challenge-Tabellen: [`supabase/migrations/0007_shooter_challenges.sql`](supabase/migrations/0007_shooter_challenges.sql)
+## Offline & PWA
 
-Async-Ergebnisse laufen online über Supabase und fallen lokal auf `sd_friend_challenge_results` zurück.
+- Nach dem ersten Laden ist die App installierbar; lokale Trainings- und Duell-Flows funktionieren weiter.
+- `offline.html` wird bei Offline-Navigation durch den Service Worker ausgeliefert.
+- `/api/*`, Supabase-Hosts, `accounts.google.com` und `googleapis.com` werden nicht gecached.
+- Auth-Tokens und sensible Supabase-Daten dürfen nicht im Cache landen.
 
-## Foto-Modell aktualisieren
-
-Das YOLO-Detektionsmodell der Foto-Auswertung ist konfigurations- und
-versionierbar: alle Parameter stehen zentral in `image-compare-brain.js`
-unter `VISION_MODEL`. Trainiert wird extern (Colab/GPU), der Export wird per
-Drop-in übernommen. Anleitung: [`docs/vision-model-upgrade.md`](docs/vision-model-upgrade.md).
-Vor dem Commit `npm run check:vision-model` ausführen (prüft Shards, Klassen-
-Abgleich mit `metadata.yaml` und das `model.json`-Format).
-
-## Lokal Testen
+## Lokal testen
 
 ```bash
 npm install
-npm run dev
-npm run check:js
-npm run check:html
+npm run dev          # Wrangler + statische Assets auf http://localhost:8787
+npm run check:js     # Syntax-Check der eingebundenen Skripte
+npm run check:html   # HTML-Integrität
+npm run verify:balance
 npm test
-node test_xss_direct.mjs
 ```
 
-Hinweis: `npm run dev` startet Wrangler mit Worker und statischen Assets auf `http://localhost:8787`.
+## Beta und Grenzen
 
-## Offline-first aktuell
-
-- Gastmodus und lokale Duell-/Basis-Historie
-- Lokaler Challenge-Ergebnis-Fallback (`sd_friend_challenge_results`)
-- Teile von XP/Streak/Trainingshistorie, wenn kein Supabase-Login aktiv ist
-
-## Supabase-Migrationen
-
-Für Social/Friends/Challenges ist `supabase/schema-social.sql` die kanonische Social-Basis. Die SQL-Dateien in `supabase/migrations/` werden in Reihenfolge angewendet; `0007_shooter_challenges.sql` ergänzt Trainings-Challenges und `challenge_completions`.
+- Die Foto-Auswertung ist Beta und ersetzt keine manuelle Kontrolle.
+- Der adaptive Bot ist heuristisch und wird über `npm run verify:balance` stichprobenartig geprüft.
+- Manuelle Eingabe und Korrektur bleiben der verlässliche Weg zur Ergebniserfassung.
