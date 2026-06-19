@@ -700,15 +700,19 @@ const DailyChallenge = (function () {
     };
   }
 
-  async function submitPhoto(file) {
+  async function submitPhoto(file, hint) {
     await ensureTesseract();
 
     var worker = await Tesseract.createWorker('deu+eng');
     try {
-      // PSM 6 = gleichmäßiger Textblock (gut für Ausdruck), PSM 11 = Sparse (gut für Scheibenfoto)
       await worker.setParameters({ tessedit_pageseg_mode: '6' });
       var rec = await worker.recognize(file);
       var result = parseTargetOCR((rec.data && rec.data.text) || '');
+
+      // User's manual discipline selection overrides OCR (more reliable)
+      if (hint && hint.weapon) result.weapon = hint.weapon;
+      if (hint && hint.discipline) result.discipline = hint.discipline;
+      if (hint && hint.shotCount) result.shotCount = hint.shotCount;
 
       // Challenges gegen OCR-Ergebnis prüfen
       checkDailyReset();
@@ -747,39 +751,132 @@ const DailyChallenge = (function () {
     var existing = document.querySelector('.dc-photo-modal');
     if (existing) existing.remove();
 
+    var sel = { weapon: null, discipline: null, shotCount: null };
+
     var modal = document.createElement('div');
     modal.className = 'dc-photo-modal';
-    modal.innerHTML = [
-      '<div class="dc-photo-content">',
-        '<button class="dcb-close dc-photo-close" onclick="this.closest(\'.dc-photo-modal\').remove()">✕</button>',
-        '<div class="dc-photo-title">📷 Scheibenfoto einreichen</div>',
-        '<div class="dc-photo-sub">Mach ein Foto deiner Scheibe — die Texterkennung liest dein Ergebnis und wertet alle passenden Challenges aus.</div>',
-        '<input type="file" accept="image/*" capture="environment" id="dcPhotoInput" style="display:none;">',
-        '<label for="dcPhotoInput" class="duo-photo-btn"><svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Kamera öffnen / Foto wählen</label>',
-        '<div id="dcPhotoStatus" style="margin-top:12px;color:#8aa3b0;font-size:0.85rem;min-height:20px;"></div>',
-      '</div>'
-    ].join('');
     document.body.appendChild(modal);
+    modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
 
-    modal.querySelector('#dcPhotoInput').addEventListener('change', async function (e) {
-      var file = e.target.files && e.target.files[0];
-      if (!file) return;
-      var status = modal.querySelector('#dcPhotoStatus');
-      status.textContent = '⏳ Scheibe wird analysiert…';
-      try {
-        var result = await submitPhoto(file);
-        var weaponLabel = result.weapon === 'lg' ? 'LG' : result.weapon === 'kk' ? 'KK' : '?';
-        var scoreText = result.totalScore > 0 ? result.totalScore + ' Ringe' : 'Ergebnis nicht erkannt';
-        status.innerHTML = '✅ ' + scoreText + ' (' + weaponLabel + ')';
-        setTimeout(function () { modal.remove(); }, 2800);
-      } catch (err) {
-        status.innerHTML = '❌ Fehler: ' + err.message;
-      }
-    });
+    var content = document.createElement('div');
+    content.className = 'dc-photo-content';
+    modal.appendChild(content);
 
-    modal.addEventListener('click', function (e) {
-      if (e.target === modal) modal.remove();
-    });
+    function close() { modal.remove(); }
+
+    function showStep1() {
+      content.innerHTML =
+        '<div class="dcm-header">' +
+          '<div class="dcm-title">Disziplin wählen</div>' +
+          '<button class="dcm-close">✕</button>' +
+        '</div>' +
+        '<div class="dcm-disc-grid">' +
+          '<button class="dcm-disc-btn" data-w="lg">' +
+            '<div class="dcm-disc-emoji">🎯</div>' +
+            '<div class="dcm-disc-name">LG</div>' +
+            '<div class="dcm-disc-sub">Luftgewehr</div>' +
+          '</button>' +
+          '<button class="dcm-disc-btn" data-w="kk">' +
+            '<div class="dcm-disc-emoji">🎯</div>' +
+            '<div class="dcm-disc-name">KK</div>' +
+            '<div class="dcm-disc-sub">Kleinkaliber</div>' +
+          '</button>' +
+        '</div>';
+      content.querySelector('.dcm-close').onclick = close;
+      content.querySelectorAll('.dcm-disc-btn').forEach(function(btn) {
+        btn.onclick = function() { sel.weapon = btn.dataset.w; showStep2(); };
+      });
+    }
+
+    function showStep2() {
+      var isLG = sel.weapon === 'lg';
+      var items = isLG
+        ? [
+            { d: 'lg40', s: 40, name: '40 Schuss', detail: 'LG · Kurzprogramm' },
+            { d: 'lg60', s: 60, name: '60 Schuss', detail: 'LG · Standardprogramm' }
+          ]
+        : [
+            { d: 'kk3x20', s: 60, name: '3×20', detail: 'KK · Dreistellungskampf' },
+            { d: 'kk50',   s: 60, name: '50 m',  detail: 'KK · 50 Meter' },
+            { d: 'kk100',  s: 60, name: '100 m', detail: 'KK · 100 Meter' }
+          ];
+
+      var listHTML = items.map(function(item) {
+        return '<button class="dcm-sub-btn" data-d="' + item.d + '" data-s="' + item.s + '">' +
+          '<div class="dcm-sub-info">' +
+            '<div class="dcm-sub-name">' + item.name + '</div>' +
+            '<div class="dcm-sub-detail">' + item.detail + '</div>' +
+          '</div>' +
+          '<svg class="dcm-sub-arrow" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>' +
+        '</button>';
+      }).join('');
+
+      content.innerHTML =
+        '<div class="dcm-header">' +
+          '<button class="dcm-back">← zurück</button>' +
+          '<div class="dcm-title">' + (isLG ? 'LG' : 'KK') + ' – Schusszahl</div>' +
+          '<button class="dcm-close">✕</button>' +
+        '</div>' +
+        '<div class="dcm-sub-list">' + listHTML + '</div>';
+
+      content.querySelector('.dcm-close').onclick = close;
+      content.querySelector('.dcm-back').onclick = showStep1;
+      content.querySelectorAll('.dcm-sub-btn').forEach(function(btn) {
+        btn.onclick = function() {
+          sel.discipline = btn.dataset.d;
+          sel.shotCount = Number(btn.dataset.s);
+          showStep3();
+        };
+      });
+    }
+
+    function showStep3() {
+      var weaponLabel = sel.weapon === 'lg' ? 'LG' : 'KK';
+      var discLabels = {
+        lg40: '40 Schuss', lg60: '60 Schuss',
+        kk3x20: '3×20 Dreistellung', kk50: '50 m', kk100: '100 m'
+      };
+      var badgeText = weaponLabel + ' · ' + (discLabels[sel.discipline] || sel.discipline);
+
+      content.innerHTML =
+        '<div class="dcm-header">' +
+          '<button class="dcm-back">← zurück</button>' +
+          '<div class="dcm-title">Foto einreichen</div>' +
+          '<button class="dcm-close">✕</button>' +
+        '</div>' +
+        '<div class="dcm-badge">🎯 ' + badgeText + '</div>' +
+        '<input type="file" accept="image/*" capture="environment" id="dcPhotoInput" style="display:none;">' +
+        '<label for="dcPhotoInput" class="dcm-upload-label">' +
+          '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>' +
+          'Kamera öffnen / Foto wählen' +
+        '</label>' +
+        '<div id="dcPhotoStatus"></div>';
+
+      content.querySelector('.dcm-close').onclick = close;
+      content.querySelector('.dcm-back').onclick = showStep2;
+
+      content.querySelector('#dcPhotoInput').addEventListener('change', async function(e) {
+        var file = e.target.files && e.target.files[0];
+        if (!file) return;
+        var status = content.querySelector('#dcPhotoStatus');
+        var label = content.querySelector('.dcm-upload-label');
+        status.textContent = '⏳ Scheibe wird analysiert…';
+        label.style.opacity = '0.5';
+        label.style.pointerEvents = 'none';
+        try {
+          var result = await submitPhoto(file, sel);
+          var scoreText = result.totalScore > 0 ? result.totalScore + ' Ringe' : 'Ergebnis nicht erkannt';
+          status.innerHTML = '✅ ' + scoreText;
+          setTimeout(function() { modal.remove(); }, 2800);
+        } catch(err) {
+          status.innerHTML = '❌ Fehler: ' + err.message;
+          label.style.opacity = '';
+          label.style.pointerEvents = '';
+        }
+      });
+    }
+
+    showStep1();
   }
 
   function awardChallengeXP(amount) {
