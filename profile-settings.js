@@ -367,6 +367,25 @@
         '<button id="settingsLogoutBtn" class="set-btn danger" type="button">' + (acc.key === 'online' ? 'Abmelden' : 'Anmeldung / Konto') + '</button>',
       '</section>',
 
+      // Rechtliches
+      '<div class="set-eyebrow">Rechtliches</div>',
+      '<section class="set-card">',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Datenschutzerklärung</div><div class="set-desc">Art. 13 DSGVO – Informationen zur Datenverarbeitung.</div></div><a href="datenschutz.html" target="_blank" rel="noopener" class="set-btn" style="text-decoration:none;display:inline-flex;align-items:center;">Öffnen</a></div>',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Impressum</div><div class="set-desc">Angaben gemäß § 5 DDG.</div></div><a href="impressum.html" target="_blank" rel="noopener" class="set-btn" style="text-decoration:none;display:inline-flex;align-items:center;">Öffnen</a></div>',
+        (function () {
+          var cm = window.ConsentManager;
+          var decided = cm && cm.hasDecided();
+          var analytics = cm && cm.hasAnalyticsConsent();
+          var desc = !decided
+            ? 'Noch keine Entscheidung getroffen.'
+            : (analytics ? 'Anonyme Nutzungsstatistiken aktiv.' : 'Anonyme Nutzungsstatistiken deaktiviert.');
+          var btn = analytics
+            ? '<button id="settingsConsentBtn" class="set-btn danger" type="button">Widerrufen</button>'
+            : '<button id="settingsConsentBtn" class="set-btn primary" type="button">Einwilligen</button>';
+          return '<div class="set-row"><div class="set-copy"><div class="set-title">Analyse-Einwilligung</div><div class="set-desc" id="settingsConsentDesc">' + escapeHtml(desc) + '</div></div>' + btn + '</div>';
+        })(),
+      '</section>',
+
       '<div class="set-foot">🎯 Schützen Challenge' + (version ? ' · v' + escapeHtml(String(version)) : '') + ' · Beta</div>'
     ].join('');
 
@@ -539,6 +558,20 @@
     var resetBtn = $('settingsResetBtn');
     var logoutBtn = $('settingsLogoutBtn');
     var avatarBtn = $('settingsAvatar');
+
+    var consentBtn = $('settingsConsentBtn');
+    if (consentBtn && window.ConsentManager) {
+      consentBtn.addEventListener('click', function () {
+        if (window.ConsentManager.hasAnalyticsConsent()) {
+          window.ConsentManager.revoke();
+          showToast('Einwilligung widerrufen. Statistiken deaktiviert.');
+        } else {
+          window.ConsentManager.grant(true);
+          showToast('Einwilligung erteilt. Statistiken aktiv.');
+        }
+        render();
+      });
+    }
 
     if (saveBtn) saveBtn.addEventListener('click', saveName);
     if (nameInput) nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') saveName(); });

@@ -144,6 +144,9 @@
     refreshStartGoalCard();
     refreshStartStats();
     refreshLastTraining();
+    if (window.TrainingHeatmap && typeof window.TrainingHeatmap.render === 'function') {
+      window.TrainingHeatmap.render();
+    }
     refreshStartChallenges();
   }
 
@@ -561,9 +564,25 @@
     }).join('');
   }
 
+  function renderFriendActivityFeed() {
+    const feed = document.getElementById('friendsActivityFeed');
+    if (!feed) return;
+    const fs = window.FriendsSystem;
+    if (!fs || typeof fs.getSortedFriends !== 'function') { feed.innerHTML = ''; return; }
+    const friends = fs.getSortedFriends();
+    const online = friends.filter(f => typeof fs.isFriendOnline === 'function' ? fs.isFriendOnline(f) : f.isOnline);
+    if (online.length === 0) { feed.innerHTML = ''; return; }
+    const items = online.slice(0, 5).map(f => {
+      const name = escapeHtml(f.username || f.name || 'Unbekannt');
+      return `<div class="faf-item"><span class="faf-dot"></span><span class="faf-name">${name}</span><span class="faf-badge">Online</span></div>`;
+    }).join('');
+    feed.innerHTML = `<div class="faf-wrap"><div class="faf-title">Jetzt aktiv</div>${items}</div>`;
+  }
+
   function refreshFreundeTab() {
     const container = document.getElementById('inlineFriendsList');
     if (!container) return;
+    renderFriendActivityFeed();
     if (window.FriendsSystem && typeof window.FriendsSystem.renderFriendSortControls === 'function') {
       window.FriendsSystem.renderFriendSortControls();
     }
