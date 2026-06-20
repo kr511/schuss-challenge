@@ -58,6 +58,11 @@ export async function bootLocalApp(page, baseURL) {
   }
   await expect(page.locator('#bottomNav')).toBeVisible({ timeout: 20_000 });
   await dismissAuthGate(page);
+  // Force-hide consent banner so it never intercepts bottom-nav taps in tests.
+  await page.evaluate(() => {
+    const b = document.getElementById('consentBanner');
+    if (b) { b.setAttribute('hidden', ''); b.style.display = 'none'; }
+  });
 }
 
 // Largest amount by which page content exceeds the viewport horizontally.
