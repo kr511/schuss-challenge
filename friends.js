@@ -71,11 +71,13 @@ const FriendsSystem = (function() {
   }
 
   function renderFriendSortControls() {
-    document.querySelectorAll('[data-friend-sort]').forEach((button) => {
-      const isActive = button.dataset.friendSort === state.friendSortOrder;
-      button.classList.toggle('active', isActive);
-      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    });
+    const toggle = document.querySelector('[data-friend-sort-toggle]');
+    if (toggle) {
+      const label = toggle.querySelector('.sort-toggle-label');
+      if (label) {
+        label.textContent = state.friendSortOrder === SORT_ONLINE_FIRST ? 'Online zuerst' : 'Offline zuerst';
+      }
+    }
   }
 
   function setFriendSortOrder(order) {
@@ -94,9 +96,11 @@ const FriendsSystem = (function() {
     if (_sortControlsBound) return;
     _sortControlsBound = true;
     document.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-friend-sort]');
-      if (!button) return;
-      setFriendSortOrder(button.dataset.friendSort);
+      const toggle = event.target.closest('[data-friend-sort-toggle]');
+      if (toggle) {
+        const next = state.friendSortOrder === SORT_ONLINE_FIRST ? SORT_OFFLINE_FIRST : SORT_ONLINE_FIRST;
+        setFriendSortOrder(next);
+      }
     });
   }
 
