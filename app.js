@@ -1332,6 +1332,14 @@ function recordGameResult(result, diff, weapon, playerPts, botPts) {
   // History
   addHistoryEntry(result, diff, weapon, playerPts, botPts);
 
+  // Push-Benachrichtigung bei Sieg – nur wenn App im Hintergrund
+  if (result === 'win' && document.hidden && window.PushNotifications && window.PushNotifications.isGranted()) {
+    window.PushNotifications.showLocal(
+      '🏆 Sieg!',
+      playerPts + ' Ringe – gut geschossen!'
+    );
+  }
+
   // Check SUN achievements
   checkSunAchievements();
 
@@ -5189,12 +5197,26 @@ function _closeWelcomeOverlay() {
   if (s3) s3.style.display = 'none';
 }
 
+function _isIOSNonStandalone() {
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    window.navigator.standalone === true;
+  return isIOS && !isStandalone;
+}
+
 function _advanceToStep3OrClose() {
   const s2 = document.getElementById('welcomeStep2');
   const s3 = document.getElementById('welcomeStep3');
   if (s2) s2.style.display = 'none';
   const pn = window.PushNotifications;
-  if (s3 && pn && pn.supported && !pn.hasDecided()) {
+  if (!s3) { _closeWelcomeOverlay(); return; }
+  if (_isIOSNonStandalone() && !pn?.hasDecided()) {
+    document.getElementById('welcomeStep3Default') && (document.getElementById('welcomeStep3Default').style.display = 'none');
+    const iosEl = document.getElementById('welcomeStep3iOS');
+    if (iosEl) iosEl.style.display = '';
+    s3.style.display = '';
+  } else if (pn && pn.supported && !pn.hasDecided()) {
     s3.style.display = '';
   } else {
     _closeWelcomeOverlay();
@@ -5207,6 +5229,9 @@ function skipWelcomeClub() {
 
 async function enableWelcomePush() {
   if (window.PushNotifications) await window.PushNotifications.requestAndStore();
+  if (window.ChatNotifications && typeof window.ChatNotifications.subscribe === 'function') {
+    try { await window.ChatNotifications.subscribe(); } catch (_e) {}
+  }
   _closeWelcomeOverlay();
 }
 
