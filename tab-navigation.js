@@ -587,23 +587,7 @@
     if (online.length === 0) { feed.innerHTML = ''; return; }
     const items = online.slice(0, 5).map(f => {
       const name = escapeHtml(f.username || f.name || 'Unbekannt');
-      const best = f.bestScore || f.score;
-      const avg  = f.avgScore  || f.avgRinge;
-      const scoreHtml = best
-        ? `<span class="faf-score">${parseFloat(best).toFixed(1)} Ø</span>`
-        : avg
-          ? `<span class="faf-score">${parseFloat(avg).toFixed(1)} Ø</span>`
-          : '';
-      const fid = escapeHtml(f.userId || '');
-      const challengeBtn = fid
-        ? `<button class="faf-challenge" data-action="challenge" aria-label="Duell starten">⚔️</button>`
-        : '';
-      return `<div class="faf-item" data-friend-id="${fid}">
-        <span class="faf-dot"></span>
-        <span class="faf-name">${name}</span>
-        ${scoreHtml}
-        ${challengeBtn}
-      </div>`;
+      return `<div class="faf-item"><span class="faf-dot"></span><span class="faf-name">${name}</span><span class="faf-badge">Online</span></div>`;
     }).join('');
     feed.innerHTML = `<div class="faf-wrap"><div class="faf-title">Jetzt aktiv</div>${items}</div>`;
   }
