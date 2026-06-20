@@ -147,6 +147,9 @@
     if (window.TrainingHeatmap && typeof window.TrainingHeatmap.render === 'function') {
       window.TrainingHeatmap.render();
     }
+    if (window.ScoreSparkline && typeof window.ScoreSparkline.render === 'function') {
+      window.ScoreSparkline.render();
+    }
     refreshStartChallenges();
   }
 
@@ -282,19 +285,24 @@
 
   function refreshStartStats() {
     const sessions = getTrainingSessions();
+    const now = new Date();
     const weekSessions = sessions.filter(s => {
       const d = new Date(s.date || s.timestamp || 0);
-      const now = new Date();
       return (now - d) < 7 * 24 * 3600 * 1000;
     });
     const weekAvg = weekSessions.length > 0
       ? (weekSessions.reduce((a,s) => a + (s.avg || 0), 0) / weekSessions.length).toFixed(1)
       : '–';
+    const weekMinutes = Math.round(
+      weekSessions.reduce((a, s) => a + (s.duration || 0), 0) / 60
+    );
 
     const el1 = document.getElementById('stWeekAvg');
     const el2 = document.getElementById('stTotalTrainings');
+    const el4 = document.getElementById('stWeekMin');
     if (el1) el1.textContent = weekAvg;
     if (el2) el2.textContent = sessions.length;
+    if (el4) el4.textContent = weekMinutes > 0 ? weekMinutes : '–';
 
     const state = (typeof StorageManager !== 'undefined') ? JSON.parse(StorageManager.getRaw('gameState') || 'null') : null;
     const wins = state ? (state.stats && state.stats.wins || 0) : 0;
@@ -312,27 +320,32 @@
       return;
     }
     const s = sessions[0];
-    const avg = (s.avg || 0).toFixed(1);
-    const scoreClass = parseFloat(avg) >= 95 ? '' : parseFloat(avg) >= 90 ? 'yellow' : 'orange';
+    const avg = parseFloat(s.avg || 0);
+    const avgStr = avg.toFixed(1);
+    const allTimeBest = sessions.reduce((m, x) => Math.max(m, x.avg || 0), 0);
+    const isNewPB = avg > 0 && avg >= allTimeBest;
+    const scoreClass = avg >= 95 ? '' : avg >= 90 ? 'yellow' : 'orange';
     const dateStr = formatDate(s.date || s.timestamp);
+    const durationMin = s.duration ? Math.round(s.duration / 60) : 0;
 
     container.innerHTML = `
-      <div class="last-training-card">
+      <div class="last-training-card${isNewPB ? ' ltc-pb' : ''}">
+        ${isNewPB ? '<div class="ltc-pb-badge">★ Neuer Rekord</div>' : ''}
         <div class="ltc-top">
           <div class="ltc-target-placeholder">🎯</div>
           <div class="ltc-info">
             <div class="ltc-discipline">${escapeHtml(s.discipline || 'Luftgewehr · 10m')}</div>
-            <div class="ltc-date">${dateStr}</div>
+            <div class="ltc-date">${dateStr}${durationMin > 0 ? ' · ' + durationMin + ' min' : ''}</div>
           </div>
           <div class="ltc-score-badge">
-            <div class="ltc-score-val" style="color:${scoreClass==='yellow'?'#ffc840':scoreClass==='orange'?'#ff9500':'var(--accent)'}">${avg}</div>
+            <div class="ltc-score-val" style="color:${scoreClass==='yellow'?'#ffc840':scoreClass==='orange'?'#ff9500':'var(--accent)'}">${avgStr}</div>
             <div class="ltc-score-lbl">Ringe</div>
           </div>
         </div>
         <div class="ltc-stats">
           <div class="ltc-stat"><div class="ltc-stat-val">${s.shots || s.count || '–'}</div><div class="ltc-stat-lbl">Schüsse</div></div>
-          <div class="ltc-stat"><div class="ltc-stat-val">${avg}</div><div class="ltc-stat-lbl">Ø Ringe</div></div>
-          <div class="ltc-stat"><div class="ltc-stat-val">${(s.best || s.max || avg)}</div><div class="ltc-stat-lbl">Beste Serie</div></div>
+          <div class="ltc-stat"><div class="ltc-stat-val">${avgStr}</div><div class="ltc-stat-lbl">Ø Ringe</div></div>
+          <div class="ltc-stat"><div class="ltc-stat-val">${(s.best || s.max || avgStr)}</div><div class="ltc-stat-lbl">Beste Serie</div></div>
         </div>
         <div class="ltc-footer">
           <button class="ltc-link" onclick="switchTab('training')">Ergebnis ansehen <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
