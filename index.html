@@ -120,6 +120,7 @@
   <script src="tab-navigation.js?v=1.3" defer></script>
   <script src="training-heatmap.js?v=1.0" defer></script>
   <script src="screen-wake-lock.js?v=1.0" defer></script>
+  <script src="push-notifications.js?v=1.0" defer></script>
 </head>
 
 <body>
@@ -150,6 +151,15 @@
         <button class="welcome-btn" id="welcomeClubJoinBtn" onclick="saveWelcomeClub()">🏆 VEREIN BEITRETEN</button>
         <button class="welcome-btn" onclick="skipWelcomeClub()"
           style="margin-top:10px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);box-shadow:none;border:1px solid rgba(255,255,255,.1);">Überspringen</button>
+      </div>
+      <!-- Schritt 3: Push-Benachrichtigungen -->
+      <div id="welcomeStep3" style="display:none;">
+        <div class="welcome-icon">🔔</div>
+        <div class="welcome-title">BENACHRICHTIGUNGEN</div>
+        <div class="welcome-sub">Erhalte Hinweise bei neuen Herausforderungen und Freundesaktivitäten.<br><span style="font-size:.8em;opacity:.6;">Kann jederzeit in den Einstellungen geändert werden</span></div>
+        <button class="welcome-btn" onclick="enableWelcomePush()">🔔 JA, AKTIVIEREN</button>
+        <button class="welcome-btn" onclick="skipWelcomePush()"
+          style="margin-top:10px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);box-shadow:none;border:1px solid rgba(255,255,255,.1);">Nein danke</button>
       </div>
     </div>
   </div>
