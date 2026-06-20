@@ -118,6 +118,8 @@
   <script src="rival-system.js" defer></script>
   <script src="visitenkarte-share.js" defer></script>
   <script src="tab-navigation.js?v=1.3" defer></script>
+  <script src="training-heatmap.js?v=1.0" defer></script>
+  <script src="screen-wake-lock.js?v=1.0" defer></script>
 </head>
 
 <body>
@@ -276,6 +278,9 @@
               <div class="empty-state"><div class="empty-state-icon">🎯</div><div>Noch kein Training erfasst</div></div>
             </div>
           </div>
+
+          <!-- TRAININGS-HEATMAP -->
+          <div id="trainingHeatmap"></div>
 
           <!-- AKTIVE CHALLENGES (daily missions mount) -->
           <div>
@@ -704,6 +709,9 @@
                 </div>
               </div>
             </div>
+
+            <!-- Aktivitäts-Feed -->
+            <div id="friendsActivityFeed"></div>
 
             <!-- Sort row -->
             <div class="friends-sort-row">

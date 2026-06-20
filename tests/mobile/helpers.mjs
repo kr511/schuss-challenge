@@ -11,6 +11,8 @@ export function enableLocalMode() {
     localStorage.setItem('sd_local_mode', '1');
     localStorage.setItem('username', 'TestGast');
     localStorage.setItem('sd_username', 'TestGast');
+    // Consent vorbelegen (kein Analytics), damit der Banner den UI-Test nicht blockiert
+    localStorage.setItem('sd_consent', JSON.stringify({ v: 1, analytics: false, ts: Date.now() }));
   } catch (e) { /* ignore */ }
 }
 
