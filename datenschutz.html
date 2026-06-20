@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Datenschutzerklärung – Schützen Challenge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="legal.css">
+</head>
+<body>
+
+  <header class="legal-topbar">
+    <a href="javascript:history.back()" class="legal-back" aria-label="Zurück">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      Zurück
+    </a>
+    <span class="legal-topbar-title">Datenschutzerklärung</span>
+  </header>
+
+  <main class="legal-wrap">
+
+    <!-- ─── Vorlage-Hinweis ─────────────────────────────────────── -->
+    <div class="legal-draft-notice" role="note">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fab005" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      <div class="legal-draft-notice-text">
+        <strong>Vorlage – vor Veröffentlichung rechtlich prüfen lassen</strong>
+        Dieses Dokument ist eine Mustervorlage auf Basis von Art. 13 DSGVO und §&thinsp;25 TDDDG.
+        Die markierten Felder <span class="ph">[PLATZHALTER]</span> müssen durch tatsächliche Angaben
+        ersetzt werden. Technische Details und Drittanbieter-Abschnitte sollten an die
+        tatsächliche Konfiguration angepasst werden. Eine Rechtsberatung wird empfohlen.
+      </div>
+    </div>
+
+    <h1>Datenschutzerklärung</h1>
+    <p class="legal-subtitle">
+      Informationen gemäß Art. 13 DSGVO und § 25 TDDDG<br>
+      Stand: <span class="ph">[MONAT JAHR]</span>
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>1. Verantwortlicher</h2>
+
+    <p>Verantwortlicher im Sinne der DSGVO (Art. 4 Nr. 7 DSGVO) ist:</p>
+    <div class="ph-block">
+      [VORNAME NACHNAME / FIRMENNAME]<br>
+      [STRASSE UND HAUSNUMMER]<br>
+      [PLZ] [STADT]<br>
+      E-Mail: [E-MAIL-ADRESSE]
+    </div>
+
+    <h3>Datenschutzbeauftragter</h3>
+    <p>
+      Eine gesetzliche Pflicht zur Bestellung eines Datenschutzbeauftragten besteht
+      <span class="ph">[JA / NEIN, BEGRÜNDUNG]</span>.
+    </p>
+    <p class="ph-block">
+      [Falls vorhanden: Name und Kontakt des DSB]
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>2. Allgemeine Hinweise zur Datenverarbeitung</h2>
+
+    <p>
+      Schützen Challenge ist eine Progressive Web App (PWA) für Sportschützen.
+      Wir nehmen den Schutz deiner persönlichen Daten ernst und behandeln sie
+      vertraulich gemäß den gesetzlichen Datenschutzvorschriften der DSGVO sowie
+      des TDDDG.
+    </p>
+    <p>
+      Technisch notwendige Daten (z. B. Sitzungsverwaltung) werden auch ohne
+      Einwilligung gespeichert, da dies zur Bereitstellung des Dienstes erforderlich ist
+      (Art. 6 Abs. 1 lit. b DSGVO bzw. § 25 Abs. 2 TDDDG).
+      Optionale Analyse-Daten werden erst nach ausdrücklicher Einwilligung erhoben
+      (Art. 6 Abs. 1 lit. a DSGVO, § 25 Abs. 1 TDDDG).
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>3. Eingesetzte Dienste und Datenverarbeitung</h2>
+
+    <!-- ── 3.1 Supabase ──────────────────────────────────────────── -->
+    <div class="legal-card">
+      <span class="legal-badge required">Technisch notwendig</span>
+      <div class="legal-card-title">3.1 Supabase (Backend, Datenbank, Authentifizierung)</div>
+      <p>
+        Für Cloud-Synchronisierung, Authentifizierung per E-Mail/Passwort und die Verwaltung
+        von Trainingsdaten, Profilen und Freundeslisten nutzen wir Supabase.
+      </p>
+      <h4>Verarbeitete Daten</h4>
+      <ul>
+        <li>E-Mail-Adresse und verschlüsseltes Passwort (bei E-Mail-Registrierung)</li>
+        <li>Benutzername und Avatar (öffentliches Profil)</li>
+        <li>Trainings- und Spielergebnisse</li>
+        <li>Freundesliste, Freundschaftsanfragen, Freundschaftscodes</li>
+        <li>Login-Zeitstempel, IP-Adresse (serverseitige Protokollierung durch Supabase)</li>
+      </ul>
+      <h4>Zweck und Rechtsgrundlage</h4>
+      <p>
+        Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO) – Cloud-Sync und Konto sind
+        optionale Funktionen; ein Spielen im lokalen Modus ist ohne Konto möglich.
+      </p>
+      <h4>Anbieter</h4>
+      <p>
+        Supabase, Inc., 970 Toa Payoh North, #07-04, Singapore 318992.<br>
+        Serverstandort: <span class="ph">[AWS-Region, z. B. eu-central-1 (Frankfurt)]</span><br>
+        Datenschutz: <a href="https://supabase.com/privacy" target="_blank" rel="noopener">supabase.com/privacy</a> ·
+        DPA: <a href="https://supabase.com/dpa" target="_blank" rel="noopener">supabase.com/dpa</a>
+      </p>
+      <h4>Drittlandtransfer</h4>
+      <p>
+        Falls Daten auf US-Servern verarbeitet werden: Übermittlung auf Basis der
+        EU-Standardvertragsklauseln (SCCs) gemäß Art. 46 Abs. 2 lit. c DSGVO.
+      </p>
+    </div>
+
+    <!-- ── 3.2 Google OAuth ──────────────────────────────────────── -->
+    <div class="legal-card">
+      <span class="legal-badge optional">Optional</span>
+      <div class="legal-card-title">3.2 Google OAuth (Anmeldung mit Google)</div>
+      <p>
+        Optional kann die Anmeldung über den Google-Identitätsdienst erfolgen.
+        Dabei werden Daten an Google übertragen.
+      </p>
+      <h4>Verarbeitete Daten (bei Nutzung der Google-Anmeldung)</h4>
+      <ul>
+        <li>Google-Konto-ID, Name, E-Mail-Adresse, Profilbild-URL</li>
+        <li>OAuth-Token (zur Authentifizierung gegenüber Supabase)</li>
+      </ul>
+      <h4>Zweck und Rechtsgrundlage</h4>
+      <p>
+        Einwilligung (Art. 6 Abs. 1 lit. a DSGVO) durch aktives Anklicken von
+        „Mit Google anmelden". Die E-Mail/Passwort-Anmeldung steht als Alternative bereit.
+      </p>
+      <h4>Anbieter</h4>
+      <p>
+        Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland.<br>
+        Datenschutz: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>
+      </p>
+      <h4>Drittlandtransfer</h4>
+      <p>
+        Google kann Daten in die USA übertragen (Data Privacy Framework,
+        Art. 45 DSGVO).
+      </p>
+    </div>
+
+    <!-- ── 3.3 Cloudflare ────────────────────────────────────────── -->
+    <div class="legal-card">
+      <span class="legal-badge required">Technisch notwendig</span>
+      <div class="legal-card-title">3.3 Cloudflare (CDN, DDoS-Schutz)</div>
+      <p>
+        Die Bibliotheken der App (z. B. Supabase JS) werden über das Content Delivery
+        Network (CDN) von Cloudflare (cdn.jsdelivr.net) bereitgestellt.
+      </p>
+      <h4>Verarbeitete Daten</h4>
+      <ul>
+        <li>IP-Adresse, Browser-User-Agent, Anfrage-URL, Zeitstempel</li>
+      </ul>
+      <h4>Zweck und Rechtsgrundlage</h4>
+      <p>
+        Berechtigtes Interesse (Art. 6 Abs. 1 lit. f DSGVO): Sicherheit,
+        Verfügbarkeit und Ladegeschwindigkeit der App. Die Datenverarbeitung ist auf das
+        für CDN-Betrieb technisch Notwendige beschränkt.
+      </p>
+      <h4>Anbieter</h4>
+      <p>
+        Cloudflare, Inc., 101 Townsend St., San Francisco, CA 94107, USA.<br>
+        jsDelivr CDN: Fondacija jsDelivr, Ilica 242, 10000 Zagreb, Kroatien.<br>
+        Drittlandtransfer: Standardvertragsklauseln (Art. 46 Abs. 2 lit. c DSGVO).
+      </p>
+    </div>
+
+    <!-- ── 3.4 Vercel ────────────────────────────────────────────── -->
+    <div class="legal-card">
+      <span class="legal-badge third-party">Hosting + Analytics (einwilligungspflichtig)</span>
+      <div class="legal-card-title">3.4 Vercel (Hosting, Analytics, Speed Insights)</div>
+
+      <h4>Hosting</h4>
+      <p>
+        Die App wird auf der Plattform Vercel gehostet. Beim Abrufen der App werden
+        technische Zugriffsdaten (IP-Adresse, User-Agent, Zeitstempel) durch Vercel
+        protokolliert (berechtigtes Interesse, Art. 6 Abs. 1 lit. f DSGVO).
+      </p>
+
+      <h4>Vercel Web Analytics &amp; Speed Insights (optional)</h4>
+      <p>
+        <strong>Nur mit deiner Einwilligung</strong> werden anonymisierte Seitenaufrufe
+        und Performance-Metriken (Core Web Vitals) erfasst. Es wird kein Cookie gesetzt;
+        Vercel Analytics arbeitet ohne IP-Speicherung und ohne Fingerprinting
+        (§ 25 Abs. 1 TDDDG, Art. 6 Abs. 1 lit. a DSGVO).
+      </p>
+      <ul>
+        <li>Ohne Einwilligung: keine Analytics-Skripte werden geladen.</li>
+        <li>Mit Einwilligung: anonymisierter Seitenaufruf, Browser-Typ, Referrer, Land.</li>
+      </ul>
+      <p>
+        Die Einwilligung kann jederzeit in den <strong>Einstellungen → Rechtliches</strong>
+        widerrufen werden (Art. 7 Abs. 3 DSGVO, § 25 Abs. 1 TDDDG).
+      </p>
+
+      <h4>Anbieter</h4>
+      <p>
+        Vercel Inc., 340 S Lemon Ave #4133, Walnut, CA 91789, USA.<br>
+        Datenschutz: <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener">vercel.com/legal/privacy-policy</a><br>
+        Analytics-Datenschutz: <a href="https://vercel.com/docs/analytics/privacy-policy" target="_blank" rel="noopener">vercel.com/docs/analytics/privacy-policy</a><br>
+        Drittlandtransfer: SCCs (Art. 46 Abs. 2 lit. c DSGVO).
+      </p>
+    </div>
+
+    <!-- ── 3.5 Google Fonts ──────────────────────────────────────── -->
+    <div class="legal-card">
+      <span class="legal-badge required">Technisch notwendig</span>
+      <div class="legal-card-title">3.5 Google Fonts (Schriftarten)</div>
+      <p>
+        Die App lädt Schriftarten (Outfit, Bebas Neue, DM Mono) von Google Fonts.
+        Dabei wird die IP-Adresse an Google übertragen.
+      </p>
+      <h4>Zweck und Rechtsgrundlage</h4>
+      <p>
+        Berechtigtes Interesse an einem einheitlichen Erscheinungsbild (Art. 6 Abs. 1 lit. f DSGVO).
+        <span class="ph">[Alternativ: Schriftarten lokal einbinden, dann kein Drittlandtransfer.]</span>
+      </p>
+      <h4>Anbieter</h4>
+      <p>
+        Google Ireland Limited, Gordon House, Barrow Street, Dublin 4, Irland.<br>
+        Datenschutz: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>
+      </p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>4. Lokale Speicherung auf dem Gerät</h2>
+
+    <p>
+      Schützen Challenge speichert Daten im <code>localStorage</code> deines Browsers.
+      Diese Daten verlassen dein Gerät nicht, sofern du keinen Cloud-Account nutzt
+      und keine Daten synchronisierst.
+    </p>
+
+    <h3>4.1 Technisch notwendige Daten (§ 25 Abs. 2 TDDDG)</h3>
+    <p>
+      Diese Daten sind für den Betrieb der App unbedingt erforderlich und werden
+      ohne separate Einwilligung gespeichert:
+    </p>
+    <ul>
+      <li><strong>Benutzerkonto:</strong> sd_userId, sd_username, sd_avatar, sd_local_user_id</li>
+      <li><strong>Sitzung &amp; Modus:</strong> sd_auth_profile_seeded, sd_local_play, sd_local_mode</li>
+      <li><strong>Spielstatistiken:</strong> sd_gamestats, sd_wstats_lg, sd_wstats_kk, sd_history</li>
+      <li><strong>Fortschritt:</strong> sd_xp, sd_reset_v3, sd_sun, sd_daily_challenge</li>
+      <li><strong>Einstellungen:</strong> sd_sound, sd_haptics_enabled, sd_profile_privacy</li>
+      <li><strong>Sync-Metadaten:</strong> sd_cloud_sync_meta_v1, sd_last_visit, sd_login_streak</li>
+      <li><strong>Einwilligung:</strong> sd_consent (Version, Zeitstempel, Analytics-Entscheidung)</li>
+      <li><strong>Sonstige Features:</strong> sd_reward_state, sd_training_data, sd_friendly_code, sd_dailyGoal u. a.</li>
+    </ul>
+    <p>
+      Rechtsgrundlage: § 25 Abs. 2 Nr. 2 TDDDG (technisch unbedingt erforderlich zur
+      Bereitstellung des Dienstes auf ausdrücklichen Wunsch des Nutzers).
+    </p>
+
+    <h3>4.2 Einwilligungspflichtige lokale Daten</h3>
+    <p>
+      Analyse-Cookies und Tracking-Daten werden nur mit expliziter Einwilligung gespeichert
+      (§ 25 Abs. 1 TDDDG). Derzeit werden keine solchen Daten in localStorage gespeichert;
+      Vercel Analytics sendet Daten direkt an Vercel und speichert keine lokalen Cookies.
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>5. Übermittlung in Drittländer</h2>
+
+    <p>
+      Einige eingesetzte Dienste befinden sich in den USA oder übertragen Daten dorthin
+      (Supabase, Vercel, Google, Cloudflare). Die Übermittlung erfolgt auf Basis der
+      EU-Standardvertragsklauseln (SCCs) gemäß Art. 46 Abs. 2 lit. c DSGVO oder,
+      sofern verfügbar, auf Basis eines Angemessenheitsbeschlusses (z. B. EU-US
+      Data Privacy Framework für Google, Art. 45 DSGVO).
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>6. Speicherdauer</h2>
+
+    <ul>
+      <li>
+        <strong>Account-Daten (Supabase):</strong> Bis zur Löschung des Kontos oder
+        auf Anfrage; nach Löschung max. 30 Tage in Backups.
+      </li>
+      <li>
+        <strong>Zugriffslogs (Vercel/Cloudflare):</strong>
+        <span class="ph">[Laut Anbieter-AGB, z. B. 30–90 Tage]</span>
+      </li>
+      <li>
+        <strong>Lokale Gerätedaten:</strong> Bis zur manuellen Löschung in den
+        Einstellungen oder über die Browser-Datenverwaltung.
+      </li>
+      <li>
+        <strong>Vercel Analytics:</strong> Gemäß Vercel-Datenschutzrichtlinie
+        (derzeit 90 Tage für aggregierte Daten).
+      </li>
+    </ul>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>7. Deine Rechte (Art. 15–22 DSGVO)</h2>
+
+    <p>Du hast gegenüber uns folgende Rechte bezüglich deiner personenbezogenen Daten:</p>
+
+    <ul>
+      <li><strong>Auskunftsrecht</strong> (Art. 15 DSGVO): Welche Daten von dir gespeichert sind.</li>
+      <li><strong>Berichtigungsrecht</strong> (Art. 16 DSGVO): Korrektur unrichtiger Daten.</li>
+      <li><strong>Recht auf Löschung</strong> (Art. 17 DSGVO): Löschung deiner Daten (siehe Abschnitt 8).</li>
+      <li><strong>Recht auf Einschränkung</strong> (Art. 18 DSGVO): Einschränkung der Verarbeitung.</li>
+      <li><strong>Datenübertragbarkeit</strong> (Art. 20 DSGVO): Export deiner Daten (Einstellungen → Daten exportieren).</li>
+      <li><strong>Widerspruchsrecht</strong> (Art. 21 DSGVO): Widerspruch gegen Verarbeitung auf Basis berechtigter Interessen.</li>
+      <li><strong>Widerruf der Einwilligung</strong> (Art. 7 Abs. 3 DSGVO): Einwilligung jederzeit widerrufbar (Einstellungen → Rechtliches → Analyse-Einwilligung).</li>
+    </ul>
+
+    <p>
+      Zur Ausübung deiner Rechte wende dich an: <span class="ph">[E-MAIL-ADRESSE]</span>
+    </p>
+
+    <h3>Beschwerderecht</h3>
+    <p>
+      Du hast das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren.
+      Zuständige Behörde ist die Aufsichtsbehörde deines Bundeslandes oder:
+    </p>
+    <p>
+      <strong>Bundesbeauftragte für den Datenschutz und die Informationsfreiheit (BfDI)</strong><br>
+      Husarenstr. 30, 53117 Bonn · <a href="https://www.bfdi.bund.de" target="_blank" rel="noopener">www.bfdi.bund.de</a>
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>8. Löschmöglichkeiten</h2>
+
+    <h3>In der App</h3>
+    <ul>
+      <li>
+        <strong>Lokale Daten &amp; Fortschritt:</strong>
+        Einstellungen → Fortschritt → „Gesamten Fortschritt zurücksetzen"
+      </li>
+      <li>
+        <strong>Datenexport (Art. 20 DSGVO):</strong>
+        Einstellungen → Gerätedaten → „Lokale Daten exportieren"
+      </li>
+      <li>
+        <strong>Alle lokalen Daten:</strong>
+        Browser/App-Einstellungen → Daten löschen → Cache und gespeicherte Daten
+      </li>
+      <li>
+        <strong>Analyse-Einwilligung widerrufen:</strong>
+        Einstellungen → Rechtliches → „Widerrufen"
+      </li>
+    </ul>
+
+    <h3>Konto-Löschung (Cloud)</h3>
+    <p>
+      Für die vollständige Löschung deines Kontos und aller serverseitig gespeicherten Daten
+      sende eine E-Mail an: <span class="ph">[E-MAIL-ADRESSE]</span>
+      mit dem Betreff „Datenlöschung – Schützen Challenge".<br>
+      <span class="ph">[Optional: Self-Service-Löschfunktion in der App planen.]</span>
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>9. Einwilligung und Widerruf (§ 25 TDDDG)</h2>
+
+    <p>
+      Beim ersten Start der App wird um Einwilligung zur Verarbeitung nicht notwendiger Daten
+      (Vercel Analytics) gebeten. „Ablehnen" und „Akzeptieren" sind gleichwertig gestaltet.
+      Die Entscheidung wird lokal (sd_consent) gespeichert.
+    </p>
+
+    <p>
+      <strong>Widerruf:</strong> Die Einwilligung kann jederzeit ohne Angabe von Gründen
+      widerrufen werden über <em>Einstellungen → Rechtliches → Analyse-Einwilligung → Widerrufen</em>.
+      Der Widerruf wirkt ab dem Zeitpunkt der Ausübung; bis dahin erfolgte Datenverarbeitung
+      bleibt rechtmäßig (Art. 7 Abs. 3 S. 2 DSGVO).
+    </p>
+
+    <h3>Technisch notwendige Daten</h3>
+    <p>
+      Lokale Gerätedaten, die für den Betrieb der App unbedingt erforderlich sind, werden
+      auch ohne Einwilligung gespeichert (§ 25 Abs. 2 TDDDG). Eine Tabelle dieser Daten
+      findet sich in Abschnitt 4.1.
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>10. Keine automatisierte Entscheidungsfindung</h2>
+
+    <p>
+      Wir setzen keine automatisierte Entscheidungsfindung einschließlich Profiling
+      im Sinne von Art. 22 DSGVO ein.
+    </p>
+
+    <!-- ══════════════════════════════════════════════════════════ -->
+    <h2>11. Änderungen dieser Erklärung</h2>
+
+    <p>
+      Diese Datenschutzerklärung kann aktualisiert werden, z. B. bei Änderungen in der App,
+      neuen Diensten oder geänderten Rechtslagen. Bei wesentlichen Änderungen werden
+      Nutzer informiert <span class="ph">[z. B. über eine In-App-Benachrichtigung]</span>.
+      Das Datum der letzten Änderung ist im Kopf dieses Dokuments angegeben.
+    </p>
+
+    <div class="legal-footer">
+      <p>
+        <a href="impressum.html">Impressum</a> ·
+        <a href="javascript:history.back()">Zurück zur App</a>
+      </p>
+      <p style="margin-top:6px;">Schützen Challenge · Stand: <span class="ph">[MONAT JAHR]</span></p>
+    </div>
+
+  </main>
+
+</body>
+</html>

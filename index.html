@@ -31,6 +31,8 @@
     rel="stylesheet">
   <!-- Globaler Error-Guard: muss als erstes Script laden, um Boot-Fehler zu erfassen -->
   <script src="error-guard.js?v=1.0"></script>
+  <!-- Consent Manager: §25 TDDDG – lädt Analytics nur nach Einwilligung -->
+  <script src="consent.js?v=1.0"></script>
   <!-- Supabase JS (muss vor auth-gate.js geladen sein) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <!-- Zentrale Supabase-Config (muss vor auth-gate.js und supabase-client.js geladen sein) -->
@@ -1376,6 +1378,13 @@
                 </button>
               </div>
 
+              <!-- Legal links below login options -->
+              <p class="auth-legal">
+                Mit der Nutzung stimmst du der
+                <a href="datenschutz.html" target="_blank" rel="noopener">Datenschutzerklärung</a>
+                zu.&ensp;·&ensp;<a href="impressum.html" target="_blank" rel="noopener">Impressum</a>
+              </p>
+
               <div id="accountSyncStatus" style="font-size:.75rem;color:rgba(255,255,255,.72);margin-bottom:12px;line-height:1.4;">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
                   <span id="syncStatusIcon" style="font-size:1.2rem;">⏳</span>
@@ -2260,17 +2269,7 @@
     }
   </script>
 
-  <!-- Vercel Web Analytics: Page Views & Web Vitals (lädt nur auf Vercel-Deployment) -->
-  <script>
-    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-  </script>
-  <script defer src="/_vercel/insights/script.js"></script>
-
-  <!-- Vercel Speed Insights: Core Web Vitals (lädt nur auf Vercel-Deployment) -->
-  <script>
-    window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
-  </script>
-  <script defer src="/_vercel/speed-insights/script.js"></script>
+  <!-- Vercel Analytics: wird nur nach Einwilligung durch consent.js geladen (§25 TDDDG) -->
 
   <!-- ══════════════════════════ AVATAR PICKER OVERLAY ══════════════════════════ -->
   <div id="avatarPickerOverlay" class="avatar-picker-overlay" onclick="closeAvatarPicker(event)">
@@ -2423,6 +2422,26 @@
       </div>
 
       <button class="tff-reset" onclick="resetTrainingFilter()">Filter zurücksetzen</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ CONSENT BANNER (§25 TDDDG) ══════════════════════ -->
+  <div id="consentBanner" class="consent-banner" hidden aria-live="polite" role="dialog" aria-label="Datenschutz-Einwilligung">
+    <div class="consent-card">
+      <p class="consent-text">
+        Wir verwenden technisch notwendige lokale Daten und – nur mit deiner Einwilligung –
+        anonyme Nutzungsstatistiken (Vercel Analytics). Weitere Infos in der
+        <a href="datenschutz.html" target="_blank" rel="noopener">Datenschutzerklärung</a>.
+      </p>
+      <div class="consent-actions">
+        <button id="consentDecline" class="consent-btn consent-btn--sec" type="button">Ablehnen</button>
+        <button id="consentAccept" class="consent-btn consent-btn--pri" type="button">Akzeptieren</button>
+      </div>
+      <div class="consent-links">
+        <a href="datenschutz.html" target="_blank" rel="noopener">Datenschutz</a>
+        &ensp;·&ensp;
+        <a href="impressum.html" target="_blank" rel="noopener">Impressum</a>
+      </div>
     </div>
   </div>
 
