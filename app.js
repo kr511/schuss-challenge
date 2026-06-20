@@ -1320,6 +1320,7 @@ function recordGameResult(result, diff, weapon, playerPts, botPts) {
   gs.wins = (gs.wins || 0) + (result === 'win' ? 1 : 0);
   gs.losses = (gs.losses || 0) + (result === 'lose' ? 1 : 0);
   gs.draws = (gs.draws || 0) + (result === 'draw' ? 1 : 0);
+  gs.games = gs.wins + gs.losses + gs.draws;
   saveGameStats(gs);
 
   // Weapon stats
@@ -1466,6 +1467,9 @@ function buildHistoryEntry(result, diff, weapon, playerPts, botPts) {
     disciplineName: DISC[discipline]?.name || discipline,
     playerPts,
     botPts,
+    maxShots: Number(G.maxShots) || Number(DISC[discipline]?.shots) || 0,
+    shots: Array.isArray(G.targetShots) ? G.targetShots.map(shot => Number(shot && shot.pts)).filter(Number.isFinite) : [],
+    scoreMode: discipline === 'kk3x20' ? 'whole' : 'decimal',
     diffName: DIFF_NAMES[diff] || diff,
     weaponName: WEAPON_NAMES[weapon] || weapon,
     date: new Date(timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })

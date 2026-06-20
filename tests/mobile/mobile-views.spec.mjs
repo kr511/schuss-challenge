@@ -19,6 +19,20 @@ import { bootLocalApp, horizontalOverflow, inputsBelow } from './helpers.mjs';
 // close: optional teardown. required: must open, else the test fails.
 const OVERLAYS = [
   {
+    name: '24-hour goal editor',
+    open: () => window.openGoalEditor && window.openGoalEditor(),
+    sel: '#goalEditorPanel',
+    close: () => window.closeGoalEditor && window.closeGoalEditor(),
+    required: true
+  },
+  {
+    name: 'Settings page',
+    open: () => window.ProfileSettings && window.ProfileSettings.open && window.ProfileSettings.open(),
+    sel: '#settingsOverlay',
+    close: () => window.ProfileSettings && window.ProfileSettings.close && window.ProfileSettings.close(),
+    required: true
+  },
+  {
     name: 'Duel setup sheet',
     open: () => window.openDuelSetup && window.openDuelSetup(),
     sel: '#duelSetupSheet',

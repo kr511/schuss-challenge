@@ -50,24 +50,34 @@
   }
 
   function statusInfo(f) {
-    if (f && f.isOnline) return { cls: 'online', text: 'Online' };
+    let online = !!(f && f.isOnline);
+    try {
+      const social = window.FriendsSystem && window.FriendsSystem.getState ? window.FriendsSystem.getState() : null;
+      const presence = social && social.onlineStatusByUserId && social.onlineStatusByUserId[f.userId];
+      const lastSeen = Number(presence && presence.lastSeen) || 0;
+      online = !!(presence && presence.online && lastSeen > 0 && Date.now() - lastSeen < 120000);
+    } catch (_e) {}
+    if (online) return { cls: 'online', text: 'Online' };
     if (f && f.status === 'away') return { cls: 'away', text: 'Abwesend' };
     return { cls: 'offline', text: 'Offline' };
   }
 
   /* ─── Own stats for compare section ─── */
   function getOwnStats() {
-    const stats = { avgRinge: null, trainings: 0, duelsWon: 0, streak: 0 };
+    const stats = { avgRinge: null, bestRinge: null, trainings: 0, duelsWon: 0, streak: 0 };
     try {
-      const raw = localStorage.getItem('sd_history');
-      const hist = raw ? JSON.parse(raw) : [];
+      const hist = window.StatsStorage && window.StatsStorage.readHistory
+        ? window.StatsStorage.readHistory()
+        : [];
       if (Array.isArray(hist)) {
         stats.trainings = hist.length;
-        stats.duelsWon = hist.filter(h => h && (h.won === true || h.result === 'win')).length;
-        const scores = hist
-          .map(h => Number(h && (h.playerPts ?? h.playerScore ?? h.score)))
+        stats.duelsWon = hist.filter(h => h && h.result === 'win').length;
+        const averages = hist
+          .map(h => Number(h && h.averagePerShot))
           .filter(v => Number.isFinite(v) && v > 0);
-        if (scores.length) stats.avgRinge = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const totals = hist.map(h => Number(h && h.totalScore)).filter(v => Number.isFinite(v) && v > 0);
+        if (averages.length) stats.avgRinge = averages.reduce((a, b) => a + b, 0) / averages.length;
+        if (totals.length) stats.bestRinge = Math.max(...totals);
       }
     } catch (_e) { /* ignore */ }
 
@@ -165,7 +175,7 @@
       '<div class="stat-tiles-4">' +
         '<div class="stat-tile">' +
           '<div class="st-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>' +
-          '<div class="st-label">Ø Ringe</div>' +
+          '<div class="st-label">Ø pro Schuss</div>' +
           '<div class="st-value">' + avgText + '</div>' +
           '<div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Saison</div>' +
         '</div>' +
@@ -232,7 +242,7 @@
     }
 
     const bars =
-      barRow('Ø Ringe', myAvg, friendAvg) +
+      barRow('Ø pro Schuss', myAvg, friendAvg) +
       barRow('Bestes Training', own.bestRinge, friendBest, v => String(Math.round(v))) +
       barRow('Duelle gewonnen', own.duelsWon, null, v => String(Math.round(v))) +
       barRow('Tage in Folge', own.streak, null, v => String(Math.round(v)));

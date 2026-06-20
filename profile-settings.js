@@ -244,6 +244,7 @@
       '.set-switch input:checked+.set-slider{background:rgba(34,197,94,.5);border-color:rgba(34,197,94,.7)}',
       '.set-switch input:checked+.set-slider:before{transform:translateX(20px);background:#eafff0}',
       '.set-foot{text-align:center;font-size:.66rem;color:rgba(255,255,255,.3);letter-spacing:.04em;padding:8px 0 2px}',
+      '.set-legal-links{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-top:8px}.set-legal-links a{color:rgba(255,255,255,.62);font-size:.72rem}',
       '#settingsToast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);transform:translateX(-50%) translateY(12px);z-index:2147483500;background:rgba(20,20,20,.97);border:1px solid rgba(34,197,94,.32);color:#c9f5b6;font-size:.82rem;font-weight:700;padding:11px 16px;border-radius:12px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:0 10px 30px rgba(0,0,0,.55);max-width:calc(100vw - 32px);text-align:center}',
       '#settingsToast.show{opacity:1;transform:translateX(-50%)}',
       '@media(max-width:420px){.set-namebar{grid-template-columns:1fr}.set-btn{width:100%}}'
@@ -338,6 +339,7 @@
       '<section class="set-card">',
         '<div class="set-row"><div class="set-copy"><div class="set-title">Profil-Sichtbarkeit</div><div class="set-desc">Öffentlich zeigt dich in Ranglisten; Privat reduziert die Sichtbarkeit.</div></div><span id="settingsPrivacyPill" class="set-pill ' + (privacyPublic ? '' : 'private') + '">' + (privacyPublic ? 'Öffentlich' : 'Privat') + '</span></div>',
         '<div class="set-row"><div class="set-copy"><div class="set-title">Öffentliches Profil</div><div class="set-desc">Für globale Profile und Freunde sichtbar.</div></div>' + makeSwitch('settingsPrivacySwitch', privacyPublic) + '</div>',
+        '<div class="set-row"><div class="set-copy"><div class="set-title">Optionale Nutzungsanalyse</div><div class="set-desc">Einwilligung für Vercel Analytics und Speed Insights verwalten.</div></div><button id="settingsConsentBtn" class="set-btn" type="button">Ändern</button></div>',
       '</section>',
 
       // Cloud
@@ -367,7 +369,8 @@
         '<button id="settingsLogoutBtn" class="set-btn danger" type="button">' + (acc.key === 'online' ? 'Abmelden' : 'Anmeldung / Konto') + '</button>',
       '</section>',
 
-      '<div class="set-foot">🎯 Schützen Challenge' + (version ? ' · v' + escapeHtml(String(version)) : '') + ' · Beta</div>'
+      '<div class="set-foot">🎯 Schützen Challenge' + (version ? ' · v' + escapeHtml(String(version)) : '') + ' · Beta'
+        + '<div class="set-legal-links"><a href="impressum.html">Impressum</a><a href="datenschutz.html">Datenschutz</a></div></div>'
     ].join('');
 
     bindEvents();
@@ -539,6 +542,7 @@
     var resetBtn = $('settingsResetBtn');
     var logoutBtn = $('settingsLogoutBtn');
     var avatarBtn = $('settingsAvatar');
+    var consentBtn = $('settingsConsentBtn');
 
     if (saveBtn) saveBtn.addEventListener('click', saveName);
     if (nameInput) nameInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') saveName(); });
@@ -555,6 +559,11 @@
     if (resetBtn) resetBtn.addEventListener('click', resetProgress);
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
     if (avatarBtn) avatarBtn.addEventListener('click', changeAvatar);
+    if (consentBtn) consentBtn.addEventListener('click', function () {
+      const opened = window.AnalyticsConsent && window.AnalyticsConsent.open && window.AnalyticsConsent.open();
+      if (opened) close();
+      else showToast('Analytics ist in der lokalen Vorschau deaktiviert.');
+    });
 
     var notifBtn = $('settingsNotifBtn');
     if (notifBtn) notifBtn.addEventListener('click', async function () {

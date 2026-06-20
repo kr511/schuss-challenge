@@ -7,6 +7,8 @@
   let initialized = false;
   let filterDiscipline = 'alle';
   let filterPeriod = 'gesamt';
+  let friendSortMode = 'online';
+  try { friendSortMode = localStorage.getItem('sd_friend_sort') === 'offline' ? 'offline' : 'online'; } catch (_e) {}
 
   /* ── Header configs ── */
   function renderHeader(tabId) {
@@ -61,10 +63,10 @@
       profil: {
         left: `<div class="ah-page-title">Profil</div>
                <div class="ah-page-sub">Deine Statistiken. Dein Fortschritt.</div>`,
-        right: `<button class="ah-icon-btn" onclick="if(window.ProfileSettings) window.ProfileSettings.open(); else if(window.toggleProfileMenu) window.toggleProfileMenu();" title="Einstellungen">
+        right: `<button class="ah-icon-btn" onclick="if(window.ProfileSettings) window.ProfileSettings.open(); else if(window.toggleProfileMenu) window.toggleProfileMenu();" title="Einstellungen" aria-label="Einstellungen">
                   <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                 </button>
-                <button class="ah-icon-btn" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Benachrichtigungen">
+                <button class="ah-icon-btn" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Benachrichtigungen" aria-label="Benachrichtigungen">
                   <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 </button>`
       }
@@ -73,6 +75,15 @@
     const cfg = configs[tabId] || configs.start;
     left.innerHTML = cfg.left;
     actions.innerHTML = cfg.right;
+    if (tabId === 'profil') {
+      const settingsButton = actions.querySelector('[title="Einstellungen"]');
+      const updatesButton = actions.querySelector('[title="Benachrichtigungen"]');
+      if (settingsButton && updatesButton) {
+        settingsButton.style.order = '';
+        updatesButton.style.order = '';
+        actions.insertBefore(updatesButton, settingsButton);
+      }
+    }
   }
 
   function escapeHtml(s) {
@@ -208,43 +219,15 @@
       + '</button>';
   }
 
-  /* ── Daily Goal helpers ── */
-  function getDailyGoal() {
-    try {
-      const raw = localStorage.getItem('sd_dailyGoal');
-      if (!raw) return { value: 95, achieved: false };
-      const data = JSON.parse(raw);
-      const today = new Date().toDateString();
-      if (data.date !== today) return { value: data.value || 95, achieved: false };
-      return { value: data.value || 95, achieved: !!data.achieved };
-    } catch(_e) { return { value: 95, achieved: false }; }
-  }
-
-  function saveDailyGoal(value, achieved) {
-    try {
-      localStorage.setItem('sd_dailyGoal', JSON.stringify({
-        value, achieved, date: new Date().toDateString()
-      }));
-    } catch(_e) {}
-  }
-
-  function getTodayBestAvg() {
-    const sessions = getTrainingSessions();
-    const today = new Date().toDateString();
-    const todaySessions = sessions.filter(s => {
-      return new Date(s.date || s.timestamp || 0).toDateString() === today;
-    });
-    if (todaySessions.length === 0) return 0;
-    return Math.max(...todaySessions.map(s => s.avg || 0));
+  /* ── Persönliches 24-Stunden-Ziel ── */
+  function formatGoalRemaining(ms) {
+    const totalMinutes = Math.max(0, Math.ceil(ms / 60000));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return hours + 'h ' + String(minutes).padStart(2, '0') + 'm';
   }
 
   function refreshStartGoalCard() {
-    const goalData = getDailyGoal();
-    const goal = goalData.value;
-    const progress = getTodayBestAvg();
-    const pct = Math.min(100, Math.round((progress / goal) * 100));
-    const justAchieved = progress >= goal && !goalData.achieved;
-
     const titleEl   = document.getElementById('gcGoalTitle');
     const textEl    = document.getElementById('gcProgressText');
     const barEl     = document.getElementById('gcBarFill');
@@ -252,8 +235,24 @@
     const ringFill  = document.getElementById('gcRingFill');
     const achievedEl= document.getElementById('gcAchieved');
 
-    if (titleEl) titleEl.textContent = 'Treffe ' + goal + '+ Ringe';
-    if (textEl) textEl.textContent = (progress > 0 ? progress.toFixed(1) : '–') + ' / ' + goal + ' Ringe';
+    const goal = window.DailyGoal && window.DailyGoal.get ? window.DailyGoal.get() : null;
+    if (!goal) {
+      if (titleEl) titleEl.textContent = 'Neues 24h-Ziel setzen';
+      if (textEl) textEl.textContent = 'Waffe, Disziplin und Ringzahl wählen';
+      if (barEl) barEl.style.width = '0%';
+      if (pctEl) pctEl.textContent = '0%';
+      if (ringFill) ringFill.style.strokeDashoffset = 163;
+      if (achievedEl) achievedEl.style.display = 'none';
+      return;
+    }
+
+    const progress = window.DailyGoal.getProgress(goal, getTrainingSessions());
+    const pct = Math.min(100, Math.round((progress / goal.targetRings) * 100));
+    const config = window.DailyGoal.CONFIG[goal.discipline];
+    const justAchieved = progress >= goal.targetRings && !goal.achieved;
+
+    if (titleEl) titleEl.textContent = config.name + ': ' + goal.targetRings + ' Ringe';
+    if (textEl) textEl.textContent = progress + ' / ' + goal.targetRings + ' · noch ' + formatGoalRemaining(goal.expiresAt - Date.now());
     if (barEl) barEl.style.width = pct + '%';
     if (pctEl) pctEl.textContent = pct + '%';
     if (ringFill) {
@@ -261,13 +260,13 @@
       ringFill.style.strokeDashoffset = circ - (circ * pct / 100);
     }
 
-    /* Award XP exactly once per day when goal first reached */
+    /* XP genau einmal pro Ziel vergeben. */
     if (justAchieved) {
-      saveDailyGoal(goal, true);
-      if (typeof window.awardFlatXP === 'function') window.awardFlatXP(50);
+      const awarded = window.DailyGoal.markAchieved(goal);
+      if (awarded && typeof window.awardFlatXP === 'function') window.awardFlatXP(50);
       if (achievedEl) { achievedEl.style.display = ''; achievedEl.className = 'gc-achieved gc-achieved-new'; achievedEl.textContent = '🎯 Tagesziel erreicht! +50 XP'; }
     } else if (achievedEl) {
-      if (goalData.achieved && progress >= goal) {
+      if (goal.achieved && progress >= goal.targetRings) {
         achievedEl.style.display = '';
         achievedEl.className = 'gc-achieved';
         achievedEl.textContent = '🎯 Tagesziel erreicht!';
@@ -284,9 +283,10 @@
       const now = new Date();
       return (now - d) < 7 * 24 * 3600 * 1000;
     });
-    const weekAvg = weekSessions.length > 0
-      ? (weekSessions.reduce((a,s) => a + (s.avg || 0), 0) / weekSessions.length).toFixed(1)
-      : '–';
+    const weekAverageValue = window.StatsStorage
+      ? window.StatsStorage.average(weekSessions.map(s => s.avg))
+      : null;
+    const weekAvg = weekAverageValue == null ? '–' : weekAverageValue.toFixed(1);
 
     const el1 = document.getElementById('stWeekAvg');
     const el2 = document.getElementById('stTotalTrainings');
@@ -309,8 +309,8 @@
       return;
     }
     const s = sessions[0];
-    const avg = (s.avg || 0).toFixed(1);
-    const scoreClass = parseFloat(avg) >= 95 ? '' : parseFloat(avg) >= 90 ? 'yellow' : 'orange';
+    const total = Number(s.total || 0).toFixed(1);
+    const avg = Number.isFinite(s.avg) ? s.avg.toFixed(2) : '–';
     const dateStr = formatDate(s.date || s.timestamp);
 
     container.innerHTML = `
@@ -322,14 +322,14 @@
             <div class="ltc-date">${dateStr}</div>
           </div>
           <div class="ltc-score-badge">
-            <div class="ltc-score-val" style="color:${scoreClass==='yellow'?'#ffc840':scoreClass==='orange'?'#ff9500':'var(--accent)'}">${avg}</div>
+            <div class="ltc-score-val" style="color:var(--accent)">${total}</div>
             <div class="ltc-score-lbl">Ringe</div>
           </div>
         </div>
         <div class="ltc-stats">
           <div class="ltc-stat"><div class="ltc-stat-val">${s.shots || s.count || '–'}</div><div class="ltc-stat-lbl">Schüsse</div></div>
-          <div class="ltc-stat"><div class="ltc-stat-val">${avg}</div><div class="ltc-stat-lbl">Ø Ringe</div></div>
-          <div class="ltc-stat"><div class="ltc-stat-val">${(s.best || s.max || avg)}</div><div class="ltc-stat-lbl">Beste Serie</div></div>
+          <div class="ltc-stat"><div class="ltc-stat-val">${avg}</div><div class="ltc-stat-lbl">Ø pro Schuss</div></div>
+          <div class="ltc-stat"><div class="ltc-stat-val">${Number.isFinite(s.best) ? s.best.toFixed(1) : '–'}</div><div class="ltc-stat-lbl">Bester Treffer</div></div>
         </div>
         <div class="ltc-footer">
           <button class="ltc-link" onclick="switchTab('training')">Ergebnis ansehen <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
@@ -369,8 +369,9 @@
     setEl('sAvgDuration', avgDur);
 
     /* Top shot */
-    const best = sessions.length > 0 ? Math.max(...sessions.map(s => s.best || s.max || s.avg || 0)) : 0;
-    setEl('sTopShot', best > 0 ? best.toFixed(1) : '–');
+    const knownBestShots = sessions.map(s => s.best).filter(Number.isFinite);
+    const best = knownBestShots.length ? Math.max(...knownBestShots) : null;
+    setEl('sTopShot', best == null ? '–' : best.toFixed(1));
 
     /* Discipline breakdown */
     const lg = sessions.filter(s => /luftgewehr|lg/i.test(s.discipline || s.weapon || ''));
@@ -390,9 +391,11 @@
   function refreshTrainingStats(sessions) {
     const all = sessions;
     const week = all.filter(s => (Date.now() - new Date(s.date || s.timestamp || 0)) < 7*24*3600*1000);
-    const avg = all.length > 0 ? (all.reduce((a,s) => a+(s.avg||0),0)/all.length).toFixed(1) : '–';
-    const best = all.length > 0 ? Math.max(...all.map(s=>s.avg||0)).toFixed(1) : '–';
-    const bestSession = all.length > 0 ? all.reduce((a,s) => (s.avg||0)>(a.avg||0)?s:a, all[0]) : null;
+    const avgValue = window.StatsStorage ? window.StatsStorage.average(all.map(s => s.avg)) : null;
+    const validAverages = all.filter(s => Number.isFinite(s.avg));
+    const avg = avgValue == null ? '–' : avgValue.toFixed(2);
+    const bestSession = validAverages.length > 0 ? validAverages.reduce((a,s) => s.avg > a.avg ? s : a, validAverages[0]) : null;
+    const best = bestSession ? bestSession.avg.toFixed(2) : '–';
 
     const setEl = (id, v) => { const el=document.getElementById(id); if(el) el.textContent = v; };
     setEl('tAvgRinge', avg);
@@ -410,18 +413,18 @@
       return;
     }
     container.innerHTML = sessions.slice(0, 20).map(s => {
-      const avg = (s.avg || 0).toFixed(1);
-      const scoreClass = parseFloat(avg) >= 95 ? '' : parseFloat(avg) >= 90 ? 'yellow' : 'orange';
+      const avg = Number.isFinite(s.avg) ? s.avg.toFixed(2) : '–';
+      const total = Number(s.total || 0).toFixed(1);
       const dateStr = formatDate(s.date || s.timestamp);
       return `<div class="ts-card">
         <div class="ts-target">🎯</div>
         <div class="ts-info">
           <div class="ts-header">
             <span class="ts-discipline">${escapeHtml(s.discipline || 'Luftgewehr – 10m')}</span>
-            <span class="ts-score ${scoreClass}">${avg}</span>
+            <span class="ts-score">${total}</span>
           </div>
           <div class="ts-date">${dateStr}</div>
-          <div class="ts-stats">Schüsse: ${s.shots||s.count||'–'} | Ø Ringe: ${avg} | Beste Serie: ${s.best||s.max||avg}</div>
+          <div class="ts-stats">Schüsse: ${s.shots||s.count||'–'} | Ø pro Schuss: ${avg} | Bester Treffer: ${Number.isFinite(s.best) ? s.best.toFixed(1) : '–'}</div>
         </div>
         <svg class="ts-chevron" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
       </div>`;
@@ -539,7 +542,7 @@
     }
     container.innerHTML = history.slice(0, 20).map(entry => {
       const isWin = entry.result === 'win';
-      const isLoss = entry.result === 'loss';
+      const isLoss = entry.result === 'lose' || entry.result === 'loss';
       const resultIcon = isWin ? '🏆' : isLoss ? '💔' : '🤝';
       const resultClass = isWin ? 'accent' : isLoss ? '' : '';
       const discName = escapeHtml(entry.disciplineName || entry.discipline || 'Duell');
@@ -572,14 +575,40 @@
       if (friends.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><div>Noch keine Freunde hinzugefügt</div></div>';
       } else {
-        container.innerHTML = friends.map(f => buildFriendRow(f)).join('');
+        container.innerHTML = getFriendsForDisplay(friends).map(f => buildFriendRow(f)).join('');
       }
     }
+    const sortButton = document.getElementById('friendsSortBtn');
+    if (sortButton) sortButton.textContent = friendSortMode === 'online' ? 'Online zuerst' : 'Offline zuerst';
     refreshFreundeStats();
   }
 
   // Für andere Module (z.B. friend-profile-view.js nach removeFriend) verfügbar machen.
   window.refreshFreundeTab = refreshFreundeTab;
+
+  function isFriendOnline(friend) {
+    const socialState = window.FriendsSystem && window.FriendsSystem.getState
+      ? window.FriendsSystem.getState()
+      : {};
+    const presence = socialState.onlineStatusByUserId && socialState.onlineStatusByUserId[friend.userId];
+    const lastSeen = Number(presence && presence.lastSeen) || 0;
+    return !!(presence && presence.online && lastSeen > 0 && Date.now() - lastSeen < 120000);
+  }
+
+  function getFriendsForDisplay(friends) {
+    const direction = friendSortMode === 'online' ? -1 : 1;
+    return (friends || []).map(friend => ({ ...friend, isOnline: isFriendOnline(friend) }))
+      .sort((a, b) => {
+        if (a.isOnline !== b.isOnline) return a.isOnline ? direction : -direction;
+        return String(a.username || '').localeCompare(String(b.username || ''), 'de');
+      });
+  }
+
+  window.toggleFriendSort = function () {
+    friendSortMode = friendSortMode === 'online' ? 'offline' : 'online';
+    try { localStorage.setItem('sd_friend_sort', friendSortMode); } catch (_e) {}
+    refreshFreundeTab();
+  };
 
   function buildFriendRow(f) {
     const statusClass = f.isOnline ? 'online' : f.status === 'away' ? 'away' : 'offline';
@@ -624,14 +653,8 @@
       if (!code && typeof StorageManager !== 'undefined') {
         code = StorageManager.getRaw('friendCode') || '';
       }
-      if (!code) {
-        /* Generate from username if missing — persist so it stays stable across renders */
-        const u = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('username')) || 'GUEST';
-        code = u.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,3).padEnd(3,'X') + '-' +
-               Math.floor(Math.random() * 900 + 100);
-        try { localStorage.setItem('sd_friendCode', code); } catch(_e) {}
-      }
-      codeEl.textContent = code;
+      if (!/^[A-Z2-9]{6}$/.test(String(code).toUpperCase())) code = '';
+      codeEl.textContent = code || 'Nur mit Anmeldung';
     }
 
     /* Pending requests */
@@ -639,11 +662,11 @@
     refreshBlockedUsers();
 
     /* Friend stats aggregation */
-    const sumBest = friends.reduce((a,f) => a + (parseFloat(f.bestScore || f.score || 0) || 0), 0);
+    const friendAverages = friends.map(f => Number(f.avgScore ?? f.avgRinge)).filter(Number.isFinite);
     const fStatAvg = document.getElementById('fStatAvg');
     if (fStatAvg) {
-      fStatAvg.textContent = friends.length > 0
-        ? (sumBest / friends.length).toFixed(1).replace('.', ',')
+      fStatAvg.textContent = friendAverages.length > 0
+        ? (friendAverages.reduce((sum, value) => sum + value, 0) / friendAverages.length).toFixed(1).replace('.', ',')
         : '–';
     }
 
@@ -653,9 +676,7 @@
     const statEl = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
     statEl('fStatTrainings', ownWeek.length);
 
-    let duelsCount = 0;
-    try { duelsCount = JSON.parse(localStorage.getItem('sd_history') || '[]').length; } catch(_e) {}
-    statEl('fStatDuels', duelsCount);
+    statEl('fStatDuels', ownSessions.length);
 
     const gsRaw2 = (typeof StorageManager !== 'undefined') ? StorageManager.getRaw('gameState') : null;
     const gs2 = gsRaw2 ? JSON.parse(gsRaw2) : null;
@@ -776,7 +797,7 @@
       const streak = state.streak || state.currentStreak || 0;
 
       const setEl = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
-      setEl('ptStatGames', stats.games || 0);
+      setEl('ptStatGames', stats.games || ((stats.wins || 0) + (stats.losses || 0) + (stats.draws || 0)));
       setEl('ptStatWins', stats.wins || 0);
       setEl('ptStatStreak', streak);
 
@@ -792,16 +813,19 @@
 
     /* Training stats */
     const sessions = getTrainingSessions();
-    const avg = sessions.length > 0 ? (sessions.reduce((a,s)=>a+(s.avg||0),0)/sessions.length).toFixed(1) : '–';
+    const avgValue = window.StatsStorage ? window.StatsStorage.average(sessions.map(s => s.avg)) : null;
+    const avg = avgValue == null ? '–' : avgValue.toFixed(2);
     const setEl = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
     setEl('ptStatTrainings', sessions.length);
     setEl('ptAvgRinge', avg);
 
     /* Personal bests */
-    const bestSerie = sessions.length > 0 ? Math.max(...sessions.map(s => s.best || s.max || 0)) : 0;
-    const bestAvg   = sessions.length > 0 ? Math.max(...sessions.map(s => s.avg  || 0)) : 0;
-    setEl('ptBestSerie', bestSerie > 0 ? bestSerie.toFixed(1) : '–');
-    setEl('ptBestAvg',   bestAvg   > 0 ? bestAvg.toFixed(1)   : '–');
+    const knownShots = sessions.map(s => s.best).filter(Number.isFinite);
+    const knownAverages = sessions.map(s => s.avg).filter(Number.isFinite);
+    const bestShot = knownShots.length ? Math.max(...knownShots) : null;
+    const bestAvg = knownAverages.length ? Math.max(...knownAverages) : null;
+    setEl('ptBestSerie', bestShot == null ? '–' : bestShot.toFixed(1));
+    setEl('ptBestAvg', bestAvg == null ? '–' : bestAvg.toFixed(2));
 
     let bestGame = 0;
     try {
@@ -870,6 +894,9 @@
 
   /* ── Helpers ── */
   function getTrainingSessions() {
+    if (window.StatsStorage && typeof window.StatsStorage.readHistory === 'function') {
+      return window.StatsStorage.readHistory().map(normalizeHistoryTraining).filter(Boolean);
+    }
     try {
       const raw = localStorage.getItem('sd_history') || '[]';
       const history = JSON.parse(raw);
@@ -882,40 +909,29 @@
   }
 
   function normalizeHistoryTraining(entry) {
-    if (!entry || typeof entry !== 'object') return null;
-    const score = Number(entry.playerPts ?? entry.playerScore ?? entry.score ?? entry.total);
-    if (!Number.isFinite(score) || score <= 0) return null;
-    const timestamp = Number(entry.timestamp) || Date.parse(entry.date || entry.completed_at || '') || 0;
-    const weaponText = String(entry.weapon || entry.weaponType || entry.discipline || entry.disciplineName || '').toLowerCase();
-    const weapon = (weaponText.includes('kk') || weaponText.includes('kleinkaliber')) ? 'kk' : 'lg';
-    const disciplineLabel = entry.disciplineName
-      || entry.discipline
-      || (weapon === 'kk' ? 'Kleinkaliber' : 'Luftgewehr');
-    const shots = getHistoryShotCount(entry, weapon);
+    const normalized = entry && Object.prototype.hasOwnProperty.call(entry, 'totalScore')
+      ? entry
+      : (window.StatsStorage && window.StatsStorage.normalizeHistoryEntry
+        ? window.StatsStorage.normalizeHistoryEntry(entry)
+        : null);
+    if (!normalized) return null;
     return {
-      id: entry.id || String(timestamp || Date.now()),
-      timestamp,
-      date: timestamp || entry.date || entry.completed_at,
-      discipline: disciplineLabel,
-      weapon,
-      total: score,
-      avg: score,
-      best: score,
-      max: score,
-      count: shots,
-      shots,
-      result: entry.result || '',
+      id: normalized.id,
+      timestamp: normalized.timestamp,
+      date: normalized.date,
+      discipline: normalized.disciplineName,
+      disciplineId: normalized.discipline,
+      weapon: normalized.weapon,
+      total: normalized.totalScore,
+      avg: normalized.averagePerShot,
+      best: normalized.bestShot,
+      max: normalized.bestShot,
+      count: normalized.shots,
+      shots: normalized.shots,
+      duration: normalized.duration,
+      result: normalized.result,
       source: 'duel_history',
     };
-  }
-
-  function getHistoryShotCount(entry, weapon) {
-    if (Array.isArray(entry.shots)) return entry.shots.length;
-    const direct = Number(entry.shots || entry.count || entry.shotsCount || entry.maxShots);
-    if (Number.isFinite(direct) && direct > 0) return direct;
-    const d = String(entry.discipline || entry.disciplineName || '').toLowerCase();
-    if (d.includes('60') || d.includes('kk50') || d.includes('kk100') || d.includes('3x20')) return 60;
-    return weapon === 'kk' ? 60 : 40;
   }
 
   function formatDate(d) {
@@ -931,13 +947,13 @@
   /* ── Goal editor ── */
   window.openGoalEditor = function() {
     const panel = document.getElementById('goalEditorPanel');
-    if (!panel) return;
-    const { value } = getDailyGoal();
-    panel.querySelectorAll('.tf-btn[data-goal]').forEach(b => {
-      b.classList.toggle('active', parseInt(b.dataset.goal) === value);
-    });
-    const inp = document.getElementById('goalCustomInput');
-    if (inp) inp.value = value;
+    if (!panel || !window.DailyGoal) return;
+    const goal = window.DailyGoal.get();
+    const weaponSelect = document.getElementById('goalWeaponSelect');
+    if (weaponSelect) weaponSelect.value = goal ? goal.weapon : 'lg';
+    window.updateGoalDisciplines(goal && goal.discipline);
+    const input = document.getElementById('goalCustomInput');
+    if (input) input.value = goal ? goal.targetRings : '';
     panel.classList.add('tff-open');
   };
 
@@ -946,19 +962,46 @@
     if (panel) panel.classList.remove('tff-open');
   };
 
-  window.setDailyGoal = function(value) {
-    const v = Math.max(50, Math.min(109, Math.round(Number(value) || 95)));
-    const existing = getDailyGoal();
-    /* Only keep achieved=true if the goal value didn't change */
-    saveDailyGoal(v, existing.value === v ? existing.achieved : false);
-    refreshStartGoalCard();
-    window.closeGoalEditor();
+  window.updateGoalDisciplines = function(selectedId) {
+    if (!window.DailyGoal) return;
+    const weapon = document.getElementById('goalWeaponSelect');
+    const discipline = document.getElementById('goalDisciplineSelect');
+    if (!weapon || !discipline) return;
+    const options = window.DailyGoal.disciplinesFor(weapon.value);
+    discipline.innerHTML = options.map(item => '<option value="' + item.id + '">' + escapeHtml(item.name) + '</option>').join('');
+    if (selectedId && options.some(item => item.id === selectedId)) discipline.value = selectedId;
+    window.updateGoalTargetLimit();
   };
 
-  window.setDailyGoalCustom = function() {
-    const inp = document.getElementById('goalCustomInput');
-    const v = inp && inp.value ? parseInt(inp.value) : 0;
-    if (v >= 50 && v <= 109) window.setDailyGoal(v);
+  window.updateGoalTargetLimit = function() {
+    const discipline = document.getElementById('goalDisciplineSelect');
+    const input = document.getElementById('goalCustomInput');
+    const hint = document.getElementById('goalTargetHint');
+    const config = discipline && window.DailyGoal && window.DailyGoal.CONFIG[discipline.value];
+    if (!config) return;
+    if (input) input.max = String(config.max);
+    if (hint) hint.textContent = config.shots + ' Schuss · maximal ' + config.max + ' Ringe';
+  };
+
+  window.saveDailyGoalFromEditor = function() {
+    const weapon = document.getElementById('goalWeaponSelect');
+    const discipline = document.getElementById('goalDisciplineSelect');
+    const input = document.getElementById('goalCustomInput');
+    if (!weapon || !discipline || !input || !window.DailyGoal) return;
+    try {
+      window.DailyGoal.create({
+        weapon: weapon.value,
+        discipline: discipline.value,
+        targetRings: input.value,
+      });
+      refreshStartGoalCard();
+      window.closeGoalEditor();
+    } catch (_e) {
+      input.focus();
+      input.setCustomValidity('Bitte eine ganze Ringzahl im gültigen Bereich eingeben.');
+      input.reportValidity();
+      input.addEventListener('input', function clearGoalValidity() { input.setCustomValidity(''); }, { once: true });
+    }
   };
 
   /* ── FriendsSystem shims ── */
@@ -983,7 +1026,7 @@
     if (!FS.unblock) FS.unblock = function() {};
     if (!FS.renderInline) FS.renderInline = function(container) {
       if (!container) return;
-      const friends = FS.getFriends();
+      const friends = getFriendsForDisplay(FS.getFriends());
       if (friends.length === 0) {
         container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👥</div><div>Noch keine Freunde hinzugefügt</div></div>';
       } else {

@@ -1,6 +1,6 @@
 /**
  * Enhanced Statistics & Analytics System
- * Detaillierte Performance-Analyse mit Trends und Vorhersagen
+ * Detaillierte Performance-Analyse mit beobachteten Trends
  */
 
 const EnhancedAnalytics = (function() {
@@ -11,7 +11,6 @@ const EnhancedAnalytics = (function() {
       games: [],
       realLifeShots: [], // NEU: Speichert Schüsse aus Foto-Uploads
       trends: {},
-      predictions: {},
       consistencyScores: {},
       performanceMetrics: {}
     };
@@ -27,7 +26,6 @@ const EnhancedAnalytics = (function() {
   const CONFIG = {
     minGamesForAnalysis: 10,
     trendWindow: 20, // Letzte 20 Spiele für Trends
-    predictionConfidence: 0.7,
     storageKey: 'sd_enhanced_analytics',
     progressTracking: {
       weeklyImprovementWindow: 7,   // Tage für wöchentliche Verbesserung
@@ -52,7 +50,6 @@ const EnhancedAnalytics = (function() {
   function init() {
     loadData();
     updateTrends();
-    updatePredictions();
     updateConsistencyScores();
     renderUI();
     // Heatmap wird nur gerendert, wenn Canvas vorhanden ist (passiert in renderUI)
@@ -73,7 +70,6 @@ const EnhancedAnalytics = (function() {
           games: sortGamesByTimestamp(Array.isArray(parsed?.games) ? parsed.games : []),
           realLifeShots: Array.isArray(parsed?.realLifeShots) ? parsed.realLifeShots : [],
           trends: parsed?.trends && typeof parsed.trends === 'object' ? parsed.trends : {},
-          predictions: parsed?.predictions && typeof parsed.predictions === 'object' ? parsed.predictions : {},
           consistencyScores: parsed?.consistencyScores && typeof parsed.consistencyScores === 'object' ? parsed.consistencyScores : {},
           performanceMetrics: parsed?.performanceMetrics && typeof parsed.performanceMetrics === 'object' ? parsed.performanceMetrics : {}
         };
@@ -226,7 +222,7 @@ const EnhancedAnalytics = (function() {
       timestamp: Number.isFinite(Number(gameData.timestamp)) ? Number(gameData.timestamp) : Date.now(),
       id: generateGameId(),
       shots: gameData.shots || [],
-      duration: gameData.duration || calculateDuration(gameData),
+      duration: Number.isFinite(Number(gameData.duration)) ? Number(gameData.duration) : 0,
       consistency: calculateShotConsistency(gameData.shots),
       scoreDifference: Number.isFinite(Number(gameData.scoreDifference))
         ? Number(gameData.scoreDifference)
@@ -245,7 +241,6 @@ const EnhancedAnalytics = (function() {
 
     // Aktualisiere Analysen
     updateTrends();
-    updatePredictions();
     updateConsistencyScores();
 
     saveData();
@@ -297,9 +292,6 @@ const EnhancedAnalytics = (function() {
       // Zeit-basiert
       recentForm: calculateRecentForm(recentGames.slice(-5)),
       peakPerformance: findPeakPerformance(games),
-
-      // Vorhersage-Kraft
-      predictability: calculatePredictability(scores),
 
       // Risiko-Analyse
       riskProfile: calculateRiskProfile(recentGames)
@@ -485,17 +477,6 @@ const EnhancedAnalytics = (function() {
   }
 
   /**
-   * Berechnet Vorhersagbarkeit
-   */
-  function calculatePredictability(scores) {
-    if (scores.length < 10) return 0;
-
-    // Verwende Autokorrelation für Vorhersagbarkeit
-    const lag1Correlation = calculateAutocorrelation(scores, 1);
-    return Math.round(Math.abs(lag1Correlation) * 100);
-  }
-
-  /**
    * Analysiert Risiko-Profil
    */
   function calculateRiskProfile(games) {
@@ -526,111 +507,6 @@ const EnhancedAnalytics = (function() {
       pressure: calculatePressureTrend(recentGames),
       lastUpdated: Date.now()
     };
-  }
-
-  /**
-   * Aktualisiert Vorhersagen
-   */
-  function updatePredictions() {
-    const games = analyticsData.games;
-    if (games.length < CONFIG.minGamesForAnalysis) return;
-
-    const metrics = calculatePerformanceMetrics();
-
-    analyticsData.predictions = {
-      nextGameScore: predictNextScore(games),
-      expectedWinRate: predictWinRate(games),
-      confidence: calculatePredictionConfidence(games),
-      factors: identifyPredictionFactors(games),
-      lastUpdated: Date.now()
-    };
-  }
-
-  /**
-   * Prognostiziert nächsten Score
-   */
-  function predictNextScore(games) {
-    if (games.length < 5) return null;
-
-    const recentGames = games.slice(-10);
-    const recentScores = recentGames.map(g => g.playerScore);
-
-    // Einfache Vorhersage: Trend + letzter Score
-    const trend = calculateLinearTrend(recentScores);
-    const lastScore = recentScores[recentScores.length - 1];
-
-    const predicted = lastScore + trend;
-
-    // Begrenze auf realistischen Bereich
-    const minScore = Math.min(...recentScores) - 20;
-    const maxScore = Math.max(...recentScores) + 20;
-
-    return Math.max(minScore, Math.min(maxScore, predicted));
-  }
-
-  /**
-   * Prognostiziert Win-Rate
-   */
-  function predictWinRate(games) {
-    if (games.length < 10) return 0.5;
-
-    const recentGames = games.slice(-20);
-    const recentWinRate = recentGames.filter(g => g.result === 'win').length / recentGames.length;
-    const trend = calculateWinTrend(recentGames);
-
-    // Begrenze auf 0.1-0.9
-    const predicted = Math.max(0.1, Math.min(0.9, recentWinRate + (trend * 0.05)));
-    return Math.round(predicted * 100) / 100;
-  }
-
-  /**
-   * Berechnet Vorhersage-Vertrauen
-   */
-  function calculatePredictionConfidence(games) {
-    if (games.length < 20) return 0.3;
-
-    const consistency = calculateConsistencyScore(games.map(g => g.playerScore)) / 100;
-    const predictability = calculatePredictability(games.map(g => g.playerScore)) / 100;
-    const sampleSize = Math.min(games.length / 100, 1); // Max 1.0 bei 100 Spielen
-
-    const confidence = (consistency * 0.4 + predictability * 0.4 + sampleSize * 0.2);
-    return Math.round(confidence * 100) / 100;
-  }
-
-  /**
-   * Identifiziert Vorhersage-Faktoren
-   */
-  function identifyPredictionFactors(games) {
-    const factors = [];
-
-    if (games.length < 10) {
-      factors.push({ type: 'insufficient_data', impact: -0.3, description: 'Zu wenig Daten' });
-      return factors;
-    }
-
-    const recentGames = games.slice(-10);
-    const recentScores = recentGames.map(g => g.playerScore);
-    const trend = calculateLinearTrend(recentScores);
-
-    if (trend > 5) {
-      factors.push({ type: 'positive_trend', impact: 0.2, description: 'Positive Tendenz' });
-    } else if (trend < -5) {
-      factors.push({ type: 'negative_trend', impact: -0.2, description: 'Negative Tendenz' });
-    }
-
-    const consistency = calculateConsistencyScore(recentScores);
-    if (consistency > 80) {
-      factors.push({ type: 'high_consistency', impact: 0.15, description: 'Hohe Konstanz' });
-    } else if (consistency < 30) {
-      factors.push({ type: 'low_consistency', impact: -0.15, description: 'Niedrige Konstanz' });
-    }
-
-    const pressurePerf = calculatePressurePerformance(recentGames);
-    if (pressurePerf.score > 70) {
-      factors.push({ type: 'pressure_performer', impact: 0.1, description: 'Stark unter Druck' });
-    }
-
-    return factors;
   }
 
   /**
@@ -749,16 +625,12 @@ const EnhancedAnalytics = (function() {
 
     const totalGames = games.length;
     const winCount = games.filter(g => g.result === 'win').length;
-    const bestScore = Math.max(...games.map(g => g.playerScore));
-
     // Definiere Meilensteine
     const gameMilestones = [10, 25, 50, 100, 250, 500];
     const winMilestones = [5, 10, 25, 50, 100];
-    const scoreMilestones = [200, 400, 600, 800, 1000]; // Assuming max score ~100 per game
 
     const nextGameMilestone = gameMilestones.find(m => m > totalGames) || null;
     const nextWinMilestone = winMilestones.find(m => m > winCount) || null;
-    const nextScoreMilestone = scoreMilestones.find(m => m > bestScore * (totalGames / 10)) || null; // Rough estimate
 
     return {
       games: {
@@ -770,11 +642,6 @@ const EnhancedAnalytics = (function() {
         current: winCount,
         next: nextWinMilestone,
         progress: nextWinMilestone ? Math.round((winCount / nextWinMilestone) * 100) : 100
-      },
-      score: {
-        current: Math.round(bestScore * (totalGames / 10)), // Estimated total points
-        next: nextScoreMilestone,
-        progress: nextScoreMilestone ? Math.round(((bestScore * (totalGames / 10)) / nextScoreMilestone) * 100) : 100
       }
     };
   }
@@ -792,24 +659,6 @@ const EnhancedAnalytics = (function() {
     const mean = calculateAverage(values);
     const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
     return calculateAverage(squaredDiffs);
-  }
-
-  function calculateAutocorrelation(values, lag) {
-    if (values.length <= lag) return 0;
-
-    const mean = calculateAverage(values);
-    let numerator = 0;
-    let denominator = 0;
-
-    for (let i = lag; i < values.length; i++) {
-      numerator += (values[i] - mean) * (values[i - lag] - mean);
-    }
-
-    for (let i = 0; i < values.length; i++) {
-      denominator += Math.pow(values[i] - mean, 2);
-    }
-
-    return denominator === 0 ? 0 : numerator / denominator;
   }
 
   function sortGamesByTimestamp(games) {
@@ -846,12 +695,6 @@ const EnhancedAnalytics = (function() {
     return moments;
   }
 
-  function calculateDuration(gameData) {
-    // Schätzung basierend auf Shot-Anzahl
-    const shotCount = gameData.shots ? gameData.shots.length : 40;
-    return shotCount * 15; // 15 Sekunden pro Schuss
-  }
-
   function generateGameId() {
     return 'game_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   }
@@ -862,12 +705,9 @@ const EnhancedAnalytics = (function() {
   function getAnalyticsSummary() {
     const metrics = calculatePerformanceMetrics();
     const trends = analyticsData.trends;
-    const predictions = analyticsData.predictions;
-
     return {
       metrics: metrics,
       trends: trends,
-      predictions: predictions,
       totalGames: analyticsData.games.length,
       lastUpdated: Date.now()
     };
@@ -895,7 +735,7 @@ const EnhancedAnalytics = (function() {
           </div>
           <div class="metric-card">
             <div class="metric-title">Bereit sobald du loslegst</div>
-            <div class="metric-sub">Spiele ein Duell, damit Trends, Form und Vorhersagen erscheinen.</div>
+            <div class="metric-sub">Spiele ein Duell, damit beobachtete Trends und Formwerte erscheinen.</div>
           </div>
         </div>
       `;
@@ -1030,9 +870,9 @@ const EnhancedAnalytics = (function() {
             </div>
 
             <div class="metric-card">
-              <div class="metric-title">Vorhersage-Kraft</div>
-              <div class="metric-value">${metrics.predictability}%</div>
-              <div class="metric-sub">Wie berechenbar du bist</div>
+              <div class="metric-title">Datengrundlage</div>
+              <div class="metric-value">${summary.totalGames}</div>
+              <div class="metric-sub">Ausgewertete Spiele</div>
             </div>
           </div>
         </div>
@@ -1070,37 +910,6 @@ const EnhancedAnalytics = (function() {
               <div class="metric-sub">Nächstes Ziel: ${milestoneProgress.wins.next} (${milestoneProgress.wins.progress}%)</div>
               <div class="metric-bar"><div class="metric-fill" style="width:${milestoneProgress.wins.progress}%"></div></div>
             </div>
-          </div>
-        </div>
-        ` : ''}
-
-        <!-- ══ VORHERSAGEN ══ -->
-        ${summary.predictions && summary.predictions.nextGameScore !== null && summary.predictions.nextGameScore !== undefined ? `
-        <div style="margin-bottom:16px;">
-          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ VORHERSAGEN</div>
-          <div class="analytics-grid">
-            <div class="metric-card">
-              <div class="metric-title">Erwarteter Score</div>
-              <div class="metric-value" style="color:#00c3ff;">${summary.predictions.nextGameScore.toFixed(1)}</div>
-              <div class="metric-sub">${(summary.predictions.confidence * 100).toFixed(0)}% Sicherheit</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-title">Erwartete Win-Rate</div>
-              <div class="metric-value">${(summary.predictions.expectedWinRate * 100).toFixed(1)}%</div>
-              <div class="metric-sub">${(summary.predictions.factors || []).length} Einflussfaktoren</div>
-            </div>
-            ${(summary.predictions.factors || []).length > 0 ? `
-            <div class="metric-card">
-              <div class="metric-title">Einflussfaktoren</div>
-              <div style="margin-top:6px;">
-                ${(summary.predictions.factors || []).slice(0, 3).map(f => `
-                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.6);margin-bottom:4px;">
-                    ${f.impact > 0 ? '<span style="color:#7ab030;">↗</span>' : f.impact < 0 ? '<span style="color:#f06050;">↘</span>' : '→'} ${f.description}
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            ` : ''}
           </div>
         </div>
         ` : ''}

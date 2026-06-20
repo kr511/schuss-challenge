@@ -32,12 +32,14 @@ const OCR = new Function('window', confSrc + '\nreturn window.OCRConfidence;')({
 
 // 2) parseDisciplineText aus image-compare.js extrahieren (reine Funktion).
 const icSrc = readFileSync(join(root, 'src/vision/image-compare.js'), 'utf8');
-const dm = icSrc.match(/function parseDisciplineText\(rawText\) \{[\s\S]*?\n {2}\}\n/);
-if (!OCR || !dm) {
+const disciplineStart = icSrc.indexOf('  function parseDisciplineText(rawText) {');
+const disciplineEnd = icSrc.indexOf('  async function detectDisciplineFromImage', disciplineStart);
+if (!OCR || disciplineStart < 0 || disciplineEnd < 0) {
   console.error('FAIL: konnte Erkennungs-Logik nicht laden (OCRConfidence / parseDisciplineText)');
   process.exit(1);
 }
-const parseDisciplineText = new Function(dm[0] + '\nreturn parseDisciplineText;')();
+const disciplineSource = icSrc.slice(disciplineStart, disciplineEnd).trim();
+const parseDisciplineText = new Function(disciplineSource + '\nreturn parseDisciplineText;')();
 
 // ── Datensatz: Disziplin-Erkennung ─────────────────────────────────────────
 // Realistische, verrauschte Trefferanlagen-Beschriftungen -> erwartete Klasse.

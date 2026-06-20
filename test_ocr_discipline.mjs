@@ -8,14 +8,15 @@ import { dirname, join } from 'node:path';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(__dirname, 'src/vision/image-compare.js'), 'utf8');
 
-// Extract the parseDisciplineText function via regex (it is local to the IIFE).
-const match = source.match(/function parseDisciplineText\(rawText\) \{[\s\S]*?\n  \}\n/);
-if (!match) {
+// Extract the pure parser between two stable function declarations.
+const start = source.indexOf('  function parseDisciplineText(rawText) {');
+const end = source.indexOf('  async function detectDisciplineFromImage', start);
+if (start < 0 || end < 0) {
   console.error('FAIL: could not extract parseDisciplineText from image-compare.js');
   process.exit(1);
 }
 
-const fnSource = match[0];
+const fnSource = source.slice(start, end).trim();
 const fn = new Function(fnSource + '\nreturn parseDisciplineText;')();
 
 let pass = 0;
