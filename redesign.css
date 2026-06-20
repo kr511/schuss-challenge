@@ -2359,3 +2359,99 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   padding: 2px 7px;
   flex-shrink: 0;
 }
+.faf-score {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 6px;
+}
+.faf-challenge {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.6);
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+.faf-challenge:active {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+/* ═══════════════════════════════════════════
+   SCORE-TREND-SPARKLINE
+═══════════════════════════════════════════ */
+#scoreSparkline { margin: 4px 0 16px; }
+.sparkline-wrap {
+  background: var(--card);
+  border-radius: var(--r-card);
+  padding: 12px 14px 10px;
+}
+.sparkline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.sparkline-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 0.02em;
+}
+.sparkline-trend {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.sparkline-svg {
+  width: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.sparkline-svg svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.sparkline-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 6px;
+}
+.sparkline-meta {
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.3);
+}
+.sparkline-latest {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(74,222,128,0.85);
+}
+
+/* ═══════════════════════════════════════════
+   PB-BADGE AUF LETZTE-TRAINING-KARTE
+═══════════════════════════════════════════ */
+.ltc-pb {
+  border: 1px solid rgba(250,204,21,0.35) !important;
+  box-shadow: 0 0 0 1px rgba(250,204,21,0.1) inset;
+}
+.ltc-pb-badge {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #facc15;
+  background: rgba(250,204,21,0.12);
+  border-radius: 99px;
+  padding: 3px 10px;
+  display: inline-block;
+  margin-bottom: 8px;
+}

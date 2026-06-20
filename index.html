@@ -119,6 +119,7 @@
   <script src="visitenkarte-share.js" defer></script>
   <script src="tab-navigation.js?v=1.3" defer></script>
   <script src="training-heatmap.js?v=1.0" defer></script>
+  <script src="score-sparkline.js?v=1.0" defer></script>
   <script src="screen-wake-lock.js?v=1.0" defer></script>
 </head>
 
@@ -246,7 +247,7 @@
               <span class="section-title">Übersicht</span>
               <button class="section-link" onclick="switchTab('training')">Alle anzeigen</button>
             </div>
-            <div class="stat-tiles">
+            <div class="stat-tiles-4">
               <div class="stat-tile">
                 <div class="st-icon green">
                   <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
@@ -268,6 +269,13 @@
                 <div class="st-value" id="stTotalTrainings">–</div>
                 <div class="st-label">Trainings<br>Gesamt</div>
               </div>
+              <div class="stat-tile">
+                <div class="st-icon orange">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div class="st-value" id="stWeekMin">–</div>
+                <div class="st-label">Min<br>Diese Woche</div>
+              </div>
             </div>
           </div>
 
@@ -281,6 +289,9 @@
 
           <!-- TRAININGS-HEATMAP -->
           <div id="trainingHeatmap"></div>
+
+          <!-- SCORE-TREND-SPARKLINE -->
+          <div id="scoreSparkline"></div>
 
           <!-- AKTIVE CHALLENGES (daily missions mount) -->
           <div>
