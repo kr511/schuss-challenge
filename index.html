@@ -154,12 +154,22 @@
       </div>
       <!-- Schritt 3: Push-Benachrichtigungen -->
       <div id="welcomeStep3" style="display:none;">
-        <div class="welcome-icon">🔔</div>
-        <div class="welcome-title">BENACHRICHTIGUNGEN</div>
-        <div class="welcome-sub">Erhalte Hinweise bei neuen Herausforderungen und Freundesaktivitäten.<br><span style="font-size:.8em;opacity:.6;">Kann jederzeit in den Einstellungen geändert werden</span></div>
-        <button class="welcome-btn" onclick="enableWelcomePush()">🔔 JA, AKTIVIEREN</button>
-        <button class="welcome-btn" onclick="skipWelcomePush()"
-          style="margin-top:10px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);box-shadow:none;border:1px solid rgba(255,255,255,.1);">Nein danke</button>
+        <!-- Standard (Chrome/Firefox/Edge/Android) -->
+        <div id="welcomeStep3Default">
+          <div class="welcome-icon">🔔</div>
+          <div class="welcome-title">BENACHRICHTIGUNGEN</div>
+          <div class="welcome-sub">Erhalte Hinweise bei neuen Herausforderungen und Freundesaktivitäten.<br><span style="font-size:.8em;opacity:.6;">Kann jederzeit in den Einstellungen geändert werden</span></div>
+          <button class="welcome-btn" onclick="enableWelcomePush()">🔔 JA, AKTIVIEREN</button>
+          <button class="welcome-btn" onclick="skipWelcomePush()"
+            style="margin-top:10px;background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);box-shadow:none;border:1px solid rgba(255,255,255,.1);">Nein danke</button>
+        </div>
+        <!-- iOS Safari: nur als installierte PWA möglich -->
+        <div id="welcomeStep3iOS" style="display:none;">
+          <div class="welcome-icon">📲</div>
+          <div class="welcome-title">ALS APP INSTALLIEREN</div>
+          <div class="welcome-sub">Auf dem iPhone funktionieren Benachrichtigungen nur, wenn die App zum Home-Bildschirm hinzugefügt wurde.<br><span style="font-size:.8em;opacity:.6;">Tippe auf <strong>Teilen →</strong> „Zum Home-Bildschirm"</span></div>
+          <button class="welcome-btn" onclick="skipWelcomePush()">Verstanden</button>
+        </div>
       </div>
     </div>
   </div>

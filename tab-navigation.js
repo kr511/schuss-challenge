@@ -689,11 +689,25 @@
     statEl('fStatStreak', gs2 ? (gs2.streak || gs2.currentStreak || 0) : 0);
   }
 
+  let _prevIncomingCount = -1;
+
   function refreshFriendRequests() {
     const incoming = (window.FriendsSystem && window.FriendsSystem.getIncomingRequests)
       ? (window.FriendsSystem.getIncomingRequests() || []) : [];
     const outgoing = (window.FriendsSystem && window.FriendsSystem.getOutgoingRequests)
       ? (window.FriendsSystem.getOutgoingRequests() || []) : [];
+
+    if (_prevIncomingCount >= 0 && incoming.length > _prevIncomingCount) {
+      const newReq = incoming[0];
+      const name = (newReq && (newReq.fromUsername || newReq.username)) || 'Jemand';
+      if (window.PushNotifications && window.PushNotifications.isGranted()) {
+        window.PushNotifications.showLocal(
+          '👤 Neue Freundschaftsanfrage',
+          name + ' möchte dich als Freund hinzufügen.'
+        );
+      }
+    }
+    _prevIncomingCount = incoming.length;
 
     const inBadge = document.getElementById('incomingRequestsBadge');
     const outBadge = document.getElementById('outgoingRequestsBadge');
