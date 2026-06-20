@@ -7,6 +7,11 @@
 const FriendsSystem = (function() {
   'use strict';
 
+  const FRIEND_SORT_STORAGE_KEY = 'friendSortOrder';
+  const SORT_ONLINE_FIRST = 'online-first';
+  const SORT_OFFLINE_FIRST = 'offline-first';
+  const VALID_SORT_ORDERS = new Set([SORT_ONLINE_FIRST, SORT_OFFLINE_FIRST]);
+
   // State
   const state = {
     friends: [],
@@ -19,8 +24,81 @@ const FriendsSystem = (function() {
     bootstrapRetryTimer: null,
     statusHeartbeatId: null,
     requestBusy: false,
+    friendSortOrder: SORT_ONLINE_FIRST,
   };
   let _initInProgress = false;
+  let _sortControlsBound = false;
+
+  function readFriendSortOrder() {
+    try {
+      const stored = StorageManager.getRaw(FRIEND_SORT_STORAGE_KEY);
+      return VALID_SORT_ORDERS.has(stored) ? stored : SORT_ONLINE_FIRST;
+    } catch (_e) {
+      return SORT_ONLINE_FIRST;
+    }
+  }
+
+  function isFriendOnline(friend) {
+    const presence = state.onlineStatusByUserId[friend && friend.userId];
+    if (!presence || typeof presence !== 'object') return false;
+
+    const lastSeen = Number(presence.lastSeen) || 0;
+    return presence.online === true && lastSeen > 0 && (Date.now() - lastSeen) < 120000;
+  }
+
+  function getSortedFriends() {
+    const onlineFirst = state.friendSortOrder === SORT_ONLINE_FIRST;
+    return state.friends
+      .map((friend, index) => ({ friend, index }))
+      .sort((left, right) => {
+        const leftOnline = isFriendOnline(left.friend);
+        const rightOnline = isFriendOnline(right.friend);
+        if (leftOnline !== rightOnline) {
+          return onlineFirst
+            ? (leftOnline ? -1 : 1)
+            : (leftOnline ? 1 : -1);
+        }
+
+        const leftName = left.friend.username || left.friend.name || '';
+        const rightName = right.friend.username || right.friend.name || '';
+        const byName = leftName.localeCompare(rightName, 'de', {
+          sensitivity: 'base',
+          numeric: true,
+        });
+        return byName || left.index - right.index;
+      })
+      .map(({ friend }) => friend);
+  }
+
+  function renderFriendSortControls() {
+    document.querySelectorAll('[data-friend-sort]').forEach((button) => {
+      const isActive = button.dataset.friendSort === state.friendSortOrder;
+      button.classList.toggle('active', isActive);
+      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+
+  function setFriendSortOrder(order) {
+    if (!VALID_SORT_ORDERS.has(order)) return false;
+    state.friendSortOrder = order;
+    try { StorageManager.setRaw(FRIEND_SORT_STORAGE_KEY, order); } catch (_e) {}
+    renderFriendSortControls();
+    renderFriendsList();
+    if (typeof window.refreshFreundeTab === 'function') {
+      window.refreshFreundeTab();
+    }
+    return true;
+  }
+
+  function bindFriendSortControls() {
+    if (_sortControlsBound) return;
+    _sortControlsBound = true;
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-friend-sort]');
+      if (!button) return;
+      setFriendSortOrder(button.dataset.friendSort);
+    });
+  }
 
   function resolveCurrentUserId() {
     try {
@@ -151,6 +229,9 @@ const FriendsSystem = (function() {
 
   async function init(force = false) {
     if (_initInProgress) return true;
+    bindFriendSortControls();
+    state.friendSortOrder = readFriendSortOrder();
+    renderFriendSortControls();
     const resolvedUserId = resolveCurrentUserId();
     const sameUser = state.initialized && state.currentUserId === resolvedUserId;
     state.currentUserId = resolvedUserId;
@@ -425,6 +506,8 @@ const FriendsSystem = (function() {
   }
 
   function bindFriendListEvents(container) {
+    if (container.dataset.friendEventsBound === '1') return;
+    container.dataset.friendEventsBound = '1';
     container.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-action]');
       if (!btn) return;
@@ -444,6 +527,8 @@ const FriendsSystem = (function() {
     const container = document.getElementById('friendsListContainer');
     if (!container) return;
 
+    renderFriendSortControls();
+
     const title = document.getElementById('friendsListTitle');
     if (title) title.textContent = `Deine Freunde (${state.friends.length})`;
 
@@ -459,7 +544,7 @@ const FriendsSystem = (function() {
     }
 
     container.innerHTML = `
-      ${state.friends.map(friend => `
+      ${getSortedFriends().map(friend => `
         <div class="friend-card" data-friend-id="${escapeHtml(friend.userId)}">
           <div class="friend-avatar">${getFriendAvatar(friend.username)}</div>
           <div class="friend-info">
@@ -686,9 +771,7 @@ const FriendsSystem = (function() {
     if (!presence || typeof presence !== 'object') return 'Offline';
 
     const lastSeen = Number(presence.lastSeen) || 0;
-    const isFresh = lastSeen > 0 && (Date.now() - lastSeen) < 120000;
-
-    if (presence.online && isFresh) return 'Online jetzt';
+    if (isFriendOnline(friend)) return 'Online jetzt';
     if (lastSeen > 0) return `Zuletzt aktiv: ${formatTime(lastSeen)}`;
     return 'Offline';
   }
@@ -732,6 +815,12 @@ const FriendsSystem = (function() {
     copyFriendCode,
     addFriendFromInput,
     addFriendsButton,
+    getFriends: () => state.friends.slice(),
+    getSortedFriends,
+    getFriendSortOrder: () => state.friendSortOrder,
+    setFriendSortOrder,
+    isFriendOnline,
+    renderFriendSortControls,
     showToast: showFriendToast,
     getState: () => ({ ...state }),
   };

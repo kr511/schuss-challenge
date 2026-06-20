@@ -6,6 +6,7 @@ const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const htmlPath = resolve(rootDir, 'index.html');
 const html = readFileSync(htmlPath, 'utf8');
 const htmlWithoutComments = html.replace(/<!--[\s\S]*?-->/g, '');
+const tabNavigation = readFileSync(resolve(rootDir, 'tab-navigation.js'), 'utf8');
 
 function getAttr(tag, name) {
   const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, 'i'));
@@ -80,6 +81,29 @@ if (!profileTabs.includes('settings')) {
 
 if (!panelIds.has('psPanel-settings')) {
   errors.push('Profile panel "psPanel-settings" is missing.');
+}
+
+const friendSortOrders = [...htmlWithoutComments.matchAll(/\bdata-friend-sort\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)]
+  .map(match => match[1] ?? match[2]);
+if (friendSortOrders.length !== 2 || !friendSortOrders.includes('online-first') || !friendSortOrders.includes('offline-first')) {
+  errors.push('Friend list must expose exactly the "online-first" and "offline-first" sort controls.');
+}
+
+const profileTopbarActions = (htmlWithoutComments.match(/<div\s+class="pt-topbar-actions">([\s\S]*?)<\/div>/i) || [])[1] || '';
+const topbarUpdatesIndex = profileTopbarActions.indexOf('id="ptUpdatesBtn"');
+const topbarSettingsIndex = profileTopbarActions.indexOf('aria-label="Einstellungen"');
+if (topbarUpdatesIndex < 0 || topbarSettingsIndex < 0 || topbarUpdatesIndex > topbarSettingsIndex) {
+  errors.push('Profile topbar must place notifications before settings.');
+}
+
+const profileHeaderStart = tabNavigation.indexOf('profil: {');
+const profileHeaderConfig = profileHeaderStart >= 0
+  ? tabNavigation.slice(profileHeaderStart, profileHeaderStart + 5000)
+  : '';
+const headerUpdatesIndex = profileHeaderConfig.indexOf('title="Benachrichtigungen"');
+const headerSettingsIndex = profileHeaderConfig.indexOf('title="Einstellungen"');
+if (headerUpdatesIndex < 0 || headerSettingsIndex < 0 || headerUpdatesIndex > headerSettingsIndex) {
+  errors.push('Dynamic profile header must place notifications before settings.');
 }
 
 for (const scannerId of ['v2ScannerView', 'v2ScannerVideo', 'v2ScannerCanvas', 'btnStopLiveScan']) {
