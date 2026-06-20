@@ -83,10 +83,14 @@ if (!panelIds.has('psPanel-settings')) {
   errors.push('Profile panel "psPanel-settings" is missing.');
 }
 
+const hasFriendSortToggle = /\bdata-friend-sort-toggle\b/i.test(htmlWithoutComments);
 const friendSortOrders = [...htmlWithoutComments.matchAll(/\bdata-friend-sort\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)]
   .map(match => match[1] ?? match[2]);
-if (friendSortOrders.length !== 2 || !friendSortOrders.includes('online-first') || !friendSortOrders.includes('offline-first')) {
-  errors.push('Friend list must expose exactly the "online-first" and "offline-first" sort controls.');
+const hasLegacySortControls = friendSortOrders.length === 2
+  && friendSortOrders.includes('online-first')
+  && friendSortOrders.includes('offline-first');
+if (!hasFriendSortToggle && !hasLegacySortControls) {
+  errors.push('Friend list must expose a sort toggle (data-friend-sort-toggle) or the "online-first"/"offline-first" sort controls.');
 }
 
 const profileTopbarActions = (htmlWithoutComments.match(/<div\s+class="pt-topbar-actions">([\s\S]*?)<\/div>/i) || [])[1] || '';
