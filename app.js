@@ -5133,7 +5133,8 @@ function saveWelcomeName() {
     step2.style.display = '';
     setTimeout(() => document.getElementById('welcomeClubCodeInp')?.focus(), 250);
   } else {
-    document.getElementById('welcomeOverlay').classList.remove('active');
+    step1.style.display = 'none';
+    _advanceToStep3OrClose();
   }
 }
 
@@ -5158,8 +5159,8 @@ async function saveWelcomeClub() {
         msg.style.color = '#7ab030';
         msg.textContent = '✓ Beigetreten!';
         setTimeout(() => {
-          document.getElementById('welcomeOverlay').classList.remove('active');
           if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+          _advanceToStep3OrClose();
         }, 900);
         return;
       }
@@ -5178,12 +5179,40 @@ async function saveWelcomeClub() {
   }
 }
 
-function skipWelcomeClub() {
+function _closeWelcomeOverlay() {
   document.getElementById('welcomeOverlay').classList.remove('active');
-  const step1 = document.getElementById('welcomeStep1');
-  const step2 = document.getElementById('welcomeStep2');
-  if (step1) step1.style.display = '';
-  if (step2) step2.style.display = 'none';
+  const s1 = document.getElementById('welcomeStep1');
+  const s2 = document.getElementById('welcomeStep2');
+  const s3 = document.getElementById('welcomeStep3');
+  if (s1) s1.style.display = '';
+  if (s2) s2.style.display = 'none';
+  if (s3) s3.style.display = 'none';
+}
+
+function _advanceToStep3OrClose() {
+  const s2 = document.getElementById('welcomeStep2');
+  const s3 = document.getElementById('welcomeStep3');
+  if (s2) s2.style.display = 'none';
+  const pn = window.PushNotifications;
+  if (s3 && pn && pn.supported && !pn.hasDecided()) {
+    s3.style.display = '';
+  } else {
+    _closeWelcomeOverlay();
+  }
+}
+
+function skipWelcomeClub() {
+  _advanceToStep3OrClose();
+}
+
+async function enableWelcomePush() {
+  if (window.PushNotifications) await window.PushNotifications.requestAndStore();
+  _closeWelcomeOverlay();
+}
+
+function skipWelcomePush() {
+  if (window.PushNotifications) window.PushNotifications.decline();
+  _closeWelcomeOverlay();
 }
 
 // Make inline onclick handlers robustly available from global scope.
@@ -5191,6 +5220,8 @@ Object.assign(window, {
   saveWelcomeName,
   saveWelcomeClub,
   skipWelcomeClub,
+  enableWelcomePush,
+  skipWelcomePush,
   toggleMute,
   toggleProfileMenu,
   handleOverlayClick,
