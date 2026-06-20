@@ -2359,6 +2359,30 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   padding: 2px 7px;
   flex-shrink: 0;
 }
+.faf-score {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  flex-shrink: 0;
+  margin-left: auto;
+  margin-right: 6px;
+}
+.faf-challenge {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.6);
+  font-size: 0.72rem;
+  padding: 2px 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s, color 0.12s;
+}
+.faf-challenge:active {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
 
 /* ═══════════════════════════════════════════
    SCORE-TREND-SPARKLINE
