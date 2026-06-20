@@ -46,10 +46,9 @@ const dom = new JSDOM(`<!doctype html><html><body>
   <div id="friendsListContainer"></div>
   <div id="receivedRequestsContainer"></div>
   <div id="sentRequestsContainer"></div>
-  <div role="group" aria-label="Freundesliste sortieren">
-    <button type="button" data-friend-sort="online-first" aria-pressed="false">Online zuerst</button>
-    <button type="button" data-friend-sort="offline-first" aria-pressed="false">Offline zuerst</button>
-  </div>
+  <button type="button" data-friend-sort-toggle aria-label="Sortierung wechseln">
+    <span class="sort-toggle-label">Online zuerst</span>
+  </button>
   <button id="friendsButton"></button>
 </body></html>`, {
   url: 'https://kr511.github.io/',
@@ -228,11 +227,11 @@ assert.deepEqual(
 );
 assert.equal(window.FriendsSystem.isFriendOnline(remoteState.friends[3]), false, 'Veralteter Online-Status gilt als offline');
 
-const offlineFirstButton = window.document.querySelector('[data-friend-sort="offline-first"]');
-offlineFirstButton.click();
+const sortToggleBtn = window.document.querySelector('[data-friend-sort-toggle]');
+sortToggleBtn.click();
 assert.equal(window.FriendsSystem.getFriendSortOrder(), 'offline-first', 'Sortierauswahl wechselt auf Offline zuerst');
 assert.equal(store.get('friendSortOrder'), 'offline-first', 'Sortierauswahl wird dauerhaft gespeichert');
-assert.equal(offlineFirstButton.getAttribute('aria-pressed'), 'true', 'Aktive Sortierauswahl ist barrierefrei markiert');
+assert.equal(sortToggleBtn.querySelector('.sort-toggle-label').textContent, 'Offline zuerst', 'Toggle-Button zeigt aktiven Sortiermodus an');
 assert.deepEqual(
   window.FriendsSystem.getSortedFriends().map(friend => friend.username),
   ['Charlie', 'Delta', 'Alpha', 'Beta'],
@@ -240,7 +239,7 @@ assert.deepEqual(
 );
 assert.equal(window.FriendsSystem.setFriendSortOrder('invalid'), false, 'Ungültige Sortierreihenfolge wird abgewiesen');
 
-window.document.querySelector('[data-friend-sort="online-first"]').click();
+sortToggleBtn.click();
 assert.equal(window.FriendsSystem.getFriendSortOrder(), 'online-first', 'Sortierauswahl kann zurückgeschaltet werden');
 assert.match(
   window.document.getElementById('receivedRequestsContainer').textContent,
