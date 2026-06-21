@@ -667,7 +667,7 @@ const TrainingModes = (function() {
         
       case 'precision':
         const validShots = shots.filter(s => s.isValid).length;
-        const accuracy = (validShots / shots.length) * 100;
+        const accuracy = shots.length > 0 ? (validShots / shots.length) * 100 : 0;
         finalScore = accuracy;
         performance = {
           accuracy: accuracy,
