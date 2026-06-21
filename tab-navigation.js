@@ -211,66 +211,124 @@
       + '</button>';
   }
 
-  /* ── Daily Goal helpers ── */
+  /* ── Daily Goal v2 ── */
+  const _GOAL_XP = 50;
+  const _GOAL_MS = 24 * 3600 * 1000;
+
   function getDailyGoal() {
     try {
       const raw = localStorage.getItem('sd_dailyGoal');
-      if (!raw) return { value: 95, achieved: false };
+      if (!raw) return null;
       const data = JSON.parse(raw);
-      const today = new Date().toDateString();
-      if (data.date !== today) return { value: data.value || 95, achieved: false };
-      return { value: data.value || 95, achieved: !!data.achieved };
-    } catch(_e) { return { value: 95, achieved: false }; }
+      if (!data || data.version !== 2) return null; // v1 / legacy → treat as expired
+      return data;
+    } catch(_e) { return null; }
   }
 
-  function saveDailyGoal(value, achieved) {
+  function _isGoalActive(goal) {
+    return !!goal && Date.now() <= goal.expiresAt;
+  }
+
+  function _saveDailyGoalV2(weapon, discipline, targetRings) {
+    const now = Date.now();
     try {
       localStorage.setItem('sd_dailyGoal', JSON.stringify({
-        value, achieved, date: new Date().toDateString()
+        version: 2,
+        weapon,
+        discipline,
+        targetRings: Math.floor(Number(targetRings)),
+        createdAt: now,
+        expiresAt: now + _GOAL_MS,
+        achieved: false,
+        achievedAt: null
       }));
     } catch(_e) {}
   }
 
-  function getTodayBestAvg() {
-    const sessions = getTrainingSessions();
-    const today = new Date().toDateString();
-    const todaySessions = sessions.filter(s => {
-      return new Date(s.date || s.timestamp || 0).toDateString() === today;
-    });
-    if (todaySessions.length === 0) return 0;
-    return Math.max(...todaySessions.map(s => s.avg || 0));
+  function _markGoalAchieved(goal) {
+    goal.achieved = true;
+    goal.achievedAt = Date.now();
+    try { localStorage.setItem('sd_dailyGoal', JSON.stringify(goal)); } catch(_e) {}
+  }
+
+  function _getBestProgressForGoal(goal) {
+    if (!_isGoalActive(goal)) return 0;
+    try {
+      const hist = JSON.parse(localStorage.getItem('sd_history') || '[]');
+      const scores = hist
+        .filter(s => {
+          const ts = Number(s.timestamp) || 0;
+          return s.discipline === goal.discipline
+            && ts >= goal.createdAt
+            && ts <= goal.expiresAt;
+        })
+        .map(s => Number(s.playerPts || 0))
+        .filter(v => v > 0);
+      return scores.length > 0 ? Math.floor(Math.max(...scores)) : 0;
+    } catch(_e) { return 0; }
+  }
+
+  function _getMaxRingsForDisc(discKey) {
+    const cfg = (typeof DISC !== 'undefined' && DISC[discKey]) || {};
+    return (cfg.shots || 0) * 10;
+  }
+
+  function _goalTimeLeft(goal) {
+    const ms = goal.expiresAt - Date.now();
+    if (ms <= 0) return '';
+    const h = Math.floor(ms / 3600000);
+    const m = Math.floor((ms % 3600000) / 60000);
+    return 'Noch ' + h + ':' + String(m).padStart(2, '0') + ' Std.';
   }
 
   function refreshStartGoalCard() {
-    const goalData = getDailyGoal();
-    const goal = goalData.value;
-    const progress = getTodayBestAvg();
-    const pct = Math.min(100, Math.round((progress / goal) * 100));
-    const justAchieved = progress >= goal && !goalData.achieved;
+    const goal = getDailyGoal();
+    const active = _isGoalActive(goal);
+    const titleEl    = document.getElementById('gcGoalTitle');
+    const discEl     = document.getElementById('gcDiscipline');
+    const textEl     = document.getElementById('gcProgressText');
+    const barEl      = document.getElementById('gcBarFill');
+    const pctEl      = document.getElementById('gcRingPct');
+    const ringFill   = document.getElementById('gcRingFill');
+    const achievedEl = document.getElementById('gcAchieved');
+    const timeEl     = document.getElementById('gcTimeLeft');
+    const circ = 163;
 
-    const titleEl   = document.getElementById('gcGoalTitle');
-    const textEl    = document.getElementById('gcProgressText');
-    const barEl     = document.getElementById('gcBarFill');
-    const pctEl     = document.getElementById('gcRingPct');
-    const ringFill  = document.getElementById('gcRingFill');
-    const achievedEl= document.getElementById('gcAchieved');
-
-    if (titleEl) titleEl.textContent = 'Treffe ' + goal + '+ Ringe';
-    if (textEl) textEl.textContent = (progress > 0 ? progress.toFixed(1) : '–') + ' / ' + goal + ' Ringe';
-    if (barEl) barEl.style.width = pct + '%';
-    if (pctEl) pctEl.textContent = pct + '%';
-    if (ringFill) {
-      const circ = 163;
-      ringFill.style.strokeDashoffset = circ - (circ * pct / 100);
+    if (!active) {
+      if (titleEl) titleEl.textContent = goal ? 'Ziel abgelaufen – neu setzen' : 'Kein Ziel gesetzt';
+      if (discEl)  discEl.textContent  = '';
+      if (textEl)  textEl.textContent  = '–';
+      if (barEl)   barEl.style.width   = '0%';
+      if (pctEl)   pctEl.textContent   = '0%';
+      if (ringFill) ringFill.style.strokeDashoffset = circ;
+      if (achievedEl) achievedEl.style.display = 'none';
+      if (timeEl)  timeEl.textContent  = '';
+      return;
     }
 
-    /* Award XP exactly once per day when goal first reached */
+    const progress  = _getBestProgressForGoal(goal);
+    const pct       = Math.min(100, goal.targetRings > 0 ? Math.round((progress / goal.targetRings) * 100) : 0);
+    const discCfg   = (typeof DISC !== 'undefined' && DISC[goal.discipline]) || {};
+
+    if (titleEl) titleEl.textContent = 'Treffe ' + goal.targetRings + '+ Ringe';
+    if (discEl)  discEl.textContent  = discCfg.name || goal.discipline;
+    if (textEl)  textEl.textContent  = (progress > 0 ? progress : '–') + ' / ' + goal.targetRings + ' Ringe';
+    if (barEl)   barEl.style.width   = pct + '%';
+    if (pctEl)   pctEl.textContent   = pct + '%';
+    if (ringFill) ringFill.style.strokeDashoffset = circ - (circ * pct / 100);
+    if (timeEl)  timeEl.textContent  = _goalTimeLeft(goal);
+
+    const justAchieved = progress >= goal.targetRings && !goal.achieved;
     if (justAchieved) {
-      saveDailyGoal(goal, true);
-      if (typeof window.awardFlatXP === 'function') window.awardFlatXP(50);
-      if (achievedEl) { achievedEl.style.display = ''; achievedEl.className = 'gc-achieved gc-achieved-new'; achievedEl.textContent = '🎯 Tagesziel erreicht! +50 XP'; }
+      _markGoalAchieved(goal);
+      if (typeof window.awardFlatXP === 'function') window.awardFlatXP(_GOAL_XP);
+      if (achievedEl) {
+        achievedEl.style.display = '';
+        achievedEl.className = 'gc-achieved gc-achieved-new';
+        achievedEl.textContent = '🎯 Tagesziel erreicht! +' + _GOAL_XP + ' XP';
+      }
     } else if (achievedEl) {
-      if (goalData.achieved && progress >= goal) {
+      if (goal.achieved && progress >= goal.targetRings) {
         achievedEl.style.display = '';
         achievedEl.className = 'gc-achieved';
         achievedEl.textContent = '🎯 Tagesziel erreicht!';
@@ -312,9 +370,11 @@
       return;
     }
     const s = sessions[0];
-    const avg = (s.avg || 0).toFixed(1);
-    const scoreClass = parseFloat(avg) >= 95 ? '' : parseFloat(avg) >= 90 ? 'yellow' : 'orange';
-    const dateStr = formatDate(s.date || s.timestamp);
+    const totalScore = (s.total || 0).toFixed(1);
+    const avgScore   = (s.avg  || 0).toFixed(2);
+    const dateStr    = formatDate(s.date || s.timestamp);
+    const res        = s.result || '';
+    const resLabel   = res === 'win' ? '🏆 Sieg' : (res === 'lose' || res === 'loss') ? '💔 Niederlage' : res === 'draw' ? '🤝 Unentschieden' : '–';
 
     container.innerHTML = `
       <div class="last-training-card">
@@ -325,14 +385,14 @@
             <div class="ltc-date">${dateStr}</div>
           </div>
           <div class="ltc-score-badge">
-            <div class="ltc-score-val" style="color:${scoreClass==='yellow'?'#ffc840':scoreClass==='orange'?'#ff9500':'var(--accent)'}">${avg}</div>
+            <div class="ltc-score-val" style="color:var(--accent)">${totalScore}</div>
             <div class="ltc-score-lbl">Ringe</div>
           </div>
         </div>
         <div class="ltc-stats">
           <div class="ltc-stat"><div class="ltc-stat-val">${s.shots || s.count || '–'}</div><div class="ltc-stat-lbl">Schüsse</div></div>
-          <div class="ltc-stat"><div class="ltc-stat-val">${avg}</div><div class="ltc-stat-lbl">Ø Ringe</div></div>
-          <div class="ltc-stat"><div class="ltc-stat-val">${(s.best || s.max || avg)}</div><div class="ltc-stat-lbl">Beste Serie</div></div>
+          <div class="ltc-stat"><div class="ltc-stat-val">${avgScore}</div><div class="ltc-stat-lbl">Ø/Schuss</div></div>
+          <div class="ltc-stat"><div class="ltc-stat-val" style="font-size:0.8em;">${resLabel}</div><div class="ltc-stat-lbl">Ergebnis</div></div>
         </div>
         <div class="ltc-footer">
           <button class="ltc-link" onclick="switchTab('training')">Ergebnis ansehen <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="9 18 15 12 9 6"/></svg></button>
@@ -957,17 +1017,72 @@
     } catch(e) { return '–'; }
   }
 
-  /* ── Goal editor ── */
-  window.openGoalEditor = function() {
-    const panel = document.getElementById('goalEditorPanel');
-    if (!panel) return;
-    const { value } = getDailyGoal();
-    panel.querySelectorAll('.tf-btn[data-goal]').forEach(b => {
-      b.classList.toggle('active', parseInt(b.dataset.goal) === value);
-    });
+  /* ── Goal Editor v2 (3-step: weapon → discipline → target) ── */
+  let _geStep = 1, _geWeapon = null, _geDisc = null;
+
+  function _geRender() {
+    const body = document.getElementById('geBody');
+    const titleEl = document.getElementById('geTitle');
+    if (!body) return;
+    const backBtn = '<button class="tff-close" style="margin-right:8px;" onclick="_geBack()" aria-label="Zurück">'
+      + '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="15 18 9 12 15 6"/></svg></button>';
+
+    if (_geStep === 1) {
+      if (titleEl) titleEl.textContent = 'Waffe wählen';
+      body.innerHTML = `<div class="tff-group"><div class="tff-group-label">Waffe</div>
+          <div class="tff-btn-row">
+            <button class="tf-btn" onclick="_gePickWeapon('lg')">🎯 Luftgewehr</button>
+            <button class="tf-btn" onclick="_gePickWeapon('kk')">🔫 Kleinkaliber</button>
+          </div></div>`;
+    } else if (_geStep === 2) {
+      if (titleEl) titleEl.innerHTML = backBtn + 'Disziplin wählen';
+      const discs = (typeof WEAPON_DISCS !== 'undefined' && WEAPON_DISCS[_geWeapon]) || [];
+      const btns = discs.map(key => {
+        const cfg = (typeof DISC !== 'undefined' && DISC[key]) || {};
+        return `<button class="tf-btn" style="flex:1 1 40%;" onclick="_gePickDisc('${key}')">`
+          + `${escapeHtml(cfg.name || key)}<br><small style="font-weight:400;font-size:0.68em;opacity:0.65;">${escapeHtml(cfg.desc || '')}</small></button>`;
+      }).join('');
+      body.innerHTML = `<div class="tff-group"><div class="tff-btn-row" style="flex-wrap:wrap;gap:8px;">${btns}</div></div>`;
+    } else {
+      if (titleEl) titleEl.innerHTML = backBtn + 'Ringziel setzen';
+      const maxRings = _getMaxRingsForDisc(_geDisc);
+      const discCfg  = (typeof DISC !== 'undefined' && DISC[_geDisc]) || {};
+      const pcts = [0.80, 0.85, 0.88, 0.90, 0.92, 0.94, 0.96, 0.98];
+      const presets = [...new Set(pcts.map(p => Math.floor(p * maxRings)))];
+      const presetBtns = presets.map(v => `<button class="tf-btn" onclick="_geConfirm(${v})">${v}</button>`).join('');
+      body.innerHTML = `<div class="tff-group">
+          <div class="tff-group-label">${escapeHtml(discCfg.name || _geDisc)} · Max ${maxRings} Ringe</div>
+          <div class="tff-btn-row" style="flex-wrap:wrap;">${presetBtns}</div>
+        </div>
+        <div class="tff-group">
+          <div class="tff-group-label">Eigenes Ziel (1 – ${maxRings})</div>
+          <div class="ge-custom-row">
+            <input type="number" id="goalCustomInput" class="ge-input" min="1" max="${maxRings}" placeholder="z.B. ${Math.floor(maxRings * 0.9)}">
+            <button class="ge-set-btn" onclick="_geCustom(${maxRings})">Setzen</button>
+          </div>
+        </div>
+        <div class="ge-xp-hint">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          +50 XP wenn du dein Ziel innerhalb von 24 Stunden erreichst
+        </div>`;
+    }
+  }
+
+  window._geBack       = function() { if (_geStep > 1) { _geStep--; _geRender(); } };
+  window._gePickWeapon = function(w) { _geWeapon = w; _geStep = 2; _geRender(); };
+  window._gePickDisc   = function(d) { _geDisc   = d; _geStep = 3; _geRender(); };
+  window._geConfirm    = function(rings) { _saveDailyGoalV2(_geWeapon, _geDisc, rings); refreshStartGoalCard(); window.closeGoalEditor(); };
+  window._geCustom     = function(max) {
     const inp = document.getElementById('goalCustomInput');
-    if (inp) inp.value = value;
-    panel.classList.add('tff-open');
+    const v = inp ? Math.floor(Number(inp.value)) : 0;
+    if (v >= 1 && v <= max) window._geConfirm(v);
+  };
+
+  window.openGoalEditor = function() {
+    _geStep = 1; _geWeapon = null; _geDisc = null;
+    _geRender();
+    const panel = document.getElementById('goalEditorPanel');
+    if (panel) panel.classList.add('tff-open');
   };
 
   window.closeGoalEditor = function() {
@@ -975,20 +1090,9 @@
     if (panel) panel.classList.remove('tff-open');
   };
 
-  window.setDailyGoal = function(value) {
-    const v = Math.max(50, Math.min(109, Math.round(Number(value) || 95)));
-    const existing = getDailyGoal();
-    /* Only keep achieved=true if the goal value didn't change */
-    saveDailyGoal(v, existing.value === v ? existing.achieved : false);
-    refreshStartGoalCard();
-    window.closeGoalEditor();
-  };
-
-  window.setDailyGoalCustom = function() {
-    const inp = document.getElementById('goalCustomInput');
-    const v = inp && inp.value ? parseInt(inp.value) : 0;
-    if (v >= 50 && v <= 109) window.setDailyGoal(v);
-  };
+  /* Legacy stubs – kept so any cached HTML that still references them doesn't throw */
+  window.setDailyGoal = function() {};
+  window.setDailyGoalCustom = function() {};
 
   /* ── FriendsSystem shims ── */
   function patchFriendsSystem() {
