@@ -1044,20 +1044,23 @@ body.game-screen-active .bottom-nav { display: none !important; }
 }
 .sort-label { font-size: 0.75rem; color: rgba(255,255,255,0.38); }
 .sort-toggle-text {
+  -webkit-appearance: none;
+  appearance: none;
   background: none;
   border: none;
+  box-shadow: none;
   cursor: pointer;
   padding: 0;
-  color: rgba(255,255,255,0.38);
+  color: rgba(255,255,255,0.45);
   font-size: 0.75rem;
   font-weight: 400;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
   transition: color 0.15s;
 }
-.sort-toggle-text:hover { color: rgba(255,255,255,0.65); }
-.sort-toggle-text:active { color: rgba(255,255,255,0.9); }
-.sort-toggle-text:focus-visible { outline: 1px solid rgba(255,255,255,0.25); outline-offset: 3px; border-radius: 2px; }
+.sort-toggle-text:hover { color: rgba(255,255,255,0.7); }
+.sort-toggle-text:active { color: rgba(255,255,255,0.95); }
+.sort-toggle-text:focus-visible { outline: 1px solid rgba(255,255,255,0.2); outline-offset: 3px; border-radius: 2px; }
 
 .friend-row {
   display: flex;
