@@ -73,9 +73,11 @@ const FriendsSystem = (function() {
   function renderFriendSortControls() {
     const toggle = document.querySelector('[data-friend-sort-toggle]');
     if (toggle) {
+      const isOnlineFirst = state.friendSortOrder === SORT_ONLINE_FIRST;
+      toggle.classList.toggle('is-online-first', isOnlineFirst);
       const label = toggle.querySelector('.sort-toggle-label');
       if (label) {
-        label.textContent = state.friendSortOrder === SORT_ONLINE_FIRST ? 'Online zuerst' : 'Offline zuerst';
+        label.textContent = isOnlineFirst ? 'Online zuerst' : 'Offline zuerst';
       }
     }
   }
