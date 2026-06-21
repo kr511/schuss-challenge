@@ -542,7 +542,7 @@
     }
     container.innerHTML = history.slice(0, 20).map(entry => {
       const isWin = entry.result === 'win';
-      const isLoss = entry.result === 'loss';
+      const isLoss = entry.result === 'lose' || entry.result === 'loss';
       const resultIcon = isWin ? '🏆' : isLoss ? '💔' : '🤝';
       const resultClass = isWin ? 'accent' : isLoss ? '' : '';
       const discName = escapeHtml(entry.disciplineName || entry.discipline || 'Duell');
@@ -651,28 +651,16 @@
       if (!code && typeof StorageManager !== 'undefined') {
         code = StorageManager.getRaw('friendCode') || '';
       }
-      if (!code) {
-        /* Generate from username if missing — persist so it stays stable across renders */
-        const u = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('username')) || 'GUEST';
-        code = u.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0,3).padEnd(3,'X') + '-' +
-               Math.floor(Math.random() * 900 + 100);
-        try { localStorage.setItem('sd_friendCode', code); } catch(_e) {}
-      }
-      codeEl.textContent = code;
+      codeEl.textContent = code || '–';
     }
 
     /* Pending requests */
     refreshFriendRequests();
     refreshBlockedUsers();
 
-    /* Friend stats aggregation */
-    const sumBest = friends.reduce((a,f) => a + (parseFloat(f.bestScore || f.score || 0) || 0), 0);
+    /* Friend avg only shown when real server-side average data is available */
     const fStatAvg = document.getElementById('fStatAvg');
-    if (fStatAvg) {
-      fStatAvg.textContent = friends.length > 0
-        ? (sumBest / friends.length).toFixed(1).replace('.', ',')
-        : '–';
-    }
+    if (fStatAvg) fStatAvg.textContent = '–';
 
     /* Own stats for the 3 remaining tiles */
     const ownSessions = getTrainingSessions();
@@ -817,7 +805,7 @@
       const streak = state.streak || state.currentStreak || 0;
 
       const setEl = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
-      setEl('ptStatGames', stats.games || 0);
+      setEl('ptStatGames', stats.games != null ? stats.games : ((stats.wins || 0) + (stats.losses || 0) + (stats.draws || 0)));
       setEl('ptStatWins', stats.wins || 0);
       setEl('ptStatStreak', streak);
 
@@ -839,7 +827,7 @@
     setEl('ptAvgRinge', avg);
 
     /* Personal bests */
-    const bestSerie = sessions.length > 0 ? Math.max(...sessions.map(s => s.best || s.max || 0)) : 0;
+    const bestSerie = sessions.length > 0 ? Math.max(...sessions.map(s => s.total || 0)) : 0;
     const bestAvg   = sessions.length > 0 ? Math.max(...sessions.map(s => s.avg  || 0)) : 0;
     setEl('ptBestSerie', bestSerie > 0 ? bestSerie.toFixed(1) : '–');
     setEl('ptBestAvg',   bestAvg   > 0 ? bestAvg.toFixed(1)   : '–');
@@ -933,6 +921,8 @@
       || entry.discipline
       || (weapon === 'kk' ? 'Kleinkaliber' : 'Luftgewehr');
     const shots = getHistoryShotCount(entry, weapon);
+    const rawResult = entry.result || '';
+    const result = rawResult === 'loss' ? 'lose' : rawResult;
     return {
       id: entry.id || String(timestamp || Date.now()),
       timestamp,
@@ -940,12 +930,10 @@
       discipline: disciplineLabel,
       weapon,
       total: score,
-      avg: score,
-      best: score,
-      max: score,
+      avg: shots > 0 ? Math.round((score / shots) * 10) / 10 : score,
       count: shots,
       shots,
-      result: entry.result || '',
+      result,
       source: 'duel_history',
     };
   }
