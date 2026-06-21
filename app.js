@@ -1464,6 +1464,7 @@ function buildHistoryEntry(result, diff, weapon, playerPts, botPts) {
   const timestamp = Date.now();
   const discipline = G.discipline || 'unknown';
 
+  const discCfg = DISC[discipline] || {};
   return {
     id: `${timestamp}_${discipline}_${result}`,
     timestamp,
@@ -1471,9 +1472,12 @@ function buildHistoryEntry(result, diff, weapon, playerPts, botPts) {
     diff,
     weapon,
     discipline,
-    disciplineName: DISC[discipline]?.name || discipline,
+    disciplineName: discCfg.name || discipline,
     playerPts,
     botPts,
+    shots: discCfg.shots || null,
+    maxShots: discCfg.shots || null,
+    scoreMode: 'tenths',
     diffName: DIFF_NAMES[diff] || diff,
     weaponName: WEAPON_NAMES[weapon] || weapon,
     date: new Date(timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })

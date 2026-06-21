@@ -751,14 +751,11 @@ const EnhancedAnalytics = (function() {
     const winCount = games.filter(g => g.result === 'win').length;
     const bestScore = Math.max(...games.map(g => g.playerScore));
 
-    // Definiere Meilensteine
     const gameMilestones = [10, 25, 50, 100, 250, 500];
     const winMilestones = [5, 10, 25, 50, 100];
-    const scoreMilestones = [200, 400, 600, 800, 1000]; // Assuming max score ~100 per game
 
     const nextGameMilestone = gameMilestones.find(m => m > totalGames) || null;
     const nextWinMilestone = winMilestones.find(m => m > winCount) || null;
-    const nextScoreMilestone = scoreMilestones.find(m => m > bestScore * (totalGames / 10)) || null; // Rough estimate
 
     return {
       games: {
@@ -770,11 +767,6 @@ const EnhancedAnalytics = (function() {
         current: winCount,
         next: nextWinMilestone,
         progress: nextWinMilestone ? Math.round((winCount / nextWinMilestone) * 100) : 100
-      },
-      score: {
-        current: Math.round(bestScore * (totalGames / 10)), // Estimated total points
-        next: nextScoreMilestone,
-        progress: nextScoreMilestone ? Math.round(((bestScore * (totalGames / 10)) / nextScoreMilestone) * 100) : 100
       }
     };
   }
@@ -1074,36 +1066,6 @@ const EnhancedAnalytics = (function() {
         </div>
         ` : ''}
 
-        <!-- ══ VORHERSAGEN ══ -->
-        ${summary.predictions && summary.predictions.nextGameScore !== null && summary.predictions.nextGameScore !== undefined ? `
-        <div style="margin-bottom:16px;">
-          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;margin-bottom:8px;">▸ VORHERSAGEN</div>
-          <div class="analytics-grid">
-            <div class="metric-card">
-              <div class="metric-title">Erwarteter Score</div>
-              <div class="metric-value" style="color:#00c3ff;">${summary.predictions.nextGameScore.toFixed(1)}</div>
-              <div class="metric-sub">${(summary.predictions.confidence * 100).toFixed(0)}% Sicherheit</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-title">Erwartete Win-Rate</div>
-              <div class="metric-value">${(summary.predictions.expectedWinRate * 100).toFixed(1)}%</div>
-              <div class="metric-sub">${(summary.predictions.factors || []).length} Einflussfaktoren</div>
-            </div>
-            ${(summary.predictions.factors || []).length > 0 ? `
-            <div class="metric-card">
-              <div class="metric-title">Einflussfaktoren</div>
-              <div style="margin-top:6px;">
-                ${(summary.predictions.factors || []).slice(0, 3).map(f => `
-                  <div style="font-size:0.65rem;color:rgba(255,255,255,0.6);margin-bottom:4px;">
-                    ${f.impact > 0 ? '<span style="color:#7ab030;">↗</span>' : f.impact < 0 ? '<span style="color:#f06050;">↘</span>' : '→'} ${f.description}
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            ` : ''}
-          </div>
-        </div>
-        ` : ''}
 
         <!-- ══ TRENDS ══ -->
         ${typeof summary.trends.score === 'number' ? `
