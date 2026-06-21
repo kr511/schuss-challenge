@@ -275,10 +275,11 @@ body.game-screen-active .bottom-nav { display: none !important; }
   width: 100%;
   background: linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%);
   border-radius: var(--r-lg);
-  padding: 20px 18px 22px;
+  padding: 24px 18px 32px;
   position: relative;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(34,197,94,0.2);
+  transform: translateZ(0);
 }
 .goal-card::before {
   content: '';
@@ -342,7 +343,7 @@ body.game-screen-active .bottom-nav { display: none !important; }
   font-weight: 800;
   color: #fff;
 }
-.gc-bar-wrap { }
+.gc-bar-wrap { padding-top: 8px; }
 .gc-bar-label {
   font-size: 0.72rem;
   color: rgba(255,255,255,0.65);
