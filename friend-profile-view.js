@@ -57,7 +57,7 @@
 
   /* ─── Own stats for compare section ─── */
   function getOwnStats() {
-    const stats = { avgRinge: null, trainings: 0, duelsWon: 0, streak: 0 };
+    const stats = { avgRinge: null, bestRinge: null, trainings: 0, duelsWon: 0, streak: 0 };
     try {
       const raw = localStorage.getItem('sd_history');
       const hist = raw ? JSON.parse(raw) : [];
@@ -67,7 +67,10 @@
         const scores = hist
           .map(h => Number(h && (h.playerPts ?? h.playerScore ?? h.score)))
           .filter(v => Number.isFinite(v) && v > 0);
-        if (scores.length) stats.avgRinge = scores.reduce((a, b) => a + b, 0) / scores.length;
+        if (scores.length) {
+          stats.avgRinge = scores.reduce((a, b) => a + b, 0) / scores.length;
+          stats.bestRinge = scores.reduce((a, b) => Math.max(a, b), scores[0]);
+        }
       }
     } catch (_e) { /* ignore */ }
 
