@@ -1024,41 +1024,41 @@
     const body = document.getElementById('geBody');
     const titleEl = document.getElementById('geTitle');
     if (!body) return;
-    const backBtn = '<button class="tff-close" style="margin-right:8px;" onclick="_geBack()" aria-label="Zurück">'
+    const backBtn = '<button type="button" class="tff-close ge-back-btn" onclick="_geBack()" aria-label="Zurück">'
       + '<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><polyline points="15 18 9 12 15 6"/></svg></button>';
 
     if (_geStep === 1) {
       if (titleEl) titleEl.textContent = 'Waffe wählen';
       body.innerHTML = `<div class="tff-group"><div class="tff-group-label">Waffe</div>
-          <div class="tff-btn-row">
-            <button class="tf-btn" onclick="_gePickWeapon('lg')">🎯 Luftgewehr</button>
-            <button class="tf-btn" onclick="_gePickWeapon('kk')">🔫 Kleinkaliber</button>
+          <div class="tff-btn-row ge-weapon-grid">
+            <button type="button" class="tf-btn ge-weapon-btn" onclick="_gePickWeapon('lg')">🎯 Luftgewehr</button>
+            <button type="button" class="tf-btn ge-weapon-btn" onclick="_gePickWeapon('kk')">🔫 Kleinkaliber</button>
           </div></div>`;
     } else if (_geStep === 2) {
       if (titleEl) titleEl.innerHTML = backBtn + 'Disziplin wählen';
       const discs = (typeof WEAPON_DISCS !== 'undefined' && WEAPON_DISCS[_geWeapon]) || [];
       const btns = discs.map(key => {
         const cfg = (typeof DISC !== 'undefined' && DISC[key]) || {};
-        return `<button class="tf-btn" style="flex:1 1 40%;" onclick="_gePickDisc('${key}')">`
-          + `${escapeHtml(cfg.name || key)}<br><small style="font-weight:400;font-size:0.68em;opacity:0.65;">${escapeHtml(cfg.desc || '')}</small></button>`;
+        return `<button type="button" class="tf-btn ge-discipline-btn" onclick="_gePickDisc('${key}')">`
+          + `<span>${escapeHtml(cfg.name || key)}</span><small>${escapeHtml(cfg.desc || '')}</small></button>`;
       }).join('');
-      body.innerHTML = `<div class="tff-group"><div class="tff-btn-row" style="flex-wrap:wrap;gap:8px;">${btns}</div></div>`;
+      body.innerHTML = `<div class="tff-group"><div class="tff-btn-row ge-discipline-grid">${btns}</div></div>`;
     } else {
       if (titleEl) titleEl.innerHTML = backBtn + 'Ringziel setzen';
       const maxRings = _getMaxRingsForDisc(_geDisc);
       const discCfg  = (typeof DISC !== 'undefined' && DISC[_geDisc]) || {};
       const pcts = [0.80, 0.85, 0.88, 0.90, 0.92, 0.94, 0.96, 0.98];
       const presets = [...new Set(pcts.map(p => Math.floor(p * maxRings)))];
-      const presetBtns = presets.map(v => `<button class="tf-btn" onclick="_geConfirm(${v})">${v}</button>`).join('');
+      const presetBtns = presets.map(v => `<button type="button" class="tf-btn ge-target-btn" onclick="_geConfirm(${v})">${v}</button>`).join('');
       body.innerHTML = `<div class="tff-group">
           <div class="tff-group-label">${escapeHtml(discCfg.name || _geDisc)} · Max ${maxRings} Ringe</div>
-          <div class="tff-btn-row" style="flex-wrap:wrap;">${presetBtns}</div>
+          <div class="tff-btn-row ge-target-grid">${presetBtns}</div>
         </div>
         <div class="tff-group">
           <div class="tff-group-label">Eigenes Ziel (1 – ${maxRings})</div>
           <div class="ge-custom-row">
             <input type="number" id="goalCustomInput" class="ge-input" min="1" max="${maxRings}" placeholder="z.B. ${Math.floor(maxRings * 0.9)}">
-            <button class="ge-set-btn" onclick="_geCustom(${maxRings})">Setzen</button>
+            <button type="button" class="ge-set-btn" onclick="_geCustom(${maxRings})">Setzen</button>
           </div>
         </div>
         <div class="ge-xp-hint">
