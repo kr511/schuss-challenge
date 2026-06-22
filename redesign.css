@@ -1831,6 +1831,15 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
   transform: translateY(100%);
   transition: transform 0.25s cubic-bezier(0.32,0.72,0,1);
+  max-height: 85dvh;
+  display: flex;
+  flex-direction: column;
+}
+#geBody {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  flex: 1;
 }
 .tff-overlay.tff-open .tff-sheet {
   transform: translateY(0);
