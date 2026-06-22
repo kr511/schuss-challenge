@@ -1812,7 +1812,7 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.5);
-  z-index: 1200;
+  z-index: 10000;
   display: flex;
   align-items: flex-end;
   pointer-events: none;
