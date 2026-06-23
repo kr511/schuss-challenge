@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Schützen-Visitenkarte · Schützen Challenge</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: radial-gradient(1200px 600px at 50% -10%, #16222e 0%, #0b0f14 60%);
+    color: #fff;
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
+    border: 1px solid rgba(255,215,130,.28);
+    border-radius: 22px;
+    padding: 28px 24px 22px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
+    text-align: center;
+  }
+  .brand { font-size: .68rem; letter-spacing: .22em; text-transform: uppercase; color: rgba(255,215,130,.75); font-weight: 700; }
+  .avatar {
+    width: 84px; height: 84px; border-radius: 50%;
+    margin: 18px auto 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.1rem; font-weight: 800; color: #0b0f14;
+    background: linear-gradient(135deg, #ffd782, #d4a017);
+  }
+  h1 { font-size: 1.45rem; font-weight: 800; line-height: 1.2; word-break: break-word; }
+  .meta { margin-top: 6px; font-size: .82rem; color: rgba(255,255,255,.55); }
+  .badges { display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  .badge {
+    font-size: .74rem; font-weight: 700; padding: 6px 12px; border-radius: 999px;
+    background: rgba(255,215,130,.12); border: 1px solid rgba(255,215,130,.3); color: #ffd782;
+  }
+  .stats { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+  .stat {
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 14px; padding: 10px 12px;
+  }
+  .stat .k { font-size: .66rem; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.45); }
+  .stat .v { font-size: 1.1rem; font-weight: 800; margin-top: 2px; color: #ffd782; }
+  .updated { margin-top: 16px; font-size: .68rem; color: rgba(255,255,255,.35); }
+  .actions { margin-top: 20px; display: flex; gap: 10px; }
+  .btn {
+    flex: 1; padding: 12px; border-radius: 14px; border: none; cursor: pointer;
+    font-weight: 800; font-size: .82rem;
+  }
+  .btn-gold { background: linear-gradient(135deg, #ffd782, #d4a017); color: #0b0f14; }
+  .btn-ghost { background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.14); }
+  .state { padding: 30px 6px; font-size: .9rem; color: rgba(255,255,255,.6); line-height: 1.5; }
+  .spinner {
+    width: 26px; height: 26px; margin: 0 auto 14px;
+    border: 3px solid rgba(255,255,255,.15); border-top-color: #ffd782;
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<main class="card" id="card">
+  <div class="brand">Schützen Challenge</div>
+  <div class="state" id="state"><div class="spinner"></div>Visitenkarte wird geladen…</div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // Public Supabase config — Anon-Key ist designt zum Veröffentlichen
+  // (gleiche Quelle wie supabase-client.js).
+  var SUPABASE_URL = 'https://fknftkvozwfkcarldzms.supabase.co';
+  var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrbmZ0a3Zvendma2Nhcmxkem1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxOTYsImV4cCI6MjA5MTY3MjE5Nn0.pWSR48-XIUYWWO5pPQsGDnE-qxb6c5EiKuTQn2myKRg';
+
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  var DISCIPLINE_LABELS = {
+    lg40: 'LG 40', lg60: 'LG 60', kk50: 'KK 50', kk100: 'KK 100', kk3x20: 'KK 3x20'
+  };
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"'`/]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;', '/': '&#47;' }[c];
+    });
+  }
+
+  function showState(html) {
+    document.getElementById('card').innerHTML =
+      '<div class="brand">Schützen Challenge</div><div class="state">' + html + '</div>' +
+      '<div class="actions"><a class="btn btn-gold" style="text-decoration:none;display:flex;align-items:center;justify-content:center" href="./index.html">App öffnen</a></div>';
+  }
+
+  function restGet(path) {
+    return fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + SUPABASE_ANON }
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    });
+  }
+
+  function parseBestStats(raw) {
+    try {
+      var obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!obj || typeof obj !== 'object') return [];
+      var out = [];
+      Object.keys(obj).forEach(function (key) {
+        var val = obj[key];
+        var num = (val && typeof val === 'object') ? Number(val.score != null ? val.score : val.best) : Number(val);
+        if (Number.isFinite(num) && num > 0) {
+          out.push({ label: DISCIPLINE_LABELS[key] || key.toUpperCase(), value: num });
+        }
+      });
+      return out.slice(0, 6);
+    } catch (_e) {
+      return [];
+    }
+  }
+
+  function renderCard(profile) {
+    var name = profile.name || 'Schütze';
+    var initial = name.trim().charAt(0).toUpperCase() || '🎯';
+    var badges = '';
+    if (profile.rank) badges += '<span class="badge">🏅 ' + esc(profile.rank) + '</span>';
+    if (Number.isFinite(profile.xp) && profile.xp > 0) badges += '<span class="badge">⭐ ' + Math.round(profile.xp).toLocaleString('de-DE') + ' XP</span>';
+
+    var stats = '';
+    if (profile.bestStats.length) {
+      stats = '<div class="stats">' + profile.bestStats.map(function (s) {
+        return '<div class="stat"><div class="k">' + esc(s.label) + '</div><div class="v">' +
+          esc(s.value.toLocaleString('de-DE')) + '</div></div>';
+      }).join('') + '</div>';
+    }
+
+    var updated = '';
+    if (profile.updatedAt) {
+      var d = new Date(profile.updatedAt);
+      if (!isNaN(d.getTime())) updated = '<div class="updated">Stand: ' + d.toLocaleDateString('de-DE') + '</div>';
+    }
+
+    document.getElementById('card').innerHTML =
+      '<div class="brand">Schützen Challenge · Visitenkarte</div>' +
+      '<div class="avatar">' + esc(initial) + '</div>' +
+      '<h1>' + esc(name) + '</h1>' +
+      '<div class="meta">Digitale Schützen-Visitenkarte</div>' +
+      (badges ? '<div class="badges">' + badges + '</div>' : '') +
+      stats + updated +
+      '<div class="actions">' +
+        '<button class="btn btn-ghost" id="copyBtn" type="button">Link kopieren</button>' +
+        '<a class="btn btn-gold" style="text-decoration:none;display:flex;align-items:center;justify-content:center" href="./index.html">App öffnen</a>' +
+      '</div>';
+
+    var copyBtn = document.getElementById('copyBtn');
+    copyBtn.addEventListener('click', function () {
+      var done = function () { copyBtn.textContent = '✓ Kopiert'; setTimeout(function () { copyBtn.textContent = 'Link kopieren'; }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(location.href).then(done).catch(function () {});
+      }
+    });
+  }
+
+  function load() {
+    var id = new URLSearchParams(location.search).get('id') || '';
+    id = id.trim();
+    if (!id || id.length > 80) {
+      showState('Kein Profil angegeben.<br>Öffne die Visitenkarte über den Teilen-Link aus der App.');
+      return;
+    }
+
+    // 1) Öffentliches Worker-API-Profil (api_profiles, privacy=public)
+    restGet('api_profiles?select=public_id,display_name,best_stats,updated_at&privacy_settings=eq.public&public_id=eq.' + encodeURIComponent(id) + '&limit=1')
+      .then(function (rows) {
+        if (rows && rows[0]) {
+          var row = rows[0];
+          renderCard({
+            name: row.display_name,
+            rank: null,
+            xp: NaN,
+            bestStats: parseBestStats(row.best_stats),
+            updatedAt: row.updated_at
+          });
+          return null;
+        }
+        // 2) Fallback: Social-Profil (profiles) per User-ID
+        if (!UUID_RE.test(id)) throw new Error('not-found');
+        return restGet('profiles?select=username,display_name,total_xp,rank&id=eq.' + encodeURIComponent(id) + '&limit=1');
+      })
+      .then(function (rows) {
+        if (rows === null) return; // bereits gerendert
+        if (!rows || !rows[0]) throw new Error('not-found');
+        var row = rows[0];
+        renderCard({
+          name: row.display_name || row.username,
+          rank: row.rank,
+          xp: Number(row.total_xp),
+          bestStats: [],
+          updatedAt: null
+        });
+      })
+      .catch(function (err) {
+        console.warn('[Visitenkarte]', err);
+        showState('Profil nicht gefunden oder auf privat gestellt.<br>Der Schütze kann die Freigabe in der App ändern.');
+      });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

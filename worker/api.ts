@@ -1,0 +1,668 @@
+import { z, ZodError } from "zod";
+import {
+  getAchievements,
+  getAllFeedback,
+  getSessionsByUser,
+  getUserSessionStats,
+  getStreakState,
+  saveGameSession,
+  unlockAchievement,
+  updateStreak,
+  saveFeedback,
+  getFeedbackById,
+  updateFeedbackStatus,
+  updateProfile,
+  getProfile,
+  setActivity,
+  getLiveActivity,
+  getLeaderboard,
+} from "./db";
+import type { Env, Feedback, FeedbackStatus, GameMode } from "./types";
+
+type ApiErrorShape = {
+  error: true;
+  code: string;
+  message: string;
+};
+
+const modeSchema = z.enum(["standard", "challenge", "bot_fight", "timed"]);
+const periodSchema = z.enum(["daily", "weekly", "monthly", "all"]);
+type Period = z.infer<typeof periodSchema>;
+
+const sessionInputSchema = z.object({
+  mode: modeSchema,
+  discipline: z.string().trim().max(40).default(""),
+  score: z.number().int().min(0),
+  shotsFired: z.number().int().min(1),
+  durationSeconds: z.number().int().min(0),
+  playedAt: z.number().int().positive().optional(),
+  playedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+const sessionsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+const achievementInputSchema = z.object({
+  type: z.string().trim().min(1).max(120),
+});
+
+const feedbackInputSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  feedbackType: z.enum(["bug", "feature_request", "general"]),
+  title: z.string().trim().min(3).max(200),
+  message: z.string().trim().min(10).max(5000),
+});
+
+const feedbackStatusSchema = z.enum(["pending", "sent", "failed", "done", "archived"]);
+
+const feedbackPatchSchema = z.object({
+  status: feedbackStatusSchema,
+});
+
+const bestStatsSchema = z.object({
+  bestScore: z.number().int().min(0).optional(),
+  totalGames: z.number().int().min(0).optional(),
+  wins: z.number().int().min(0).optional(),
+  winRate: z.number().min(0).max(1).optional(),
+  currentStreak: z.number().int().min(0).optional(),
+  longestStreak: z.number().int().min(0).optional(),
+}).strict();
+
+const profileInputSchema = z.object({
+  displayName: z.string().trim().min(1).max(80),
+  privacySettings: z.enum(["public", "private"]).default("private"),
+  bestStats: bestStatsSchema.nullable().optional(),
+});
+
+const activityInputSchema = z.object({
+  discipline: z.string().trim().min(1).max(80),
+  difficulty: z.string().trim().min(1).max(80),
+});
+
+// UUID v4 shape used by crypto.randomUUID()
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+
+const leaderboardQuerySchema = z.object({
+  mode: modeSchema.default("standard"),
+  period: periodSchema.default("weekly"),
+});
+
+class ApiHttpError extends Error {
+  status: number;
+  code: string;
+
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
+  "https://schuss-challenge.eliaskummel.workers.dev",
+  "https://kr511.github.io",
+  "http://localhost:8787",
+  "http://127.0.0.1:8787",
+];
+
+function getAllowedOrigins(env: Env): Set<string> {
+  const configured = env.ALLOWED_ORIGINS_CSV?.split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0) ?? [];
+  return new Set([...DEFAULT_ALLOWED_ORIGINS, ...configured]);
+}
+
+function pickAllowedOrigin(request: Request, env: Env): string {
+  const origin = request.headers.get("Origin");
+  if (!origin) return "";
+  if (getAllowedOrigins(env).has(origin)) return origin;
+  // Allow any localhost origin while dev auth is enabled so `wrangler dev`
+  // works from arbitrary ports without config churn.
+  // BUGFIX: 0.0.0.0 wurde von isLocalDevelopmentRequest erlaubt, aber hier
+  // nicht — Inkonsistenz, bei der ein Browser, der gegen 0.0.0.0:8787
+  // entwickelt, keine CORS-Header bekam und das API-Aufrufe scheitern liess.
+  if (env.ALLOW_INSECURE_DEV_AUTH === "true" && /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(origin)) {
+    return origin;
+  }
+  return "";
+}
+
+function corsHeaders(origin: string, methods = "GET,POST,OPTIONS"): Record<string, string> {
+  const headers: Record<string, string> = {
+    "access-control-allow-headers": "content-type,authorization,x-dev-user-id",
+    "access-control-allow-methods": methods,
+    "vary": "Origin",
+  };
+  if (origin) {
+    headers["access-control-allow-origin"] = origin;
+  }
+  return headers;
+}
+
+function json(data: unknown, status = 200, allowOrigin = ""): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...corsHeaders(allowOrigin),
+    },
+  });
+}
+
+function formatValidationError(err: ZodError): string {
+  return err.issues
+    .map((issue) => `${issue.path.length ? issue.path.join(".") : "body"}: ${issue.message}`)
+    .join("; ");
+}
+
+function validationError(message: string): Response {
+  const payload: ApiErrorShape = {
+    error: true,
+    code: "VALIDATION_ERROR",
+    message,
+  };
+  return json(payload, 400);
+}
+
+function authError(message = "Secure user authentication is not configured"): Response {
+  const payload: ApiErrorShape = {
+    error: true,
+    code: "AUTH_REQUIRED",
+    message,
+  };
+  return json(payload, 401);
+}
+
+function serviceUnavailableError(message: string): Response {
+  const payload: ApiErrorShape = {
+    error: true,
+    code: "SERVICE_UNAVAILABLE",
+    message,
+  };
+  return json(payload, 503);
+}
+
+function hasSupabaseConfig(env: Env): boolean {
+  return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY);
+}
+
+function isLocalDevelopmentRequest(url: URL): boolean {
+  return ["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname);
+}
+
+function base64UrlToBytes(value: string): Uint8Array {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
+async function verifySupabaseJwt(token: string, secret: string): Promise<string | null> {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+
+  const [headerPart, payloadPart, signaturePart] = parts;
+  let header: { alg?: string };
+  let payload: { sub?: string; exp?: number; nbf?: number };
+
+  try {
+    header = JSON.parse(new TextDecoder().decode(base64UrlToBytes(headerPart)));
+    payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(payloadPart)));
+  } catch {
+    return null;
+  }
+
+  if (header.alg !== "HS256" || !payload.sub) return null;
+
+  let expectedSignature: Uint8Array;
+  let signature: Uint8Array;
+  try {
+    expectedSignature = base64UrlToBytes(signaturePart);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    signature = new Uint8Array(await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(`${headerPart}.${payloadPart}`),
+    ));
+  } catch {
+    return null;
+  }
+
+  if (!bytesEqual(signature, expectedSignature)) return null;
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (typeof payload.exp === "number" && payload.exp <= nowSeconds) return null;
+  if (typeof payload.nbf === "number" && payload.nbf > nowSeconds) return null;
+
+  return payload.sub;
+}
+
+async function resolveAuthenticatedUserId(request: Request, env: Env, url: URL): Promise<string | null> {
+  const devUserId = request.headers.get("x-dev-user-id")?.trim() ?? "";
+
+  if (
+    env.ALLOW_INSECURE_DEV_AUTH === "true"
+    && isLocalDevelopmentRequest(url)
+    && devUserId.length > 0
+  ) {
+    return devUserId;
+  }
+
+  const auth = request.headers.get("authorization") ?? "";
+  const match = /^Bearer\s+(.+)$/i.exec(auth);
+  const secret = env.SUPABASE_JWT_SECRET?.trim() ?? "";
+  if (match && secret) {
+    return verifySupabaseJwt(match[1], secret);
+  }
+
+  return null;
+}
+
+function hasBearerAuth(request: Request): boolean {
+  return /^Bearer\s+.+$/i.test(request.headers.get("authorization") ?? "");
+}
+
+function authFailureMessage(request: Request, env: Env, url: URL): string {
+  const bearer = hasBearerAuth(request);
+  const secret = env.SUPABASE_JWT_SECRET?.trim() ?? "";
+
+  if (bearer && !secret) {
+    return "Worker Supabase JWT verification is not configured (SUPABASE_JWT_SECRET missing)";
+  }
+
+  if (bearer && secret) {
+    return "Supabase JWT verification failed. Check token freshness and SUPABASE_JWT_SECRET/signing key config.";
+  }
+
+  if (env.ALLOW_INSECURE_DEV_AUTH === "true" && isLocalDevelopmentRequest(url)) {
+    return "Missing x-dev-user-id for local development";
+  }
+
+  if (!secret) {
+    return "User-scoped API routes require Supabase JWT verification to be configured";
+  }
+
+  return "User authentication is required";
+}
+
+function getAdminUserIds(env: Env): Set<string> {
+  const raw = env.ADMIN_USER_IDS?.trim() ?? "";
+  if (!raw) return new Set();
+  return new Set(
+    raw.split(",").map((id) => id.trim()).filter((id) => id.length > 0),
+  );
+}
+
+function isAdminUser(userId: string, env: Env): boolean {
+  return getAdminUserIds(env).has(userId);
+}
+
+function withCors(response: Response, origin: string): Response {
+  if (!origin) return response;
+  const headers = new Headers(response.headers);
+  headers.set("access-control-allow-origin", origin);
+  const existingVary = headers.get("vary");
+  headers.set("vary", existingVary && !/\borigin\b/i.test(existingVary) ? `${existingVary}, Origin` : "Origin");
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+
+function toIsoDateUTC(epochMillis: number): string {
+  return new Date(epochMillis).toISOString().slice(0, 10);
+}
+
+function getPeriodStartMillis(period: z.infer<typeof periodSchema>): number | null {
+  const now = Date.now();
+  switch (period) {
+    case "daily":
+      return now - 1 * 86_400_000;
+    case "weekly":
+      return now - 7 * 86_400_000;
+    case "monthly":
+      return now - 30 * 86_400_000;
+    case "all":
+      return null;
+  }
+}
+
+async function parseJson<T>(request: Request, schema: z.ZodSchema<T>): Promise<T> {
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    throw new ApiHttpError(400, "INVALID_JSON", "Request body must be valid JSON");
+  }
+
+  const parsed = schema.safeParse(raw);
+  if (!parsed.success) {
+    throw new ApiHttpError(400, "VALIDATION_ERROR", formatValidationError(parsed.error));
+  }
+  return parsed.data;
+}
+
+function parseQuery<T>(url: URL, schema: z.ZodSchema<T>): T {
+  const queryObject = Object.fromEntries(url.searchParams.entries());
+  const parsed = schema.safeParse(queryObject);
+  if (!parsed.success) {
+    throw new ApiHttpError(400, "VALIDATION_ERROR", formatValidationError(parsed.error));
+  }
+  return parsed.data;
+}
+
+async function handlePostSession(request: Request, env: Env, userId: string): Promise<Response> {
+  const payload = await parseJson(request, sessionInputSchema);
+  const playedAt = payload.playedAt ?? Date.now();
+  const playedDate = payload.playedDate ?? toIsoDateUTC(playedAt);
+
+  await saveGameSession(env, userId, {
+    mode: payload.mode,
+    discipline: payload.discipline,
+    score: payload.score,
+    shotsFired: payload.shotsFired,
+    durationSeconds: payload.durationSeconds,
+    playedAt,
+  });
+
+  const streak = await updateStreak(env, userId, playedDate);
+
+  return json(
+    {
+      ok: true,
+      session: {
+        userId,
+        mode: payload.mode,
+        score: payload.score,
+        shotsFired: payload.shotsFired,
+        durationSeconds: payload.durationSeconds,
+        playedAt,
+      },
+      streak,
+    },
+    201,
+  );
+}
+
+async function handleGetSessions(url: URL, env: Env, userId: string): Promise<Response> {
+  const query = parseQuery(url, sessionsQuerySchema);
+  const sessions = await getSessionsByUser(env, userId, query.limit);
+  return json({ sessions });
+}
+
+async function handleGetStats(env: Env, userId: string): Promise<Response> {
+  const stats = await getUserSessionStats(env, userId);
+  const streak = await getStreakState(env, userId);
+
+  return json({
+    totalGames: stats.totalGames,
+    bestScore: stats.bestScore,
+    currentStreak: streak.current,
+    longestStreak: streak.longest,
+  });
+}
+
+async function handlePostAchievement(request: Request, env: Env, userId: string): Promise<Response> {
+  const payload = await parseJson(request, achievementInputSchema);
+  await unlockAchievement(env, userId, payload.type);
+  return json({ ok: true, type: payload.type }, 201);
+}
+
+async function handleGetAchievements(env: Env, userId: string): Promise<Response> {
+  const achievements = await getAchievements(env, userId);
+  return json({ achievements });
+}
+
+async function handleGetLeaderboard(url: URL, env: Env): Promise<Response> {
+  const query = parseQuery(url, leaderboardQuerySchema);
+  const mode: GameMode = query.mode ?? "standard";
+  const period: Period = query.period ?? "weekly";
+  const start = getPeriodStartMillis(period);
+  const leaderboard = await getLeaderboard(env, mode, start);
+
+  return json({
+    mode,
+    period,
+    leaderboard,
+  });
+}
+
+async function handlePostFeedback(request: Request, env: Env): Promise<Response> {
+  const payload = await parseJson(request, feedbackInputSchema);
+
+  // Save feedback to database
+  const feedbackId = await saveFeedback(
+    env,
+    payload.email,
+    payload.feedbackType,
+    payload.title,
+    payload.message,
+  );
+
+  return json({
+    ok: true,
+    feedbackId,
+    message: "Feedback erfolgreich eingereicht. Vielen Dank!",
+  }, 201);
+}
+
+const feedbacksQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+async function handleGetFeedbacks(request: Request, env: Env): Promise<Response> {
+  const parsed = feedbacksQuerySchema.safeParse(
+    Object.fromEntries(new URL(request.url).searchParams),
+  );
+  const { limit, offset } = parsed.success ? parsed.data : { limit: 50, offset: 0 };
+  const feedbacks: Feedback[] = await getAllFeedback(env, limit, offset);
+  return json({
+    ok: true,
+    feedbacks,
+    limit,
+    offset,
+  });
+}
+
+async function handlePatchFeedback(request: Request, env: Env, feedbackId: string): Promise<Response> {
+  if (!UUID_REGEX.test(feedbackId)) {
+    throw new ApiHttpError(400, "INVALID_ID", "Feedback id must be a UUID");
+  }
+
+  const payload = await parseJson(request, feedbackPatchSchema);
+  const status: FeedbackStatus = payload.status;
+
+  const existing = await getFeedbackById(env, feedbackId);
+
+  if (!existing) {
+    throw new ApiHttpError(404, "NOT_FOUND", "Feedback not found");
+  }
+
+  await updateFeedbackStatus(env, feedbackId, status);
+
+  return json({
+    ok: true,
+    feedbackId,
+    status,
+    message: "Feedback status updated",
+  });
+}
+
+async function handleGetProfile(url: URL, env: Env): Promise<Response> {
+  const publicId = url.pathname.split("/").pop() || "";
+  const profile = await getProfile(env, publicId);
+  return profile ? json(profile) : json({ error: "Profile not found" }, 404);
+}
+
+async function handlePostProfile(request: Request, env: Env, userId: string): Promise<Response> {
+  const payload = await parseJson(request, profileInputSchema);
+  const bestStats = payload.bestStats == null ? null : JSON.stringify(payload.bestStats);
+  await updateProfile(env, userId, payload.displayName, payload.privacySettings, bestStats);
+  return json({ ok: true });
+}
+
+async function handleSetActivity(request: Request, env: Env, userId: string): Promise<Response> {
+  const payload = await parseJson(request, activityInputSchema);
+  await setActivity(env, userId, payload.discipline, payload.difficulty, 'active');
+  return json({ ok: true });
+}
+
+async function handleGetLiveActivity(env: Env): Promise<Response> {
+  const activity = await getLiveActivity(env);
+  return json({ activity });
+}
+
+
+export async function handleApiRequest(request: Request, env: Env): Promise<Response> {
+  const origin = pickAllowedOrigin(request, env);
+
+
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...corsHeaders(origin, "GET,POST,PATCH,OPTIONS"),
+        "access-control-max-age": "86400",
+      },
+    });
+  }
+
+  const url = new URL(request.url);
+  const path = url.pathname;
+
+  try {
+    if (!hasSupabaseConfig(env)) {
+      return withCors(serviceUnavailableError("Supabase configuration is incomplete for this worker"), origin);
+    }
+
+    if (path === "/api/leaderboard" && request.method === "GET") {
+      return withCors(await handleGetLeaderboard(url, env), origin);
+    }
+
+    // Feedback submission does not require authentication
+    if (path === "/api/feedback" && request.method === "POST") {
+      return withCors(await handlePostFeedback(request, env), origin);
+    }
+
+    // Public live activity feed (no auth required)
+    if (path === "/api/activity/live" && request.method === "GET") {
+      return withCors(await handleGetLiveActivity(env), origin);
+    }
+
+    // Public profile lookup (no auth required)
+    if (path.startsWith("/api/profile/") && request.method === "GET") {
+      return withCors(await handleGetProfile(url, env), origin);
+    }
+
+    const userId = await resolveAuthenticatedUserId(request, env, url);
+    if (!userId) {
+      return withCors(
+        authError(authFailureMessage(request, env, url)),
+        origin,
+      );
+    }
+
+    // Admin endpoints require both authentication AND allow-list membership.
+    if (path.startsWith("/api/admin/")) {
+      if (!isAdminUser(userId, env)) {
+        return withCors(
+          json({ error: true, code: "FORBIDDEN", message: "Admin privileges required" }, 403),
+          origin,
+        );
+      }
+
+      if (path === "/api/admin/feedbacks" && request.method === "GET") {
+        return withCors(await handleGetFeedbacks(request, env), origin);
+      }
+
+      if (path.startsWith("/api/admin/feedbacks/") && request.method === "PATCH") {
+        const feedbackId = path.split("/").pop() ?? "";
+        return withCors(await handlePatchFeedback(request, env, feedbackId), origin);
+      }
+
+      return withCors(
+        json({ error: true, code: "NOT_FOUND", message: "Admin route not found" }, 404),
+        origin,
+      );
+    }
+
+    // Authenticated profile + activity routes
+    if (path === "/api/profile" && request.method === "POST") {
+      return withCors(await handlePostProfile(request, env, userId), origin);
+    }
+    if (path === "/api/activity/start" && request.method === "POST") {
+      return withCors(await handleSetActivity(request, env, userId), origin);
+    }
+
+    if (path === "/api/sessions" && request.method === "POST") {
+      return withCors(await handlePostSession(request, env, userId), origin);
+    }
+    if (path === "/api/sessions" && request.method === "GET") {
+      return withCors(await handleGetSessions(url, env, userId), origin);
+    }
+    if (path === "/api/stats" && request.method === "GET") {
+      return withCors(await handleGetStats(env, userId), origin);
+    }
+    if (path === "/api/achievements" && request.method === "POST") {
+      return withCors(await handlePostAchievement(request, env, userId), origin);
+    }
+    if (path === "/api/achievements" && request.method === "GET") {
+      return withCors(await handleGetAchievements(env, userId), origin);
+    }
+
+    return withCors(json({ error: true, code: "NOT_FOUND", message: "Route not found" }, 404), origin);
+  } catch (err) {
+    if (err instanceof ApiHttpError) {
+      if (err.code === "VALIDATION_ERROR") {
+        return withCors(validationError(err.message), origin);
+      }
+      return withCors(json({ error: true, code: err.code, message: err.message }, err.status), origin);
+    }
+    // Detect Supabase / PostgREST errors and surface a 503 instead of 500.
+    const isDbError = err instanceof Error && (
+      err.message.includes("supabase") ||
+      err.message.includes("PostgREST") ||
+      err.message.includes("connection") ||
+      err.message.includes("fetch failed")
+    );
+    return withCors(
+      json(
+        {
+          error: true,
+          code: isDbError ? "SERVICE_UNAVAILABLE" : "INTERNAL_ERROR",
+          message: isDbError
+            ? "Database temporarily unavailable"
+            : "An unexpected server error occurred",
+        },
+        isDbError ? 503 : 500,
+      ),
+      origin,
+    );
+  }
+}
+
+export type { GameMode };

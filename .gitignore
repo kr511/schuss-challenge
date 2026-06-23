@@ -1,0 +1,27 @@
+﻿# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
+
+# dependencies/build
+node_modules/
+dist-react/
+
+# Playwright (mobile E2E) artifacts
+playwright-report/
+test-results/
+/blob-report/
+
+# logs
+wrangler_dev.log
+wrangler_test.log
+*.log
+
+# local tooling configs
+.claude/settings.local.json
+
+# OS
+Thumbs.db
+.DS_Store

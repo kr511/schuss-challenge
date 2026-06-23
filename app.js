@@ -1,0 +1,5480 @@
+/* ─── DATA MIGRATION v3 ─── */
+// Alte Daten-Keys bereinigen ohne Username zu löschen
+// v3: neue Schwierigkeitsnamen (Elite/Profi) + KK-Zehntel-Fix
+if (!StorageManager.getRaw('reset_v3')) {
+  const keepName = StorageManager.getRaw('username');
+  const keepXP = StorageManager.getRaw('xp');
+  StorageManager.clearAll(['username', 'xp']);
+  StorageManager.setRaw('reset_v3', 'true');
+  if (keepName) StorageManager.setRaw('username', keepName);
+  if (keepXP) StorageManager.setRaw('xp', keepXP);
+}
+
+const SC_MODULES = (typeof window !== 'undefined' && window.SchussChallenge) ? window.SchussChallenge : null;
+const SC_DOM = SC_MODULES?.ui?.dom || null;
+const SC_SCORING = SC_MODULES?.game?.scoring || null;
+const SC_XP = SC_MODULES?.game?.xp || null;
+const SC_STATE = SC_MODULES?.core || null;
+
+/* ─── STATE ──────────────────────────────── */
+const G = (SC_STATE && typeof SC_STATE.createInitialState === 'function')
+  ? SC_STATE.createInitialState({ storageManager: StorageManager })
+  : {
+    dist: '10', diff: 'easy',
+    weapon: 'lg',
+    username: StorageManager.getRaw('username', ''),
+    lbScope: StorageManager.getRaw('lb_scope', 'global'),
+    lbPeriod: StorageManager.getRaw('lb_period', 'alltime'),
+    discipline: 'lg40',
+    shots: 40,
+    burst: false,
+    targetShots: [],
+    botShots: [], botPlan: null, botTotal: 0, botTotalInt: 0, _botTotalTenths: 0,
+    playerTotal: 0, playerTotalInt: 0, _playerTotalTenths: 0,
+    playerShotsLeft: 40, botShotsLeft: 40, maxShots: 40,
+    xp: 0,
+    streak: 0,
+    is3x20: false,
+    positions: [],
+    posIcons: [],
+    posIdx: 0,
+    posShots: 0,
+    perPos: 20,
+    posResults: [],
+    _botInterval: null,
+    _timerInterval: null,
+    _timerSecsLeft: 0,
+    _botStartTimeout: null,
+    dnf: false,
+    playerShots: [],
+    currentDetectedShots: [],
+    _gameStartTime: 0,
+    _lastPlayerShotAt: 0,
+    probeActive: false,
+    probeSecsLeft: 0,
+    botStarted: false,
+    transitionSecsLeft: 0,
+    transitionLabel: ''
+  };
+
+function normalizeLeaderboardScope(scope) {
+  if (scope === 'global') return 'global';
+  return Object.prototype.hasOwnProperty.call(DISC, scope) ? scope : 'global';
+}
+
+function normalizeLeaderboardPeriod(period) {
+  return period === 'season' ? 'season' : 'alltime';
+}
+
+function getActiveLeaderboardScope() {
+  const nextScope = normalizeLeaderboardScope(G.lbScope);
+  if (nextScope !== G.lbScope) G.lbScope = nextScope;
+  return nextScope;
+}
+
+function getActiveLeaderboardPeriod() {
+  const nextPeriod = normalizeLeaderboardPeriod(G.lbPeriod);
+  if (nextPeriod !== G.lbPeriod) G.lbPeriod = nextPeriod;
+  return nextPeriod;
+}
+
+function getLeaderboardScopeLabel(scope = getActiveLeaderboardScope()) {
+  return scope === 'global' ? 'Global' : (DISC[scope]?.name || scope);
+}
+
+function getCurrentSeasonInfo(now = Date.now()) {
+  const date = new Date(now);
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const seasonId = `${year}-${month}`;
+  const startAt = new Date(year, date.getMonth(), 1).getTime();
+  const endAt = new Date(year, date.getMonth() + 1, 1).getTime() - 1;
+  const label = date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  return { id: seasonId, label, startAt, endAt };
+}
+
+function getCurrentSeasonId(now = Date.now()) {
+  return getCurrentSeasonInfo(now).id;
+}
+
+// Lebendige Dist-Info: wird von Disziplin überschrieben wenn vorhanden
+function getDistInfo() { return DIST_INFO[G.weapon]?.[G.dist] || ''; }
+
+// ─── TÄGLICHE LOGIN-BELohnungen ─────────────────────
+// Hilfsfunktion zum Abrufen der disziplinspezifischen Schwierigkeits-Info
+function getDiffInfo(diff) {
+  const moduleInfo = window.SchussChallenge?.bot?.battleBalance?.getDifficultyInfoFromBalance?.(G.discipline, diff);
+  if (moduleInfo) return moduleInfo;
+  if (typeof BattleBalance !== 'undefined') {
+    const info = BattleBalance.getDifficultyInfo(G.discipline, diff);
+    if (info) return info;
+  }
+  const discSpecificInfos = DIFF_INFO_BY_DISC[G.discipline];
+  if (discSpecificInfos && discSpecificInfos[diff]) {
+    return discSpecificInfos[diff];
+  }
+  return DIFF[diff]?.info || '';
+}
+
+/** KK 3×20: nur ganze Ringe, keine Zehntel in UI/Vergleich (KK 50/100m verhalten sich wie LG) */
+function isKK3x20WholeRingsOnly() {
+  return G.is3x20 && G.weapon === 'kk';
+}
+
+/* ─── XP / RANKS ─────────────────────────── */
+const XP_PER_WIN = SC_XP?.XP_PER_WIN || { easy: 10, real: 20, hard: 40, elite: 75 };
+const RANKS = SC_XP?.RANKS || [
+  { name: 'Anfänger', min: 0, max: 99, icon: '🎯' },
+  { name: 'Schütze', min: 100, max: 299, icon: '🔫' },
+  { name: 'Fortgeschr.', min: 300, max: 599, icon: '⭐' },
+  { name: 'Meister', min: 600, max: 999, icon: '🏅' },
+  { name: 'Großmeister', min: 1000, max: 1999, icon: '🏆' },
+  { name: 'Legende', min: 2000, max: Infinity, icon: '💫' }
+];
+
+function getHeaderStreakValue() {
+  const lgStreak = Number(localStorage.getItem('sd_lg_streak') || 0) || 0;
+  const kkStreak = Number(localStorage.getItem('sd_kk_streak') || 0) || 0;
+  const legacyStreak = Number(localStorage.getItem('sd_win_streak') || 0) || 0;
+  return Math.max(lgStreak, kkStreak, legacyStreak);
+}
+
+function updateSchuetzenpass() {
+  const { rank, idx } = getRank(G.xp);
+  const nextRank = RANKS[idx + 1] || null;
+  const xpInRank = G.xp - rank.min;
+  const xpNeeded = nextRank ? (nextRank.min - rank.min) : 1;
+  const pct = nextRank ? Math.min(100, (xpInRank / xpNeeded) * 100) : 100;
+
+  DOM.spRankName.textContent = rank.icon + ' ' + rank.name;
+  DOM.spRankCur.textContent = rank.name;
+  DOM.spRankNext.textContent = nextRank ? '→ ' + nextRank.name : '✦ MAX';
+  DOM.spFillBar.style.width = pct + '%';
+  DOM.spXpCur.textContent = G.xp - rank.min;
+  DOM.spXpNext.textContent = nextRank ? (nextRank.min - rank.min) : '∞';
+
+  // Update profile button, menu & XP corner
+  updateProfileMenu();
+  updateXPCorner();
+}
+
+/* ─── PROFILE OVERLAY ────────────────────── */
+function toggleProfileMenu() {
+  const ov = DOM.profileOverlay || document.getElementById('profileOverlay');
+  const icon = DOM.profileIcon || document.getElementById('profileIcon');
+  if (!ov) return;
+
+  // Premium Blur Elements
+  const dash = document.getElementById('premiumDashboard');
+  const hdrLogo = document.querySelector('.hdr-top .logo');
+  const startBtn = document.getElementById('btnOpenDuelSetup');
+  const transition = 'filter 0.3s ease, opacity 0.3s ease';
+
+  const isActive = ov.classList.contains('active');
+  if (isActive) {
+    ov.classList.remove('active');
+    if (icon) icon.classList.remove('active');
+    document.body.style.overflow = '';
+    if (window.innerWidth <= 768 && document.body.style.position === 'fixed') {
+      const scrollY = Math.abs(parseInt(document.body.style.top, 10) || 0);
+      document.body.style.position = '';
+      document.body.style.top = '';
+      // BUGFIX: Beim Öffnen wird body.style.width = '100%' gesetzt
+      // (siehe unten), aber beim Schließen wurde es nie zurückgesetzt.
+      // Das ließ den Body-Layout-Shift (insb. wenn vorher auto/0 war)
+      // permanent stehen — sichtbar als horizontales Scroll-Glitch.
+      document.body.style.width = '';
+      void document.body.offsetHeight; // Force reflow – iOS 17 Safari requires synchronous restore
+      window.scrollTo(0, scrollY);
+    }
+
+    // Un-blur
+    if (dash) { dash.style.filter = ''; }
+    if (hdrLogo) { hdrLogo.style.filter = ''; }
+    if (startBtn) { startBtn.style.opacity = '1'; }
+  } else {
+    refreshDebugToolsVisibility();
+    refreshProfileSheet();
+    ov.classList.add('active');
+    if (icon) icon.classList.add('active');
+
+    document.body.style.overflow = 'hidden';
+    if (window.innerWidth <= 768) {
+      const scrollY = window.scrollY || window.pageYOffset;
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+    }
+
+    // Blur
+    if (dash) { dash.style.transition = transition; dash.style.filter = 'blur(10px) brightness(0.6)'; }
+    if (hdrLogo) { hdrLogo.style.transition = transition; hdrLogo.style.filter = 'blur(10px) brightness(0.6)'; }
+    if (startBtn) { startBtn.style.transition = transition; startBtn.style.opacity = '0'; }
+
+    // Chart + Sound-Button erst nach Paint initialisieren
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      renderPerformanceChart();
+      initSoundToggleBtn();
+    }));
+  }
+}
+
+function handleOverlayClick(e) {
+  const sheet = DOM.profileSheet || document.getElementById('profileSheet');
+  if (sheet && !sheet.contains(e.target)) {
+    toggleProfileMenu();
+  }
+}
+
+function switchProfileTab(tab) {
+  document.querySelectorAll('.ps-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  const panels = document.querySelectorAll('.ps-panel');
+  panels.forEach(p => p.classList.toggle('active', p.id === 'psPanel-' + tab));
+
+  if (tab === 'sun') renderSunGrid();
+  if (tab === 'history') renderHistory();
+  if (tab === 'debug') refreshDebugPanel();
+  if (tab === 'settings') refreshSettingsPanelUI();
+  if (tab === 'stats') {
+    requestAnimationFrame(() => renderPerformanceChart());
+    if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.renderUI();
+  }
+}
+
+function refreshSettingsPanelUI() {
+  if (window.ProfileSettings && typeof window.ProfileSettings.refresh === 'function') {
+    window.ProfileSettings.refresh();
+  }
+  // Avatar-Picker ist jetzt im Konto-Tab (statisches HTML) — hier initialisieren
+  const savedAvatar = StorageManager.getRaw('profileAvatar') || '🎯';
+  initAvatarPicker(savedAvatar);
+  // Profilname vorausfüllen
+  const nameInput = document.getElementById('profileNameInput');
+  if (nameInput && !nameInput.value) nameInput.value = G.username || '';
+  initSoundToggleBtn();
+  updateAuthUI(getSupabaseUserSafe());
+  updateAccountSyncStatus();
+}
+
+function refreshProfileSheet() {
+  const { rank, idx } = getRank(G.xp);
+  const nextRank = RANKS[idx + 1] || null;
+  const xpInRank = G.xp - rank.min;
+  const xpNeeded = nextRank ? (nextRank.min - rank.min) : 1;
+  const pct = nextRank ? Math.min(100, (xpInRank / xpNeeded) * 100) : 100;
+
+  // Gespeicherten Avatar laden
+  const savedAvatar = StorageManager.getRaw('profileAvatar') || '🎯';
+
+  // Hero
+  const el = id => (SC_DOM?.byId ? SC_DOM.byId(id) : document.getElementById(id));
+  if (el('psAvatarIcon')) el('psAvatarIcon').textContent = savedAvatar;
+  if (el('psRankIcon')) el('psRankIcon').textContent = rank.icon;
+  if (el('psRankName')) el('psRankName').textContent = rank.name;
+  if (el('psLevel')) el('psLevel').textContent = idx + 1;
+  if (el('psTotalXP')) el('psTotalXP').textContent = G.xp;
+  if (el('psUsername')) el('psUsername').textContent = G.username || 'Schütze';
+
+  // Avatar-Picker und Name werden jetzt in refreshSettingsPanelUI() initialisiert
+
+  // XP bar
+  if (el('psXpCur')) el('psXpCur').textContent = xpInRank;
+  if (el('psXpNext')) el('psXpNext').textContent = nextRank ? (nextRank.min - rank.min) : '∞';
+  if (el('psXpFill')) el('psXpFill').style.width = pct + '%';
+
+  // Legacy header button
+  if (DOM.profileIcon) DOM.profileIcon.textContent = rank.icon;
+  if (DOM.profileRank) DOM.profileRank.textContent = rank.name;
+
+  // Stats
+  const stats = loadGameStats();
+  const wins = stats.wins || 0;
+  const losses = stats.losses || 0;
+  const games = wins + losses + (stats.draws || 0);
+  const wr = games > 0 ? Math.round((wins / games) * 100) : null;
+
+  const setEl = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+  setEl('psStat-wins', wins);
+  setEl('psStat-losses', losses);
+  setEl('psStat-games', games);
+  setEl('psStat-winrate', wr !== null ? wr + '%' : '–');
+
+  const bestLG = parseInt(localStorage.getItem('sd_lg_best') || '0') || 0;
+  const bestKK = parseInt(localStorage.getItem('sd_kk_best') || '0') || 0;
+  const bestAll = Math.max(bestLG, bestKK);
+  setEl('psStat-streak', bestAll > 0 ? '🔥 ' + bestAll : '–');
+  const curLG = Number(localStorage.getItem('sd_lg_streak') || 0) || 0;
+  const curKK = Number(localStorage.getItem('sd_kk_streak') || 0) || 0;
+  const curLegacy = Number(localStorage.getItem('sd_win_streak') || 0) || 0;
+  const curAll = Math.max(curLG, curKK, curLegacy);
+  setEl('psStat-curStreak', '🔥 ' + curAll);
+
+  const lgStats = loadWeaponStats('lg');
+  const kkStats = loadWeaponStats('kk');
+  setEl('psLGDetail', `${lgStats.wins} Siege · ${lgStats.wins + lgStats.losses} Spiele`);
+  setEl('psKKDetail', `${kkStats.wins} Siege · ${kkStats.wins + kkStats.losses} Spiele`);
+  setEl('psLGXP', (lgStats.xp || 0) + ' ✨');
+  setEl('psKKXP', (kkStats.xp || 0) + ' ✨');
+  updateAccountSyncStatus();
+
+  // Active tab refresh
+  const activeTab = document.querySelector('.ps-tab.active');
+  if (activeTab) {
+    const t = activeTab.dataset.tab;
+    if (t === 'sun') renderSunGrid();
+    if (t === 'history') renderHistory();
+    if (t === 'debug') renderDebugPanel();
+    if (t === 'settings') refreshSettingsPanelUI();
+  }
+
+  // Update Header Streak Badge
+  const streak = getHeaderStreakValue();
+  const streakMount = document.getElementById('hdrStreakMount');
+  if (streakMount) {
+    streakMount.innerHTML = `
+          <div class="hdr-streak-badge">
+            <span class="fire-ico">🔥</span>
+            <span>${streak}</span>
+          </div>
+        `;
+  }
+}
+
+/* ─── BOT-ZUSTANDS-ANZEIGE IM BATTLE ─────────── */
+let _botStatusUpdateInterval = null;
+
+function updateBotStatusCard() {
+  const card = document.getElementById('botStatusCard');
+  if (!card) return;
+
+  // Prüfen ob AdaptiveBotSystem verfügbar ist
+  if (typeof AdaptiveBotSystem === 'undefined' || typeof AdaptiveBotSystem.getBotFullStatus !== 'function') {
+    card.style.display = 'none';
+    return;
+  }
+
+  const fullStatus = AdaptiveBotSystem.getBotFullStatus();
+  if (!fullStatus) {
+    card.style.display = 'none';
+    return;
+  }
+
+  // Karte anzeigen
+  card.style.display = 'block';
+
+  const { personality, mood, stressLevel, fatigue, focus, stateSuffix, stateIcon, progressionText, isImproving, isDegrading } = fullStatus;
+
+  // Elemente aktualisieren
+  const iconEl = document.getElementById('botStatusIcon');
+  const titleEl = document.getElementById('botStatusTitle');
+  const descEl = document.getElementById('botStatusDesc');
+  const focusBar = document.getElementById('botFocusBar');
+  const focusPct = document.getElementById('botFocusPct');
+  const badgeEl = document.getElementById('botPersonalityBadge');
+
+  // Haupt-Icon: Persönlichkeits-Icon + Zustands-Icon
+  const mainIcon = stateIcon || personality.icon;
+  if (iconEl) iconEl.textContent = mainIcon;
+
+  // Titel: Persönlichkeit + optionaler Zustand
+  if (titleEl) {
+    titleEl.textContent = personality.name + (stateSuffix ? ` ${stateSuffix}` : '');
+    titleEl.style.color = personality.levelColor;
+  }
+
+  // Beschreibung: Fehlermuster oder Fortschrittstext
+  if (descEl) {
+    if (progressionText) {
+      descEl.textContent = progressionText;
+    } else {
+      descEl.textContent = personality.errorPattern;
+    }
+    descEl.style.color = 'rgba(255,255,255,0.45)';
+  }
+
+  // Persönlichkeits-Badge (Level-Anzeige)
+  if (badgeEl) {
+    badgeEl.textContent = personality.levelText;
+    badgeEl.style.color = personality.levelColor;
+    badgeEl.style.borderColor = personality.levelColor + '66';
+    badgeEl.style.background = personality.levelGlow;
+  }
+
+  // Focus-Balken
+  if (focusBar) {
+    focusBar.style.width = focus + '%';
+    focusBar.style.background = `linear-gradient(90deg, ${personality.levelColor}, ${personality.levelColor}88)`;
+  }
+  if (focusPct) focusPct.textContent = Math.round(focus);
+
+  // Card-Border-Animation für besondere Zustände
+  const isExtreme = mood === 'in_the_zone' || mood === 'stressed';
+  card.style.borderColor = isExtreme ? personality.levelColor + '44' : 'rgba(255,255,255,0.06)';
+  card.style.boxShadow = isExtreme ? `0 0 15px ${personality.levelGlow}, inset 0 0 10px ${personality.levelGlow}` : 'none';
+
+  // Pulsierender Effekt für extreme Zustände
+  if (isExtreme) {
+    card.style.animation = 'botStatusPulse 2s ease-in-out infinite';
+  } else {
+    card.style.animation = 'none';
+  }
+}
+
+// Pulsierende Animation per CSS (einmalig injizieren)
+(function injectBotStatusCSS() {
+  if (document.getElementById('botStatusCSS')) return;
+  const style = document.createElement('style');
+  style.id = 'botStatusCSS';
+  style.textContent = `
+    @keyframes botStatusPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+  `;
+  document.head.appendChild(style);
+})();
+
+// Bot-Status während des Duells regelmäßig aktualisieren
+function startBotStatusUpdates() {
+  if (_botStatusUpdateInterval) clearInterval(_botStatusUpdateInterval);
+  updateBotStatusCard(); // Sofort initial anzeigen
+  _botStatusUpdateInterval = setInterval(updateBotStatusCard, 2000); // Alle 2s aktualisieren
+}
+
+function stopBotStatusUpdates() {
+  if (_botStatusUpdateInterval) {
+    clearInterval(_botStatusUpdateInterval);
+    _botStatusUpdateInterval = null;
+  }
+  const card = document.getElementById('botStatusCard');
+  if (card) card.style.display = 'none';
+}
+
+window.signInWithGoogle = async function() {
+  if (typeof window.__agGoogle === 'function') return window.__agGoogle();
+  if (window.SupabaseAuth && typeof window.SupabaseAuth.signInWithGoogle === 'function') return window.SupabaseAuth.signInWithGoogle();
+  alert('Supabase Login ist noch nicht bereit. Bitte lade die Seite neu oder spiele lokal weiter.');
+};
+
+window.signOutGoogle = async function() {
+  return window.logoutEmail();
+};
+
+window.registerWithEmail = async function(email, password) {
+  const client = getSupabaseClientSafe();
+  if (!client || !client.auth || typeof client.auth.signUp !== 'function') throw new Error('Supabase Auth ist noch nicht bereit.');
+  if (!email || !password) throw new Error('Bitte E-Mail und Passwort ausfuellen.');
+  if (password.length < 6) throw new Error('Passwort muss mindestens 6 Zeichen haben.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Bitte eine gueltige E-Mail-Adresse eingeben.');
+  try {
+    const result = await client.auth.signUp({ email: email, password: password, options: { data: { display_name: G.username || email.split('@')[0] } } });
+    if (result.error) throw result.error;
+    const session = updateSessionFromAuthResult(result);
+    const user = result.data && result.data.user ? result.data.user : (session && session.user ? session.user : null);
+    if (user && !G.username) {
+      G.username = sanitizeUsername(getSupabaseDisplayName(user));
+      StorageManager.setRaw('username', G.username);
+    }
+    syncProfileWithBackend(null, { reason: 'register' });
+    updateAuthUI(user);
+    updateAccountSyncStatus();
+    return user;
+  } catch (error) {
+    console.error('[SupabaseSync] Registrierung fehlgeschlagen:', error);
+    throw new Error(error?.message || 'Registrierung fehlgeschlagen.');
+  }
+};
+
+window.signInWithEmail = async function(email, password) {
+  const client = getSupabaseClientSafe();
+  if (!client || !client.auth || typeof client.auth.signInWithPassword !== 'function') throw new Error('Supabase Auth ist noch nicht bereit.');
+  if (!email || !password) throw new Error('Bitte E-Mail und Passwort ausfuellen.');
+  try {
+    const result = await client.auth.signInWithPassword({ email: email, password: password });
+    if (result.error) throw result.error;
+    const session = updateSessionFromAuthResult(result);
+    const user = session && session.user ? session.user : null;
+    const displayName = sanitizeUsername(getSupabaseDisplayName(user));
+    if (displayName && (!G.username || G.username === 'Schuetze')) {
+      G.username = displayName;
+      StorageManager.setRaw('username', G.username);
+    }
+    syncProfileWithBackend(null, { reason: 'login' });
+    updateAuthUI(user);
+    updateAccountSyncStatus();
+    return user;
+  } catch (error) {
+    console.error('[SupabaseSync] Anmeldung fehlgeschlagen:', error);
+    throw new Error(error?.message || 'Anmeldung fehlgeschlagen.');
+  }
+};
+
+window.logoutEmail = async function() {
+  const confirmed = window.MobileResponsive && typeof window.MobileResponsive.confirmDialog === 'function'
+    ? await window.MobileResponsive.confirmDialog(
+        'Wirklich abmelden? Deine lokalen Daten bleiben auf diesem Gerät erhalten.',
+        { title: 'Abmelden', confirmText: 'Abmelden', cancelText: 'Abbrechen' }
+      )
+    : confirm('Moechtest du dich wirklich abmelden? Deine lokalen Daten bleiben auf diesem Geraet erhalten.');
+  if (!confirmed) return false;
+  try {
+    const localData = { username: G.username, xp: G.xp, streak: G.streak, weapon: G.weapon, discipline: G.discipline };
+    StorageManager.setRaw('pre_logout_data', JSON.stringify(localData));
+    const client = getSupabaseClientSafe();
+    if (client && client.auth && typeof client.auth.signOut === 'function') await client.auth.signOut();
+    else if (window.SupabaseAuth && typeof window.SupabaseAuth.signOut === 'function') await window.SupabaseAuth.signOut();
+    window.SupabaseSession = null;
+    updateAuthUI(null);
+    updateAccountSyncStatus();
+    updateXPCorner();
+    updateProfileMenu();
+    console.log('[SupabaseSync] Abgemeldet');
+    return true;
+  } catch (error) {
+    console.error('[SupabaseSync] Logout fehlgeschlagen:', error);
+    throw new Error('Abmeldung fehlgeschlagen: ' + (error?.message || error));
+  }
+};
+
+function updateAuthUI(user = getSupabaseUserSafe()) {
+  updateGoogleLoginUI(user);
+  const emailAuthContainer = document.getElementById('emailAuthContainer');
+  const authFormContainer = document.getElementById('authFormContainer');
+  const authenticated = !!user && window.SchussduellLocalMode !== true && window.SchussduellLocalPlay !== true;
+  if (emailAuthContainer && authFormContainer) {
+    if (authenticated) {
+      emailAuthContainer.style.display = 'block';
+      authFormContainer.style.display = 'none';
+      const displayName = getSupabaseDisplayName(user);
+      const avatar = document.getElementById('authUserAvatar');
+      const name = document.getElementById('authUserName');
+      const emailNode = document.getElementById('authUserEmail');
+      if (avatar) avatar.textContent = (displayName || 'S').charAt(0).toUpperCase();
+      if (name) name.textContent = displayName || 'Supabase Nutzer';
+      if (emailNode) emailNode.textContent = user.email || '';
+    } else {
+      emailAuthContainer.style.display = 'none';
+      authFormContainer.style.display = 'block';
+    }
+  }
+  const profileIcon = document.getElementById('profileIcon');
+  if (profileIcon) {
+    profileIcon.style.visibility = authenticated || G.username ? 'visible' : 'hidden';
+    profileIcon.style.background = authenticated ? 'linear-gradient(135deg, #00c3ff 0%, #7ab030 100%)' : '';
+    profileIcon.style.color = authenticated ? '#000' : '';
+  }
+  if (typeof updatePDGreeting === 'function') setTimeout(updatePDGreeting, 200);
+}
+
+window.switchAuthTab = function(tab) {
+  const loginTab = document.getElementById('authTabLogin');
+  const registerTab = document.getElementById('authTabRegister');
+  const loginForm = document.getElementById('authLoginForm');
+  const registerForm = document.getElementById('authRegisterForm');
+  if (!loginTab || !registerTab || !loginForm || !registerForm) return;
+  hideAuthMessage();
+  const isLogin = tab === 'login';
+  loginTab.style.background = isLogin ? 'linear-gradient(135deg,#00c3ff 0%,#7ab030 100%)' : 'transparent';
+  loginTab.style.color = isLogin ? '#000' : 'rgba(255,255,255,0.5)';
+  registerTab.style.background = !isLogin ? 'linear-gradient(135deg,#00c3ff 0%,#7ab030 100%)' : 'transparent';
+  registerTab.style.color = !isLogin ? '#000' : 'rgba(255,255,255,0.5)';
+  loginForm.style.display = isLogin ? 'flex' : 'none';
+  registerForm.style.display = isLogin ? 'none' : 'flex';
+};
+
+window.showAuthMessage = function(text, type = 'error') {
+  const msg = document.getElementById('authMessage');
+  if (!msg) return;
+  msg.textContent = text;
+  msg.style.display = 'block';
+  msg.style.background = type === 'error' ? 'rgba(240,96,80,0.15)' : 'rgba(122,176,48,0.15)';
+  msg.style.border = type === 'error' ? '1px solid rgba(240,96,80,0.3)' : '1px solid rgba(122,176,48,0.3)';
+  msg.style.color = type === 'error' ? '#f06050' : '#7ab030';
+};
+
+window.hideAuthMessage = function() { const msg = document.getElementById('authMessage'); if (msg) msg.style.display = 'none'; };
+
+window.setAuthLoading = function(loading, btnId = 'authLoginBtn') {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.disabled = !!loading;
+  if (loading) btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,0.2);border-top-color:#000;border-radius:50%;animation:spin 0.6s linear infinite;"></span> Wird verarbeitet...';
+  else btn.textContent = btnId === 'authLoginBtn' ? 'Anmelden' : 'Konto erstellen';
+};
+
+window.handleAuthLogin = async function() {
+  const email = document.getElementById('authLoginEmail')?.value.trim() || '';
+  const password = document.getElementById('authLoginPassword')?.value || '';
+  hideAuthMessage();
+  if (!email || !password) return showAuthMessage('Bitte E-Mail und Passwort ausfuellen.');
+  setAuthLoading(true, 'authLoginBtn');
+  try {
+    await signInWithEmail(email, password);
+    showAuthMessage('Erfolgreich angemeldet!', 'success');
+    const emailInput = document.getElementById('authLoginEmail');
+    const passwordInput = document.getElementById('authLoginPassword');
+    if (emailInput) emailInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+    setTimeout(() => hideAuthMessage(), 2000);
+  } catch (error) { showAuthMessage(error.message); }
+  finally { setAuthLoading(false, 'authLoginBtn'); }
+};
+
+window.handleAuthRegister = async function() {
+  const email = document.getElementById('authRegisterEmail')?.value.trim() || '';
+  const password = document.getElementById('authRegisterPassword')?.value || '';
+  const passwordConfirm = document.getElementById('authRegisterPasswordConfirm')?.value || '';
+  hideAuthMessage();
+  if (!email || !password || !passwordConfirm) return showAuthMessage('Bitte alle Felder ausfuellen.');
+  if (password !== passwordConfirm) return showAuthMessage('Passwoerter stimmen nicht ueberein.');
+  setAuthLoading(true, 'authRegisterBtn');
+  try {
+    await registerWithEmail(email, password);
+    showAuthMessage('Konto erstellt. Deine Daten werden synchronisiert.', 'success');
+    ['authRegisterEmail', 'authRegisterPassword', 'authRegisterPasswordConfirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    setTimeout(() => hideAuthMessage(), 2000);
+  } catch (error) { showAuthMessage(error.message); }
+  finally { setAuthLoading(false, 'authRegisterBtn'); }
+};
+
+function initAuthFormListeners() {
+  const loginPassword = document.getElementById('authLoginPassword');
+  const registerPasswordConfirm = document.getElementById('authRegisterPasswordConfirm');
+  if (loginPassword) loginPassword.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAuthLogin(); });
+  if (registerPasswordConfirm) registerPasswordConfirm.addEventListener('keypress', (e) => { if (e.key === 'Enter') handleAuthRegister(); });
+}
+
+function injectAuthSpinnerCSS() {
+  if (document.getElementById('auth-spinner-style')) return;
+  const style = document.createElement('style');
+  style.id = 'auth-spinner-style';
+  style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+  document.head.appendChild(style);
+}
+
+function updateGoogleLoginUI(user = getSupabaseUserSafe()) {
+  const loginBtn = document.getElementById('googleLoginBtn');
+  const logoutBtn = document.getElementById('googleLogoutBtn');
+  const loginInfo = document.getElementById('googleLoginInfo');
+  const userName = document.getElementById('googleUserName');
+  const userEmail = document.getElementById('googleUserEmail');
+  const avatar = document.getElementById('googleAvatar');
+  const provider = user && (user.app_metadata?.provider || (Array.isArray(user.identities) && user.identities[0]?.provider));
+  const isGoogleUser = !!user && provider === 'google';
+  if (!isGoogleUser) {
+    if (loginBtn) loginBtn.style.display = 'flex';
+    if (logoutBtn) logoutBtn.style.display = user ? 'block' : 'none';
+    if (loginInfo) loginInfo.style.display = user ? 'block' : 'none';
+  } else {
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'block';
+    if (loginInfo) loginInfo.style.display = 'block';
+  }
+  if (userName && user) userName.textContent = getSupabaseDisplayName(user);
+  if (userEmail && user) userEmail.textContent = user.email || '';
+  const picture = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || '';
+  if (avatar && picture) {
+    avatar.src = picture;
+    avatar.style.display = 'block';
+    StorageManager.setRaw('profilePhotoURL', picture);
+  }
+}
+
+function setupGoogleAuthObserver() {
+  const refresh = (event) => {
+    const session = event?.detail?.session || getSupabaseSessionSafe();
+    updateAuthUI(session?.user || null);
+    updateAccountSyncStatus();
+    if (session?.user) syncProfileWithBackend(null, { reason: 'session_changed' });
+  };
+  window.addEventListener('supabaseAuthReady', refresh);
+  window.addEventListener('supabaseSessionChanged', refresh);
+  refresh();
+}
+
+/* ─── PROFIL BEARBEITEN (Name + Avatar) ─────────── */
+function initAvatarPicker(currentAvatar) {
+  const options = document.querySelectorAll('.avatar-option');
+  options.forEach(opt => {
+    const isActive = opt.dataset.avatar === currentAvatar;
+    opt.style.borderColor = isActive ? '#7ab030' : 'transparent';
+    opt.style.background = isActive ? 'rgba(122,176,48,0.15)' : 'transparent';
+    opt.style.transform = isActive ? 'scale(1.15)' : 'scale(1)';
+
+    opt.onclick = () => {
+      const newAvatar = opt.dataset.avatar;
+      StorageManager.setRaw('profileAvatar', newAvatar);
+
+      // UI aktualisieren
+      const psAvatarIcon = document.getElementById('psAvatarIcon');
+      if (psAvatarIcon) psAvatarIcon.textContent = newAvatar;
+
+      // Avatar-Picker aktualisieren
+      options.forEach(o => {
+        o.style.borderColor = o.dataset.avatar === newAvatar ? '#7ab030' : 'transparent';
+        o.style.background = o.dataset.avatar === newAvatar ? 'rgba(122,176,48,0.15)' : 'transparent';
+        o.style.transform = o.dataset.avatar === newAvatar ? 'scale(1.15)' : 'scale(1)';
+      });
+
+      // Dashboard-Initial aktualisieren
+      const pdProfileInitial = document.getElementById('pdProfileInitial');
+      if (pdProfileInitial) pdProfileInitial.textContent = newAvatar;
+
+      triggerHaptic();
+    };
+  });
+}
+
+function applyProfileNameChange(newName, options = {}) {
+  const notify = options.notify !== false;
+  const cleanName = String(newName || '').trim().substring(0, 15);
+  if (!cleanName) {
+    if (notify) showEngagementToast('Bitte gib einen Namen ein.');
+    return false;
+  }
+
+  const oldName = G.username;
+  G.username = cleanName;
+  StorageManager.setRaw('username', cleanName);
+
+  // UI überall aktualisieren
+  const psUsername = document.getElementById('psUsername');
+  if (psUsername) psUsername.textContent = cleanName;
+
+  const pdUserName = document.getElementById('pdUserName');
+  if (pdUserName) pdUserName.textContent = cleanName;
+
+  const pdProfileInitial = document.getElementById('pdProfileInitial');
+  if (pdProfileInitial) pdProfileInitial.textContent = cleanName.charAt(0).toUpperCase();
+
+  const profileNameInput = document.getElementById('profileNameInput');
+  if (profileNameInput && profileNameInput.value !== cleanName) profileNameInput.value = cleanName;
+
+  syncProfileWithBackend(null, { reason: 'profile_name_changed' });
+
+  triggerHaptic();
+  if (notify) showEngagementToast(`✓ Name auf „${cleanName}" geändert`);
+  return true;
+}
+
+window.applyProfileNameChange = applyProfileNameChange;
+
+window.changeProfileName = function() {
+  const nameInput = document.getElementById('profileNameInput');
+  if (!nameInput) return;
+  applyProfileNameChange(nameInput.value, { notify: true });
+};
+
+const FEEDBACK_MIN_DUELS = 3;
+const FEEDBACK_MAX_DUELS = 5;
+let _feedbackPromptTimeout = null;
+
+function getTotalDuels(stats = null) {
+  const gs = stats || loadGameStats();
+  return (gs.wins || 0) + (gs.losses || 0) + (gs.draws || 0);
+}
+
+function randomFeedbackInterval() {
+  return FEEDBACK_MIN_DUELS + Math.floor(Math.random() * (FEEDBACK_MAX_DUELS - FEEDBACK_MIN_DUELS + 1));
+}
+
+function loadFeedbackMeta() {
+  return readJsonStorage('sd_feedback_meta', {});
+}
+
+function saveFeedbackMeta(meta) {
+  StorageManager.set('feedback_meta', meta);
+  scheduleCloudSync('feedback_meta_changed');
+}
+
+function ensureFeedbackSchedule() {
+  const totalDuels = getTotalDuels();
+  const meta = loadFeedbackMeta();
+  if (!Number.isInteger(meta.nextAt) || meta.nextAt <= 0) {
+    meta.nextAt = totalDuels + randomFeedbackInterval();
+    saveFeedbackMeta(meta);
+  }
+}
+
+function shouldShowFeedback(totalDuels) {
+  if (totalDuels < FEEDBACK_MIN_DUELS) return false;
+  const meta = loadFeedbackMeta();
+  if (!Number.isInteger(meta.nextAt) || meta.nextAt <= 0) {
+    meta.nextAt = totalDuels + randomFeedbackInterval();
+    saveFeedbackMeta(meta);
+    return false;
+  }
+  return totalDuels >= meta.nextAt;
+}
+
+function scheduleNextFeedback(totalDuels) {
+  const meta = loadFeedbackMeta();
+  meta.lastPromptAt = totalDuels;
+  meta.nextAt = totalDuels + randomFeedbackInterval();
+  saveFeedbackMeta(meta);
+}
+
+function clearPendingFeedbackPrompt() {
+  if (_feedbackPromptTimeout) {
+    clearTimeout(_feedbackPromptTimeout);
+    _feedbackPromptTimeout = null;
+  }
+}
+
+function scheduleFeedbackPrompt(totalDuels) {
+  clearPendingFeedbackPrompt();
+  _feedbackPromptTimeout = setTimeout(() => {
+    _feedbackPromptTimeout = null;
+    const overScreen = document.getElementById('screenOver');
+    if (!overScreen || !overScreen.classList.contains('active')) return;
+    showFeedbackScreen(totalDuels);
+  }, 800);
+}
+
+function showFeedbackScreen(totalDuels, duelData) {
+  clearPendingFeedbackPrompt();
+  if (DOM.feedbackCount) DOM.feedbackCount.textContent = `◆ DUELL #${totalDuels} ◆`;
+  // If duel data provided, populate the v2 feedback screen
+  if (duelData) {
+    fbSetDuel(duelData);
+  }
+  showScreen('screenFeedback');
+}
+
+// ═══════════════════════════════════════════════
+// FEEDBACK v2 – Duel Result + Emoji + Tags + Comment
+// ═══════════════════════════════════════════════
+let fbRating = null;
+let fbTags = [];
+let fbDuelData = null; // { discipline, opponent, result, score }
+let fbSubmitPending = false;
+let siteFeedbackPending = false;
+
+function fbSetDuel(data) {
+  data = data || {};
+  fbDuelData = data;
+  fbRating = null;
+  fbTags = [];
+  const meta = FB_RESULT_META[data.result] || FB_RESULT_META.draw;
+  // Result icon
+  const iconEl = document.getElementById('fbResultIcon');
+  if (iconEl) iconEl.innerHTML = meta.icon;
+  // Title
+  const titleEl = document.getElementById('fbResultTitle');
+  const name = data.opponent || data.discipline;
+  // XSS hardening: escape opponent/discipline name and status text; color is from static FB_RESULT_META.
+  if (titleEl) titleEl.innerHTML = escHtml(name) + ' — <span style="color:' + escHtml(meta.color) + '">' + escHtml(meta.text) + '</span>';
+  // Score
+  const scoreEl = document.getElementById('fbResultScore');
+  if (scoreEl) scoreEl.textContent = data.score || '';
+  // Reset UI
+  fbResetEmojiUI();
+  fbResetTagsUI();
+  const commentInput = document.getElementById('fbComment');
+  if (commentInput) commentInput.value = '';
+  fbUpdateCounter();
+  fbUpdateSubmitBtn();
+}
+
+const FB_RESULT_META = {
+  win: { icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26Z" fill="#39FF14"/></svg>', text: 'Sieg!', color: '#39FF14' },
+  loss: { icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6 6L18 18M18 6L6 18" stroke="#FF4444" stroke-width="3" stroke-linecap="round"/></svg>', text: 'Niederlage', color: '#FF4444' },
+  draw: { icon: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 12H19" stroke="#FFAA00" stroke-width="3" stroke-linecap="round"/></svg>', text: 'Unentschieden', color: '#FFAA00' },
+};
+
+function fbSetRating(idx) {
+  fbRating = idx;
+  fbUpdateEmojiUI();
+  fbUpdateSubmitBtn();
+}
+
+function fbUpdateEmojiUI() {
+  document.querySelectorAll('.fb-emoji-item').forEach(el => {
+    const i = parseInt(el.dataset.idx);
+    const btn = el.querySelector('.fb-emoji-btn');
+    const label = el.querySelector('span');
+    if (!btn || !label) return;
+    if (i === fbRating) {
+      btn.style.cssText = 'width:58px;height:58px;background:rgba(15,35,10,.8);border:2px solid #39FF14;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:28px;cursor:pointer;transition:all .15s ease;';
+      label.style.color = '#39FF14';
+      label.style.fontWeight = '700';
+    } else {
+      btn.style.cssText = 'width:52px;height:52px;background:rgba(30,45,20,.6);border:1.5px solid rgba(122,176,48,.2);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;';
+      label.style.color = 'rgba(90,140,60,.5)';
+      label.style.fontWeight = '600';
+    }
+  });
+}
+
+function fbResetEmojiUI() {
+  fbRating = null;
+  fbUpdateEmojiUI();
+}
+
+function fbToggleTag(el) {
+  const tag = el.dataset.tag;
+  if (fbTags.includes(tag)) {
+    fbTags = fbTags.filter(t => t !== tag);
+    el.style.cssText = 'background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;';
+  } else {
+    fbTags.push(tag);
+    el.style.cssText = 'background:rgba(15,35,10,.8);border:1px solid rgba(57,255,20,.35);color:#39FF14;font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;';
+  }
+}
+
+function fbResetTagsUI() {
+  fbTags = [];
+  document.querySelectorAll('.fb-tag').forEach(el => {
+    el.style.cssText = 'background:rgba(30,45,20,.6);border:1px solid rgba(122,176,48,.2);color:rgba(122,176,48,.5);font-size:.75rem;font-weight:600;padding:7px 14px;border-radius:20px;cursor:pointer;';
+  });
+}
+
+function fbUpdateCounter() {
+  const input = document.getElementById('fbComment');
+  const comment = input ? input.value : '';
+  const counter = document.getElementById('fbCounter');
+  if (counter) counter.textContent = `${comment.length} / 300`;
+}
+
+function fbUpdateSubmitBtn() {
+  const btn = document.getElementById('fbSubmitBtn');
+  if (btn) {
+    if (fbSubmitPending) {
+      btn.style.opacity = '.6';
+      btn.style.pointerEvents = 'none';
+      return;
+    }
+    if (fbRating !== null) {
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    } else {
+      btn.style.opacity = '.35';
+      btn.style.pointerEvents = 'none';
+    }
+  }
+}
+
+function fbSubmit() {
+  if (fbRating === null || fbSubmitPending) return;
+  fbSubmitPending = true;
+  const btn = document.getElementById('fbSubmitBtn');
+  if (btn) {
+    btn.dataset.originalPointerEvents = btn.style.pointerEvents || '';
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '.6';
+  }
+  const commentInput = document.getElementById('fbComment');
+  const comment = commentInput ? commentInput.value || '' : '';
+  const score = fbRating + 1; // 1-5 scale
+  const totalDuels = getTotalDuels();
+
+  // Sende vollständiges Feedback an Worker API (für Admin-Dashboard)
+  const safeUsername = sanitizeUsername(G.username || 'Anonym');
+  const userEmail = typeof StorageManager !== 'undefined' ? (StorageManager.getRaw('userEmail') || `${safeUsername}@schuss-challenge.local`) : `${safeUsername}@schuss-challenge.local`;
+  const emojiLabels = ['😤 Schlecht', '😐 Okay', '😄 Gut', '🤩 Super', '🔥 Episch'];
+  const tags = fbTags || [];
+
+  // Duell-Ergebnis zusammenbauen
+  const duelResult = fbDuelData || {};
+  const resultTitle = duelResult.title || `${G.weapon || 'LG'} ${duelResult.result || 'Unbekannt'}`;
+  const resultScore = duelResult.score || duelResult.myScore || 'N/A';
+
+  // Save locally first so optional network failures never lose feedback.
+  let entries = [];
+  try { entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]'); } catch (e) { entries = []; }
+  if (!Array.isArray(entries)) entries = [];
+  entries.unshift({ score, totalDuels, weapon: G.weapon, discipline: fbDuelData?.discipline || G.discipline, ts: Date.now(), tags: fbTags, comment });
+  while (entries.length > 100) entries.pop();
+  try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
+
+  fetch('https://schuss-challenge.eliaskummel.workers.dev/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: userEmail,
+      feedbackType: score >= 4 ? 'general' : score === 3 ? 'general' : 'bug',
+      title: `${emojiLabels[fbRating] || 'Feedback'} - ${resultTitle}`,
+      message: `⭐ Bewertung: ${score}/5 (${emojiLabels[fbRating] || 'N/A'})\n🏆 Duell: ${resultTitle}\n📊 Score: ${resultScore}\n🏷️ Tags: ${tags.length > 0 ? tags.join(', ') : 'Keine'}\n💬 Kommentar: ${comment || 'Keiner'}\n👤 Spieler: ${safeUsername}\n🔫 Waffe: ${G.weapon || 'N/A'}\n🎯 Disziplin: ${G.discipline || 'N/A'}`
+    })
+  }).catch(err => console.warn('Feedback an Worker fehlgeschlagen:', err));
+
+  console.log('[Feedback]', { rating: fbRating + 1, tags: fbTags, comment, duel: fbDuelData });
+
+  // Thank you animation
+  const card = document.getElementById('screenFeedback');
+  if (card) {
+    // Show brief thank you, then go back
+    if (typeof Sounds !== 'undefined') Sounds.win();
+    setTimeout(() => {
+      try {
+        scheduleNextFeedback(totalDuels);
+        showScreen('screenSetup');
+      } finally {
+        fbSubmitPending = false;
+      }
+    }, 1500);
+  } else {
+    fbSubmitPending = false;
+    if (btn) {
+      btn.style.pointerEvents = btn.dataset.originalPointerEvents || 'auto';
+      btn.style.opacity = '1';
+    }
+  }
+}
+
+function submitSiteFeedback(rating) {
+  if (siteFeedbackPending) return;
+  siteFeedbackPending = true;
+  clearPendingFeedbackPrompt();
+  const score = parseInt(rating);
+  const totalDuels = getTotalDuels();
+
+  // Sende Feedback an Worker API (für Admin-Dashboard)
+  const safeUsername = sanitizeUsername(G.username || 'Anonym');
+  const userEmail = typeof StorageManager !== 'undefined' ? (StorageManager.getRaw('userEmail') || `${safeUsername}@schuss-challenge.local`) : `${safeUsername}@schuss-challenge.local`;
+
+  fetch('https://schuss-challenge.eliaskummel.workers.dev/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: userEmail,
+      feedbackType: 'general',
+      title: `⭐ ${score}/5 Sterne - ${G.weapon || 'LG'} ${G.discipline || ''}`,
+      message: `Score: ${score}/5\nWaffe: ${G.weapon || 'unknown'}\nDisziplin: ${G.discipline || 'unknown'}\nSchwierigkeit: ${G.diff || 'unknown'}\nSpieler: ${safeUsername}`
+    })
+  }).catch(err => console.warn('Feedback an Worker fehlgeschlagen:', err));
+
+  if (Number.isInteger(score) && score >= 1 && score <= 5) {
+    // ... (existing logic for saving)
+    let entries = [];
+    try {
+      entries = JSON.parse(localStorage.getItem('sd_feedback_entries') || '[]');
+      if (!Array.isArray(entries)) entries = [];
+    } catch (e) { entries = []; }
+    entries.unshift({
+      score,
+      totalDuels,
+      weapon: G.weapon,
+      discipline: G.discipline,
+      ts: Date.now()
+    });
+    while (entries.length > 100) entries.pop();
+    try { localStorage.setItem('sd_feedback_entries', JSON.stringify(entries)); } catch (e) { }
+
+    {
+      const safeUsername = sanitizeUsername(G.username || 'Anonym');
+      const userHash = safeUsername
+        ? safeUsername.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
+          .toString(36).replace('-', 'n')
+        : 'anon';
+      const emojis = { 1: '😡', 2: '🙁', 3: '😐', 4: '🙂', 5: '🤩' };
+      const entry = {
+        score,
+        emoji: emojis[score] || '?',
+        totalDuels,
+        weapon: G.weapon || 'unknown',
+        discipline: G.discipline || 'unknown',
+        diff: G.diff || 'unknown',
+        username: safeUsername,
+        userHash,
+        uid: getCurrentAccountId(),
+        accountId: getCurrentAccountId(),
+        ts: Date.now(),
+        date: new Date().toLocaleDateString('de-DE', {
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
+        })
+      };
+      entry.key = String(entry.ts) + '_' + (getCurrentAccountId() || userHash);
+      queueFeedbackEntry(entry);
+    }
+
+    // Show thank you message
+    const card = document.querySelector('.fb-card');
+    if (card) {
+      card.innerHTML = `
+            <div class="fb-title" style="color: #90d838;">DANKE! 🎉</div>
+            <div class="fb-sub">Dein Feedback hilft uns sehr.</div>
+            <div style="font-size: 4rem; margin: 20px 0;">🙌</div>
+          `;
+      if (typeof Sounds !== 'undefined') Sounds.win();
+      setTimeout(() => {
+        scheduleNextFeedback(totalDuels);
+        siteFeedbackPending = false;
+        showScreen('screenSetup');
+      }, 2000);
+      return;
+    }
+  }
+
+  scheduleNextFeedback(totalDuels);
+  siteFeedbackPending = false;
+  showScreen('screenSetup');
+  // Dashboard mit frischen Daten aktualisieren
+  if (typeof refreshPremiumDashboard === 'function') setTimeout(refreshPremiumDashboard, 200);
+}
+
+function skipSiteFeedback() {
+  if (siteFeedbackPending) return;
+  clearPendingFeedbackPrompt();
+  const totalDuels = getTotalDuels();
+  scheduleNextFeedback(totalDuels);
+  showScreen('screenSetup');
+}
+
+function todayIdLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function readJsonStorage(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function writeJsonStorage(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { }
+}
+
+function showEngagementToast(message, durationMs = 4200) {
+  if (!message) return;
+  const toast = document.createElement('div');
+  toast.className = 'engagement-toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('active'));
+  setTimeout(() => {
+    toast.classList.remove('active');
+    setTimeout(() => toast.remove(), 220);
+  }, Math.max(1200, durationMs));
+}
+
+const HealthyEngagement = (function () {
+  const STORAGE_KEY = 'sd_healthy_engagement_v1';
+  const BREAK_INTERVAL_SECS = 20 * 60;
+  const MAX_BREAK_HINTS_PER_DAY = 3;
+  const RETURN_REMINDER_HOURS = 18;
+
+  let state = {
+    dateId: '',
+    activeSecsToday: 0,
+    pauseHintsShownToday: 0,
+    lastReminderDateId: '',
+    lastVisitAt: 0,
+    lastBattleStartAt: 0,
+    snoozeUntil: 0
+  };
+
+  function normalizeForToday() {
+    const today = todayIdLocal();
+    if (state.dateId !== today) {
+      state.dateId = today;
+      state.activeSecsToday = 0;
+      state.pauseHintsShownToday = 0;
+      state.snoozeUntil = 0;
+    }
+  }
+
+  function loadState() {
+    const raw = StorageManager.get('healthy_engagement_v1', {});
+    state = {
+      dateId: typeof raw.dateId === 'string' ? raw.dateId : '',
+      activeSecsToday: Math.max(0, Number(raw.activeSecsToday) || 0),
+      pauseHintsShownToday: Math.max(0, Number(raw.pauseHintsShownToday) || 0),
+      lastReminderDateId: typeof raw.lastReminderDateId === 'string' ? raw.lastReminderDateId : '',
+      lastVisitAt: Math.max(0, Number(raw.lastVisitAt) || 0),
+      lastBattleStartAt: Math.max(0, Number(raw.lastBattleStartAt) || 0),
+      snoozeUntil: Math.max(0, Number(raw.snoozeUntil) || 0)
+    };
+    normalizeForToday();
+  }
+
+  function saveState() {
+    StorageManager.set('healthy_engagement_v1', state);
+  }
+
+  function hideBreakOverlay() {
+    const overlay = document.getElementById('healthyBreakOverlay');
+    if (overlay) overlay.classList.remove('active');
+  }
+
+  function showBreakOverlay() {
+    if (Date.now() < state.snoozeUntil) return;
+    if (state.pauseHintsShownToday >= MAX_BREAK_HINTS_PER_DAY) return;
+
+    const overlay = document.getElementById('healthyBreakOverlay');
+    const txt = document.getElementById('healthyBreakText');
+    if (!overlay || !txt) return;
+
+    const mins = Math.round(state.activeSecsToday / 60);
+    txt.textContent = `Du bist heute schon ${mins} Minuten im Fokus. 2 Minuten Pause helfen Konzentration und Trefferbild.`;
+    overlay.classList.add('active');
+    state.pauseHintsShownToday += 1;
+    saveState();
+  }
+
+  function maybeShowBreakHint() {
+    const thresholdHits = Math.floor(state.activeSecsToday / BREAK_INTERVAL_SECS);
+    if (thresholdHits > state.pauseHintsShownToday) {
+      showBreakOverlay();
+    }
+  }
+
+  function maybeShowReturnReminder() {
+    const today = todayIdLocal();
+    if (state.lastReminderDateId === today) return;
+
+    const lastPlayedAt = Math.max(0, Number(localStorage.getItem('sd_last_played_at') || 0));
+    if (!lastPlayedAt) return;
+
+    const hoursAway = (Date.now() - lastPlayedAt) / 3600000;
+    if (hoursAway < RETURN_REMINDER_HOURS) return;
+
+    showEngagementToast('Willkommen zurück! Eine kurze Session reicht heute schon für Fortschritt.');
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification('🎯 Schützen Challenge erinnert dich', {
+          body: 'Deine Tagesmission wartet auf dich.',
+          tag: 'sd-gentle-reminder'
+        });
+      } catch (e) { }
+    }
+    state.lastReminderDateId = today;
+    saveState();
+  }
+
+  function onBattleStart() {
+    normalizeForToday();
+    state.lastBattleStartAt = Date.now();
+    saveState();
+  }
+
+  function onMatchFinished(durationSecs) {
+    normalizeForToday();
+    const elapsedByStart = state.lastBattleStartAt > 0
+      ? Math.floor((Date.now() - state.lastBattleStartAt) / 1000)
+      : 0;
+    const elapsed = Math.max(
+      0,
+      Number.isFinite(durationSecs) ? Math.floor(durationSecs) : 0,
+      elapsedByStart
+    );
+
+    state.lastBattleStartAt = 0;
+    if (elapsed > 0) {
+      state.activeSecsToday += elapsed;
+      localStorage.setItem('sd_last_played_at', String(Date.now()));
+      maybeShowBreakHint();
+    }
+    saveState();
+  }
+
+  function takeBreak() {
+    state.snoozeUntil = Date.now() + (2 * 60 * 1000);
+    saveState();
+    hideBreakOverlay();
+    showEngagementToast('Top. 2 Minuten Pause aktiviert.');
+  }
+
+  function continuePlay() {
+    state.snoozeUntil = Date.now() + (10 * 60 * 1000);
+    saveState();
+    hideBreakOverlay();
+    showEngagementToast('Alles klar. Nächster Pausenhinweis in ca. 10 Minuten.');
+  }
+
+  function init() {
+    loadState();
+    maybeShowReturnReminder();
+    state.lastVisitAt = Date.now();
+    saveState();
+  }
+
+  return {
+    init,
+    onBattleStart,
+    onMatchFinished,
+    takeBreak,
+    continuePlay,
+    hideBreakOverlay
+  };
+})();
+
+window.healthyTakeBreak = function () {
+  HealthyEngagement.takeBreak();
+};
+
+window.healthyContinuePlay = function () {
+  HealthyEngagement.continuePlay();
+};
+
+function recordGameResult(result, diff, weapon, playerPts, botPts) {
+  // Global stats
+  const gs = loadGameStats();
+  gs.wins = (gs.wins || 0) + (result === 'win' ? 1 : 0);
+  gs.losses = (gs.losses || 0) + (result === 'lose' ? 1 : 0);
+  gs.draws = (gs.draws || 0) + (result === 'draw' ? 1 : 0);
+  saveGameStats(gs);
+
+  // Weapon stats
+  const ws = loadWeaponStats(weapon);
+  ws.wins = (ws.wins || 0) + (result === 'win' ? 1 : 0);
+  ws.losses = (ws.losses || 0) + (result === 'lose' ? 1 : 0);
+  ws.draws = (ws.draws || 0) + (result === 'draw' ? 1 : 0);
+  saveWeaponStats(weapon, ws);
+
+  // History
+  addHistoryEntry(result, diff, weapon, playerPts, botPts);
+
+  // Push-Benachrichtigung bei Sieg – nur wenn App im Hintergrund
+  if (result === 'win' && document.hidden && window.PushNotifications && window.PushNotifications.isGranted()) {
+    window.PushNotifications.showLocal(
+      '🏆 Sieg!',
+      playerPts + ' Ringe – gut geschossen!'
+    );
+  }
+
+  // Check SUN achievements
+  checkSunAchievements();
+
+  // NEU: Adaptive Bot System - Spiel aufzeichnen
+  if (typeof AdaptiveBotSystem !== 'undefined' && AdaptiveBotSystem.isEnabled()) {
+    AdaptiveBotSystem.trackGame(playerPts, botPts, G.discipline, diff, weapon);
+  }
+
+  // NEU: Erweiterte Analytics - Spiel-Daten hinzufügen
+  if (typeof EnhancedAnalytics !== 'undefined') {
+    // XP berechnen (nur bei Sieg)
+    const earnedXP = (result === 'win' && !G?.dnf) ? (XP_PER_WIN[diff] || 10) : 0;
+
+    const gameData = {
+      result: result,
+      playerScore: playerPts,
+      botScore: botPts,
+      scoreDifference: playerPts - botPts,
+      discipline: G.discipline,
+      disciplineName: DISC[G.discipline]?.name || G.discipline,
+      weapon: weapon,
+      difficulty: diff,
+      xpEarned: earnedXP, // NEU: XP speichern
+      shots: G.playerShots || [], // Spieler-Schüsse falls verfügbar
+      shotsLeft: G.playerShotsLeft,
+      maxDeficit: Math.max(0, botPts - playerPts), // Größter Rückstand
+      duration: Math.floor((Date.now() - G._gameStartTime) / 1000), // Spieldauer in Sek.
+      timestamp: Date.now()
+    };
+
+    EnhancedAnalytics.addGameData(gameData);
+
+    // NEU: Daily Challenge Fortschritt tracken
+    if (typeof DailyChallenge !== 'undefined') {
+      const stats = {
+        currentStreak: G.streak || 0,
+        gamesPlayed: (gs.wins || 0) + (gs.losses || 0) + (gs.draws || 0)
+      };
+      DailyChallenge.trackGame(gameData, stats);
+    }
+
+    // StreakTracker: 1 Duell = +1 Streak (Mo-Fr ab 12:00)
+    if (typeof StreakTracker !== 'undefined') {
+      const streakResult = StreakTracker.recordGame();
+      if (streakResult.streakIncreased && streakResult.milestone) {
+        console.log('[Streak] Milestone erreicht:', streakResult.milestone);
+      }
+    }
+
+    // NEU: Adaptive Bot - Spieler-Schwächen analysieren
+    if (typeof AdaptiveBotSystem !== 'undefined' && G.playerShots.length > 0) {
+      // Gruppierung für den Spieler berechnen
+      const grouping = calculateGrouping(G.playerShots);
+      AdaptiveBotSystem.trackPlayerResult(grouping);
+    }
+  }
+
+  // NEU: Haptisches Feedback bei wichtigen Ereignissen
+  if (typeof MobileFeatures !== 'undefined') {
+    if (result === 'win') {
+      MobileFeatures.hapticHit();
+    } else if (result === 'lose') {
+      MobileFeatures.hapticMiss();
+    }
+
+    // Bei neuen Rekorden oder besonderen Leistungen
+    const bestLG = parseInt(localStorage.getItem('sd_lg_best') || '0') || 0;
+    const bestKK = parseInt(localStorage.getItem('sd_kk_best') || '0') || 0;
+    const personalBest = Math.max(bestLG, bestKK);
+    if (playerPts > personalBest) {
+      MobileFeatures.hapticAchievement();
+    }
+  }
+
+  // Profil nach jedem Spiel aktualisieren (Streak + Stats aktuell halten)
+  setTimeout(() => syncProfileWithBackend(null, { reason: 'battle_finished' }), 300);
+
+  // Supabase Worker API: Spielsitzung persistieren (fire-and-forget)
+  syncGameSessionWithBackend({
+      mode: (G.friendChallenge ? 'challenge' : 'bot_fight'),
+      discipline: G.discipline || '',
+      score: playerPts,
+      shotsFired: Math.max(1, (G.playerShots && G.playerShots.length) || G.shots || 0),
+      durationSeconds: Math.max(0, Math.floor((Date.now() - (G._gameStartTime || Date.now())) / 1000))
+    });
+}
+
+function calculateGrouping(shots) {
+  if (!shots || shots.length === 0) return null;
+  let totalX = 0, totalY = 0;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+  shots.forEach(s => {
+    totalX += s.dx;
+    totalY += s.dy;
+    if (s.dx < minX) minX = s.dx;
+    if (s.dx > maxX) maxX = s.dx;
+    if (s.dy < minY) minY = s.dy;
+    if (s.dy > maxY) maxY = s.dy;
+  });
+
+  const centerX = totalX / shots.length;
+  const centerY = totalY / shots.length;
+  let totalDist = 0;
+  shots.forEach(s => {
+    const dx = s.dx - centerX;
+    const dy = s.dy - centerY;
+    totalDist += Math.sqrt(dx * dx + dy * dy);
+  });
+
+  return {
+    extremeSpread: Math.sqrt(Math.pow(maxX - minX, 2) + Math.pow(maxY - minY, 2)),
+    meanRadius: totalDist / shots.length,
+    centerOffsetX: centerX,
+    centerOffsetY: centerY
+  };
+}
+
+/* ─── HISTORY ────────────────────────────── */
+function buildHistoryEntry(result, diff, weapon, playerPts, botPts) {
+  const DIFF_NAMES = { easy: 'Einfach', real: 'Mittel', hard: 'Elite', elite: 'Profi' };
+  const WEAPON_NAMES = { lg: 'Luftgewehr', kk: 'Kleinkaliber' };
+  const timestamp = Date.now();
+  const discipline = G.discipline || 'unknown';
+
+  const discCfg = DISC[discipline] || {};
+  return {
+    id: `${timestamp}_${discipline}_${result}`,
+    timestamp,
+    result,
+    diff,
+    weapon,
+    discipline,
+    disciplineName: discCfg.name || discipline,
+    playerPts,
+    botPts,
+    shots: discCfg.shots || null,
+    maxShots: discCfg.shots || null,
+    scoreMode: 'tenths',
+    diffName: DIFF_NAMES[diff] || diff,
+    weaponName: WEAPON_NAMES[weapon] || weapon,
+    date: new Date(timestamp).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  };
+}
+
+function addHistoryEntry(result, diff, weapon, playerPts, botPts) {
+  try {
+    const hist = StorageManager.get('history', []);
+    if (!Array.isArray(hist)) return;
+    const historyEntry = buildHistoryEntry(result, diff, weapon, playerPts, botPts);
+    hist.unshift(historyEntry);
+    if (hist.length > 30) hist.splice(30);
+    StorageManager.set('history', hist);
+    scheduleCloudSync('history_changed');
+    return historyEntry;
+  } catch (e) { }
+  return null;
+}
+
+
+/* ════ PREMIUM DASHBOARD DATA BINDING ════ */
+function refreshPremiumDashboard() {
+  // 1. Greeting Name
+  const username = StorageManager.getRaw('username') || "";
+  const pdUserName = document.getElementById('pdUserName');
+  if (pdUserName && username) pdUserName.innerText = username;
+
+  const pdProfileInitial = document.getElementById('pdProfileInitial');
+  if (pdProfileInitial && username) pdProfileInitial.innerText = username.charAt(0).toUpperCase();
+
+  // 2. Score & XP
+  const xp = StorageManager.get('xp', 0);
+
+  // ══ XP PROGRESS BAR RENDERING ══
+  const xpBarContainer = document.getElementById('pdXPBarContainer');
+  if (xpBarContainer) {
+    const rankInfo = getRank(xp);
+    const curRank = rankInfo.rank;
+    const nextRank = RANKS[rankInfo.idx + 1] || curRank;
+
+    let pct = 0;
+    let xpDiff = xp - curRank.min;
+    let range = (nextRank.min === curRank.min) ? 1000 : (nextRank.min - curRank.min);
+    if (nextRank !== curRank) {
+      pct = Math.min(100, Math.max(0, (xpDiff / range) * 100));
+    } else {
+      pct = 100; // Legende
+    }
+
+    xpBarContainer.innerHTML = `
+      <div style="background:linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(20,25,30,0.6) 100%); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.1); border-radius:18px; padding:16px; box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px;">
+          <div>
+            <div style="font-size:0.75rem; color:rgba(255,255,255,0.4); font-weight:600; letter-spacing:0.05em; margin-bottom:4px;">RANG FORTSCHRITT</div>
+            <div style="font-size:1.1rem; font-weight:700; color:#fff;">${curRank.icon} ${curRank.name}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.9rem; font-weight:700; color:#7ab030;">${xp} <span style="font-size:0.7rem; color:rgba(255,255,255,0.4); font-weight:500;">/ ${nextRank.min === Infinity ? '∞' : nextRank.min} XP</span></div>
+          </div>
+        </div>
+        <div style="height:10px; background:rgba(255,255,255,0.08); border-radius:5px; overflow:hidden; position:relative; box-shadow:inset 0 1px 3px rgba(0,0,0,0.3);">
+          <div style="height:100%; width:${pct}%; background:linear-gradient(90deg, #7ab030, #a0d84a); border-radius:5px; transition:width 1s cubic-bezier(0.4, 0, 0.2, 1); box-shadow:0 0 12px rgba(122,176,48,0.5);"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 3. Stats Today (EnhancedAnalytics)
+  let hits = 0;
+  let accSum = 0;
+  let count = 0;
+  let historyV2 = [];
+  try {
+    const analytics = JSON.parse(localStorage.getItem('sd_enhanced_analytics') || '{}');
+    historyV2 = Array.isArray(analytics.games) ? analytics.games : [];
+  } catch (e) { }
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  historyV2.forEach(game => {
+    if (game.timestamp && game.timestamp >= startOfDay.getTime()) {
+      if (game.shotsLeft && game.shotsLeft < 40) {
+        const shotsFired = 40 - game.shotsLeft;
+        hits += shotsFired;
+      } else if (game.shots) {
+        hits += game.shots.length;
+      } else {
+        hits += 40; // Default fallback if finished
+      }
+      if (game.playerPts > 0) {
+        const pts = game.playerPts;
+        count++;
+        accSum += (pts / 40);
+      }
+    }
+  });
+
+  // HIDE OVERVIEW UNTIL FIRST DUEL
+  const overviewHeader = document.getElementById('pdOverviewHeader');
+  const mainStatsRow = document.getElementById('pdMainStatsRow');
+  const recentListHeader = document.getElementById('pdRecentListHeader');
+  const recentList = document.getElementById('pdRecentList');
+
+  if (historyV2.length === 0) {
+    if (overviewHeader) overviewHeader.style.display = 'none';
+    if (mainStatsRow) mainStatsRow.style.display = 'none';
+    if (recentListHeader) recentListHeader.style.display = 'none';
+    if (recentList) recentList.style.display = 'none';
+  } else {
+    if (overviewHeader) overviewHeader.style.display = 'block';
+    if (mainStatsRow) mainStatsRow.style.display = 'flex';
+    if (recentListHeader) recentListHeader.style.display = 'block';
+    if (recentList) recentList.style.display = 'flex';
+  }
+
+  const statHits = document.querySelector('.pd-stats-row > div:nth-child(1) .pd-stat-val');
+  if (statHits) statHits.innerHTML = hits + ' <span style="font-size:0.7em;color:var(--text-muted)">Schuss</span>';
+
+  const statAcc = document.querySelector('.pd-stats-row > div:nth-child(2) .pd-stat-val');
+  if (count > 0 && statAcc) {
+    statAcc.innerText = (accSum / count).toFixed(1) + ' Ø';
+  } else if (statAcc) {
+    statAcc.innerText = '- Ø';
+  }
+
+  // 4.5. Side Metrics (Streak & Games Today)
+  const pdCurLG = Number(localStorage.getItem('sd_lg_streak') || 0) || 0;
+  const pdCurKK = Number(localStorage.getItem('sd_kk_streak') || 0) || 0;
+  const pdCurLegacy = Number(localStorage.getItem('sd_win_streak') || 0) || 0;
+  const pdCurAll = Math.max(pdCurLG, pdCurKK, pdCurLegacy);
+  const elSideStreak = document.getElementById('pdSideStreak');
+  if (elSideStreak) elSideStreak.innerText = pdCurAll > 0 ? '🔥 ' + pdCurAll : '🔥 0';
+  const elSideStreakBar = document.getElementById('pdSideStreakBar');
+  if (elSideStreakBar) elSideStreakBar.style.width = Math.min(pdCurAll * 10, 100) + '%';
+
+  // StreakTracker Integration – Dashboard aktualisieren
+  if (typeof StreakTracker !== 'undefined') {
+    const stats = StreakTracker.getStreakStats();
+    const elSideStreak = document.getElementById('pdSideStreak');
+    if (elSideStreak && stats.current > 0) {
+      elSideStreak.innerText = '🔥 ' + stats.current;
+    }
+    if (elSideStreakBar && stats.current > 0) {
+      elSideStreakBar.style.width = Math.min(stats.current * 10, 100) + '%';
+    }
+    if (typeof StreakTracker.renderWeekCalendar === 'function') {
+      StreakTracker.renderWeekCalendar();
+    }
+  }
+
+  let gamesTodayCount = historyV2.filter(g => g.timestamp && g.timestamp >= startOfDay.getTime()).length;
+  const elSideGamesToday = document.getElementById('pdSideGamesToday');
+  if (elSideGamesToday) elSideGamesToday.innerText = gamesTodayCount;
+  const elSideGamesTodayBar = document.getElementById('pdSideGamesTodayBar');
+  if (elSideGamesTodayBar) elSideGamesTodayBar.style.width = Math.min(gamesTodayCount * 10, 100) + '%';
+
+  // 4.6. Calculate and display statistics (Siege, Siegquote, Gesamt XP)
+  // NUR die letzten 3 Duelle zählen für diese Statistiken
+  const sortedForStats = [...historyV2].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const latest3ForStats = sortedForStats.slice(0, 3);
+
+  const totalWins = latest3ForStats.filter(g => g.result === 'win' || g.result === 'Sieg').length;
+  const totalGames = latest3ForStats.length;
+  const winRate = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(0) : 0;
+
+  // Gesamt XP: Nur aus den letzten 3 Duellen
+  const totalXP = latest3ForStats.reduce((sum, g) => {
+    // Verwende gespeichertes xpEarned falls vorhanden
+    if (Number.isFinite(g.xpEarned)) {
+      return sum + g.xpEarned;
+    }
+    // Fallback für alte Einträge: Nur bei Sieg XP geben
+    const isWin = g.result === 'win' || g.result === 'Sieg';
+    if (!isWin) return sum; // Niederlage = 0 XP
+
+    // Schwierigkeit auslesen (verschiedene Feldnamen beachten)
+    const diff = g.difficulty || g.diff;
+    // Nur XP geben wenn Schwierigkeit bekannt ist, sonst 0
+    if (!diff || !XP_PER_WIN[diff]) return sum;
+    return sum + XP_PER_WIN[diff];
+  }, 0);
+
+  const elPdStatWins = document.getElementById('pdStatWins');
+  if (elPdStatWins) elPdStatWins.innerText = totalWins;
+
+  const elPdStatWinrate = document.getElementById('pdStatWinrate');
+  if (elPdStatWinrate) elPdStatWinrate.innerText = totalGames > 0 ? winRate + '%' : '–';
+
+  const elPdStatScore = document.getElementById('pdStatScore');
+  if (elPdStatScore) elPdStatScore.innerText = totalXP + ' XP';
+
+  // ══ 4. DYNAMISCHE ERFOLGS-BADGES ══
+  const badgesGrid = document.getElementById('pdBadgesGrid');
+  if (badgesGrid && typeof EnhancedAchievements !== 'undefined') {
+    const overview = EnhancedAchievements.getAchievementOverview();
+    const allAchievements = EnhancedAchievements.ACHIEVEMENTS || {};
+    const achievementKeys = Object.keys(allAchievements);
+
+    // Wähle die 4 interessantesten Badges aus:
+    // 1. Höchstes freigeschaltetes Achievement
+    // 2. Nächstes kurz vor dem Abschluss stehendes
+    // 3. Streak-basiertes Achievement
+    // 4. Präzisions-basiertes Achievement
+
+    const achievementProgress = readJsonStorage('sd_enhanced_achievements', {});
+
+    const unlockedAchievements = achievementKeys
+      .filter(key => achievementProgress[allAchievements[key].id]?.unlocked)
+      .map(key => allAchievements[key]);
+
+    const lockedAchievements = achievementKeys
+      .filter(key => !achievementProgress[allAchievements[key].id]?.unlocked)
+      .map(key => allAchievements[key]);
+
+    // Badge-Auswahl: max. 2 freigeschaltete + 2 gesperrte (Fortschritt anzeigen)
+    const displayBadges = [
+      ...unlockedAchievements.slice(0, 2),
+      ...lockedAchievements.slice(0, 2)
+    ];
+
+    // Falls weniger als 4 Achievements vorhanden, mit Platzhaltern auffüllen
+    while (displayBadges.length < 4) {
+      displayBadges.push({
+        icon: '🔒',
+        name: 'Noch nicht\nfreigeschaltet',
+        description: 'Spiele mehr Duelle',
+        xp: 0,
+        tier: 1,
+        category: 'locked'
+      });
+    }
+
+    const badgeColors = {
+      streak: { bg: 'rgba(122,176,48,0.12)', border: 'rgba(122,176,48,0.25)', top: 'rgba(122,176,48,0.4)', text: '#7ab030', glow: 'rgba(122,176,48,0.2)' },
+      precision: { bg: 'rgba(0,195,255,0.12)', border: 'rgba(0,195,255,0.25)', top: 'rgba(0,195,255,0.4)', text: '#00c3ff', glow: 'rgba(0,195,255,0.2)' },
+      comeback: { bg: 'rgba(255,107,53,0.12)', border: 'rgba(255,107,53,0.25)', top: 'rgba(255,107,53,0.4)', text: '#ff6b35', glow: 'rgba(255,107,53,0.2)' },
+      consistency: { bg: 'rgba(156,39,176,0.12)', border: 'rgba(156,39,176,0.25)', top: 'rgba(156,39,176,0.4)', text: '#9c27b0', glow: 'rgba(156,39,176,0.2)' },
+      specialization: { bg: 'rgba(255,215,0,0.12)', border: 'rgba(255,215,0,0.25)', top: 'rgba(255,215,0,0.4)', text: '#ffd700', glow: 'rgba(255,215,0,0.2)' },
+      speed: { bg: 'rgba(255,152,0,0.12)', border: 'rgba(255,152,0,0.25)', top: 'rgba(255,152,0,0.4)', text: '#ff9800', glow: 'rgba(255,152,0,0.2)' },
+      locked: { bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.08)', top: 'rgba(255,255,255,0.15)', text: 'rgba(255,255,255,0.4)', glow: 'transparent' }
+    };
+
+    badgesGrid.innerHTML = displayBadges.map((badge, idx) => {
+      const isUnlocked = unlockedAchievements.includes(badge);
+      const colors = badgeColors[badge.category] || badgeColors.locked;
+      // XSS hardening: escape name parts before rejoining with <br>.
+      const rawNameParts = badge.name.length > 12
+        ? [
+            ...badge.name.substring(0, 12).split(' ').slice(0, -1),
+            badge.name.substring(12).split(' ').slice(1).join(' '),
+          ]
+        : badge.name.split(' ');
+      const nameLines = rawNameParts.map(p => escHtml(p)).join('<br>');
+      const progressText = isUnlocked
+        ? 'Freigeschaltet'
+        : `+${escHtml(badge.xp)} XP`;
+
+      return `
+        <div class="badge-item animate-in stagger-${(idx % 4) + 1}" style="background:linear-gradient(145deg, ${colors.bg} 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid ${colors.border};border-top:1px solid ${colors.top};border-radius:14px;padding:12px 6px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,0.3), inset 0 1px 1px ${colors.glow};${!isUnlocked ? 'opacity:0.6;' : ''}">
+          <div style="font-size:1.7rem;margin-bottom:5px;${!isUnlocked ? 'filter:grayscale(1);' : ''}">${escHtml(badge.icon)}</div>
+          <div style="font-size:0.62rem;font-weight:600;color:#fff;line-height:1.15;margin-bottom:3px;">${nameLines}</div>
+          <div style="font-size:0.58rem;color:${colors.text};font-weight:500;">${progressText}</div>
+        </div>
+      `;
+    }).join('');
+  } else if (badgesGrid) {
+    // Fallback wenn EnhancedAchievements nicht verfügbar
+    badgesGrid.innerHTML = `
+      <div style="background:linear-gradient(145deg, rgba(122,176,48,0.12) 0%, rgba(20,25,30,0.7) 100%);backdrop-filter:blur(16px);border:1px solid rgba(122,176,48,0.25);border-radius:14px;padding:12px 6px;text-align:center;">
+        <div style="font-size:1.7rem;margin-bottom:5px;">🎯</div>
+        <div style="font-size:0.62rem;font-weight:600;color:#fff;">Spiele ein<br>Duell</div>
+        <div style="font-size:0.58rem;color:#7ab030;">Erste Erfolge</div>
+      </div>
+    `.repeat(4);
+  }
+
+  // ══ 5. STREAK-BANNER MIT ECHTEN DATEN + COUNTDOWN ══
+  const streakBanner = document.getElementById('streakBanner');
+  if (streakBanner && typeof DailyChallenge !== 'undefined') {
+    const dailyState = DailyChallenge.getState ? DailyChallenge.getState() : null;
+    const streakCount = dailyState?.streak || 0;
+    const allCompleted = dailyState?.challenges?.every(c => c.completed) || false;
+    const claimed = dailyState?.toolboxDroppedForDate === dailyState?.dateId || false;
+
+    let streakColor1 = '#ff6b35';
+    let streakColor2 = '#ff9500';
+    let streakIcon = '🔥';
+    let streakLabel = 'Tages-Streak';
+
+    if (streakCount >= 14) {
+      streakColor1 = '#ffd700'; streakColor2 = '#ffaa00'; streakIcon = '👑'; streakLabel = 'Meister-Streak';
+    } else if (streakCount >= 7) {
+      streakColor1 = '#7ab030'; streakColor2 = '#a0d84a'; streakIcon = '⚡'; streakLabel = 'Wochen-Streak';
+    } else if (streakCount >= 3) {
+      streakColor1 = '#00c3ff'; streakColor2 = '#7ab030'; streakIcon = '🔥'; streakLabel = 'Aufbau-Streak';
+    }
+
+    // Countdown bis Reset
+    const now = new Date();
+    const nextMidnight = new Date(now);
+    nextMidnight.setHours(24, 0, 0, 0);
+    const msLeft = Math.max(0, nextMidnight.getTime() - now.getTime());
+    const minsLeft = Math.floor(msLeft / 60000);
+    const hLeft = Math.floor(minsLeft / 60);
+    const mLeft = minsLeft % 60;
+    const countdownStr = `${String(hLeft).padStart(2, '0')}:${String(mLeft).padStart(2, '0')}`;
+
+    const streakPct = Math.min(streakCount * 10, 100);
+
+    streakBanner.innerHTML = `
+      <div style="background:linear-gradient(145deg, rgba(45,50,55,0.35) 0%, rgba(10,12,15,0.7) 100%);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:14px 16px;box-shadow:0 6px 20px rgba(0,0,0,0.4);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:1.8rem;">${streakIcon}</div>
+            <div>
+              <div style="font-size:0.65rem;color:rgba(255,255,255,0.4);font-weight:600;letter-spacing:0.05em;">${streakLabel.toUpperCase()}</div>
+              <div style="font-size:1.3rem;font-weight:700;color:#fff;">${streakCount} Tage</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:0.6rem;color:rgba(255,255,255,0.35);margin-bottom:2px;">Reset in</div>
+            <div style="font-size:0.9rem;font-weight:600;color:rgba(255,255,255,0.6);font-variant-numeric:tabular-nums;" id="streakCountdownTimer">${countdownStr}</div>
+          </div>
+        </div>
+        <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:${streakPct}%;background:linear-gradient(90deg,${streakColor1},${streakColor2});border-radius:4px;transition:width 0.5s ease;"></div>
+        </div>
+        ${allCompleted && claimed ? '<div style="font-size:0.6rem;color:#7ab030;margin-top:6px;text-align:center;">✅ Heute alle Missionen erfüllt!</div>' : ''}
+      </div>
+    `;
+  }
+
+  // StreakProgressBar aktualisieren
+  const streakProgressBar = document.getElementById('streakProgressBar');
+  if (streakProgressBar) {
+    const dailyState2 = typeof DailyChallenge !== 'undefined' && DailyChallenge.getState ? DailyChallenge.getState() : null;
+    const streakCount2 = dailyState2?.streak || 0;
+    const streakPct2 = Math.min(streakCount2 * 10, 100);
+    const inner = streakProgressBar.querySelector('div');
+    if (inner) inner.style.width = streakPct2 + '%';
+  }
+
+  // 6. Last 3 Duels dynamic rendering
+  const last3Container = document.getElementById('pdLast3Duels');
+  if (last3Container && historyV2.length > 0) {
+    // historyV2 is already sorted or we sort it here to be safe
+    const sorted = [...historyV2].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    const latest3 = sorted.slice(0, 3);
+
+    let l3Html = '';
+    latest3.forEach(game => {
+      const isWin = game.result === 'win' || game.result === 'Sieg';
+      const color = isWin ? '#7ab030' : '#f06050';
+      const label = isWin ? '✓ Sieg' : '✗ Niederlage';
+      const diff = game.difficulty || 'Mittel';
+
+      // Disziplin-Name korrekt auflösen: "LG 40", "LG 60", "KK 50m", "KK 100m", "KK 3×20"
+      let displayDisc = '';
+      if (game.discipline && DISC[game.discipline]) {
+        displayDisc = DISC[game.discipline].name;
+      } else if (game.disciplineName) {
+        displayDisc = game.disciplineName;
+      } else {
+        // Fallback: Versuche aus weapon + shotsCount zu rekonstruieren
+        const weapon = (game.weapon || 'lg').toLowerCase();
+        const shotsCount = game.shotsCount || 40;
+        let discKey = `${weapon}${shotsCount}`;
+
+        // Spezielle Fälle für KK
+        if (weapon === 'kk' && shotsCount === 60) {
+          // Standard ist KK 50m, aber wir prüfen auch auf 100m
+          discKey = 'kk50';
+        }
+
+        if (DISC[discKey]) {
+          displayDisc = DISC[discKey].name;
+        } else {
+          // Letzter Fallback
+          const weaponUpper = weapon.toUpperCase();
+          displayDisc = `${weaponUpper} ${shotsCount}`;
+        }
+      }
+
+      // XP anzeigen - verwende gespeichertes xpEarned falls vorhanden
+      let xpText = '';
+      if (Number.isFinite(game.xpEarned)) {
+        // Verwende gespeicherte XP
+        xpText = game.xpEarned > 0 ? `+${game.xpEarned} XP` : '0 XP';
+      } else {
+        // Fallback für alte Einträge
+        if (isWin) {
+          const xpGained = XP_PER_WIN[diff] || 10;
+          xpText = `+${xpGained} XP`;
+        } else {
+          xpText = '0 XP';
+        }
+      }
+
+      l3Html += `
+        <div class="duel-entry animate-in stagger-${(latest3.indexOf(game) % 4) + 1}" style="display:flex;flex-direction:column;gap:4px;padding:8px 10px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid ${color};">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div><span style="color:#fff;font-weight:500;font-size:0.8rem;">${displayDisc}</span> <span style="font-size:0.65rem;color:rgba(255,255,255,0.35);">${diff}</span></div>
+            <div style="font-size:0.75rem;font-weight:600;color:${color};">${label}</div>
+          </div>
+          <div style="font-size:0.65rem;font-weight:500;color:rgba(255,255,255,0.5);">${xpText}</div>
+        </div>
+      `;
+    });
+    last3Container.innerHTML = l3Html;
+  } else if (last3Container) {
+    last3Container.innerHTML = `<div style="padding:10px; text-align:center; color:rgba(255,255,255,0.2); font-size:0.75rem;">Noch keine Duelle absolviert</div>`;
+  }
+
+  // ══ DAILY MISSIONS RENDERING ══
+  const questsContainer = document.getElementById('pdQuestsContainer');
+  if (questsContainer) {
+    let dailyState = { challenges: [] };
+    try {
+      const stored = localStorage.getItem('sd_daily_challenge');
+      if (stored) dailyState = JSON.parse(stored);
+    } catch (e) { }
+
+    let questHtml = `
+      <div style="font-size:1.05rem; font-weight:600; color:#fff; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+        <span>Tägliche Missionen</span>
+        <span style="font-size:0.7rem; color:rgba(255,255,255,0.4); font-weight:400;">Resets um 00:00</span>
+      </div>
+      <div style="background:linear-gradient(145deg, rgba(30,35,40,0.5) 0%, rgba(10,12,15,0.8) 100%); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.08); border-radius:18px; padding:6px; box-shadow:0 12px 40px rgba(0,0,0,0.5);">
+    `;
+
+    if (Array.isArray(dailyState.challenges) && dailyState.challenges.length > 0) {
+      dailyState.challenges.forEach((c, idx) => {
+        let icon = '🎯';
+        if (c.id.includes('win')) icon = '🥇';
+        else if (c.id.includes('play')) icon = '🔫';
+        else if (c.id.includes('score')) icon = '⭐';
+        else if (c.id.includes('shot')) icon = '⚡';
+
+        let desc = "Mission wird geladen...";
+        let target = 1;
+        if (typeof DailyChallenge !== 'undefined' && typeof DailyChallenge.getChallengeRef === 'function') {
+          const ref = DailyChallenge.getChallengeRef(c.id);
+          if (ref) {
+            desc = ref.desc;
+            target = ref.target;
+          }
+        }
+
+        const isLast = idx === dailyState.challenges.length - 1;
+        const pct = Math.min(100, Math.floor((c.progress / target) * 100));
+
+        questHtml += `
+          <div style="display:flex; align-items:center; gap:14px; padding:12px 14px; ${!isLast ? 'border-bottom:1px solid rgba(255,255,255,0.05);' : ''}">
+            <div style="width:40px; height:40px; border-radius:10px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">
+              ${c.completed ? '✅' : icon}
+            </div>
+            <div style="flex:1;">
+              <div style="font-size:0.82rem; font-weight:500; color:${c.completed ? 'rgba(255,255,255,0.5)' : '#fff'}; margin-bottom:6px; line-height:1.3;">
+                ${desc}
+              </div>
+              <div style="height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden;">
+                <div style="height:100%; width:${pct}%; background:${c.completed ? '#7ab030' : 'linear-gradient(90deg, #00c3ff, #0088ff)'}; border-radius:2px; transition:width 0.8s ease;"></div>
+              </div>
+            </div>
+            <div style="font-size:0.75rem; font-weight:700; color:${c.completed ? '#7ab030' : 'rgba(255,255,255,0.3)'}; min-width:35px; text-align:right;">
+              ${c.completed ? 'ERLEDIGT' : c.progress + '/' + target}
+            </div>
+          </div>
+        `;
+      });
+    } else {
+      questHtml += `
+        <div style="padding:20px; text-align:center; color:rgba(255,255,255,0.4); font-size:0.85rem;">
+          Aktuell keine Missionen verfügbar. Starte ein Duell!
+        </div>
+      `;
+    }
+
+    questHtml += `</div>`;
+    questsContainer.innerHTML = questHtml;
+  }
+
+  // 5. Recent Sessions List
+  if (recentList && historyV2.length > 0) {
+    let listHtml = '';
+    const recentGames = historyV2.slice(Math.max(historyV2.length - 2, 0)).reverse();
+    recentGames.forEach(game => {
+      const diff = game.difficulty || 'Mittel';
+
+      // Disziplin-Name korrekt auflösen (gleiche Logik wie oben)
+      let displayDisc = '';
+      if (game.discipline && DISC[game.discipline]) {
+        displayDisc = DISC[game.discipline].name;
+      } else if (game.disciplineName) {
+        displayDisc = game.disciplineName;
+      } else {
+        const weapon = (game.weapon || 'lg').toLowerCase();
+        const shotsCount = game.shotsCount || 40;
+        let discKey = `${weapon}${shotsCount}`;
+        if (weapon === 'kk' && shotsCount === 60) discKey = 'kk50';
+        if (DISC[discKey]) {
+          displayDisc = DISC[discKey].name;
+        } else {
+          displayDisc = `${weapon.toUpperCase()} ${shotsCount}`;
+        }
+      }
+      let timeAgo = "Kürzlich";
+      if (game.timestamp) {
+        const mins = Math.floor((Date.now() - game.timestamp) / 60000);
+        if (mins < 60) timeAgo = 'vor ' + mins + ' Min.';
+        else if (mins < 1440) timeAgo = 'vor ' + Math.floor(mins / 60) + ' Std.';
+        else timeAgo = 'vor ' + Math.floor(mins / 1440) + ' Tg.';
+      }
+      listHtml += `
+            <div class="pd-recent-item">
+              <div><span style="color:var(--text-main);font-weight:500;">${displayDisc}</span> <span style="color:var(--text-muted);font-size:0.8rem;">(${game.playerPts || 0} Ring)</span></div>
+              <div style="color:var(--text-dim);font-size:0.8rem;">${timeAgo}</div>
+            </div>`;
+    });
+    recentList.innerHTML = listHtml;
+  }
+}
+
+function renderHistory() {
+  const el = document.getElementById('psHistoryList');
+  if (!el) return;
+  try {
+    const hist = JSON.parse(localStorage.getItem('sd_history') || '[]');
+    if (hist.length === 0) {
+      el.innerHTML = '<div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu sehen!</div>';
+      return;
+    }
+    el.innerHTML = hist.map(h => {
+      const resLabel = h.result === 'win' ? 'S' : h.result === 'lose' ? 'N' : 'U';
+      const pPts = h.playerPts != null ? parseFloat(h.playerPts).toFixed(1) : '–';
+      const bPts = h.botPts != null ? parseFloat(h.botPts).toFixed(1) : '–';
+      const weaponUpper = (h.weapon || (h.weaponName === 'Luftgewehr' ? 'lg' : h.weaponName === 'Kleinkaliber' ? 'kk' : h.weaponName) || 'LG').toUpperCase();
+      let discUpper = (h.disciplineName || h.discipline || '').toString().toUpperCase();
+      if (discUpper.startsWith(weaponUpper)) {
+        discUpper = discUpper.substring(weaponUpper.length).trim();
+      }
+      const finalTitle = `${weaponUpper} ${discUpper} · ${h.diffName || h.diff || 'Mittel'}`;
+
+      return `<div class="ps-history-item">
+            <div class="phi-result ${h.result}">${resLabel}</div>
+            <div class="phi-info">
+              <div class="phi-title">${finalTitle}</div>
+              <div class="phi-sub">${h.date}</div>
+            </div>
+            <div class="phi-score ${h.result}">${pPts} <span style="opacity:.4;font-size:.7em">vs</span> ${bPts}</div>
+          </div>`;
+    }).join('');
+  } catch (e) {
+    el.innerHTML = '<div class="ps-history-empty">Verlauf konnte nicht geladen werden.</div>';
+  }
+}
+
+/* ─── SUN SYSTEM ─────────────────────────── */
+/* ─── LEISTUNGSKURVE (Chart.js) ─────────────────────────────────────── */
+let _perfChart = null;   // Chart.js Instanz (wird bei jedem Redraw zerstört)
+let _perfWeapon = 'lg';   // aktiver Toggle: 'lg' | 'kk'
+
+function setPerfWeapon(w) {
+  _perfWeapon = w;
+  document.getElementById('perfToggleLG')?.classList.toggle('active', w === 'lg');
+  document.getElementById('perfToggleKK')?.classList.toggle('active', w === 'kk');
+  renderPerformanceChart();
+}
+
+// Datum-String aus sd_history → kurzes "DD.MM." Format
+function _fmtChartDate(raw) {
+  if (!raw) return '?';
+  // Format aus addHistoryEntry: "12.02., 14:30" oder "12.2.2026, 14:30"
+  // Wir wollen nur "12.02."
+  const m = raw.match(/^(\d{1,2})\.(\d{1,2})/);
+  if (m) return m[1].padStart(2, '0') + '.' + m[2].padStart(2, '0') + '.';
+  return raw.slice(0, 6);
+}
+
+function renderPerformanceChart() {
+  const canvas = document.getElementById('perfChart');
+  const emptyEl = document.getElementById('perfChartEmpty');
+  if (!canvas) return;
+
+  // Immer alten Chart zerstören – verhindert Overlay-Bugs bei Resize/Toggle
+  if (_perfChart) { _perfChart.destroy(); _perfChart = null; }
+
+  // Daten laden, filtern, auf 15 begrenzen, älteste links
+  let hist = [];
+  try { hist = JSON.parse(localStorage.getItem('sd_history') || '[]'); } catch (e) { }
+
+  const filtered = hist
+    .filter(h => h.weapon === _perfWeapon && h.playerPts != null)
+    .slice(0, 15)
+    .reverse();
+
+  // Empty-State — zeige auch wenn keine Daten, aber mit Hinweis
+  if (filtered.length === 0) {
+    canvas.style.display = 'none';
+    if (emptyEl) {
+      emptyEl.style.display = 'flex';
+      // Zeige ob überhaupt History-Daten vorhanden sind
+      const totalHist = hist.length;
+      const otherWeapon = _perfWeapon === 'lg' ? 'KK' : 'LG';
+      const otherCount = hist.filter(h => h.weapon !== _perfWeapon && h.playerPts != null).length;
+      emptyEl.innerHTML = totalHist === 0
+        ? 'Noch keine Daten.<br><span style="font-size:.6rem;opacity:.5;">Spiel ein Duell und gib dein Ergebnis ein!</span>'
+        : `Keine ${_perfWeapon.toUpperCase()}-Daten.<br><span style="font-size:.6rem;opacity:.5;">${otherCount} ${otherWeapon}-Einträge vorhanden → Toggle wechseln</span>`;
+    }
+    return;
+  }
+  canvas.style.display = '';
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  const isKK = _perfWeapon === 'kk';
+  const accent = isKK ? '#f0c840' : '#7ab030';
+  const accentRgb = isKK ? '240,200,64' : '122,176,48';
+
+  // Werte: KK = Ganzzahl, LG = eine Nachkommastelle
+  const labels = filtered.map(h => _fmtChartDate(h.date));
+  const values = filtered.map(h =>
+    isKK ? Math.round(parseFloat(h.playerPts))
+      : Math.round(parseFloat(h.playerPts) * 10) / 10
+  );
+
+  // Sinnvolle Y-Achsen-Grenzen
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const pad = Math.max((maxVal - minVal) * 0.15, isKK ? 3 : 2);
+  const yMin = Math.floor(minVal - pad);
+  const yMax = Math.ceil(maxVal + pad);
+
+  // Gewinn/Verlust-Punkt-Farben
+  const pointColors = filtered.map(h => {
+    if (h.result === 'win') return '#7ab030';
+    if (h.result === 'lose') return '#f06050';
+    return accent;
+  });
+
+  // Gradient-Fill — feste Höhe 160 damit er auch vor erstem Paint funktioniert
+  const ctx2d = canvas.getContext('2d');
+  const boxH = canvas.parentElement?.offsetHeight || 160;
+  const grad = ctx2d.createLinearGradient(0, 0, 0, boxH);
+  grad.addColorStop(0, `rgba(${accentRgb},.22)`);
+  grad.addColorStop(1, `rgba(${accentRgb},0)`);
+
+  _perfChart = new Chart(ctx2d, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: isKK ? 'KK (Ringe)' : 'LG (Zehntel)',
+        data: values,
+        borderColor: accent,
+        borderWidth: 2.5,
+        pointBackgroundColor: pointColors,
+        pointBorderColor: 'rgba(0,0,0,.4)',
+        pointBorderWidth: 1,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointHoverBorderWidth: 2,
+        fill: true,
+        backgroundColor: grad,
+        tension: 0.38,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400, easing: 'easeOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(8,16,4,.95)',
+          borderColor: accent,
+          borderWidth: 1,
+          titleColor: 'rgba(255,255,255,.45)',
+          bodyColor: accent,
+          titleFont: { family: 'Outfit', size: 10, weight: '400' },
+          bodyFont: { family: 'DM Mono', size: 14, weight: '700' },
+          padding: 11,
+          displayColors: false,
+          callbacks: {
+            title: items => filtered[items[0].dataIndex]?.date || items[0].label,
+            label: item => isKK
+              ? ` ${item.raw} Ringe`
+              : ` ${item.raw.toFixed(1)} Zehntel`,
+            afterLabel: item => {
+              const h = filtered[item.dataIndex];
+              if (!h) return '';
+              const res = h.result === 'win' ? '✓ Sieg' : h.result === 'lose' ? '✗ Niederlage' : '= Unentschieden';
+              return ` ${res} · ${h.diffName || h.diff || ''}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: 'rgba(255,255,255,.22)',
+            font: { family: 'Outfit', size: 9 },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 8,
+          },
+          grid: { color: 'rgba(255,255,255,.04)' },
+          border: { color: 'rgba(255,255,255,.07)' },
+        },
+        y: {
+          suggestedMin: yMin,
+          suggestedMax: yMax,
+          ticks: {
+            color: 'rgba(255,255,255,.25)',
+            font: { family: 'DM Mono', size: 9 },
+            maxTicksLimit: 5,
+            callback: v => isKK ? v : v.toFixed(1),
+          },
+          grid: { color: 'rgba(255,255,255,.05)' },
+          border: { color: 'rgba(255,255,255,.07)' },
+        }
+      }
+    }
+  });
+}
+
+function getBestStreak() {
+  const lgBest = STREAK_CACHE.lg?.best || 0;
+  const kkBest = STREAK_CACHE.kk?.best || 0;
+  return Math.max(lgBest, kkBest);
+}
+
+const SUN_ACHIEVEMENTS = [
+  // Basic
+  { id: 'first_game', group: 'basic', icon: '🎯', name: 'Erster Schuss', desc: '1 Duell gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 1 },
+  { id: 'first_win', group: 'basic', icon: '🏆', name: 'Erster Sieg', desc: '1 Duell gewonnen', check: () => (loadGameStats().wins || 0) >= 1 },
+  { id: 'five_games', group: 'basic', icon: '🔢', name: 'Fünf Duelle', desc: '5 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 5 },
+  { id: 'xp_100', group: 'basic', icon: '⭐', name: '100 XP', desc: '100 XP verdient', check: () => G.xp >= 100 },
+  { id: 'streak_3', group: 'basic', icon: '🔥', name: 'Heiß!', desc: '3er Siegesserie', check: () => getBestStreak() >= 3 },
+  // Battle
+  { id: 'beat_hard', group: 'battle', icon: '💀', name: 'Harter Brocken', desc: 'Elite-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_hard')) },
+  { id: 'beat_elite', group: 'battle', icon: '💫', name: 'Legende', desc: 'Profi-Bot besiegt', check: () => !!(localStorage.getItem('sd_beat_elite')) },
+  { id: 'ten_wins', group: 'battle', icon: '🥇', name: '10 Siege', desc: '10 Duelle gewonnen', check: () => (loadGameStats().wins || 0) >= 10 },
+  { id: 'twenty_five_wins', group: 'battle', icon: '🎖️', name: '25 Siege', desc: '25 Duelle gewonnen', check: () => (loadGameStats().wins || 0) >= 25 },
+  { id: 'both_weapons', group: 'battle', icon: '⚔️', name: 'Allrounder', desc: 'LG & KK je 1 Sieg', check: () => (loadWeaponStats('lg').wins || 0) >= 1 && (loadWeaponStats('kk').wins || 0) >= 1 },
+  { id: 'streak_7', group: 'battle', icon: '🌟', name: 'Unaufhaltsam', desc: '7er Siegesserie', check: () => getBestStreak() >= 7 },
+  // Master
+  { id: 'xp_500', group: 'master', icon: '🏅', name: 'Meister', desc: '500 XP verdient', check: () => G.xp >= 500 },
+  { id: 'xp_1000', group: 'master', icon: '🏆', name: 'Großmeister', desc: '1000 XP verdient', check: () => G.xp >= 1000 },
+  { id: 'streak_14', group: 'master', icon: '🔥🔥', name: '14er Streak', desc: '14er Siegesserie', check: () => getBestStreak() >= 14 },
+  { id: 'fifty_games', group: 'master', icon: '🎖️', name: '50 Duelle', desc: '50 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 50 },
+  { id: 'one_hundred_games', group: 'master', icon: '💯', name: 'Hundert Duelle', desc: '100 Spiele gespielt', check: () => (loadGameStats().wins || 0) + (loadGameStats().losses || 0) + (loadGameStats().draws || 0) >= 100 },
+  { id: 'xp_2000', group: 'master', icon: '💫', name: 'Legende', desc: '2000 XP – Legendenstatus', check: () => G.xp >= 2000 },
+  { id: 'xp_5000', group: 'master', icon: '👑', name: 'König', desc: '5000 XP – Wahre Größe', check: () => G.xp >= 5000 },
+  // Erste Schritte
+  { id: 'first_kk', group: 'basic', icon: '🎯', name: 'KK-Premiere', desc: 'Erstes Kleinkaliber-Duell gespielt', check: () => (loadWeaponStats('kk').wins || 0) + (loadWeaponStats('kk').losses || 0) + (loadWeaponStats('kk').draws || 0) >= 1 },
+  // Score-Meilensteine (battle)
+  { id: 'score_lg_380', group: 'battle', icon: '🏅', name: 'Scharfschütze', desc: 'LG-Duell: 380+ Ringe erzielt', check: () => StorageManager.get('history', []).some(h => h.weapon === 'lg' && parseFloat(h.playerPts) >= 380) },
+  { id: 'xp_300', group: 'battle', icon: '📈', name: 'Fortgeschrittener', desc: 'Rang Fortgeschr. erreicht (300 XP)', check: () => G.xp >= 300 },
+  // Score-Meilensteine (master)
+  { id: 'score_lg_390', group: 'master', icon: '🥈', name: 'Präzisions-Schütze', desc: 'LG-Duell: 390+ Ringe erzielt', check: () => StorageManager.get('history', []).some(h => h.weapon === 'lg' && parseFloat(h.playerPts) >= 390) },
+  { id: 'score_lg_395', group: 'master', icon: '🥇', name: 'Topschütze', desc: 'LG-Duell: 395+ Ringe erzielt', check: () => StorageManager.get('history', []).some(h => h.weapon === 'lg' && parseFloat(h.playerPts) >= 395) },
+  { id: 'xp_3000', group: 'master', icon: '🌠', name: 'Übermeister', desc: '3000 XP verdient', check: () => G.xp >= 3000 },
+];
+
+// Auszeichnungen für die Profil-Ansicht. Werte werden frisch geprüft, damit neu
+// verdiente Erfolge sofort auftauchen. Verdient = im Spielverlauf freigeschaltet.
+window.getProfileAchievements = function getProfileAchievements() {
+  try {
+    if (typeof checkSunAchievements === 'function') checkSunAchievements();
+    const earned = (typeof getSunEarned === 'function') ? getSunEarned() : {};
+    return SUN_ACHIEVEMENTS.map(a => ({
+      id: a.id,
+      icon: a.icon,
+      name: a.name,
+      desc: a.desc,
+      group: a.group,
+      earned: !!earned[a.id],
+      earnedAt: Number(earned[a.id]) || 0
+    }));
+  } catch (e) {
+    console.warn('[Achievements] getProfileAchievements fehlgeschlagen:', e);
+    return [];
+  }
+};
+
+function checkSunAchievements() {
+  const earned = getSunEarned();
+  let newEarned = false;
+  SUN_ACHIEVEMENTS.forEach(a => {
+    if (!earned[a.id] && a.check()) {
+      earned[a.id] = Date.now();
+      newEarned = true;
+      showSunPop(a);
+      // Supabase Worker API: Achievement persistieren (fire-and-forget)
+      syncAchievementWithBackend(a.id);
+    }
+  });
+  if (newEarned) saveSunEarned(earned);
+}
+
+function getSunEarned() {
+  return readJsonStorage('sd_sun', {});
+}
+
+function saveSunEarned(e) {
+  try { localStorage.setItem('sd_sun', JSON.stringify(e)); } catch (_) { }
+}
+
+function showSunPop(achievement) {
+  if (typeof Sounds !== 'undefined') Sounds.achievement();
+  if (typeof Haptics !== 'undefined') Haptics.achievement();
+  const el = document.createElement('div');
+  el.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+        background:linear-gradient(135deg,rgba(60,50,10,.95),rgba(80,70,15,.95));
+        border:1px solid rgba(200,160,40,.5);border-radius:12px;padding:12px 18px;
+        display:flex;align-items:center;gap:10px;z-index:9999;
+        box-shadow:0 4px 24px rgba(0,0,0,.6);animation:sheetUp .3s ease;
+        font-family:'Outfit',sans-serif;max-width:280px;`;
+  el.innerHTML = `<span style="font-size:1.6rem">${achievement.icon}</span>
+        <div><div style="font-size:.65rem;letter-spacing:.2em;text-transform:uppercase;color:rgba(220,180,80,.6);font-weight:700;">⭐ Erfolg freigeschaltet!</div>
+        <div style="font-size:.85rem;font-weight:700;color:#ffc840;margin-top:2px;">${achievement.name}</div>
+        <div style="font-size:.65rem;color:rgba(200,180,100,.5);margin-top:1px;">${achievement.desc}</div></div>`;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .4s'; setTimeout(() => el.remove(), 400); }, 3000);
+}
+
+function renderSunGrid() {
+  const earned = getSunEarned();
+  const groups = { basic: 'sunGrid-basic', battle: 'sunGrid-battle', master: 'sunGrid-master' };
+  let totalEarned = 0;
+
+  Object.entries(groups).forEach(([group, gridId]) => {
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
+    const items = SUN_ACHIEVEMENTS.filter(a => a.group === group);
+    let groupEarned = 0;
+    grid.innerHTML = items.map(a => {
+      const isEarned = !!earned[a.id];
+      if (isEarned) { totalEarned++; groupEarned++; }
+      return `<div class="sun-card ${isEarned ? 'earned' : 'locked'}">
+            ${isEarned ? '<span class="sun-check">✓</span>' : ''}
+            <div class="sun-icon">${a.icon}</div>
+            <div class="sun-name">${a.name}</div>
+            <div class="sun-desc">${a.desc}</div>
+          </div>`;
+    }).join('');
+    const countEl = document.getElementById('sunCount-' + group);
+    if (countEl) countEl.textContent = groupEarned + ' / ' + items.length;
+  });
+
+  const total = SUN_ACHIEVEMENTS.length;
+  const el = document.getElementById('sunTotalVal');
+  if (el) el.textContent = `${totalEarned} / ${total}`;
+
+  // Stars (5 stars, each = total/5 achievements)
+  const starsRow = document.getElementById('sunStarsRow');
+  if (starsRow) {
+    const perStar = total / 5;
+    starsRow.querySelectorAll('.sun-star').forEach((s, i) => {
+      s.classList.toggle('lit', totalEarned >= Math.round((i + 1) * perStar));
+    });
+  }
+}
+
+function updateProfileMenu() {
+  if (!DOM.profileMenu) return;
+  const { rank } = getRank(G.xp);
+  const bestStreak = Math.max(
+    parseInt(localStorage.getItem('sd_lg_best') || '0') || 0,
+    parseInt(localStorage.getItem('sd_kk_best') || '0') || 0
+  );
+  if (DOM.profileIcon) DOM.profileIcon.textContent = rank.icon;
+  if (DOM.profileRank) DOM.profileRank.textContent = rank.name;
+  if (DOM.pmRank) DOM.pmRank.textContent = rank.icon + ' ' + rank.name;
+  if (DOM.pmLevel) DOM.pmLevel.textContent = (getRank(G.xp).idx + 1);
+  if (DOM.pmXP) DOM.pmXP.textContent = G.xp;
+  if (DOM.pmStreak) DOM.pmStreak.textContent = bestStreak > 0 ? '🔥 ' + bestStreak : '–';
+}
+
+
+/* --- SUPABASE / LOCAL SYNC ------------------------------------------------ */
+const LEADERBOARD_CACHE_KEY = 'sd_lb_cache_v1';
+const CLOUD_SYNC_SCHEMA_VERSION = 2;
+const CLOUD_SYNC_META_KEY = 'cloud_sync_meta_v1';
+const CLOUD_SYNC_KEYS = ['username','xp','gamestats','history','feedback_meta','lg_streak','lg_best','kk_streak','kk_best','wstats_lg','wstats_kk','healthy_engagement_v1','adaptive_data','daily_challenge','tutorial_done','sound','lb_scope','lb_period','enhanced_analytics','enhanced_achievements','sun'];
+let supabaseSyncTimer = null;
+let supabaseSyncWarned = false;
+let debugRemoteState = null;
+let debugFeedbackState = null;
+
+function sanitizeUsername(rawName) {
+  const fallbackName = String(rawName ?? '').trim() || 'Anonym';
+  return fallbackName.substring(0, 15).replace(/[.#$/\[\]<>]/g, '_');
+}
+
+function isLocalPlayMode() {
+  try {
+    return window.SchussduellLocalMode === true || window.SchussduellLocalPlay === true || localStorage.getItem('sd_local_mode') === '1' || localStorage.getItem('sd_local_play') === '1';
+  } catch (error) {
+    return false;
+  }
+}
+
+function getCurrentAccountId() {
+  const user = getSupabaseUserSafe();
+  if (user && user.id) return user.id;
+  let localId = StorageManager.getRaw('local_user_id', '');
+  if (!localId) {
+    localId = 'local_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    StorageManager.setRaw('local_user_id', localId);
+  }
+  return localId;
+}
+
+function getWorkerBaseUrl() {
+  return ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname) ? '' : 'https://schuss-challenge.eliaskummel.workers.dev';
+}
+
+function isSupabaseBackendAvailable(methodName) {
+  return !!(window.SupabaseBackendSync && typeof window.SupabaseBackendSync[methodName] === 'function');
+}
+
+function warnSupabaseSyncUnavailable(reason) {
+  if (supabaseSyncWarned) return;
+  supabaseSyncWarned = true;
+  console.warn('[SupabaseSync] Backend-Sync nicht verfuegbar (' + reason + '). Lokale Daten bleiben gespeichert.');
+}
+
+function loadCloudSyncMeta() {
+  const raw = StorageManager.get(CLOUD_SYNC_META_KEY, {});
+  return {
+    lastLocalChangeAt: Number(raw.lastLocalChangeAt) || 0,
+    lastQueuedAt: Number(raw.lastQueuedAt) || 0,
+    lastSyncAttemptAt: Number(raw.lastSyncAttemptAt) || 0,
+    lastSyncOkAt: Number(raw.lastSyncOkAt) || 0,
+    lastSyncReason: typeof raw.lastSyncReason === 'string' ? raw.lastSyncReason : '',
+    schemaVersion: CLOUD_SYNC_SCHEMA_VERSION
+  };
+}
+
+function saveCloudSyncMeta(meta) {
+  StorageManager.set(CLOUD_SYNC_META_KEY, { ...loadCloudSyncMeta(), ...(meta || {}), schemaVersion: CLOUD_SYNC_SCHEMA_VERSION });
+}
+
+function loadCloudSyncQueue() { return []; }
+function markCloudStateDirty(reason = 'local_change') { saveCloudSyncMeta({ lastLocalChangeAt: Date.now(), lastSyncReason: reason }); }
+function collectCloudSnapshot() { const values = {}; CLOUD_SYNC_KEYS.forEach((key) => { const rawValue = localStorage.getItem(StorageManager.PREFIX + key); values[key] = rawValue === null ? null : rawValue; }); return { schemaVersion: CLOUD_SYNC_SCHEMA_VERSION, updatedAt: Date.now(), username: sanitizeUsername(StorageManager.getRaw('username', G.username || 'Anonym')), values }; }
+function getLeaderboardCacheKey(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { return LEADERBOARD_CACHE_KEY + '_' + normalizeLeaderboardPeriod(period) + '_' + normalizeLeaderboardScope(scope); }
+function getCachedLeaderboardEntries(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { try { const cached = JSON.parse(localStorage.getItem(getLeaderboardCacheKey(scope, period)) || '[]'); return Array.isArray(cached) ? normalizeLeaderboardEntries(cached) : []; } catch (error) { console.warn('Leaderboard cache read failed:', error); return []; } }
+function cacheLeaderboardEntries(entries, scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { try { localStorage.setItem(getLeaderboardCacheKey(scope, period), JSON.stringify(Array.isArray(entries) ? entries.slice(0, 50) : [])); } catch (error) { console.warn('Leaderboard cache write failed:', error); } }
+function renderCachedLeaderboard(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { const cachedEntries = getCachedLeaderboardEntries(scope, period); if (!cachedEntries.length) return false; renderLeaderboard(cachedEntries, scope, period); return true; }
+function formatLeaderboardScore(value, discipline = null) { const numericValue = Number(value); if (!Number.isFinite(numericValue)) return '0'; if (discipline === 'kk3x20') return String(Math.round(numericValue)); return numericValue.toFixed(1); }
+function getDisciplineGames(discipline) { if (!discipline) return []; try { const raw = JSON.parse(localStorage.getItem('sd_enhanced_analytics') || '{}'); const games = Array.isArray(raw?.games) ? raw.games : []; return games.filter((game) => game && game.discipline === discipline && Number.isFinite(Number(game.playerScore))); } catch (error) { console.warn('Enhanced analytics read failed:', error); return []; } }
+function buildDisciplineLeaderboardEntry(discipline) { const key = Object.prototype.hasOwnProperty.call(DISC, discipline) ? discipline : null; if (!key || !G.username) return null; const games = getDisciplineGames(key); if (!games.length) return null; const scores = games.map((game) => Number(game.playerScore)).filter((score) => Number.isFinite(score)); if (!scores.length) return null; const wins = games.filter((game) => game.result === 'win' || game.playerWon === true).length; const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length; const bestScore = Math.max(...scores); const rankData = getRank(G.xp).rank; return { uid: getCurrentAccountId(), name: sanitizeUsername(G.username || 'Anonym'), username: sanitizeUsername(G.username || 'Anonym'), discipline: key, disciplineName: DISC[key].name, rank: rankData.name, rankIcon: rankData.icon, weapon: DISC[key].weapon, totalGames: scores.length, wins, winRate: scores.length ? wins / scores.length : 0, averageScore, bestScore, score: bestScore, date: new Date().toLocaleDateString('de-DE') }; }
+function buildStructuredMatchHistory() { try { const hist = StorageManager.get('history', []); if (!Array.isArray(hist) || !hist.length) return {}; const matches = {}; hist.slice(0, 30).forEach((entry, index) => { if (!entry || typeof entry !== 'object') return; const timestamp = Number(entry.timestamp) || 0; const discipline = typeof entry.discipline === 'string' ? entry.discipline : 'unknown'; const fallbackKey = String((timestamp || Date.now()) + '_' + discipline + '_' + index); const key = String(entry.id || fallbackKey).replace(/[.#$/\[\]]/g, '_'); matches[key] = { id: key, timestamp: timestamp || Date.now(), result: typeof entry.result === 'string' ? entry.result : 'unknown', diff: typeof entry.diff === 'string' ? entry.diff : 'unknown', weapon: entry.weapon === 'kk' ? 'kk' : 'lg', discipline, disciplineName: typeof entry.disciplineName === 'string' ? entry.disciplineName : (DISC[discipline]?.name || discipline), playerPts: Number(entry.playerPts) || 0, botPts: Number(entry.botPts) || 0, diffName: typeof entry.diffName === 'string' ? entry.diffName : entry.diff, weaponName: typeof entry.weaponName === 'string' ? entry.weaponName : entry.weapon, date: typeof entry.date === 'string' ? entry.date : '' }; }); return matches; } catch (error) { console.warn('History snapshot build failed:', error); return {}; } }
+function getStructuredHistoryList() { const matches = buildStructuredMatchHistory(); return Object.values(matches).filter(Boolean).sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0)); }
+function buildSeasonLeaderboardEntry(discipline = null) { const seasonInfo = getCurrentSeasonInfo(); const matches = getStructuredHistoryList().filter((entry) => { const timestamp = Number(entry.timestamp) || 0; if (timestamp < seasonInfo.startAt || timestamp > seasonInfo.endAt) return false; return discipline ? entry.discipline === discipline : true; }); if (!matches.length || !G.username) return null; const wins = matches.filter((entry) => entry.result === 'win').length; const draws = matches.filter((entry) => entry.result === 'draw').length; const losses = matches.filter((entry) => entry.result === 'lose').length; const scores = matches.map((entry) => Number(entry.playerPts)).filter((score) => Number.isFinite(score)); if (!scores.length) return null; const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length; const bestScore = Math.max(...scores); const seasonPoints = wins * 3 + draws; const rankData = getRank(G.xp).rank; return { uid: getCurrentAccountId(), name: sanitizeUsername(G.username || 'Anonym'), username: sanitizeUsername(G.username || 'Anonym'), seasonId: seasonInfo.id, seasonLabel: seasonInfo.label, discipline: discipline || 'global', disciplineName: discipline ? (DISC[discipline]?.name || discipline) : 'Global', rank: rankData.name, rankIcon: rankData.icon, weapon: discipline ? (DISC[discipline]?.weapon || G.weapon) : G.weapon, totalGames: matches.length, wins, draws, losses, seasonPoints, averageScore, bestScore, score: seasonPoints * 100000 + Math.round(averageScore * 10), date: new Date().toLocaleDateString('de-DE') }; }
+function normalizeLeaderboardEntries(entries) { return (Array.isArray(entries) ? entries : []).filter((entry) => entry && typeof entry === 'object').map((entry, index) => { const score = Number(entry.score ?? entry.playerScore ?? entry.xp ?? 0) || 0; return { id: entry.id || entry.user_id || entry.uid || 'entry_' + index, uid: entry.user_id || entry.uid || entry.id || '', name: entry.name || entry.username || entry.display_name || entry.playerName || 'Anonym', username: entry.username || entry.name || entry.display_name || entry.playerName || 'Anonym', weapon: entry.weapon || '', score, xp: Number(entry.xp ?? score) || 0, wins: Number(entry.wins ?? 0) || 0, losses: Number(entry.losses ?? 0) || 0, draws: Number(entry.draws ?? 0) || 0, streak: Number(entry.streak ?? 0) || 0, currentStreak: Number(entry.currentStreak ?? entry.streak ?? 0) || 0, rankIcon: entry.rankIcon || entry.rank_icon || '👤', rank: entry.rank || 'Schuetze', discipline: entry.discipline || null, averageScore: Number(entry.averageScore ?? entry.average_score ?? 0) || 0, bestScore: Number(entry.bestScore ?? entry.best_score ?? score) || score, totalGames: Number(entry.totalGames ?? entry.total_games ?? 0) || 0, winRate: Number(entry.winRate ?? entry.win_rate ?? 0) || 0, seasonPoints: Number(entry.seasonPoints ?? entry.season_points ?? 0) || 0, timestamp: Number(entry.timestamp || Date.parse(entry.created_at || '') || Date.now()) || Date.now() }; }).sort((a, b) => Number(b.score || 0) - Number(a.score || 0)); }
+function buildLeaderboardEntry() { const bestLG = parseInt(localStorage.getItem('sd_lg_best') || '0', 10) || 0; const bestKK = parseInt(localStorage.getItem('sd_kk_best') || '0', 10) || 0; const bestW = bestLG >= bestKK ? 'lg' : 'kk'; const bestStreak = Math.max(bestLG, bestKK); const curStreak = STREAK_CACHE[G.weapon]?.streak || 0; const rankData = getRank(G.xp).rank; const score = G.xp + bestStreak * 5; return { uid: getCurrentAccountId(), name: sanitizeUsername(G.username || 'Anonym'), username: sanitizeUsername(G.username || 'Anonym'), xp: G.xp, rank: rankData.name, rankIcon: rankData.icon, streak: bestStreak, currentStreak: curStreak, score, weapon: bestW, date: new Date().toLocaleDateString('de-DE'), timestamp: Date.now() }; }
+function persistLocalLeaderboardEntry(entry) { if (!entry || !entry.username) return []; try { const parsed = JSON.parse(localStorage.getItem('sd_player_highscores') || '[]'); const list = Array.isArray(parsed) ? parsed : []; const key = entry.uid || entry.username; const next = list.filter((item) => item && (item.uid || item.username || item.name) !== key && item.username !== entry.username && item.name !== entry.username); next.unshift(entry); const normalized = normalizeLeaderboardEntries(next).slice(0, 100); localStorage.setItem('sd_player_highscores', JSON.stringify(normalized)); cacheLeaderboardEntries(normalized); return normalized; } catch (error) { console.warn('[SupabaseSync] Lokaler Leaderboard-Fallback fehlgeschlagen:', error?.message || error); return []; } }
+function syncProfileWithBackend(onDone, options = {}) { if (!G.username) { if (onDone) onDone(false); return Promise.resolve(false); } const entry = buildLeaderboardEntry(); persistLocalLeaderboardEntry(entry); saveCloudSyncMeta({ lastSyncAttemptAt: Date.now(), lastSyncReason: options.reason || 'profile_sync' }); if (!isSupabaseBackendAvailable('syncProfile')) { warnSupabaseSyncUnavailable('syncProfile'); if (onDone) onDone(true); return Promise.resolve(true); } try { window.SupabaseBackendSync.syncProfile(entry.username); saveCloudSyncMeta({ lastSyncOkAt: Date.now() }); updateLbStatusBadge(); if (onDone) onDone(true); return Promise.resolve(true); } catch (error) { console.warn('[SupabaseSync] Profil-Sync fehlgeschlagen:', error?.message || error); if (onDone) onDone(true); return Promise.resolve(true); } }
+function syncGameSessionWithBackend(data) { if (!isSupabaseBackendAvailable('syncGameSession')) { warnSupabaseSyncUnavailable('syncGameSession'); return; } try { window.SupabaseBackendSync.syncGameSession(data || {}); } catch (error) { console.warn('[SupabaseSync] Session-Sync fehlgeschlagen:', error?.message || error); } }
+function syncAchievementWithBackend(type) { if (!type) return; if (!isSupabaseBackendAvailable('syncAchievement')) { warnSupabaseSyncUnavailable('syncAchievement'); return; } try { window.SupabaseBackendSync.syncAchievement(type); } catch (error) { console.warn('[SupabaseSync] Achievement-Sync fehlgeschlagen:', error?.message || error); } }
+function scheduleCloudSync(reason = 'local_change', options = {}) { markCloudStateDirty(reason); const delay = options.immediate ? 0 : (options.delay ?? 800); if (supabaseSyncTimer) clearTimeout(supabaseSyncTimer); const run = () => { supabaseSyncTimer = null; syncProfileWithBackend(null, { reason }); }; if (delay <= 0) { run(); return Promise.resolve(true); } supabaseSyncTimer = setTimeout(run, delay); return Promise.resolve(true); }
+function queueFeedbackEntry(entry) { if (!entry || typeof entry !== 'object') return; const ownerId = getCurrentAccountId(); const payload = { ...entry, uid: ownerId || entry.uid || '', username: sanitizeUsername(entry.username || G.username || 'Anonym'), accountId: ownerId || entry.accountId || '' }; try { const entries = StorageManager.get('feedback_entries', []); const list = Array.isArray(entries) ? entries : []; list.unshift(payload); StorageManager.set('feedback_entries', list.slice(0, 100)); } catch (error) { console.warn('[SupabaseSync] Feedback lokal konnte nicht gespeichert werden:', error?.message || error); } }
+function updateAccountSyncStatus() { const node = document.getElementById('accountSyncStatus'); const iconEl = document.getElementById('syncStatusIcon'); const textEl = document.getElementById('syncStatusText'); if (!node) return; const user = getSupabaseUserSafe(); const localMode = isLocalPlayMode(); const backendReady = isSupabaseBackendAvailable('syncProfile') && (!window.SupabaseBackendSync.isReady || window.SupabaseBackendSync.isReady()); if (iconEl) iconEl.textContent = backendReady ? '✅' : (localMode ? '👤' : '☁️'); if (textEl) { if (backendReady && user) textEl.innerHTML = '<div style="font-weight:600;margin-bottom:2px;">Supabase Sync aktiv</div><div style="opacity:0.7;">Angemeldet als ' + escHtml(user.email || getSupabaseDisplayName(user)) + '</div>'; else if (localMode) textEl.textContent = 'Lokaler Gastmodus. Deine Daten bleiben auf diesem Geraet.'; else textEl.textContent = 'Supabase Login aktiv. Backend-Sync wird lokal gepuffert, falls die API nicht erreichbar ist.'; } }
+window.forceCloudSync = async function() { const btn = event?.target; if (btn) { btn.textContent = 'Sync laeuft...'; btn.disabled = true; } try { await syncProfileWithBackend(null, { reason: 'manual_sync' }); updateAccountSyncStatus(); if (btn) { btn.textContent = 'Synchronisiert'; setTimeout(() => { btn.textContent = 'Jetzt synchronisieren'; btn.disabled = false; }, 1600); } } catch (error) { console.warn('[SupabaseSync] Manueller Sync fehlgeschlagen:', error?.message || error); if (btn) { btn.textContent = 'Lokal gespeichert'; setTimeout(() => { btn.textContent = 'Jetzt synchronisieren'; btn.disabled = false; }, 1600); } } };
+function showAccountSyncCode() { alert('Supabase-only: Geraete-Sync laeuft ueber dein Supabase-Konto. Melde dich auf dem zweiten Geraet mit demselben Login an. Im Gastmodus bleiben Daten lokal.'); }
+function connectDeviceWithLinkCode() { alert('Supabase-only: Ein separater Sync-Code wird nicht mehr verwendet. Nutze auf beiden Geraeten dasselbe Supabase-Konto.'); return false; }
+function isDebugToolsEnabled() { try { const params = new URLSearchParams(window.location.search || ''); if (params.get('debug') === '1' || params.get('debug') === 'true') return true; } catch (error) { console.warn('Debug query read failed:', error); } return StorageManager.getRaw('debug_tools_v1', '0') === '1'; }
+function refreshDebugToolsVisibility() { const enabled = isDebugToolsEnabled(); const debugTab = document.querySelector('.ps-tab[data-tab="debug"]'); const debugPanel = document.getElementById('psPanel-debug'); if (debugTab) debugTab.style.display = enabled ? '' : 'none'; if (debugPanel) debugPanel.style.display = enabled ? '' : 'none'; if (!enabled) { const activeDebugTab = document.querySelector('.ps-tab.active[data-tab="debug"]'); if (activeDebugTab) switchProfileTab('stats'); } }
+function setDebugToolsEnabled(enabled) { StorageManager.setRaw('debug_tools_v1', enabled ? '1' : '0'); refreshDebugToolsVisibility(); if (enabled) { refreshDebugPanel(); switchProfileTab('debug'); } }
+function enableDebugTools() { setDebugToolsEnabled(true); }
+function disableDebugTools() { setDebugToolsEnabled(false); }
+function updateLeaderboardScopeControl() { const select = document.getElementById('lbScopeSelect'); const periodSelect = document.getElementById('lbPeriodSelect'); if (!select && !periodSelect) return; if (select && !select.options.length) select.innerHTML = ['<option value="global">Global</option>'].concat(Object.entries(DISC).map(([key, cfg]) => '<option value="' + key + '">' + cfg.name + '</option>')).join(''); const scope = getActiveLeaderboardScope(); const period = getActiveLeaderboardPeriod(); if (select) select.value = scope; if (periodSelect) { periodSelect.innerHTML = ['<option value="alltime">All-Time</option>', '<option value="season">Saison ' + getCurrentSeasonInfo().label + '</option>'].join(''); periodSelect.value = period; } const label = document.getElementById('lbScopeLabel'); if (label) label.textContent = getLeaderboardScopeLabel(scope) + (period === 'season' ? ' · ' + getCurrentSeasonInfo().label : ''); const hint = document.getElementById('lbScopeHint'); const title = document.getElementById('lbCardTitle'); if (title) title.textContent = period === 'season' ? 'Rangliste · Saison ' + getCurrentSeasonInfo().label : 'Rangliste · Score = XP + Streak×5'; if (hint) hint.textContent = scope === 'global' ? 'Supabase/Backend, sonst lokaler Fallback.' : getLeaderboardScopeLabel(scope) + ' nutzt lokale Bestleistungen als Fallback.'; }
+function setLeaderboardScope(scope, options = {}) { const normalizedScope = normalizeLeaderboardScope(scope); G.lbScope = normalizedScope; StorageManager.setRaw('lb_scope', normalizedScope); updateLeaderboardScopeControl(); if (options.reload === false) return normalizedScope; loadLeaderboard(true); return normalizedScope; }
+function setLeaderboardPeriod(period, options = {}) { const normalizedPeriod = normalizeLeaderboardPeriod(period); G.lbPeriod = normalizedPeriod; StorageManager.setRaw('lb_period', normalizedPeriod); updateLeaderboardScopeControl(); if (options.reload === false) return normalizedPeriod; loadLeaderboard(true); return normalizedPeriod; }
+async function loadBackendLeaderboard(scope, period) { if (typeof fetch !== 'function') return []; try { const result = await fetch(getWorkerBaseUrl() + '/api/leaderboard?period=' + encodeURIComponent(period === 'season' ? 'monthly' : 'weekly')); if (!result.ok) throw new Error('HTTP ' + result.status); const payload = await result.json(); return normalizeLeaderboardEntries(payload.leaderboard || payload.entries || payload); } catch (error) { console.warn('[SupabaseSync] Backend-Leaderboard nicht verfuegbar:', error?.message || error); return []; } }
+async function loadSupabaseLeaderboard() { const client = getSupabaseClientSafe(); if (!client || typeof client.from !== 'function') return []; try { const result = await client.from('leaderboard_entries').select('*').order('score', { ascending: false }).limit(100); if (result.error) throw result.error; return normalizeLeaderboardEntries(result.data || []); } catch (error) { console.warn('[SupabaseSync] Supabase-Leaderboard nicht verfuegbar:', error?.message || error); return []; } }
+function loadLocalLeaderboardEntries(scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { try { const parsed = JSON.parse(localStorage.getItem('sd_player_highscores') || '[]'); const entries = normalizeLeaderboardEntries(Array.isArray(parsed) ? parsed : []); return entries.length ? entries : getCachedLeaderboardEntries(scope, period); } catch (error) { console.warn('[SupabaseSync] Lokaler Leaderboard-Fallback fehlgeschlagen:', error?.message || error); return getCachedLeaderboardEntries(scope, period); } }
+function getLeaderboardLists() { const mountedLists = Array.from(document.querySelectorAll('[data-lb-list]')); if (mountedLists.length) return mountedLists; const legacyList = document.getElementById('lbList'); return legacyList ? [legacyList] : []; }
+function setLeaderboardMarkup(markup) { getLeaderboardLists().forEach(list => { list.innerHTML = markup; }); }
+function setLeaderboardLoadingState(isLoading) { getLeaderboardLists().forEach(list => { if (isLoading) list.dataset.loading = 'true'; else delete list.dataset.loading; }); }
+async function loadLeaderboard(force = false) { const lists = getLeaderboardLists(); if (!lists.length) return; const isLoading = lists.some(list => list.dataset.loading === 'true'); const hasRows = lists.some(list => !!list.querySelector('.lb-row, .lb-modern-card')); if (!force && (hasRows || isLoading)) return; const scope = getActiveLeaderboardScope(); const period = getActiveLeaderboardPeriod(); updateLeaderboardScopeControl(); updateLbStatusBadge(); if (window.LeaderboardModern && typeof window.LeaderboardModern.load === 'function') { window.LeaderboardModern.load(scope, period); return; } setLeaderboardLoadingState(true); setLeaderboardMarkup('<div class="lb-loading">...</div>'); const backendEntries = await loadBackendLeaderboard(scope, period); let entries = backendEntries; if (!entries.length) entries = await loadSupabaseLeaderboard(); if (!entries.length) entries = loadLocalLeaderboardEntries(scope, period); if (entries.length) cacheLeaderboardEntries(entries, scope, period); renderLeaderboard(entries, scope, period); }
+function escHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(new RegExp(String.fromCharCode(96), 'g'), '&#x60;').replace(new RegExp('/', 'g'), '&#x2F;'); }
+function renderLeaderboard(entries, scope = getActiveLeaderboardScope(), period = getActiveLeaderboardPeriod()) { const lists = getLeaderboardLists(); if (!lists.length) return; setLeaderboardLoadingState(false); updateLeaderboardScopeControl(); const normalizedEntries = normalizeLeaderboardEntries(entries); const normalizedPeriod = normalizeLeaderboardPeriod(period); const isSeason = normalizedPeriod === 'season'; const seasonLabel = getCurrentSeasonInfo().label; if (!normalizedEntries.length) { const emptyText = isSeason ? (scope === 'global' ? 'Noch keine Saison-Eintraege fuer ' + seasonLabel + '.' : 'Noch keine Saison-Eintraege fuer ' + getLeaderboardScopeLabel(scope) + ' in ' + seasonLabel + '.') : (scope === 'global' ? 'Noch keine Eintraege. Sei der Erste!' : 'Noch keine Eintraege fuer ' + getLeaderboardScopeLabel(scope) + '.'); setLeaderboardMarkup('<div class="lb-empty">' + escHtml(emptyText) + '</div>'); return; } const currentId = getCurrentAccountId(); const markup = normalizedEntries.map((entry, index) => { const displayName = entry.name || entry.username || 'Anonym'; const isMe = (currentId && entry.uid === currentId) || (G.username && (entry.name === G.username || entry.username === G.username)); const weaponIcon = entry.weapon === 'kk' ? '🎯' : '🌬️'; const numericScore = Number(entry.score ?? entry.xp ?? 0) || 0; const numericXp = Number(entry.xp ?? 0) || 0; const numericStreak = Number(entry.streak ?? 0) || 0; const entryDiscipline = entry.discipline || (scope === 'global' ? null : scope); const isDisciplineScope = scope !== 'global'; const topLine = isSeason ? String(Number(entry.seasonPoints || 0)) + ' Saison-Pkt' : (isDisciplineScope ? formatLeaderboardScore(entry.bestScore ?? numericScore, entryDiscipline) + ' Best' : String(numericScore) + ' Score'); const bottomLine = isSeason ? (isDisciplineScope ? 'Ø ' + formatLeaderboardScore(entry.averageScore, entryDiscipline) + ' · ' + formatLeaderboardScore(entry.bestScore, entryDiscipline) + ' Best · ' + Number(entry.totalGames || 0) + ' Spiele' : Number(entry.wins || 0) + ' Siege · ' + Number(entry.draws || 0) + ' U · ' + Number(entry.totalGames || 0) + ' Spiele') : (isDisciplineScope ? 'Ø ' + formatLeaderboardScore(entry.averageScore, entryDiscipline) + ' · ' + Number(entry.totalGames || 0) + ' Spiele' : String(numericXp) + ' XP · 🔥 ' + numericStreak); const subline = isSeason ? weaponIcon + ' ' + (entry.rank || 'Schuetze') + ' · ' + seasonLabel : (isDisciplineScope ? weaponIcon + ' ' + (entry.rank || 'Schuetze') + ' · ' + Math.round((Number(entry.winRate) || 0) * 100) + '% Siege' : weaponIcon + ' ' + (entry.rank || 'Schuetze')); return ['<div class="lb-row ' + (isMe ? 'me' : '') + '">','<div class="lb-rank-num">' + (index + 1) + '</div>','<div class="lb-avatar">' + escHtml(entry.rankIcon || '👤') + '</div>','<div class="lb-info"><div class="lb-name">' + escHtml(displayName) + (isMe ? ' (Du)' : '') + '</div><div class="lb-sub">' + escHtml(subline) + '</div></div>','<div class="lb-stats"><div class="lb-xp">' + escHtml(topLine) + '</div><div class="lb-streak">' + escHtml(bottomLine) + '</div></div>','</div>'].join(''); }).join(''); setLeaderboardMarkup(markup); }
+function updateLbStatusBadge() { const el = document.getElementById('lbStatusBadge'); if (!el || !G.username) return; const user = getSupabaseUserSafe(); el.textContent = user ? '✓ Supabase Sync als "' + G.username + '"' : '✓ Lokal gespeichert als "' + G.username + '"'; el.style.color = 'rgba(140,200,60,.8)'; }
+function submitToLeaderboard() { if (!G.username) { document.getElementById('welcomeOverlay').classList.add('active'); setTimeout(() => document.getElementById('welcomeNameInp')?.focus(), 300); return; } syncProfileWithBackend(() => loadLeaderboard(true), { reason: 'leaderboard_submit' }); }
+function formatDebugTimestamp(ts) { const value = Number(ts); if (!Number.isFinite(value) || value <= 0) return '–'; return new Date(value).toLocaleString('de-DE'); }
+function summarizeFeedbackEntries(entries) { const safeEntries = Array.isArray(entries) ? entries.filter(entry => entry && typeof entry === 'object') : []; const total = safeEntries.length; const avgScore = total ? (safeEntries.reduce((sum, entry) => sum + (Number(entry.score) || 0), 0) / total) : 0; return { total, avgScore, latest: safeEntries.slice(0, 5), lastTs: safeEntries[0] ? Number(safeEntries[0].ts) || 0 : 0 }; }
+function renderDebugFeedbackSection() { const state = debugFeedbackState || { mode: 'local', entries: StorageManager.get('feedback_entries', []) }; const summary = summarizeFeedbackEntries(state.entries); const latestHtml = summary.latest.length ? summary.latest.map((entry) => '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">' + escHtml(entry.username || 'Anonym') + '</div><div class="phi-meta">' + escHtml((Number(entry.score) || 0) + '/5 · ' + (entry.discipline || 'unknown') + ' · ' + formatDebugTimestamp(entry.ts)) + '</div></div></div>').join('') : '<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Letzte Eintraege</div><div class="phi-meta">Noch keine Daten.</div></div></div>'; return '<div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Feedback-Dashboard</div><div class="ps-history-item"><div class="phi-info"><div class="phi-title">Status</div><div class="phi-meta">Lokale Vorschau: ' + summary.total + ' Eintraege · Ø ' + summary.avgScore.toFixed(2) + '</div></div></div>' + latestHtml; }
+function renderDebugPanel() { const mount = document.getElementById('psDebugMount'); if (!mount) return; if (!isDebugToolsEnabled()) { mount.innerHTML = '<div class="ps-history-empty">Debug-Tools sind deaktiviert.</div>'; return; } const meta = loadCloudSyncMeta(); const history = StorageManager.get('history', []); const feedbackEntries = StorageManager.get('feedback_entries', []); const analyticsRaw = StorageManager.get('enhanced_analytics', {}); const analyticsGames = Array.isArray(analyticsRaw?.games) ? analyticsRaw.games : []; const scope = getActiveLeaderboardScope(); const period = getActiveLeaderboardPeriod(); const accountId = getCurrentAccountId(); const user = getSupabaseUserSafe(); const currentDisciplineEntry = Object.prototype.hasOwnProperty.call(DISC, G.discipline) ? buildDisciplineLeaderboardEntry(G.discipline) : null; const currentScopeLabel = getLeaderboardScopeLabel(scope) + ' · ' + (period === 'season' ? getCurrentSeasonInfo().label : 'All-Time'); const backendReady = isSupabaseBackendAvailable('syncProfile') && (!window.SupabaseBackendSync.isReady || window.SupabaseBackendSync.isReady()); debugRemoteState = { summary: backendReady ? 'Supabase Backend bereit' : 'Lokaler Fallback aktiv' }; mount.innerHTML = ['<div class="ps-stats-grid">','<div class="ps-stat-card"><div class="ps-sc-label">Supabase</div><div class="ps-sc-val">' + (user ? 'AN' : 'LOKAL') + '</div><div class="ps-sc-sub">' + (backendReady ? 'Backend aktiv' : 'Fallback') + '</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Queue</div><div class="ps-sc-val">0</div><div class="ps-sc-sub">keine Remote-Warteschlange</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Matches</div><div class="ps-sc-val">' + (Array.isArray(history) ? history.length : 0) + '</div><div class="ps-sc-sub">lokal gespeichert</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Analytics</div><div class="ps-sc-val">' + analyticsGames.length + '</div><div class="ps-sc-sub">Spiele im Analytics-Speicher</div></div>','<div class="ps-stat-card"><div class="ps-sc-label">Feedback</div><div class="ps-sc-val">' + (Array.isArray(feedbackEntries) ? feedbackEntries.length : 0) + '</div><div class="ps-sc-sub">lokale Vorschau</div></div>','</div>','<div class="sun-section-title" style="color:rgba(150,180,220,.4);">◇ Sync-Status</div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">User</div><div class="phi-meta">Username: ' + escHtml(G.username || '–') + ' · Konto: ' + escHtml(accountId || '–') + ' · Login: ' + escHtml(user?.email || 'lokal') + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Laufzeit</div><div class="phi-meta">Disziplin: ' + escHtml(G.discipline) + ' · Schwierigkeit: ' + escHtml(G.diff) + ' · Leaderboard: ' + escHtml(currentScopeLabel) + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Sync-Meta</div><div class="phi-meta">Letzte lokale Aenderung: ' + escHtml(formatDebugTimestamp(meta.lastLocalChangeAt)) + ' · Letzter Sync: ' + escHtml(formatDebugTimestamp(meta.lastSyncOkAt)) + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Aktuelle Disziplin-Leistung</div><div class="phi-meta">' + (currentDisciplineEntry ? 'Best ' + formatLeaderboardScore(currentDisciplineEntry.bestScore, G.discipline) + ' · Ø ' + formatLeaderboardScore(currentDisciplineEntry.averageScore, G.discipline) + ' · ' + currentDisciplineEntry.totalGames + ' Spiele' : 'Noch keine Daten fuer diese Disziplin.') + '</div></div></div>','<div class="ps-history-item"><div class="phi-info"><div class="phi-title">Remote-Status</div><div class="phi-meta">' + escHtml(debugRemoteState.summary) + '</div></div></div>',renderDebugFeedbackSection(),'<div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;"><button class="btn-sec" style="font-size:0.6rem;" onclick="debugSyncNow()">Sync jetzt</button><button class="btn-sec" style="font-size:0.6rem;" onclick="refreshDebugPanel()">Neu laden</button><button class="btn-sec" style="font-size:0.6rem;" onclick="disableDebugTools()">Debug aus</button></div>'].join(''); }
+function refreshDebugPanel() { debugFeedbackState = { mode: 'local', entries: StorageManager.get('feedback_entries', []) }; renderDebugPanel(); }
+function debugSyncNow() { scheduleCloudSync('debug_manual_sync', { immediate: true }); refreshDebugPanel(); }
+function refreshStateFromLocalStorage() { const savedName = StorageManager.getRaw('username', ''); G.username = savedName ? sanitizeUsername(savedName) : ''; loadXP(); loadAllStreaks(); updateSchuetzenpass(); updateProfileMenu(); if (DOM.psUsername) DOM.psUsername.textContent = G.username || 'Anonym'; if (DOM.profileOverlay?.classList.contains('active')) refreshProfileSheet(); updateLeaderboardScopeControl(); refreshDebugToolsVisibility(); updateAccountSyncStatus(); if (DOM.diffInfoTxt && typeof AdaptiveBotSystem !== 'undefined' && typeof AdaptiveBotSystem.getCurrentDifficulty === 'function') { const syncedDiff = AdaptiveBotSystem.getCurrentDifficulty(G.discipline); if (syncedDiff && DIFF[syncedDiff]) setDifficulty(syncedDiff, { persist: false }); } const welcomeOverlay = document.getElementById('welcomeOverlay'); if (welcomeOverlay && G.username) welcomeOverlay.classList.remove('active'); }
+window.addEventListener('supabaseAuthReady', () => { setTimeout(() => { refreshStateFromLocalStorage(); const welcomeOverlay = document.getElementById('welcomeOverlay'); if (welcomeOverlay && StorageManager.getRaw('username', '')) welcomeOverlay.classList.remove('active'); syncProfileWithBackend(null, { reason: 'auth_ready' }); }, 0); });
+const DOM = {};
+function initDOMCache() {
+  const ids = [
+    'shotsLeft', 'playerScoreChip', 'playerScoreChipSub', 'botScoreChip', 'botScoreChipInt', 'botScoreChipContainer', 'botScoreDivider',
+    'lsbDec', 'lsbDecBlock', 'lsbDecDivider', 'lsbInt', 'lsbProj',
+    'spFill', 'spCount', 'spLbl', 'spPosRow', 'spPosLbl', 'spPosCount', 'spPosFill',
+    'battleTag', 'battleFireBtn', 'battleBurstBtn', 'skipProbeBtn',
+    'lastShotTxt', 'shotLog', 'shotLogWrap', 'muzzleFlash',
+    'battleBadge', 'battleWeaponBadge',
+    'distInfo', 'distCard', 'diffInfoTxt', 'setupTag', 'logoTag',
+    'shotCountCard',
+    'botFinalPts', 'botFinalPtsCol', 'botFinalDivider', 'botFinalInt', 'botFinalDetail',
+    'playerInp', 'playerInpInt', 'inpHint', 'autoInt', 'autoIntVal', 'entryTag',
+    'goP', 'goB', 'goPInt', 'goBInt', 'goPUnit', 'goTitle', 'goSub', 'goEmoji', 'goReason', 'goMargin', 'analysisResult',
+    'feedbackCount',
+    'fbResultIcon', 'fbResultTitle', 'fbResultScore', 'fbComment', 'fbCounter', 'fbSubmitBtn',
+    'wTabLG', 'wTabKK', 'discTabs',
+    'posBar', 'posItem0', 'posItem1', 'posItem2', 'posShots0', 'posShots1', 'posShots2',
+    'scFire', 'scN', 'scLbl',
+    'burstBtn', 'burstBtnTxt', 'burstBadge',
+    // Schützenpass elements
+    'spRankName', 'spRankCur', 'spRankNext', 'spFillBar', 'spXpCur', 'spXpNext',
+    // Profil Menu elements (legacy)
+    'profileBtn', 'profileMenu', 'profileIcon', 'profileRank', 'pmRank', 'pmLevel', 'pmXP', 'pmStreak',
+    // Profil Overlay (new)
+    'profileOverlay', 'profileSheet', 'psAvatar', 'psAvatarIcon',
+    'psUsername', 'psRankIcon', 'psRankName', 'psLevel', 'psTotalXP',
+    'psXpCur', 'psXpNext', 'psXpFill',
+    'psStat-wins', 'psStat-losses', 'psStat-games', 'psStat-winrate', 'psStat-streak',
+    'psLGDetail', 'psLGXP', 'psKKDetail', 'psKKXP',
+    'sunTotalVal', 'sunStarsRow',
+    'sunGrid-basic', 'sunGrid-battle', 'sunGrid-master',
+    'psHistoryList',
+    'streakCorner'
+  ];
+  ids.forEach(id => { DOM[id] = document.getElementById(id); });
+  // slPills containers built dynamically — cached on startBattle
+  DOM.slPills = [null, null, null];
+}
+
+/* ─── CANVAS ─────────────────────────────── */
+const canvas = document.getElementById('targetCanvas');
+const ctx = canvas.getContext('2d', { alpha: false });
+
+// Offscreen canvas: static target (rings, numbers, crosshairs) — drawn once per resize
+const _offCanvas = document.createElement('canvas');
+const _offCtx = _offCanvas.getContext('2d', { alpha: false });
+let _staticReady = false;
+let _lastSz = 0; // track last canvas size to skip redundant rebuilds
+
+function setSz() {
+  const vw = Math.min(window.innerWidth, 420);
+  const sz = Math.min(vw - 36, 270);
+  // Only rebuild offscreen canvases when size actually changed
+  if (sz === _lastSz) return;
+  _lastSz = sz;
+  canvas.width = sz; canvas.height = sz;
+  _offCanvas.width = sz; _offCanvas.height = sz;
+  _offCanvasKK50.width = sz; _offCanvasKK50.height = sz;
+  _staticReady = false;
+  _kk50Ready = false;
+}
+
+/* Rings: [relR, fill, stroke, basePts, label] – outer → inner
+   Radien stimmen exakt mit LG_RINGS / KK_RINGS in den Build-Funktionen überein */
+const RINGS = [
+  [1.00, '#ffffff', '#111111', 1, 'Ring 1'],
+  [0.90, '#ffffff', '#111111', 2, 'Ring 2'],
+  [0.80, '#ffffff', '#111111', 3, 'Ring 3'],
+  [0.70, '#111111', '#ffffff', 4, 'Ring 4'],
+  [0.60, '#111111', '#ffffff', 5, 'Ring 5'],
+  [0.50, '#111111', '#ffffff', 6, 'Ring 6'],
+  [0.40, '#111111', '#ffffff', 7, 'Ring 7'],
+  [0.30, '#111111', '#ffffff', 8, 'Ring 8'],
+  [0.20, '#111111', '#ffffff', 9, 'Ring 9'],
+  [0.10, '#111111', '#ffffff', 10, 'Innenzehner']
+];
+
+// Separate offscreen canvas für KK 50m realistisches Zielschirmfoto
+const _offCanvasKK50 = document.createElement('canvas');
+const _offCtxKK50 = _offCanvasKK50.getContext('2d', { alpha: false });
+let _kk50Ready = false;
+
+// Deutsche Kleinkaliber-Scheibe — exakt nach Vorlage
+// Ringe 1–3 weiß (schmal, ~30% Radius), Ringe 4–10 schwarz (~70% Radius)
+// Zahlen auf weißen Ringen: oben+unten+links+rechts (schwarz)
+// Zahlen auf schwarzen Ringen: oben+unten+links+rechts (weiß)
+function buildKK50Target() {
+  const W = _offCanvasKK50.width, H = _offCanvasKK50.height;
+  const cx = W / 2, cy = H / 2, maxR = W / 2 - 3;
+  const oc = _offCtxKK50;
+
+  // Weißer Papierhintergrund
+  oc.fillStyle = '#ffffff';
+  oc.fillRect(0, 0, W, H);
+
+  // Echte KK-Scheibe: schwarze Fläche = 70% des Radius (Ringe 4–10)
+  // Weiße Ringe 1–3 = je ~10% des Radius (schmal)
+  // Radien von außen nach innen:
+  const KK_RINGS = [
+    { r: 1.000, fill: '#ffffff' },  // Ring 1 — äußerste weiße Linie
+    { r: 0.900, fill: '#ffffff' },  // Ring 2
+    { r: 0.800, fill: '#ffffff' },  // Ring 3 — Grenze weiß/schwarz
+    { r: 0.700, fill: '#0d0d0d' },  // Ring 4
+    { r: 0.600, fill: '#0d0d0d' },  // Ring 5
+    { r: 0.500, fill: '#0d0d0d' },  // Ring 6
+    { r: 0.400, fill: '#0d0d0d' },  // Ring 7
+    { r: 0.300, fill: '#0d0d0d' },  // Ring 8
+    { r: 0.200, fill: '#0d0d0d' },  // Ring 9
+    { r: 0.100, fill: '#0d0d0d' },  // Ring 10
+  ];
+
+  // 1. Alle Ringe füllen (außen → innen)
+  for (const ring of KK_RINGS) {
+    oc.beginPath();
+    oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
+    oc.fillStyle = ring.fill;
+    oc.fill();
+  }
+
+  // 2. Schwarze Trennlinien für weiße Ringe (1–3)
+  for (const ring of KK_RINGS.slice(0, 3)) {
+    oc.beginPath();
+    oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
+    oc.strokeStyle = '#0d0d0d';
+    oc.lineWidth = 1.0;
+    oc.stroke();
+  }
+
+  // 3. Weiße Trennlinien zwischen schwarzen Ringen (4–10)
+  for (const ring of KK_RINGS.slice(3)) {
+    oc.beginPath();
+    oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
+    oc.strokeStyle = '#ffffff';
+    oc.lineWidth = 1.2;
+    oc.stroke();
+  }
+
+  // 4. Innenzehner-Kreis (X-Ring) — deutlicher weißer Kreis im 10er
+  const xR = KK_RINGS[9].r * maxR * 0.50;
+  oc.beginPath();
+  oc.arc(cx, cy, xR, 0, Math.PI * 2);
+  oc.strokeStyle = '#ffffff';
+  oc.lineWidth = 1.5;
+  oc.stroke();
+
+  // 5. Mittelpunkt (kleiner weißer Punkt)
+  oc.beginPath();
+  oc.arc(cx, cy, 2, 0, Math.PI * 2);
+  oc.fillStyle = '#ffffff';
+  oc.fill();
+
+  // 6. Zahlen — wie auf der echten Scheibe
+  // Weiße Ringe (1–3): schwarze Zahl, nur oben+unten+links+rechts
+  // Schwarze Ringe (4–9): weiße Zahl, alle 4 Richtungen
+  const fs = Math.max(6, maxR * 0.052);
+  oc.font = `bold ${fs}px Arial, sans-serif`;
+  oc.textAlign = 'center';
+  oc.textBaseline = 'middle';
+
+  // Ringmitte = Mitte zwischen äußerem und innerem Rand
+  const numData = [
+    { mid: 0.950, num: 1, white: true },
+    { mid: 0.850, num: 2, white: true },
+    { mid: 0.750, num: 3, white: true },
+    { mid: 0.650, num: 4, white: false },
+    { mid: 0.550, num: 5, white: false },
+    { mid: 0.450, num: 6, white: false },
+    { mid: 0.350, num: 7, white: false },
+    { mid: 0.250, num: 8, white: false },
+    { mid: 0.150, num: 9, white: false },
+  ];
+
+  numData.forEach(({ mid, num, white }) => {
+    const r = mid * maxR;
+    oc.fillStyle = white ? '#0d0d0d' : '#ffffff';
+    // Alle 4 Richtungen (wie auf der echten Scheibe)
+    oc.fillText(num, cx, cy - r);
+    oc.fillText(num, cx, cy + r);
+    oc.fillText(num, cx - r, cy);
+    oc.fillText(num, cx + r, cy);
+  });
+
+  // 7. Äußerer Rand (doppelte schwarze Linie wie auf der Vorlage)
+  oc.beginPath();
+  oc.arc(cx, cy, maxR, 0, Math.PI * 2);
+  oc.strokeStyle = '#0d0d0d';
+  oc.lineWidth = 2.5;
+  oc.stroke();
+
+  _kk50Ready = true;
+}
+
+// Luftgewehr-Scheibe (10m) — authentisch schwarz-weiß
+// Ringe 1–3 weiß, Ringe 4–10 schwarz (wie echte ISSF LG-Scheibe)
+function buildStaticTarget() {
+  const W = _offCanvas.width, H = _offCanvas.height;
+  const cx = W / 2, cy = H / 2, maxR = W / 2 - 3;
+  const oc = _offCtx;
+
+  // Weißer Papierhintergrund
+  oc.fillStyle = '#ffffff';
+  oc.fillRect(0, 0, W, H);
+
+  // LG-Scheibe: 10 Ringe, gleichmäßig aufgeteilt
+  // Ringe 1–3: weiß; Ringe 4–10: schwarz
+  const LG_RINGS = [
+    { r: 1.000, fill: '#ffffff', pts: 1 },
+    { r: 0.900, fill: '#ffffff', pts: 2 },
+    { r: 0.800, fill: '#ffffff', pts: 3 },
+    { r: 0.700, fill: '#111111', pts: 4 },
+    { r: 0.600, fill: '#111111', pts: 5 },
+    { r: 0.500, fill: '#111111', pts: 6 },
+    { r: 0.400, fill: '#111111', pts: 7 },
+    { r: 0.300, fill: '#111111', pts: 8 },
+    { r: 0.200, fill: '#111111', pts: 9 },
+    { r: 0.100, fill: '#111111', pts: 10 },
+  ];
+
+  // Ringe von außen nach innen füllen
+  for (const ring of LG_RINGS) {
+    oc.beginPath();
+    oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
+    oc.fillStyle = ring.fill;
+    oc.fill();
+  }
+
+  // Schwarze Außenränder für weiße Ringe (1–3)
+  for (const ring of LG_RINGS.slice(0, 3)) {
+    oc.beginPath();
+    oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
+    oc.strokeStyle = '#111111';
+    oc.lineWidth = 1.2;
+    oc.stroke();
+  }
+
+  // Weiße Trennlinien zwischen den schwarzen Ringen (4–10)
+  for (const ring of LG_RINGS.slice(3)) {
+    oc.beginPath();
+    oc.arc(cx, cy, ring.r * maxR, 0, Math.PI * 2);
+    oc.strokeStyle = '#ffffff';
+    oc.lineWidth = 1.0;
+    oc.stroke();
+  }
+
+  // Innenzehner (X-Ring)
+  const xR = 0.100 * maxR * 0.5;
+  oc.beginPath();
+  oc.arc(cx, cy, xR, 0, Math.PI * 2);
+  oc.strokeStyle = '#ffffff';
+  oc.lineWidth = 1.0;
+  oc.stroke();
+
+  // Mittelpunkt
+  oc.beginPath();
+  oc.arc(cx, cy, 1.5, 0, Math.PI * 2);
+  oc.fillStyle = '#ffffff';
+  oc.fill();
+
+  // Ring-Nummern — auf schwarzen Ringen: weiße Box mit schwarzer Zahl
+  const fs = Math.max(7, maxR * 0.055);
+  oc.font = `bold ${fs}px Arial, sans-serif`;
+  oc.textAlign = 'center';
+  oc.textBaseline = 'middle';
+
+  const numPos = [
+    { rel: 0.950, num: 1, dark: true },
+    { rel: 0.850, num: 2, dark: true },
+    { rel: 0.750, num: 3, dark: true },
+    { rel: 0.650, num: 4, dark: false },
+    { rel: 0.550, num: 5, dark: false },
+    { rel: 0.450, num: 6, dark: false },
+    { rel: 0.350, num: 7, dark: false },
+    { rel: 0.250, num: 8, dark: false },
+    { rel: 0.150, num: 9, dark: false },
+  ];
+
+  numPos.forEach(({ rel, num, dark }) => {
+    const r = rel * maxR;
+    const positions = [[cx, cy - r], [cx, cy + r], [cx - r, cy], [cx + r, cy]];
+    oc.fillStyle = dark ? '#111111' : '#ffffff';
+    positions.forEach(([nx, ny]) => {
+      oc.fillText(num, nx, ny);
+    });
+  });
+
+  // Fadenkreuz (nur im weißen Bereich sichtbar)
+  oc.strokeStyle = 'rgba(0,0,0,0.12)';
+  oc.lineWidth = 0.5;
+  oc.setLineDash([4, 8]);
+  oc.beginPath();
+  oc.moveTo(cx, cy - maxR * 0.98);
+  oc.lineTo(cx, cy - 0.70 * maxR);
+  oc.moveTo(cx, cy + 0.70 * maxR);
+  oc.lineTo(cx, cy + maxR * 0.98);
+  oc.stroke();
+  oc.beginPath();
+  oc.moveTo(cx - maxR * 0.98, cy);
+  oc.lineTo(cx - 0.70 * maxR, cy);
+  oc.moveTo(cx + 0.70 * maxR, cy);
+  oc.lineTo(cx + maxR * 0.98, cy);
+  oc.stroke();
+  oc.setLineDash([]);
+
+  // Äußerer Rand
+  oc.beginPath();
+  oc.arc(cx, cy, maxR, 0, Math.PI * 2);
+  oc.strokeStyle = '#333333';
+  oc.lineWidth = 2;
+  oc.stroke();
+
+  _staticReady = true;
+}
+
+/**
+ * Zeichnet die Zielscheibe und Schüsse auf ein beliebiges Canvas
+ * (Wird für die Vorschau und das Teilen genutzt)
+ */
+function drawOnCanvas(targetCanvas, shots) {
+  const oc = targetCanvas.getContext('2d');
+  const W = targetCanvas.width, H = targetCanvas.height;
+  const cx = W / 2, cy = H / 2, maxR = W / 2 - 3;
+
+  // 1. Hintergrund / Scheibe zeichnen
+  oc.fillStyle = '#111111';
+  oc.fillRect(0, 0, W, H);
+
+  if (G.weapon === 'kk') {
+    if (!_kk50Ready) buildKK50Target();
+    oc.drawImage(_offCanvasKK50, 0, 0, _offCanvasKK50.width, _offCanvasKK50.height, 0, 0, W, H);
+  } else {
+    if (!_staticReady) buildStaticTarget();
+    oc.drawImage(_offCanvas, 0, 0, _offCanvas.width, _offCanvas.height, 0, 0, W, H);
+  }
+
+  // 2. Schüsse zeichnen
+  if (shots && Array.isArray(shots)) {
+    for (const s of shots) {
+      const r = G.weapon === 'kk' ? maxR * 0.030 : maxR * 0.036;
+      drawHole(oc, cx + s.dx, cy + s.dy, r, '#111111', '#444444', s.cracks);
+    }
+  }
+}
+
+function drawTarget(shots) {
+  if (!canvas || !ctx) return;
+  drawOnCanvas(canvas, shots);
+}
+
+function drawHole(targetCtx, x, y, r, dark, glow, cracks) {
+  const c = targetCtx || ctx;
+  // Papier-Aufriss-Schatten (leichter Grauschimmer um das Loch)
+  const shadow = c.createRadialGradient(x, y, r * 0.8, x, y, r * 3.5);
+  shadow.addColorStop(0, 'rgba(0,0,0,0.18)');
+  shadow.addColorStop(1, 'transparent');
+  c.beginPath(); c.arc(x, y, r * 3.5, 0, Math.PI * 2);
+  c.fillStyle = shadow; c.fill();
+
+  // Papier-Risse (kurze Linien um das Loch)
+  c.save(); c.translate(x, y);
+  c.strokeStyle = 'rgba(0,0,0,0.25)'; c.lineWidth = 0.6;
+  const crackData = cracks || Array.from({ length: 6 }, (_, i) => ({ a: (i / 6) * Math.PI * 2 + 0.3, len: 1.8 }));
+  for (const cData of crackData) {
+    c.beginPath();
+    c.moveTo(Math.cos(cData.a) * r * 0.9, Math.sin(cData.a) * r * 0.9);
+    c.lineTo(Math.cos(cData.a) * r * cData.len, Math.sin(cData.a) * r * cData.len);
+    c.stroke();
+  }
+  c.restore();
+
+  // Einschussloch: dunkel, leicht aufgerissen
+  const hg = c.createRadialGradient(x - r * .25, y - r * .25, 0, x, y, r);
+  hg.addColorStop(0, '#1a1a1a');
+  hg.addColorStop(0.7, '#080808');
+  hg.addColorStop(1, dark);
+  c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2);
+  c.fillStyle = hg; c.fill();
+
+  // Heller Rand (Papier aufgerissen)
+  c.beginPath(); c.arc(x, y, r * 1.15, 0, Math.PI * 2);
+  c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = r * 0.4; c.stroke();
+}
+
+function gauss(s) {
+  const u = Math.max(1e-10, Math.random());
+  return s * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random());
+}
+
+/* ─── SCORING ─────────────────────────────── */
+function scoreHit(dx, dy) {
+  const maxR = canvas.width / 2 - 3;
+  if (SC_SCORING && typeof SC_SCORING.calculateScoreHit === 'function') {
+    return SC_SCORING.calculateScoreHit({ dx, dy, maxRadius: maxR, rings: RINGS });
+  }
+  const d = Math.sqrt(dx * dx + dy * dy);
+
+  if (d > RINGS[0][0] * maxR) return { pts: 0, label: 'Daneben!', isX: false };
+
+  let ringIdx = 0;
+  for (let i = RINGS.length - 1; i >= 0; i--) {
+    if (d <= RINGS[i][0] * maxR) { ringIdx = i; break; }
+  }
+
+  const basePts = RINGS[ringIdx][3];
+  const outerR = RINGS[ringIdx][0] * maxR;
+  const innerR = ringIdx + 1 < RINGS.length ? RINGS[ringIdx + 1][0] * maxR : 0;
+  const ringW = outerR - innerR;
+  const posInRing = ringW > 0 ? (outerR - d) / ringW : 1;
+
+  const finalPts = Math.round(Math.min(10.9, basePts + posInRing * 0.9) * 10) / 10;
+
+  const xR = RINGS[9][0] * maxR * 0.50; // X-Ring = halber 10er-Ring, wie in buildTarget
+  const isX = basePts === 10 && d <= xR;
+
+  const label = isX ? '✦ Innenzehner (X)' : RINGS[ringIdx][4];
+  return { pts: finalPts, label, isX };
+}
+
+function fmtPts(v) {
+  // Formatiere mit IMMER einer Dezimalstelle (z.B. "200.0", "200.5")
+  return typeof v === 'number' ? v.toFixed(1) : '–';
+}
+
+/* ─── WEAPON + DISCIPLINE SWITCH ────────── */
+function switchWeapon(w) {
+  if (G.weapon === w) return;
+  G.weapon = w;
+  DOM.wTabLG.classList.toggle('active', w === 'lg');
+  DOM.wTabKK.classList.toggle('active', w === 'kk');
+  // auto-select first discipline for this weapon
+  const firstDisc = WEAPON_DISCS[w][0];
+  buildDiscTabs(w);
+  selDisc(firstDisc);
+}
+
+function buildDiscTabs(w) {
+  const discs = WEAPON_DISCS[w];
+  DOM.discTabs.innerHTML = discs.map(d => {
+    const cfg = DISC[d];
+    return `<div class="disc-tab${G.discipline === d ? ' active' : ''}" onclick="selDisc('${d}')">
+      <div class="dt-name">${cfg.icon} ${cfg.name}</div>
+      <div class="dt-desc">${cfg.desc}</div>
+    </div>`;
+  }).join('');
+}
+
+function selDisc(discKey) {
+  const dc = DISC[discKey];
+  if (!dc) return;
+  G.discipline = discKey;
+  G.weapon = dc.weapon;
+  G.dist = dc.dist;
+  G.shots = dc.shots;
+  G.is3x20 = dc.is3x20;
+
+  // Refresh disc tab active state
+  DOM.discTabs.querySelectorAll('.disc-tab').forEach((el, i) => {
+    el.classList.toggle('active', WEAPON_DISCS[G.weapon][i] === discKey);
+  });
+
+  // Distance card: hide for fixed-dist disciplines
+  const cfg = WEAPON_CFG[G.weapon];
+  document.querySelectorAll('#distGroup .db').forEach(btn => {
+    const allowed = cfg.allowedDists.includes(btn.dataset.dist);
+    btn.classList.toggle('hidden', !allowed);
+    btn.classList.toggle('active', btn.dataset.dist === dc.dist);
+  });
+  // Distanz ist immer durch die Disziplin fix → Card immer verstecken
+  if (DOM.distCard) DOM.distCard.style.display = 'none';
+
+  // All disciplines have a fixed shot count — hide the manual selector always
+  if (DOM.shotCountCard) DOM.shotCountCard.style.display = 'none';
+
+  // Update info text
+  if (DOM.distInfo) DOM.distInfo.querySelector('.info-txt').innerHTML = dc.info;
+  if (DOM.setupTag) DOM.setupTag.textContent = WEAPON_CFG[G.weapon].setupTag(discKey, dc.dist);
+  if (DOM.logoTag) DOM.logoTag.textContent = `Du vs. Bot · ${dc.name} · ${dc.shots} Schuss · Wer trifft besser?`;
+
+  // Aktualisiere Schwierigkeitsinformation, falls bereits eine Schwierigkeit ausgewählt ist
+  const adaptiveDiff = typeof AdaptiveBotSystem !== 'undefined' &&
+    typeof AdaptiveBotSystem.getCurrentDifficulty === 'function' &&
+    typeof AdaptiveBotSystem.isEnabled === 'function' &&
+    AdaptiveBotSystem.isEnabled()
+    ? AdaptiveBotSystem.getCurrentDifficulty(discKey)
+    : null;
+
+  if (adaptiveDiff && DIFF[adaptiveDiff]) {
+    setDifficulty(adaptiveDiff, { persist: false });
+  } else if (G.diff) {
+    DOM.diffInfoTxt.innerHTML = getDiffInfo(G.diff);
+  }
+}
+
+/* ─── SELECTORS ──────────────────────────── */
+function selDist(btn) {
+  // Distanz wird immer durch die Disziplin bestimmt – kein manueller Wechsel
+  return;
+}
+
+function setDifficulty(diff, options = {}) {
+  if (!diff || !DIFF[diff]) return;
+  const persist = options.persist !== false;
+
+  G.diff = diff;
+  document.querySelectorAll('#diffGroup .dif').forEach((button) => {
+    button.classList.toggle('active', button.dataset.diff === diff);
+  });
+
+  if (DOM.diffInfoTxt) {
+    DOM.diffInfoTxt.innerHTML = getDiffInfo(diff);
+  }
+
+  if (DOM.battleBadge) {
+    DOM.battleBadge.textContent = DIFF[diff].lbl;
+    DOM.battleBadge.className = 'diff-badge ' + DIFF[diff].cls;
+  }
+
+  if (
+    persist &&
+    typeof AdaptiveBotSystem !== 'undefined' &&
+    typeof AdaptiveBotSystem.setCurrentDifficulty === 'function' &&
+    typeof AdaptiveBotSystem.isEnabled === 'function' &&
+    AdaptiveBotSystem.isEnabled() &&
+    G.discipline
+  ) {
+    AdaptiveBotSystem.setCurrentDifficulty(G.discipline, diff, {
+      recordHistory: false,
+      reason: typeof options.reason === 'string' ? options.reason : 'Manual selection'
+    });
+  }
+}
+
+function selDiff(btn) {
+  setDifficulty(btn.dataset.diff, { reason: 'Manual selection' });
+}
+
+function selShots(btn) {
+  document.querySelectorAll('#shotCountGroup .scb').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  G.shots = parseInt(btn.dataset.shots);
+  if (DOM.logoTag) DOM.logoTag.textContent = `Du vs. Bot · ${DISC[G.discipline]?.name || G.discipline} · ${G.shots} Schuss · Wer trifft besser?`;
+}
+
+function toggleBurst() {
+  G.burst = !G.burst;
+  DOM.burstBtn.classList.toggle('on', G.burst);
+  DOM.burstBtnTxt.textContent = G.burst ? '🔫 5er-Salve: AN' : '🔫 5er-Salve: AUS';
+  DOM.burstBadge.textContent = G.burst ? 'AKTIV' : 'OPTIONAL';
+}
+
+/* ─── STREAK (getrennt per Waffe) ────────────
+   Keys: sd_lg_streak / sd_kk_streak  etc.
+   Streak-Corner zeigt immer die aktive Waffe
+────────────────────────────────────────────*/
+// In-memory streak cache (avoid repeated localStorage reads)
+const STREAK_CACHE = { lg: null, kk: null };
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function loadAllStreaks() {
+  ['lg', 'kk'].forEach(w => loadStreakForWeapon(w));
+  updateXPCorner(); // XP-Corner beim Start befüllen
+}
+
+function loadStreakForWeapon(w) {
+  const streak = StorageManager.get(`${w}_streak`, 0);
+  const best = StorageManager.get(`${w}_best`, 0);
+  STREAK_CACHE[w] = { streak, best };
+}
+
+function updateStreakCorner() {
+  // Jetzt XP-basiert statt Streak-basiert
+  updateXPCorner();
+}
+
+function updateXPCorner() {
+  const corner = DOM.streakCorner;
+  if (!corner) return;
+
+  const { rank, idx } = getRank(G.xp);
+
+  // Farbe nach Rang-Stufe
+  corner.classList.remove('silver', 'gold', 'red', 'purple');
+  if (idx >= 5) corner.classList.add('purple'); // Legende
+  else if (idx >= 4) corner.classList.add('red');    // Großmeister
+  else if (idx >= 3) corner.classList.add('gold');   // Meister
+  else if (idx >= 2) corner.classList.add('silver'); // Fortgeschr.
+  // idx 0-1: Standard-Lila (default CSS)
+
+  // Icon nach Rang
+  if (DOM.scFire) DOM.scFire.textContent = rank.icon;
+  if (DOM.scN) DOM.scN.textContent = G.xp;
+  if (DOM.scLbl) DOM.scLbl.textContent = 'XP';
+}
+
+function updateWinStreak(won) {
+  // Increment streak on win, reset to 0 on loss
+  const w = G.weapon;
+  let { streak, best } = STREAK_CACHE[w] || { streak: 0, best: 0 };
+
+  if (won) {
+    streak++;
+  } else {
+    streak = 0;
+  }
+
+  const newBest = Math.max(streak, best);
+  StorageManager.set(`${w}_streak`, streak);
+  StorageManager.set(`${w}_best`, newBest);
+  scheduleCloudSync(`streak_${w}`);
+
+  STREAK_CACHE[w] = { streak, best: newBest };
+  G.streak = streak;
+}
+
+/* ─── TIMER & BOT-INTERVAL HELPERS ──────── */
+function clearBattleTimers() {
+  if (G._botStartTimeout) { clearTimeout(G._botStartTimeout); G._botStartTimeout = null; }
+  if (G._botInterval) { clearTimeout(G._botInterval); G._botInterval = null; }
+  if (G._timerInterval) { clearInterval(G._timerInterval); G._timerInterval = null; }
+}
+
+const KK3X20_CFG = {
+  probeSecs: 10 * 60,
+  transitionPhases: [
+    { secs: 10 * 60, label: 'Uebergang Kniend -> Liegend' }, // fest 10 Min
+    { secs: 15 * 60, label: 'Uebergang Liegend -> Stehend' } // ca. 15 Min
+  ],
+  positionTimings: [
+    { baseSecs: 72, min: 58, max: 88 },  // Kniend: 24 Min / 20 Schuss
+    { baseSecs: 36, min: 28, max: 48 },  // Liegend: 12 Min / 20 Schuss
+    { baseSecs: 84, min: 68, max: 102 }  // Stehend: 28 Min / 20 Schuss
+  ]
+};
+
+function getKK3x20TimingByPos() {
+  const idx = Math.max(0, Math.min(KK3X20_CFG.positionTimings.length - 1, G.posIdx || 0));
+  return KK3X20_CFG.positionTimings[idx];
+}
+
+function beginKK3x20Transition(nextPosIdx) {
+  const phase = KK3X20_CFG.transitionPhases[nextPosIdx - 1];
+  if (!phase) return;
+  G.transitionSecsLeft = phase.secs;
+  G.transitionLabel = phase.label;
+}
+
+function startMatchTimer(totalSecs) {
+  G._timerSecsLeft = totalSecs;
+  const box = document.getElementById('matchTimerBox');
+  const val = document.getElementById('matchTimerVal');
+
+  function tick() {
+    // Probezeit-Info
+    let timerDisp = '';
+    if (G.is3x20 && G.transitionSecsLeft > 0) {
+      const tm = Math.floor(G.transitionSecsLeft / 60);
+      const ts = G.transitionSecsLeft % 60;
+      const nextPos = G.positions[G.posIdx] || '';
+      const transitionName = G.transitionLabel || 'Pause';
+      const clockTxt = `${tm}:${String(ts).padStart(2, '0')}`;
+      timerDisp = `${clockTxt} (Übergang: ${transitionName})`;
+      DOM.lastShotTxt.innerHTML =
+        `⏸ <b>Übergang</b>: <b>${transitionName}</b> · noch <b>${clockTxt}</b><br>` +
+        `➡ Danach: <b>${nextPos}</b>`;
+      G.transitionSecsLeft--;
+      G._timerSecsLeft--;
+      if (G.transitionSecsLeft <= 0) {
+        DOM.lastShotTxt.innerHTML = `▶️ <b>${transitionName}</b> beendet - weiter mit <b>${nextPos}</b>.`;
+        G.transitionLabel = '';
+      }
+    } else if (G.probeActive && G.probeSecsLeft > 0) {
+      const pm = Math.floor(G.probeSecsLeft / 60);
+      const ps = G.probeSecsLeft % 60;
+      timerDisp = `${pm}:${String(ps).padStart(2, '0')} (Probe)`;
+      G.probeSecsLeft--;
+      G._timerSecsLeft--; // BUG-FIX: Gesamtzeit läuft auch während Probezeit ab
+    } else {
+      // Probezeit beendet → reguläre Zeit starten
+      if (G.probeActive) {
+        G.probeActive = false;
+        DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit beendet!</b> – Reguläre Zeit gestartet.';
+        DOM.skipProbeBtn.style.display = 'none';
+      }
+      const m = Math.floor(G._timerSecsLeft / 60);
+      const s = G._timerSecsLeft % 60;
+      timerDisp = `${m}:${String(s).padStart(2, '0')}`;
+      if (G._timerSecsLeft <= 0) {
+        clearBattleTimers();
+        // Zeit abgelaufen → DNF
+        G.dnf = true;
+        if (val) val.textContent = '0:00';
+        DOM.lastShotTxt.innerHTML = '⏰ <b>Zeit abgelaufen!</b> DNF – Das Duell ist beendet.';
+        if (G.burst) DOM.battleBurstBtn.disabled = true;
+        else DOM.battleFireBtn.disabled = true;
+        setTimeout(() => goToEntry(), 1800);
+        return;
+      }
+      G._timerSecsLeft--;
+    }
+
+    if (val) val.textContent = timerDisp;
+    if (box) box.classList.toggle('warning', G._timerSecsLeft <= 300 && !G.probeActive); // Warnung ab 5 Min. (nach Probe)
+  }
+  tick(); // sofort anzeigen
+  G._timerInterval = setInterval(tick, 1000);
+}
+
+function startBotAutoShoot() {
+  function scheduleNextShot() {
+    if (G._botInterval) clearTimeout(G._botInterval);
+
+    // Realistische Schießzeiten pro Disziplin (in Sekunden pro Schuss)
+    // Basiert auf echten Sportschießen-Normen
+    const DISCIPLINE_TIMINGS = {
+      lg40: { baseSecs: 35, min: 25, max: 50 },        // Luftgewehr 40: 50min für 40 Schuss → 75s/Schuss, aber konzentriert
+      lg60: { baseSecs: 42, min: 30, max: 60 },        // Luftgewehr 60: 70min für 60 Schuss → 70s/Schuss
+      kk50: { baseSecs: 50, min: 35, max: 70 },        // KK 50m: 50min für 60 Schuss → 50s/Schuss durchschnitt
+      kk100: { baseSecs: 65, min: 45, max: 90 },       // KK 100m: 70min für 60 Schuss → 70s/Schuss, aber extremer konzentriert
+      kk3x20: { baseSecs: 85, min: 60, max: 120 }      // KK 3×20: 105min für 60 Schuss inkl. Wechsel → längere Mittel je Schuss
+    };
+
+    // Schwierigkeit beeinflusst die Streuung (Routine/Konsistenz)
+    const DIFFICULTY_VARIANCE = {
+      easy: { ratio: 1.0, rangeRatio: 0.4 },     // 40% Streuung, nervöser Rhythmus (Einfach)
+      real: { ratio: 1.0, rangeRatio: 0.25 },    // 25% Streuung, natürlicher Rhythmus (Mittel)
+      hard: { ratio: 0.95, rangeRatio: 0.10 },   // 10% Streuung, sehr konsistent (Elite)
+      elite: { ratio: 0.92, rangeRatio: 0.06 }   // 6% Streuung, extrem konsistent (Profi)
+    };
+
+    let timing = DISCIPLINE_TIMINGS[G.discipline] || DISCIPLINE_TIMINGS.lg40;
+    if (G.discipline === 'kk3x20') timing = getKK3x20TimingByPos();
+    const difficulty = DIFFICULTY_VARIANCE[G.diff] || DIFFICULTY_VARIANCE.real;
+
+    if (G.is3x20 && G.transitionSecsLeft > 0) {
+      G._botInterval = setTimeout(scheduleNextShot, 1000);
+      return;
+    }
+
+    // Basis-Schießzeit für diese Disziplin
+    let baseSecs = timing.baseSecs * difficulty.ratio;
+
+    // Zufällige Streuung basierend auf Schwierigkeit
+    const rangeWidth = (timing.max - timing.min) * difficulty.rangeRatio;
+    const randomSecs = (Math.random() * rangeWidth) - (rangeWidth / 2);
+
+    // Finales Delay zwischen min/max halten
+    let delaySecs = baseSecs + randomSecs;
+    delaySecs = Math.max(timing.min, Math.min(timing.max, delaySecs));
+
+    const delay = delaySecs * 1000;
+
+    G._botInterval = setTimeout(() => {
+      if (G.botShotsLeft <= 0) return; // Bot schon fertig
+      if (G.is3x20 && G.transitionSecsLeft > 0) {
+        scheduleNextShot();
+        return;
+      }
+      // Bot schießt automatisch einen Schuss (ohne Player-FX)
+      botAutoFire();
+      scheduleNextShot();
+    }, delay);
+  }
+  scheduleNextShot();
+}
+
+function botAutoFire() {
+  if (G.botShotsLeft <= 0) return;
+  const bRes = fireSingleShot(true);
+  if (!bRes) return;
+
+  // Füge Pill zum Log hinzu
+  const pillCls = bRes.isX ? 'x' : bRes.pts >= 9 ? 'hi' : bRes.pts >= 6 ? 'mid' : bRes.pts >= 1 ? 'lo' : 'miss';
+  // KK 3x20: Pill zeigt nur ganze Ringe (keine Zehntel)
+  const pillTxt = (G.is3x20 && G.weapon === 'kk')
+    ? String(Math.floor(bRes.pts))
+    : (bRes.isX ? `✦${fmtPts(bRes.pts)}` : fmtPts(bRes.pts));
+  if (G.is3x20) {
+    const container = DOM.slPills[G.posIdx];
+    if (container) {
+      const pill = document.createElement('span');
+      pill.className = 'sl-pill ' + pillCls;
+      pill.textContent = '🤖' + pillTxt;
+      container.appendChild(pill);
+    }
+    G.posShots++;
+    const pr = G.posResults[G.posIdx];
+    // KK 3x20: nur ganze Ringe akkumulieren
+    const addTenths = (G.weapon === 'kk') ? Math.floor(bRes.pts) * 10 : Math.round(bRes.pts * 10);
+    pr._tenths = (pr._tenths || 0) + addTenths;
+    pr.total = G.weapon === 'kk' ? Math.floor(pr._tenths / 10) : pr._tenths / 10;
+    pr.int = (pr.int || 0) + Math.floor(bRes.pts);
+    if (!pr.shots) pr.shots = [];
+    pr.shots.push({ dx: bRes.dx ?? 0, dy: bRes.dy ?? 0 });
+    // 3×20: botTotalInt (Summe ganze Ringe) hier und in doBattleFire; fireSingleShot inkrementiert bei 3×20 kein botTotalInt
+    G.botTotalInt += Math.floor(bRes.pts);
+    if (G.posShots >= G.perPos && G.posIdx < G.positions.length - 1) {
+      const nextPosIdx = G.posIdx + 1;
+      const nextPosName = G.positions[nextPosIdx];
+      G.posIdx = nextPosIdx;
+      G.posShots = 0;
+      beginKK3x20Transition(nextPosIdx);
+      if (G.transitionSecsLeft > 0) {
+        DOM.lastShotTxt.innerHTML = `⏸ <b>${G.transitionLabel}</b> (${Math.round(G.transitionSecsLeft / 60)} Min) · danach <b>${nextPosName}</b>.`;
+      }
+      setTimeout(() => updatePosBar(), 200);
+    } else { updatePosBar(); }
+    // Double rAF ensures scrollHeight is current after layout update
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (DOM.shotLogWrap) {
+          DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+        }
+      });
+    });
+  } else {
+    const pill = document.createElement('span');
+    pill.className = 'sl-pill ' + pillCls;
+    pill.textContent = '🤖' + pillTxt;
+    if (DOM.shotLog) {
+      DOM.shotLog.appendChild(pill);
+      while (DOM.shotLog.children.length > 10) DOM.shotLog.removeChild(DOM.shotLog.firstChild);
+    }
+
+  }
+
+  // Info-Text aktualisieren
+  const botScoreTxt = isKK3x20WholeRingsOnly()
+    ? G.botTotalInt
+    : `${fmtPts(G.botTotal)} <span style="color:rgba(240,130,110,.45);font-size:.85em;">(${G.botTotalInt} ganze)</span>`;
+  if (!(G.is3x20 && G.transitionSecsLeft > 0)) {
+    DOM.lastShotTxt.innerHTML =
+      `🤖 <b>Bot schießt automatisch!</b> ${bRes.label} · ${isKK3x20WholeRingsOnly() ? Math.floor(bRes.pts) : fmtPts(bRes.pts)} &nbsp;|&nbsp; Gesamt: <b>${botScoreTxt}</b>`;
+  }
+
+  // Canvas + UI aktualisieren
+  setTimeout(() => {
+    drawTarget(G.targetShots);
+    updateBattleUI();
+    if (G.botShotsLeft <= 0) {
+      clearBattleTimers();
+      if (G.burst) DOM.battleBurstBtn.disabled = true;
+      else DOM.battleFireBtn.disabled = true;
+      DOM.battleTag.textContent = `◆ ${G.maxShots} SCHUSS ABGEFEUERT ◆`;
+      if (G.is3x20) {
+        DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
+      } else {
+        DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
+      }
+      setTimeout(() => goToEntry(), 1400);
+    }
+  }, 160);
+}
+
+function syncBotScoreToPlayerProgress() {
+  if (G.botShotsLeft <= 0) return;
+
+  const playerFired = G.maxShots - G.playerShotsLeft;
+  const botFired = G.maxShots - G.botShotsLeft;
+  const missingShots = Math.min(G.botShotsLeft, Math.max(0, playerFired - botFired));
+
+  for (let i = 0; i < missingShots; i++) {
+    const res = fireSingleShot(true);
+    // 3×20: botTotalInt manuell inkrementieren (fireSingleShot tut es nicht bei 3×20)
+    if (res && G.is3x20) {
+      G.botTotalInt += Math.floor(res.pts);
+    }
+  }
+  updateBattleUI();
+}
+
+function startBattle() {
+  const dc = DISC[G.discipline];
+  if (!dc) {
+    console.error('[startBattle] Ungueltige Disziplin:', G.discipline);
+    G.discipline = 'lg40';
+    G.weapon = 'lg';
+    return startBattle();
+  }
+  if (!DIFF[G.diff]) {
+    console.error('[startBattle] Ungueltige Schwierigkeit:', G.diff);
+    G.diff = 'easy';
+  }
+  if (!WEAPON_CFG[G.weapon]) {
+    console.error('[startBattle] Ungueltige Waffe:', G.weapon);
+    G.weapon = 'lg';
+  }
+  G.maxShots = dc.shots;
+  G.playerShotsLeft = dc.shots;
+  G.botShotsLeft = dc.shots;
+  G.targetShots = [];
+  G.botShots = []; G.botPlan = null; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
+  G.playerTotal = 0; G.playerTotalInt = 0; G._playerTotalTenths = 0;
+  G.playerShots = [];
+  G._gameStartTime = Date.now();
+  G._lastPlayerShotAt = G._gameStartTime;
+  if (typeof HealthyEngagement !== 'undefined' && typeof HealthyEngagement.onBattleStart === 'function') {
+    HealthyEngagement.onBattleStart();
+  }
+  G.dnf = false;
+  G.probeActive = true;  // Probezeit ist aktiv
+  G.probeSecsLeft = (G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
+  G.transitionSecsLeft = 0;
+  G.transitionLabel = '';
+
+  // Vorherige Timer/Intervalle aufräumen
+  clearBattleTimers();
+
+  // 3×20 init
+  G.is3x20 = dc.is3x20;
+  G.positions = dc.is3x20 ? [...dc.positions] : [];
+  G.posIcons = dc.is3x20 ? [...dc.posIcons] : [];
+  G.posIdx = 0;
+  G.posShots = 0;
+  G.perPos = 20;
+  G.posResults = dc.is3x20 ? dc.positions.map(() => ({ total: 0, int: 0, _tenths: 0, playerShots: [] })) : [];
+  G.botPlan = buildCurrentBotPlan();
+
+  setSz(); drawTarget([]);
+
+  // Reset shot log area
+  if (!DOM.shotLogWrap) {
+    console.error('[startBattle] shotLogWrap nicht gefunden — DOM nicht bereit?');
+    return;
+  }
+  DOM.shotLogWrap.innerHTML = '';
+  if (G.is3x20) {
+    G.positions.forEach((pos, i) => {
+      const grp = document.createElement('div');
+      grp.className = 'sl-group';
+      grp.id = `slGroup${i}`;
+      grp.innerHTML = `<div class="sl-group-hd">${G.posIcons[i]} ${pos}</div><div class="sl-group-pills" id="slPills${i}"></div>`;
+      DOM.shotLogWrap.appendChild(grp);
+      DOM.slPills[i] = null;
+    });
+    G.positions.forEach((_, i) => {
+      const el = document.getElementById(`slPills${i}`);
+      if (!el) console.error(`[startBattle] slPills${i} nicht gefunden — DOM-Update fehlgeschlagen`);
+      DOM.slPills[i] = el;
+    });
+  } else {
+    const flat = document.createElement('div');
+    flat.className = 'shot-log';
+    flat.id = 'shotLog';
+    DOM.shotLogWrap.appendChild(flat);
+    DOM.shotLog = flat;
+  }
+
+  // BUGFIX: lastShotTxt konnte null sein, wenn das Battle-Screen-DOM
+  // noch nicht montiert war (z. B. unvollständiges DOM beim Hot-Reload).
+  // Schreibender Zugriff auf .innerHTML hätte das Spiel hier gecrasht.
+  if (DOM.lastShotTxt) {
+    DOM.lastShotTxt.innerHTML = G.is3x20
+      ? `<b>Bereit!</b> Position 1: <b>${G.positions[0]}</b> · 20 Schüsse · Feuer frei!`
+      : '<b>Bereit!</b> Drück FEUER – du schießt in der echten Welt, der Bot schießt automatisch nach seinem Rhythmus.';
+  }
+
+  const diffCfg = DIFF[G.diff];
+  const weapCfg = WEAPON_CFG[G.weapon];
+  const requiredBattleRefs = ['battleBadge', 'battleWeaponBadge', 'entryTag', 'posBar', 'battleFireBtn', 'battleBurstBtn', 'skipProbeBtn'];
+  const missingBattleRefs = requiredBattleRefs.filter((key) => !DOM[key]);
+  if (missingBattleRefs.length) {
+    console.error('[startBattle] Battle-DOM nicht vollstaendig:', missingBattleRefs.join(', '));
+    return;
+  }
+
+  DOM.battleBadge.textContent = diffCfg.lbl;
+  DOM.battleBadge.className = 'diff-badge ' + diffCfg.cls;
+  DOM.battleWeaponBadge.textContent = weapCfg.icon + ' ' + dc.name.toUpperCase();
+  DOM.battleWeaponBadge.className = 'weapon-badge ' + weapCfg.badgeCls;
+  DOM.entryTag.textContent = `◆ ${G.dist} METER · ${dc.name} · ${G.maxShots} SCHUSS ◆`;
+
+  DOM.posBar.classList.toggle('visible', G.is3x20);
+  if (G.is3x20) updatePosBar();
+  if (DOM.spPosRow) DOM.spPosRow.style.display = G.is3x20 ? '' : 'none';
+
+  if (G.burst) {
+    DOM.battleFireBtn.style.display = 'none';
+    DOM.battleBurstBtn.style.display = '';
+    DOM.battleBurstBtn.disabled = false;
+  } else {
+    DOM.battleFireBtn.style.display = '';
+    DOM.battleBurstBtn.style.display = 'none';
+  }
+
+  // Probezeit Button anzeigen
+  DOM.skipProbeBtn.style.display = '';
+
+  updateBattleUI();
+  showScreen('screenBattle');
+
+  // Bot-Zustandsanzeige starten
+  if (typeof startBotStatusUpdates === 'function') startBotStatusUpdates();
+
+  // Reset Bot-Start-Flag
+  G.botStarted = false;
+
+  // Match-Timer SOFORT starten
+  const timeMins = dc.timeMins || 50;
+  startMatchTimer(timeMins * 60);
+
+  // Bot-Auto-Shoot startet NACH Probezeit (15 Min später)
+  const probeDelayMs = ((G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60) + 5) * 1000; // Probezeit + 5 Sek Delay
+  G._botStartTimeout = setTimeout(() => {
+    if (!G.botStarted) {
+      G.botStarted = true;
+      startBotAutoShoot();
+    }
+  }, probeDelayMs);
+}
+
+function updateBattleUI() {
+  const lowThresh = Math.max(5, Math.round(G.maxShots * 0.15));
+  const low = G.playerShotsLeft <= lowThresh;
+  const fired = G.maxShots - G.playerShotsLeft;
+
+  // Score — compute once, assign to both score chip and live bar
+  DOM.shotsLeft.textContent = G.playerShotsLeft;
+  DOM.shotsLeft.className = low ? 'chip-val low' : 'chip-val';
+  DOM.botScoreChipInt.textContent = G.botTotalInt;
+  DOM.lsbInt.textContent = G.botTotalInt;
+
+  // Nur KK 3×20: keine Zehntel anzeigen. KK 50m/100m zeigen Zehntel normal.
+  const noTenths = G.is3x20 && G.weapon === 'kk';
+  if (DOM.playerScoreChip) {
+    DOM.playerScoreChip.textContent = noTenths ? String(G.playerTotalInt) : fmtPts(G.playerTotal);
+  }
+  if (DOM.playerScoreChipSub) {
+    DOM.playerScoreChipSub.textContent = noTenths ? 'Ringe' : `${G.playerTotalInt} ganze`;
+  }
+  DOM.botScoreChipContainer.style.display = noTenths ? 'none' : 'flex';
+  DOM.botScoreDivider.style.display = noTenths ? 'none' : 'block';
+  if (DOM.lsbDecBlock) DOM.lsbDecBlock.style.display = noTenths ? 'none' : '';
+  if (DOM.lsbDecDivider) DOM.lsbDecDivider.style.display = noTenths ? 'none' : '';
+  if (!noTenths) {
+    const zehntelFmt = fmtPts(G.botTotal);
+    DOM.botScoreChip.textContent = zehntelFmt;
+    DOM.lsbDec.textContent = zehntelFmt;
+  }
+  // Bei KK: "Ganze"-Label und Zahl im Chip + Live-Bar aufhellen
+  if (noTenths) {
+    DOM.botScoreChipInt.style.color = '#f08070';
+    DOM.botScoreChipInt.style.fontSize = '1.5rem';
+    DOM.lsbInt.style.color = 'rgba(240,130,110,1)';
+    DOM.lsbInt.style.fontWeight = '700';
+    // "Ganze"-Label im Chip heller
+    const ganzeLabel = DOM.botScoreChipInt.previousElementSibling;
+    if (ganzeLabel) ganzeLabel.style.color = 'rgba(255,255,255,0.75)';
+    // "Bot Ganze"-Label in der Live-Bar heller
+    const lsbIntLabel = DOM.lsbInt.previousElementSibling;
+    if (lsbIntLabel) lsbIntLabel.style.color = 'rgba(255,255,255,0.7)';
+  } else {
+    // LG: beide Chips (Zehntel + Ganze) und Labels hell
+    DOM.botScoreChip.style.color = '#f08070';
+    DOM.botScoreChipInt.style.color = '#f08070';
+    DOM.botScoreChipInt.style.fontSize = '1.25rem';
+    // Zehntel-Label im Chip
+    const zehntelLabel = DOM.botScoreChip.previousElementSibling;
+    if (zehntelLabel) zehntelLabel.style.color = 'rgba(255,255,255,0.75)';
+    // Ganze-Label im Chip
+    const ganzeLabel = DOM.botScoreChipInt.previousElementSibling;
+    if (ganzeLabel) ganzeLabel.style.color = 'rgba(255,255,255,0.75)';
+    // Live-Bar: Zehntel + Ganze + Labels
+    DOM.lsbDec.style.color = '#f08070';
+    DOM.lsbInt.style.color = 'rgba(240,130,110,1)';
+    DOM.lsbInt.style.fontWeight = '700';
+    const lsbDecLabel = DOM.lsbDec.previousElementSibling;
+    if (lsbDecLabel) lsbDecLabel.style.color = 'rgba(255,255,255,0.7)';
+    const lsbIntLabel = DOM.lsbInt.previousElementSibling;
+    if (lsbIntLabel) lsbIntLabel.style.color = 'rgba(255,255,255,0.7)';
+  }
+
+  if (fired > 0) {
+    DOM.lsbProj.textContent = '~' + fmtPts(Math.round((G.botTotal / fired) * G.maxShots * 10) / 10);
+  } else {
+    DOM.lsbProj.textContent = '–';
+  }
+
+  // Overall progress bar
+  DOM.spFill.style.width = (G.maxShots > 0 ? (fired / G.maxShots) * 100 : 0) + '%';
+  DOM.spFill.className = low ? 'sp-fill low' : 'sp-fill';
+  DOM.spCount.textContent = fired + ' / ' + G.maxShots + ' Schuss';
+  DOM.spCount.className = low ? 'sp-count low' : 'sp-count';
+
+  // 3×20: per-position sub-bar
+  if (G.is3x20 && DOM.spPosRow) {
+    const posLow = (G.perPos - G.posShots) <= 4;
+    DOM.spPosLbl.textContent = `${G.posIcons[G.posIdx] || ''} ${G.positions[G.posIdx] || ''}`;
+    DOM.spPosCount.textContent = `${G.posShots} / ${G.perPos} Schuss`;
+    DOM.spPosCount.style.color = posLow ? '#ff7040' : '#a0e060';
+    DOM.spPosFill.style.width = ((G.posShots / G.perPos) * 100) + '%';
+    DOM.spPosFill.style.background = posLow
+      ? 'linear-gradient(90deg,#8a1010,#e04040)'
+      : 'linear-gradient(90deg,#3a8010,#80c830)';
+  }
+
+  // Battle tag
+  const allDone = fired >= G.maxShots;
+  if (G.is3x20 && G.transitionSecsLeft > 0) {
+    const tm = Math.floor(G.transitionSecsLeft / 60);
+    const ts = G.transitionSecsLeft % 60;
+    const transitionName = G.transitionLabel || 'Pause';
+    DOM.battleTag.textContent = `◆ ÜBERGANG: ${transitionName.toUpperCase()} · ${tm}:${String(ts).padStart(2, '0')} ◆`;
+  } else if (G.is3x20 && !allDone) {
+    DOM.battleTag.textContent = `◆ ${(G.positions[G.posIdx] || '').toUpperCase()} · SCHUSS ${G.posShots + 1} / ${G.perPos} ◆`;
+  } else {
+    DOM.battleTag.textContent = allDone
+      ? `◆ ${G.maxShots} SCHUSS ABGEFEUERT ◆`
+      : `◆ SCHUSS ${fired + 1} / ${G.maxShots} ◆`;
+  }
+
+  if (G.burst) DOM.battleBurstBtn.disabled = G.playerShotsLeft <= 0;
+  else DOM.battleFireBtn.disabled = G.playerShotsLeft <= 0;
+}
+
+function updatePosBar() {
+  if (!G.is3x20) return;
+  for (let i = 0; i < G.positions.length; i++) {
+    const el = DOM[`posItem${i}`];
+    const sh = DOM[`posShots${i}`];
+    if (!el || !sh) continue;
+    el.classList.remove('active', 'done', 'transition');
+    if (i < G.posIdx) {
+      el.classList.add('done');
+      sh.textContent = G.posResults[i] ? fmtPts(G.posResults[i].total) : '✓';
+    } else if (i === G.posIdx) {
+      el.classList.add('active');
+      sh.textContent = G.posShots + '/' + G.perPos;
+    } else {
+      sh.textContent = '0/' + G.perPos;
+    }
+  }
+}
+
+// Positions-Multiplikatoren für KK 3x20 (relativ zu Liegend = 1.0)
+const POS_MULT = {
+  'Liegend': { mult: 0.70, noise: 0.05 }, // extrem präzise, fast nur 10er
+  'Kniend': { mult: 1.10, noise: 0.20 }, // stark, konstant 9-10
+  'Stehend': { mult: 1.80, noise: 0.50 }, // realistisch streut, 8-10
+};
+
+function getTargetMaxRadius() {
+  return canvas && canvas.width ? (canvas.width / 2 - 3) : 132;
+}
+
+function createShotCracks() {
+  return Array.from({ length: 7 }, (_, i) => ({
+    a: (i / 7) * Math.PI * 2 + Math.random() * 0.7,
+    len: 1.4 + Math.random()
+  }));
+}
+
+function buildFallbackShot(isBot) {
+  const dc = DIFF[G.diff] || DIFF.real;
+  const sig = SIGMA[G.dist] || SIGMA['50'];
+  let botSig;
+
+  if (G.is3x20 && G.weapon === 'kk' && G.positions.length > 0) {
+    const posName = G.positions[G.posIdx] || 'Liegend';
+    const pm = POS_MULT[posName] || POS_MULT['Stehend'];
+    botSig = sig * dc.mult * pm.mult + (dc.noise * pm.mult + pm.noise) * Math.random();
+  } else if (G.weapon === 'kk' && !G.is3x20) {
+    const KK60_BASE = { easy: 15.4, real: 13.4, hard: 11.3, elite: 9.8 };
+    const KK60_NOISE = { easy: 2.5, real: 1.5, hard: 0.8, elite: 0.2 };
+    botSig = (KK60_BASE[G.diff] ?? 13.4) + (KK60_NOISE[G.diff] ?? 1.5) * Math.random();
+  } else if (G.discipline === 'lg40') {
+    const LG40_BASE = { easy: 22.7, real: 17.2, hard: 12.5, elite: 8.8 };
+    const LG40_NOISE = { easy: 3, real: 2, hard: 1, elite: 0.2 };
+    botSig = (LG40_BASE[G.diff] ?? 17.2) + (LG40_NOISE[G.diff] ?? 2) * Math.random();
+  } else if (G.discipline === 'lg60') {
+    const LG60_BASE = { easy: 16.6, real: 12.9, hard: 9.4, elite: 7.9 };
+    const LG60_NOISE = { easy: 2, real: 1.5, hard: 0.8, elite: 0.2 };
+    botSig = (LG60_BASE[G.diff] ?? 12.9) + (LG60_NOISE[G.diff] ?? 1.5) * Math.random();
+  } else {
+    botSig = sig * dc.mult + dc.noise * Math.random();
+  }
+
+  if (!isBot) botSig *= 1.1;
+
+  const dx = gauss(botSig);
+  const dy = gauss(botSig);
+  const scored = scoreHit(dx, dy);
+
+  return {
+    dx,
+    dy,
+    pts: scored.pts,
+    label: scored.label,
+    isX: scored.isX,
+    wholePts: Math.floor(scored.pts),
+    errorType: 'fallback_gauss'
+  };
+}
+
+function buildCurrentBotPlan() {
+  if (typeof BattleBalance === 'undefined') return null;
+
+  try {
+    return BattleBalance.generateBotBattlePlan(
+      G.discipline,
+      G.diff,
+      `${Date.now()}:${G.discipline}:${G.diff}:${Math.random()}`
+    );
+  } catch (error) {
+    console.warn('Balance plan generation failed, using fallback bot shot logic.', error);
+    return null;
+  }
+}
+
+function consumePlannedBotShot() {
+  if (!G.botPlan) {
+    G.botPlan = buildCurrentBotPlan();
+  }
+  if (!G.botPlan || !Array.isArray(G.botPlan.shots)) return null;
+
+  const planShot = G.botPlan.shots[G.botShots.length];
+  if (!planShot) return null;
+
+  const radius = getTargetMaxRadius();
+  return {
+    dx: planShot.nx * radius,
+    dy: planShot.ny * radius,
+    pts: planShot.pts,
+    label: planShot.label,
+    isX: planShot.isX,
+    wholePts: planShot.wholePts,
+    position: planShot.position || null,
+    errorType: 'planned_balance'
+  };
+}
+
+function fireSingleShot(isBot = true) {
+  if (isBot && G.botShotsLeft <= 0) return false;
+  if (!isBot && G.playerShotsLeft <= 0) return false;
+
+  let bdx, bdy, dominantError = 'wobble', plannedShot = null;
+
+  // DEAKTIVIERT: AdaptiveBotSystem-Physik produziert Scores die nicht
+  // zu den Schwierigkeitsbeschreibungen passen (z.B. "~360-375 Pkt").
+  // Immer kalibrierte Gauß-Sigma-Werte nutzen.
+  {
+    // Fallback oder Spieler-Schuss: Bestehende Gauß-Logik
+    const dc = DIFF[G.diff] || DIFF.real;
+    const sig = SIGMA[G.dist] || SIGMA['50'];
+
+    // Sigma-Berechnung je nach Disziplin (kalibriert per Rayleigh-Verteilung)
+    let botSig;
+    if (G.is3x20 && G.weapon === 'kk' && G.positions.length > 0) {
+      // KK 3x20: Positions-spezifischer Sigma (Liegend/Kniend/Stehend)
+      const posName = G.positions[G.posIdx] || 'Liegend';
+      const pm = POS_MULT[posName] || POS_MULT['Stehend'];
+      botSig = sig * dc.mult * pm.mult + (dc.noise * pm.mult + pm.noise) * Math.random();
+    } else if (G.weapon === 'kk' && !G.is3x20) {
+      // KK 50m/100m (60 Schuss Liegend): kalibriert auf 580–614 Zehntel
+      const KK60_BASE = { easy: 15.4, real: 13.4, hard: 11.3, elite: 9.8 };
+      const KK60_NOISE = { easy: 2.5, real: 1.5, hard: 0.8, elite: 0.2 };
+      botSig = (KK60_BASE[G.diff] ?? 13.4) + (KK60_NOISE[G.diff] ?? 1.5) * Math.random();
+    } else if (G.discipline === 'lg40') {
+      // LG 40 (40 Schuss, 10m): kalibriert auf 360–412 Zehntel
+      const LG40_BASE = { easy: 22.7, real: 17.2, hard: 12.5, elite: 8.8 };
+      const LG40_NOISE = { easy: 3, real: 2, hard: 1, elite: 0.2 };
+      botSig = (LG40_BASE[G.diff] ?? 17.2) + (LG40_NOISE[G.diff] ?? 2) * Math.random();
+    } else if (G.discipline === 'lg60') {
+      // LG 60 (60 Schuss, 10m): kalibriert auf 575–622 Zehntel
+      const LG60_BASE = { easy: 16.6, real: 12.9, hard: 9.4, elite: 7.9 };
+      const LG60_NOISE = { easy: 2, real: 1.5, hard: 0.8, elite: 0.2 };
+      botSig = (LG60_BASE[G.diff] ?? 12.9) + (LG60_NOISE[G.diff] ?? 1.5) * Math.random();
+    } else {
+      botSig = sig * dc.mult + dc.noise * Math.random();
+    }
+
+    // Wenn Spieler schießt: Etwas mehr Varianz, falls nicht explizit trainiert
+    if (!isBot) botSig *= 1.1;
+
+    bdx = gauss(botSig);
+    bdy = gauss(botSig);
+  }
+
+  if (isBot) {
+    plannedShot = consumePlannedBotShot();
+    if (plannedShot) {
+      bdx = plannedShot.dx;
+      bdy = plannedShot.dy;
+      dominantError = plannedShot.errorType || 'planned_balance';
+    }
+  }
+
+  const bRes = plannedShot
+    ? { pts: plannedShot.pts, label: plannedShot.label, isX: plannedShot.isX }
+    : scoreHit(bdx, bdy);
+  const wholePts = plannedShot?.wholePts ?? Math.floor(bRes.pts);
+
+  if (isBot) {
+    G.botShots.push({
+      dx: bdx, dy: bdy, pts: bRes.pts, label: bRes.label, isX: bRes.isX,
+      errorType: dominantError,
+      position: plannedShot?.position || null,
+      cracks: createShotCracks()
+    });
+
+    if (G.is3x20 && G.weapon === 'kk') {
+      G._botTotalTenths = (G._botTotalTenths || 0) + wholePts * 10;
+      G.botTotal = G._botTotalTenths / 10;
+    } else {
+      G._botTotalTenths = (G._botTotalTenths || 0) + Math.round(bRes.pts * 10);
+      G.botTotal = G._botTotalTenths / 10;
+    }
+
+    if (!G.is3x20) {
+      G.botTotalInt += Math.floor(bRes.pts);
+    }
+    G.botShotsLeft--;
+  } else {
+    G.playerShotsLeft--;
+    if (G.is3x20 && G.weapon === 'kk') {
+      G._playerTotalTenths = (G._playerTotalTenths || 0) + wholePts * 10;
+      G.playerTotal = G._playerTotalTenths / 10;
+      G.playerTotalInt += wholePts;
+    } else {
+      G._playerTotalTenths = (G._playerTotalTenths || 0) + Math.round(bRes.pts * 10);
+      G.playerTotal = G._playerTotalTenths / 10;
+      G.playerTotalInt += Math.floor(bRes.pts);
+    }
+    // Spieler-Schuss auf der sichtbaren Zielscheibe speichern
+    G.targetShots.push({
+      dx: bdx, dy: bdy, pts: bRes.pts, label: bRes.label, isX: bRes.isX,
+      cracks: createShotCracks()
+    });
+  }
+
+  // NEU: Haptisches Feedback beim Schuss
+  if (typeof MobileFeatures !== 'undefined') {
+    MobileFeatures.hapticShot();
+    if (bRes.pts >= 10) MobileFeatures.hapticHit();
+    else if (bRes.pts <= 5) MobileFeatures.hapticMiss();
+  }
+
+  return { ...bRes, dx: bdx, dy: bdy, position: plannedShot?.position || null };
+}
+
+function skipProbe() {
+  if (!G.probeActive) return;
+
+  G.probeActive = false;
+  G.probeSecsLeft = 0;
+  DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit übersprungen!</b> – Bot schießt jetzt!';
+  DOM.skipProbeBtn.style.display = 'none';
+
+  // Abbrechen des verzögerten Bot-Starts vom startBattle()
+  if (G._botStartTimeout) {
+    clearTimeout(G._botStartTimeout);
+    G._botStartTimeout = null;
+  }
+
+  // Starte Bot-Auto-Shoot sofort (falls noch nicht gestartet)
+  if (!G.botStarted) {
+    if (G._botInterval) clearTimeout(G._botInterval);
+    G.botStarted = true;
+    startBotAutoShoot();
+  }
+}
+
+function doBattleFire() {
+  if (G.playerShotsLeft <= 0) return;
+  if (G.is3x20 && G.transitionSecsLeft > 0) {
+    const transitionName = G.transitionLabel || 'Pause';
+    G.transitionSecsLeft = 0;
+    G.transitionLabel = '';
+    DOM.lastShotTxt.innerHTML = `▶️ <b>${transitionName}</b> vorzeitig beendet - weiter schießen.`;
+  }
+  // Probezeit beenden und Bot starten, wenn beim Schießen noch Probezeit aktiv ist
+  if (G.probeActive) {
+    G.probeActive = false;
+    G.probeSecsLeft = 0;
+    DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit beendet!</b> – Reguläre Zeit gestartet. Bot schießt jetzt!';
+    DOM.skipProbeBtn.style.display = 'none';
+
+    // Abbrechen des verzögerten Bot-Starts vom startBattle()
+    if (G._botStartTimeout) {
+      clearTimeout(G._botStartTimeout);
+      G._botStartTimeout = null;
+    }
+
+    // Starte Bot-Auto-Shoot sofort (falls noch nicht gestartet)
+    if (!G.botStarted) {
+      if (G._botInterval) clearTimeout(G._botInterval);
+      G.botStarted = true;
+      startBotAutoShoot();
+    }
+  }
+
+  // ── Spieler schießt in echt → nur Zähler runterzählen ──
+  const count = G.burst ? Math.min(5, G.playerShotsLeft) : 1;
+  G.playerShotsLeft -= count;
+
+  // ── Bot-Schüsse synchronisieren ──────────────────────
+  const _botBefore = G.botShots.length;
+  syncBotScoreToPlayerProgress();
+  const results = G.botShots.slice(_botBefore);
+  // Bot-Treffer auf der sichtbaren Zielscheibe anzeigen
+  results.forEach(s => {
+    G.targetShots.push({
+      dx: s.dx, dy: s.dy, pts: s.pts, label: s.label, isX: s.isX,
+      cracks: s.cracks
+    });
+  });
+
+  // FX — kein overflow-Toggle (verursachte hellgrünen Flackerstreifen unten)
+  const f = DOM.muzzleFlash;
+  f.style.transition = 'none'; f.style.opacity = '1';
+  setTimeout(() => {
+    f.style.transition = 'opacity .22s'; f.style.opacity = '0';
+  }, 55);
+  document.body.classList.remove('shaking');
+  void document.body.offsetWidth;
+  document.body.classList.add('shaking');
+  setTimeout(() => document.body.classList.remove('shaking'), 320);
+  // Sound + Haptic beim Spieler-Schuss
+  if (typeof Sounds !== 'undefined') Sounds.shot();
+  if (typeof Haptics !== 'undefined') Haptics.shot();
+
+  // ── Treffer-Sound je nach Ringzahl ──────────
+  if (results.length > 0 && typeof Sounds !== 'undefined') {
+    const best = results.reduce((a, b) => b.pts > a.pts ? b : a);
+    if (best.isX || best.pts >= 10) Sounds.bullseye();
+    else if (best.pts >= 7) Sounds.hit();
+    else Sounds.lowHit();
+  }
+
+  // ── Bot-Pills ins Log einfügen ────────────────────────
+  results.forEach(bRes => {
+    const pillCls = bRes.isX ? 'x' : bRes.pts >= 9 ? 'hi' : bRes.pts >= 6 ? 'mid' : bRes.pts >= 1 ? 'lo' : 'miss';
+    // KK 3x20: nur ganze Ringe anzeigen
+    const pillTxt = (G.is3x20 && G.weapon === 'kk')
+      ? String(Math.floor(bRes.pts))
+      : (bRes.isX ? `✦${fmtPts(bRes.pts)}` : fmtPts(bRes.pts));
+
+    if (G.is3x20) {
+      // Add pill to current position group via cache
+      const container = DOM.slPills[G.posIdx];
+      if (container) {
+        const pill = document.createElement('span');
+        pill.className = 'sl-pill ' + pillCls;
+        pill.textContent = '🤖' + pillTxt;
+        container.appendChild(pill);
+      }
+      // Update position tracking
+      G.posShots++;
+      const pr = G.posResults[G.posIdx];
+      // KK 3x20: nur ganze Ringe akkumulieren
+      const addTenths = (G.weapon === 'kk') ? Math.floor(bRes.pts) * 10 : Math.round(bRes.pts * 10);
+      pr._tenths = (pr._tenths || 0) + addTenths;
+      pr.total = G.weapon === 'kk' ? Math.floor(pr._tenths / 10) : pr._tenths / 10;
+      pr.int = (pr.int || 0) + Math.floor(bRes.pts);
+      if (!pr.shots) pr.shots = [];
+      pr.shots.push({ dx: bRes.dx ?? 0, dy: bRes.dy ?? 0 });
+
+      // Position complete?
+      if (G.posShots >= G.perPos && G.posIdx < G.positions.length - 1) {
+        const donePos = G.positions[G.posIdx];
+        const doneRes = G.posResults[G.posIdx];
+        const nextPosIdx = G.posIdx + 1;
+        const nextPosName = G.positions[nextPosIdx];
+        const nextEl = DOM[`posItem${nextPosIdx}`];
+        if (nextEl) { nextEl.classList.add('transition'); setTimeout(() => nextEl.classList.remove('transition'), 450); }
+        if (typeof Sounds !== 'undefined') Sounds.positionChange();
+        if (typeof Haptics !== 'undefined') Haptics.positionChange();
+
+        G.posIdx = nextPosIdx;
+        G.posShots = 0;
+        beginKK3x20Transition(nextPosIdx);
+
+        if (G.transitionSecsLeft > 0) {
+          DOM.lastShotTxt.innerHTML =
+            `✅ <b>${donePos}</b> abgeschlossen! Teilergebnis: <b>${fmtPts(doneRes.total)} Pkt</b><br>` +
+            `⏸ <b>${G.transitionLabel}</b> (${Math.round(G.transitionSecsLeft / 60)} Min) · danach <b>${nextPosName}</b>`;
+        } else {
+          DOM.lastShotTxt.innerHTML =
+            `✅ <b>${donePos}</b> abgeschlossen! Teilergebnis: <b>${fmtPts(doneRes.total)} Pkt</b><br>` +
+            `➡️ Weiter mit <b>${nextPosName}</b>`;
+        }
+
+        setTimeout(() => updatePosBar(), 200);
+      } else {
+        updatePosBar();
+      }
+      // Double rAF ensures scrollHeight is current after layout update
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (DOM.shotLogWrap) {
+            DOM.shotLogWrap.scrollTop = DOM.shotLogWrap.scrollHeight;
+          }
+        });
+      });
+    } else {
+      // Flat log: show last 10
+      if (DOM.shotLog) {
+        const pill = document.createElement('span');
+        pill.className = 'sl-pill ' + pillCls;
+        pill.textContent = '🤖' + pillTxt;
+        DOM.shotLog.appendChild(pill);
+        while (DOM.shotLog.children.length > 10) DOM.shotLog.removeChild(DOM.shotLog.firstChild);
+      }
+    }
+  });
+
+  // ── Info text (nur Bot-Ergebnis) ────────────────────────────────
+  const mkBotScore = () => isKK3x20WholeRingsOnly()
+    ? `${G.botTotalInt}`
+    : `${fmtPts(G.botTotal)} <span style="color:rgba(240,130,110,.45);font-size:.85em;">(${G.botTotalInt} ganze)</span>`;
+
+  if (results.length === 0) {
+    // Bot hat bereits alle Schüsse abgefeuert
+    DOM.lastShotTxt.innerHTML = `🤖 Bot Gesamt: <b>${mkBotScore()}</b>`;
+  } else if (count > 1 && results.length > 1) {
+    const sumPts = results.reduce((a, r) => a + r.pts, 0);
+    const xCount = results.filter(r => r.isX).length;
+    const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
+    const sumDisp = isKK3x20WholeRingsOnly() ? Math.floor(sumPts) : fmtPts(Math.round(sumPts * 10) / 10);
+    if (!G.is3x20) DOM.lastShotTxt.innerHTML =
+      `🤖 ⚡ <b>5er-Salve</b>: +<b>${sumDisp}</b>${xStr} &nbsp;|&nbsp; Gesamt: <b>${mkBotScore()}</b>`;
+  } else {
+    const bRes = results[results.length - 1];
+    const ptsDisp = isKK3x20WholeRingsOnly() ? Math.floor(bRes.pts) : fmtPts(bRes.pts);
+    const emoji = bRes.isX ? '✦' : bRes.pts >= 9.5 ? '🔥' : bRes.pts >= 8 ? '💥' : bRes.pts >= 6 ? '🎯' : bRes.pts >= 4 ? '👌' : bRes.pts >= 2 ? '😬' : '😅';
+    const scoreDisp = bRes.isX
+      ? `<b style="color:#ffd040;">${bRes.label} · ${ptsDisp}</b>`
+      : `<b>${bRes.label} · ${ptsDisp}</b>`;
+    if (!G.is3x20 || G.posShots < G.perPos)
+      DOM.lastShotTxt.innerHTML =
+        `🤖 ${emoji} ${scoreDisp} &nbsp;|&nbsp; Gesamt: <b>${mkBotScore()}</b>`;
+  }
+
+  setTimeout(() => {
+    drawTarget(G.targetShots);
+    updateBattleUI();
+    if (G.playerShotsLeft <= 0) {
+      clearBattleTimers();
+      if (G.burst) DOM.battleBurstBtn.disabled = true;
+      else DOM.battleFireBtn.disabled = true;
+      DOM.battleTag.textContent = `◆ ${G.maxShots} SCHUSS ABGEFEUERT ◆`;
+      if (G.is3x20) {
+        updatePosBar();
+        DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot: <b>${G.botTotalInt} Pkt</b>`;
+      } else {
+        DOM.lastShotTxt.innerHTML = `🏁 Deine Schüsse fertig! Bot: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)}</b>.`;
+      }
+      setTimeout(() => goToEntry(), 1400);
+    }
+  }, 160);
+}
+
+function endBattleEarly() { clearBattleTimers(); goToEntry(); }
+
+function goToEntry() {
+  const kk3x20 = isKK3x20WholeRingsOnly();
+  DOM.botFinalPts.textContent = kk3x20 ? String(G.botTotalInt) : fmtPts(G.botTotal);
+  DOM.botFinalInt.textContent = G.botTotalInt;
+  const avg = G.botShots.length > 0
+    ? (kk3x20 ? (G.botTotalInt / G.botShots.length).toFixed(1) : (G.botTotal / G.botShots.length).toFixed(1))
+    : '–';
+  const xCount = G.botShots.filter(s => s.isX).length;
+  const xStr = xCount > 0 ? ` · ${xCount}× ✦X` : '';
+
+  // Zehntel-Spalte und Trennstrich bei KK 3x20 verstecken
+  // KK 50m/100m zeigen Zehntel weiterhin an
+  const hideZehntel = G.is3x20 && G.weapon === 'kk';
+  if (DOM.botFinalPtsCol) DOM.botFinalPtsCol.style.display = hideZehntel ? 'none' : '';
+  if (DOM.botFinalDivider) DOM.botFinalDivider.style.display = hideZehntel ? 'none' : '';
+  // Zehntel + Ganze: bei KK 3x20 nur Ganze (heller), bei LG und KK 50m/100m beide hell
+  DOM.botFinalInt.style.color = 'rgba(240,130,110,1)';
+  DOM.botFinalInt.style.fontSize = hideZehntel ? '2.6rem' : '2rem';
+  const ganzeSpan = DOM.botFinalInt.nextElementSibling;
+  if (ganzeSpan) ganzeSpan.style.color = 'rgba(240,130,110,.75)';
+  // Zehntel-Spalte bei LG + KK 50m/100m hell
+  if (!hideZehntel) {
+    DOM.botFinalPts.style.color = '#f08070';
+    const zehntelSpan = DOM.botFinalPts.nextElementSibling;
+    if (zehntelSpan) zehntelSpan.style.color = 'rgba(240,130,110,.75)';
+  }
+
+  if (G.is3x20) {
+    const parts = G.posResults.map((r, i) => `${G.posIcons[i]} ${r.int}`).join('  ');
+    DOM.botFinalDetail.textContent = `${parts} · Ø ${avg} Pkt${xStr}`;
+  } else {
+    DOM.botFinalDetail.textContent = `aus ${G.botShots.length} Schuss · Ø ${avg} Pkt${xStr}`;
+  }
+  // Eingabefeld bleibt leer, da der Spieler seine realen Werte eintragen soll
+  DOM.playerInp.value = '';
+  if (DOM.playerInpInt) DOM.playerInpInt.value = '';
+  clearInpState();
+  if (DOM.autoInt) {
+    DOM.autoIntVal.textContent = '–';
+    DOM.autoInt.className = 'auto-int';
+  }
+
+  // Eingabefeld: KK 3x20 = nur Ganze Ringe; KK 50m/100m + LG = Zehntel & Ganze
+  const kk3x20Only = G.is3x20 && G.weapon === 'kk';
+  DOM.playerInp.style.display = kk3x20Only ? 'none' : '';
+  setInpHint(kk3x20Only
+    ? 'Bitte deine geschossenen Ringe eintragen'
+    : 'Bitte Zehntel und Ganze eintragen', false);
+  const ecLbl = DOM.playerInp.closest('.ec-row')?.previousElementSibling;
+  if (ecLbl) ecLbl.textContent = kk3x20Only
+    ? '◈ Dein Ergebnis eingeben (Ganze Ringe)'
+    : '◈ Dein Ergebnis eingeben (Zehntel & Ganze)';
+
+  // Foto-Button einfügen (immer sichtbar, auch wenn ImageCompare fehlt)
+  const icSlot = document.getElementById('icGameOverSlot');
+  if (icSlot) {
+    icSlot.innerHTML = '';
+    const btn = document.createElement('button');
+    btn.className = 'ic-go-upload-btn';
+    btn.innerHTML = '<span class="ic-go-upload-ico">📸</span> Wettkampf-Foto vergleichen (Beta)';
+    btn.onclick = () => {
+      if (typeof ImageCompare !== 'undefined') {
+        // NEU: Multi-Score Detection aktivieren, falls verfügbar
+        if (typeof MultiScoreDetection !== 'undefined' && MultiScoreDetection.CONFIG.enableRegionDetection) {
+          ImageCompare.openWithMultiScore(kk3x20 ? G.botTotalInt : G.botTotal, kk3x20, G.discipline);
+        } else {
+          ImageCompare.open(kk3x20 ? G.botTotalInt : G.botTotal, kk3x20, G.discipline);
+        }
+      } else {
+        alert('Foto-Vergleich wird geladen. Bitte Seite neu laden.');
+      }
+    };
+    icSlot.appendChild(btn);
+  }
+  showScreen('screenEntry');
+}
+
+function setInpHint(msg, isErr) {
+  if (!DOM.inpHint) return;
+  DOM.inpHint.textContent = msg;
+  DOM.inpHint.style.color = isErr ? '#e84040' : 'rgba(180,230,100,.7)';
+}
+
+function clearInpState() {
+  if (DOM.playerInp) { DOM.playerInp.classList.remove('inp-error', 'inp-ok'); }
+  if (DOM.playerInpInt) { DOM.playerInpInt.classList.remove('inp-error', 'inp-ok'); }
+  setInpHint('', false);
+}
+
+function onPlayerInput() {
+  const raw = DOM.playerInp.value;
+  if (raw === '') { clearInpState(); return; }
+  const val = parseFloat(raw);
+  const maxVal = G.maxShots * 10.9;
+  if (isNaN(val) || val < 0 || val > maxVal) {
+    DOM.playerInp.classList.add('inp-error');
+    DOM.playerInp.classList.remove('inp-ok');
+    setInpHint(`Max. ${maxVal.toFixed(1)} Zehntel (${G.maxShots} × 10.9)`, true);
+  } else {
+    DOM.playerInp.classList.remove('inp-error');
+    DOM.playerInp.classList.add('inp-ok');
+    setInpHint('', false);
+  }
+}
+
+function onPlayerInpInt() {
+  const raw = DOM.playerInpInt.value;
+  if (raw === '') { DOM.playerInpInt.classList.remove('inp-error', 'inp-ok'); return; }
+  const val = parseInt(raw);
+  const maxVal = G.maxShots * 10;
+  if (isNaN(val) || val < 0 || val > maxVal) {
+    DOM.playerInpInt.classList.add('inp-error');
+    DOM.playerInpInt.classList.remove('inp-ok');
+    setInpHint(`Max. ${maxVal} ganze Ringe (${G.maxShots} × 10)`, true);
+  } else {
+    DOM.playerInpInt.classList.remove('inp-error');
+    DOM.playerInpInt.classList.add('inp-ok');
+    setInpHint('', false);
+  }
+}
+
+function calcResult(e, detectedShots = null) {
+  clearInpState();
+  const kk3x20 = isKK3x20WholeRingsOnly();
+
+  if (kk3x20) {
+    const rawInt = DOM.playerInpInt.value.trim();
+    const valInt = parseInt(rawInt);
+    const maxInt = G.maxShots * 10;
+    if (isNaN(valInt) || valInt < 0) {
+      DOM.playerInpInt.classList.add('inp-error');
+      setInpHint('Bitte eine gültige Ringzahl eingeben', true);
+      DOM.playerInpInt.focus(); return;
+    }
+    if (valInt > maxInt) {
+      DOM.playerInpInt.classList.add('inp-error');
+      setInpHint(`Max. ${maxInt} Ringe möglich`, true);
+      DOM.playerInpInt.focus(); return;
+    }
+    showGameOver(valInt, G.botTotalInt, null, valInt, detectedShots);
+  } else {
+    const raw = DOM.playerInp.value.trim();
+    const rawInt = DOM.playerInpInt.value.trim();
+    const val = parseFloat(raw);
+    const valInt = parseInt(rawInt);
+    const maxVal = G.maxShots * 10.9;
+    const maxInt = G.maxShots * 10;
+
+    if (isNaN(val) || val < 0) {
+      DOM.playerInp.classList.add('inp-error');
+      setInpHint('Bitte Zehntelwert eingeben (z.B. 405.2)', true);
+      DOM.playerInp.focus(); return;
+    }
+    if (val > maxVal) {
+      DOM.playerInp.classList.add('inp-error');
+      setInpHint(`Max. ${maxVal.toFixed(1)} Zehntel möglich`, true);
+      DOM.playerInp.focus(); return;
+    }
+    if (isNaN(valInt) || valInt < 0) {
+      DOM.playerInpInt.classList.add('inp-error');
+      setInpHint('Bitte ganzen Ringwert eingeben (z.B. 392)', true);
+      DOM.playerInpInt.focus(); return;
+    }
+    if (valInt > maxInt) {
+      DOM.playerInpInt.classList.add('inp-error');
+      setInpHint(`Max. ${maxInt} ganze Ringe möglich`, true);
+      DOM.playerInpInt.focus(); return;
+    }
+    const finalVal = Math.round(val * 10) / 10;
+    showGameOver(finalVal, G.botTotal, null, valInt, detectedShots);
+  }
+}
+
+function quickResult(res) {
+  const kk3x20 = isKK3x20WholeRingsOnly();
+  // Stelle sicher, dass der Foto-Button in screenOver angezeigt wird
+  const icSlot = document.getElementById('icGameOverSlot');
+  if (icSlot) {
+    icSlot.innerHTML = '';
+    const btn = document.createElement('button');
+    btn.className = 'ic-go-upload-btn';
+    btn.innerHTML = '<span class="ic-go-upload-ico">📸</span> Wettkampf-Foto vergleichen (Beta)';
+    btn.onclick = () => {
+      if (typeof ImageCompare !== 'undefined') {
+        if (typeof MultiScoreDetection !== 'undefined' && MultiScoreDetection.CONFIG.enableRegionDetection) {
+          ImageCompare.openWithMultiScore(kk3x20 ? G.botTotalInt : G.botTotal, kk3x20, G.discipline);
+        } else {
+          ImageCompare.open(kk3x20 ? G.botTotalInt : G.botTotal, kk3x20, G.discipline);
+        }
+      } else {
+        alert('Foto-Vergleich wird geladen. Bitte Seite neu laden.');
+      }
+    };
+    icSlot.appendChild(btn);
+  }
+
+  if (res === 'win') {
+    if (kk3x20) {
+      showGameOver(G.botTotalInt + 1, G.botTotalInt, 'Schnellauswahl: Gewonnen', G.botTotalInt + 1);
+    } else {
+      showGameOver(G.botTotal + 0.1, G.botTotal, 'Schnellauswahl: Gewonnen', G.botTotalInt + 1);
+    }
+  } else if (kk3x20) {
+    showGameOver(
+      Math.max(0, G.botTotalInt - 1),
+      G.botTotalInt,
+      'Schnellauswahl: Verloren',
+      Math.max(0, G.botTotalInt - 1)
+    );
+  } else {
+    showGameOver(
+      Math.max(0, G.botTotal - 0.1),
+      G.botTotal,
+      'Schnellauswahl: Verloren',
+      Math.max(0, G.botTotalInt - 1)
+    );
+  }
+}
+
+// ── Trefferbild-Analyse: eine Gruppe (Stellung oder Gesamt) ──────────────
+function analyzeShotGroup(shots, positionName) {
+  if (!shots || shots.length < 3) return null;
+
+  const xs = shots.map(s => s.dx);
+  const ys = shots.map(s => s.dy);
+  const n = shots.length;
+
+  const meanX = xs.reduce((a, b) => a + b, 0) / n;
+  const meanY = ys.reduce((a, b) => a + b, 0) / n;
+  const stdX = Math.sqrt(xs.reduce((a, v) => a + (v - meanX) ** 2, 0) / n);
+  const stdY = Math.sqrt(ys.reduce((a, v) => a + (v - meanY) ** 2, 0) / n);
+  const ratio = stdX > 0 && stdY > 0 ? stdX / stdY : 1;
+  const spread = (stdX + stdY) / 2;
+
+  const isHoriz = ratio > 1.35;
+  const isVert = ratio < 0.75;
+
+  // Schwellwerte je nach Stellung
+  const spreadThresh = positionName === 'Stehend' ? 18
+    : positionName === 'Kniend' ? 14
+      : 10; // Liegend / LG / KK
+  const isSpread = spread > spreadThresh;
+
+  // ── Diopter-Korrektur (MPI = Mean Point of Impact) ──────────────────
+  // Canvas-Koordinaten: +dx = rechts, +dy = unten
+  // Schießsport-Konvention: Schwerpunkt links → Diopter nach RECHTS
+  const BIAS_THRESH = 8; // px — unter diesem Wert kein Hinweis
+  let diopterLines = [];
+  if (Math.abs(meanX) > BIAS_THRESH) {
+    const dir = meanX < 0 ? 'RECHTS' : 'LINKS';
+    const arrow = meanX < 0 ? '→' : '←';
+    diopterLines.push(`${arrow} Diopter nach <b>${dir}</b> drehen`);
+  }
+  if (Math.abs(meanY) > BIAS_THRESH) {
+    const dir = meanY < 0 ? 'HOCH' : 'TIEF';
+    const arrow = meanY < 0 ? '↑' : '↓';
+    diopterLines.push(`${arrow} Diopter nach <b>${dir}</b> drehen`);
+  }
+  const hasDiopter = diopterLines.length > 0;
+
+  // ── Muster-Klassifikation je nach Stellung ──────────────────────────
+  let icon, shape, tip, boxCls, stabilityAdvice = '';
+
+  if (positionName === 'Kniend') {
+    if (isVert) {
+      icon = '↕️'; boxCls = 'ab-vert';
+      shape = 'Vertikales Oval – typisch für Kniend';
+      tip = 'Das <b>vertikale Oval</b> ist für die Kniendstellung normal und entsteht durch Atem- und Pulsbewegung. Achte auf eine gleichmäßige Atemtechnik.';
+      if (isSpread) stabilityAdvice = 'Die Streuung ist jedoch zu groß – <b>Trockentraining</b> für mehr Stabilität empfohlen.';
+    } else if (isHoriz) {
+      icon = '↔️'; boxCls = 'ab-horiz';
+      shape = 'Horizontales Oval – ungewöhnlich für Kniend';
+      tip = 'Ein <b>horizontales Oval</b> in der Kniendstellung deutet auf seitliches Kippen des Oberkörpers hin. Überprüfe deine Seitenbalance und Fußstellung.';
+      stabilityAdvice = '<b>Achte mehr auf die Stabilität</b> deines seitlichen Gleichgewichts.';
+    } else if (isSpread) {
+      icon = '🌐'; boxCls = 'ab-wide';
+      shape = 'Breite Streuung – Stabilität prüfen';
+      tip = 'Die Streuung ist für Kniend zu groß. Überprüfe deinen Anschlag und die Körperspannung.';
+      stabilityAdvice = '<b>Trockentraining nötig</b> – übe den Kniend-Anschlag ohne Munition.';
+    } else {
+      icon = '🎯'; boxCls = 'ab-compact';
+      shape = 'Kompakter Kreis – ausgezeichnet für Kniend!';
+      tip = 'Für Kniend ein <b>hervorragendes Trefferbild</b>. Deine Balance und Atemtechnik sind sehr stabil.';
+    }
+  } else if (positionName === 'Stehend') {
+    if (isSpread) {
+      icon = '🌐'; boxCls = 'ab-wide';
+      shape = 'Breites, unregelmäßiges Oval – typisch für Stehend';
+      tip = 'Die <b>breite Streuung</b> ist für die Stehendstellung normal. Fokussiere dich auf eine ruhige Abzugstechnik und gleichmäßige Körperspannung.';
+      if (spread > spreadThresh * 1.6) stabilityAdvice = '<b>Trockentraining nötig</b> – die Streuung ist für Wettkampfniveau zu groß.';
+    } else if (isHoriz) {
+      icon = '↔️'; boxCls = 'ab-horiz';
+      shape = 'Horizontales Oval – Herzschlag-Einfluss';
+      tip = 'Ein <b>horizontales Oval</b> beim Stehend-Schießen deutet auf Herzschlag-Einfluss hin. Schieß in der <b>Pulspause</b>.';
+    } else if (isVert) {
+      icon = '↕️'; boxCls = 'ab-vert';
+      shape = 'Vertikales Oval – Atemeinfluss';
+      tip = 'Ein <b>vertikales Oval</b> beim Stehend-Schießen entsteht durch Atemschwankungen. Halte den Atem kurz an oder schieß am Ende der Ausatmung.';
+    } else {
+      icon = '🎯'; boxCls = 'ab-compact';
+      shape = 'Überraschend kompakt für Stehend!';
+      tip = 'Ein <b>kompaktes Trefferbild</b> in der Stehendstellung ist eine starke Leistung. Deine Körperstabilität ist ausgezeichnet.';
+    }
+  } else {
+    // Liegend / LG / KK 50m / KK 100m
+    if (isHoriz) {
+      icon = '↔️'; boxCls = 'ab-horiz';
+      shape = 'Horizontales Oval – Herzschlag-Einfluss?';
+      tip = 'Ein <b>horizontales Oval</b> deutet oft auf <b>Herzschlag-Einfluss</b> hin. Schieß in der <b>Pulspause</b> zwischen zwei Herzschlägen.';
+      if (isSpread) stabilityAdvice = '<b>Achte mehr auf die Stabilität</b> – die Streuung ist zu groß für Liegend.';
+    } else if (isVert) {
+      icon = '↕️'; boxCls = 'ab-vert';
+      shape = 'Vertikales Oval – Atemeinfluss?';
+      tip = 'Ein <b>vertikales Oval</b> entsteht häufig durch <b>Atemschwankungen</b>. Halte den Atem kurz an oder schieß am Ende einer natürlichen Ausatmung.';
+    } else if (isSpread) {
+      icon = '🌐'; boxCls = 'ab-wide';
+      shape = 'Breite Streuung – Technik prüfen';
+      tip = 'Die <b>breite Streuung</b> deutet auf wechselnde Einflüsse hin (Atem, Abzug, Anschlag). Achte auf eine konstante Anschlagsposition.';
+      stabilityAdvice = '<b>Trockentraining nötig</b> – übe den Liegend-Anschlag für mehr Konstanz.';
+    } else {
+      icon = '🎯'; boxCls = 'ab-compact';
+      shape = 'Kompakter Kreis – sauberes Trefferbild!';
+      tip = 'Ein <b>kompakter, runder Kreis</b> ist das Ziel. Anschlag, Atem und Abzug sind gut aufeinander abgestimmt.';
+    }
+  }
+
+  return {
+    icon, shape, tip, boxCls, stabilityAdvice, hasDiopter, diopterLines,
+    meanX, meanY, stdX, stdY, spread, n
+  };
+}
+
+// ── Haupt-Analyse-Funktion: rendert #analysisResult ─────────────────────
+function analyzeHitPattern(shots) {
+  if (!DOM.analysisResult) return;
+
+  // ── KK 3×20: drei separate Boxen pro Stellung ───────────────────────
+  if (G.is3x20 && G.posResults.length > 0) {
+    const boxes = G.positions.map((posName, i) => {
+      const pr = G.posResults[i];
+      const posShots = (pr && pr.shots) ? pr.shots : [];
+      const res = analyzeShotGroup(posShots, posName);
+      if (!res) return `<div class="analysis-box ab-neutral ab-pos-box">
+            <div class="ab-header">
+              <span class="ab-icon">${G.posIcons[i] || '🎯'}</span>
+              <span class="ab-label">◈ ${posName}</span>
+            </div>
+            <div class="ab-shape" style="color:rgba(255,255,255,.35);">Zu wenig Daten</div>
+          </div>`;
+
+      const diopterHtml = res.hasDiopter
+        ? `<div class="ab-diopter">${res.diopterLines.map(l =>
+          `<div class="ab-diopter-line">${l}</div>`).join('')}</div>`
+        : '';
+      const stabilityHtml = res.stabilityAdvice
+        ? `<div class="ab-stability">${res.stabilityAdvice}</div>`
+        : '';
+
+      return `<div class="analysis-box ${res.boxCls} ab-pos-box">
+            <div class="ab-header">
+              <span class="ab-icon">${G.posIcons[i] || '🎯'}</span>
+              <span class="ab-label">◈ ${posName.toUpperCase()}</span>
+              ${res.hasDiopter ? '<span class="ab-diopter-badge">⚙️ Diopter</span>' : ''}
+            </div>
+            <div class="ab-shape">${res.shape}</div>
+            <div class="ab-tip">${res.tip}</div>
+            ${stabilityHtml}
+            ${diopterHtml}
+            <div class="ab-stats">
+              <div class="ab-stat">
+                <div class="ab-stat-val">${res.stdX.toFixed(1)}</div>
+                <div class="ab-stat-lbl">Streu. X</div>
+              </div>
+              <div class="ab-stat">
+                <div class="ab-stat-val">${res.stdY.toFixed(1)}</div>
+                <div class="ab-stat-lbl">Streu. Y</div>
+              </div>
+              <div class="ab-stat">
+                <div class="ab-stat-val">${res.spread.toFixed(1)}</div>
+                <div class="ab-stat-lbl">Ø Radius</div>
+              </div>
+              <div class="ab-stat">
+                <div class="ab-stat-val">${res.n}</div>
+                <div class="ab-stat-lbl">Schuss</div>
+              </div>
+            </div>
+          </div>`;
+    });
+
+    DOM.analysisResult.innerHTML = `
+          <div class="ab-section-title">◈ STELLUNGSANALYSE · KK 3×20</div>
+          <div class="ab-pos-grid">${boxes.join('')}</div>`;
+    return;
+  }
+
+  // ── Einzeldisziplin (LG / KK 50m / KK 100m) ─────────────────────────
+  if (!shots || shots.length < 3) {
+    DOM.analysisResult.innerHTML = '';
+    return;
+  }
+
+  const res = analyzeShotGroup(shots, null);
+  if (!res) { DOM.analysisResult.innerHTML = ''; return; }
+
+  const diopterHtml = res.hasDiopter
+    ? `<div class="ab-diopter">${res.diopterLines.map(l =>
+      `<div class="ab-diopter-line">${l}</div>`).join('')}</div>`
+    : '';
+  const stabilityHtml = res.stabilityAdvice
+    ? `<div class="ab-stability">${res.stabilityAdvice}</div>`
+    : '';
+
+  DOM.analysisResult.innerHTML = `
+        <div class="analysis-box ${res.boxCls}">
+          <div class="ab-header">
+            <span class="ab-icon">${res.icon}</span>
+            <span class="ab-label">◈ Trefferbild-Analyse</span>
+            ${res.hasDiopter ? '<span class="ab-diopter-badge">⚙️ Diopter</span>' : ''}
+          </div>
+          <div class="ab-shape">${res.shape}</div>
+          <div class="ab-tip">${res.tip}</div>
+          ${stabilityHtml}
+          ${diopterHtml}
+          <div class="ab-stats">
+            <div class="ab-stat">
+              <div class="ab-stat-val">${res.stdX.toFixed(1)}</div>
+              <div class="ab-stat-lbl">Streuung X</div>
+            </div>
+            <div class="ab-stat">
+              <div class="ab-stat-val">${res.stdY.toFixed(1)}</div>
+              <div class="ab-stat-lbl">Streuung Y</div>
+            </div>
+            <div class="ab-stat">
+              <div class="ab-stat-val">${res.spread.toFixed(1)}</div>
+              <div class="ab-stat-lbl">Ø Radius</div>
+            </div>
+            <div class="ab-stat">
+              <div class="ab-stat-val">${res.n}</div>
+              <div class="ab-stat-lbl">Schuss</div>
+            </div>
+          </div>
+        </div>`;
+}
+
+// XP wird aus dem eigenen Ergebnis des Spielers (Ringe aus Scheibenfoto/Eingabe)
+// berechnet – nicht daraus, ob der Bot geschlagen wurde. Skaliert grob mit den
+// geschossenen Ringen (≈ Ringe/10) und ist nach oben gedeckelt.
+function awardResultXP(playerRings) {
+  const rings = Number(playerRings) || 0;
+  if (rings <= 0) return 0;
+  const xp = Math.max(1, Math.min(120, Math.round(rings / 10)));
+  if (typeof awardFlatXP === 'function') {
+    awardFlatXP(xp);
+  } else {
+    G.xp = (Number(G.xp) || 0) + xp;
+    if (typeof saveXP === 'function') saveXP();
+    if (typeof updateSchuetzenpass === 'function') updateSchuetzenpass();
+  }
+  if (typeof initDailyLoginRewards === 'function') initDailyLoginRewards();
+  return xp;
+}
+
+function showGameOver(pp, bp, reason, ppInt, detectedShots = null) {
+  G.gameDuration = G._gameStartTime > 0
+    ? Math.round((Date.now() - G._gameStartTime) / 1000)
+    : 0;
+  const kk3x20 = isKK3x20WholeRingsOnly();
+
+  // NEU: Wenn Schüsse aus Foto-Analyse vorhanden sind, zur Heatmap hinzufügen
+  if (detectedShots && Array.isArray(detectedShots) && detectedShots.length > 0) {
+    G.currentDetectedShots = detectedShots;
+    if (typeof EnhancedAnalytics !== 'undefined') {
+      EnhancedAnalytics.addRealLifeShots(detectedShots);
+    }
+  } else {
+    G.currentDetectedShots = null;
+  }
+
+  // NEU: Zielscheibe auf GameOver Screen zeichnen
+  setTimeout(() => {
+    const goCanvas = document.getElementById('goTargetCanvas');
+    if (goCanvas) {
+      const dpr = window.devicePixelRatio || 1;
+      goCanvas.width = 200 * dpr;
+      goCanvas.height = 200 * dpr;
+      // Temporärer Context für die Vorschau
+      const originalCanvas = document.getElementById('targetCanvas');
+      if (originalCanvas) {
+        const ctx = goCanvas.getContext('2d');
+        // Wir zeichnen entweder die erkannten Schüsse oder die sichtbaren Battle-Schüsse
+        if (G.currentDetectedShots && G.currentDetectedShots.length > 0) {
+          drawOnCanvas(goCanvas, G.currentDetectedShots);
+        } else {
+          drawOnCanvas(goCanvas, G.targetShots);
+        }
+      }
+    }
+  }, 100);
+
+  DOM.goP.textContent = pp >= 0 ? (kk3x20 ? Math.floor(pp) : fmtPts(pp)) : '–';
+  DOM.goB.textContent = kk3x20 ? G.botTotalInt : fmtPts(bp);
+  DOM.goPInt.textContent = ppInt != null ? ppInt : (pp >= 0 ? Math.floor(pp) : '–');
+  DOM.goBInt.textContent = G.botTotalInt;
+  DOM.goPUnit.textContent = pp >= 0 ? (kk3x20 ? '' : 'Zehntel') : '';
+
+  // Zehntel-Spalten nur bei KK 3×20 ausblenden (LG + KK 50/100m: Zehntel sichtbar)
+  const hideZehntel = kk3x20;
+  DOM.goP.style.display = hideZehntel ? 'none' : '';
+  DOM.goB.style.display = hideZehntel ? 'none' : '';
+  document.querySelectorAll('.gs-unit').forEach(el => {
+    if (el.textContent === 'Zehntel') el.style.display = hideZehntel ? 'none' : '';
+  });
+  // Ganze-Zahlen immer hell (KK größer, LG normal)
+  DOM.goPInt.style.color = 'rgba(180,230,100,1)';
+  DOM.goBInt.style.color = 'rgba(240,130,110,1)';
+  DOM.goPInt.style.fontSize = kk3x20 ? '2.2rem' : '1.2rem';
+  DOM.goBInt.style.fontSize = kk3x20 ? '2.2rem' : '1.2rem';
+  document.querySelectorAll('.gs-unit').forEach(el => {
+    if (el.textContent === 'Ganze') el.style.opacity = '0.85';
+  });
+
+  const diffCfg = DIFF[G.diff];
+  const discCfg = DISC[G.discipline];
+  const xCount = G.botShots.filter(s => s.isX).length;
+  const xStr = xCount > 0 ? ` · Bot: ${xCount}× ✦X` : '';
+  const dnfStr = G.dnf ? ' · ⏰ DNF' : '';
+  DOM.goReason.textContent = reason ||
+    `${discCfg.name} · ${G.dist} m · ${diffCfg.lbl.replace(/[^\w\s✦]/gi, '').trim()} · ${G.maxShots} Schuss${xStr}${dnfStr}`;
+
+  const useInt = kk3x20;
+  const ppCmp = useInt ? (ppInt != null ? ppInt : Math.floor(pp)) : pp;
+  const bpCmp = useInt ? G.botTotalInt : bp;
+  const diff = useInt ? (ppCmp - bpCmp) : Math.round((pp - bp) * 10) / 10;
+  const absDiff = Math.abs(diff);
+  const isElite = G.diff === 'elite';
+
+  let gameResult = 'draw';
+  const playerWinner = ppCmp > bpCmp;
+  const botWinner = bpCmp > ppCmp;
+
+  if (playerWinner) {
+    gameResult = 'win';
+    if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.win(), 300);
+    if (typeof Haptics !== 'undefined') setTimeout(() => Haptics.win(), 300);
+    DOM.goEmoji.textContent = isElite ? '🌟' : '🏆';
+    DOM.goTitle.textContent = 'DU GEWINNST!';
+    DOM.goTitle.className = 'go-title win';
+    DOM.goSub.textContent = isElite
+      ? '🤯 Profi-Bot geschlagen! Absolut legendär!'
+      : 'Scharfschützin! Der Bot hatte keine Chance.';
+    DOM.goMargin.textContent = useInt
+      ? `+${absDiff} Ringe Vorsprung`
+      : `+${fmtPts(absDiff)} Punkte Vorsprung`;
+    DOM.goMargin.className = 'go-margin win';
+    DOM.goMargin.style.display = '';
+    updateWinStreak(!G.dnf && playerWinner);
+    // Track hard/elite wins for SUN
+    if (!G.dnf && G.diff === 'hard') localStorage.setItem('sd_beat_hard', '1');
+    if (!G.dnf && G.diff === 'elite') localStorage.setItem('sd_beat_elite', '1');
+  } else if (botWinner) {
+    gameResult = 'lose';
+    if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.lose(), 300);
+    if (typeof Haptics !== 'undefined') setTimeout(() => Haptics.lose(), 300);
+    DOM.goEmoji.textContent = isElite ? '💫' : '🤖';
+    DOM.goTitle.textContent = 'BOT GEWINNT!';
+    DOM.goTitle.className = 'go-title lose';
+    DOM.goSub.textContent = isElite
+      ? 'Profi-Niveau – kaum zu schlagen. Respekt fürs Versuchen!'
+      : 'Nicht aufgeben – ruf zur Revanche!';
+    DOM.goMargin.textContent = useInt
+      ? `−${absDiff} Ringe Rückstand`
+      : `−${fmtPts(absDiff)} Punkte Rückstand`;
+    DOM.goMargin.className = 'go-margin lose';
+    DOM.goMargin.style.display = '';
+    updateWinStreak(false);
+  } else {
+    gameResult = 'draw';
+    if (typeof Sounds !== 'undefined') setTimeout(() => Sounds.draw(), 300);
+    if (typeof Haptics !== 'undefined') setTimeout(() => Haptics.draw(), 300);
+    DOM.goEmoji.textContent = '🎖️';
+    DOM.goTitle.textContent = 'UNENTSCHIEDEN!';
+    DOM.goTitle.className = 'go-title draw';
+    DOM.goSub.textContent = isElite ? 'Profi-Bot auf Augenhöhe – bist du ein Roboter?!' : 'Was für ein ausgeglichenes Duell!';
+    DOM.goMargin.textContent = 'Punktgleich!';
+    DOM.goMargin.className = 'go-margin draw';
+    DOM.goMargin.style.display = '';
+    updateWinStreak(false);
+  }
+
+  // ── XP aus dem eigenen Ergebnis (Scheibenfoto/Eingabe), unabhängig vom Bot ──
+  // Gezählt werden die tatsächlich geschossenen Ringe des Spielers – Sieg oder
+  // Niederlage gegen den Bot spielen für die XP keine Rolle mehr.
+  {
+    const isQuickXP = reason && reason.includes('Schnellauswahl');
+    const resultRings = Number(ppInt != null ? ppInt : pp) || 0;
+    if (!isQuickXP && resultRings > 0) awardResultXP(resultRings);
+  }
+
+  // Record stats + history + check SUN
+  if (!G.dnf || gameResult !== 'win') {
+    recordGameResult(gameResult, G.diff, G.weapon, pp, bp);
+
+    // NEU: Reward System tracken
+    if (typeof RewardSystem !== 'undefined') {
+      const currentStreak = G.streak || 0;
+      RewardSystem.trackGame(gameResult, G.diff, currentStreak);
+    }
+
+    // Rivalen-System: Bilanz gegen die Bot-Persönlichkeit festhalten
+    if (typeof RivalSystem !== 'undefined') {
+      RivalSystem.recordDuel({
+        result: gameResult,
+        difficulty: G.diff,
+        discipline: G.discipline,
+        playerScore: pp,
+        botScore: bp
+      });
+    }
+
+    // Quests nur bei echtem Ergebnis (OCR oder manuelle Eingabe) berechnen
+    // Schnellauswahl (reason enthält 'Schnellauswahl') wird ignoriert
+    const isQuickResult = reason && reason.includes('Schnellauswahl');
+    if (typeof DailyChallenge !== 'undefined' && !isQuickResult) {
+      const questShots = (Array.isArray(G.playerShots) && G.playerShots.length > 0)
+        ? G.playerShots.map(s => {
+          const points = Number(s.points ?? s.pts ?? s.ring ?? 0) || 0;
+          return { points, ring: Math.floor(points) };
+        })
+        : Array.from({ length: G.maxShots }, () => {
+          const fallbackPoints = (pp >= 0 ? pp : 0) / Math.max(1, G.maxShots);
+          return { points: fallbackPoints, ring: Math.floor(fallbackPoints) };
+        });
+
+      const questConsistency = (() => {
+        if (!Array.isArray(questShots) || questShots.length < 3) return 0;
+        const points = questShots.map(s => Number(s.points) || 0);
+        const mean = points.reduce((a, b) => a + b, 0) / points.length;
+        const variance = points.reduce((a, p) => a + ((p - mean) ** 2), 0) / points.length;
+        const stdDev = Math.sqrt(variance);
+        // Lower spread => higher consistency. stdDev ~0 -> 100, stdDev >=3 -> 0
+        return Math.max(0, Math.min(100, Math.round(100 - (stdDev / 3) * 100)));
+      })();
+
+      const lgStreak = Number(localStorage.getItem('sd_lg_streak') || 0);
+      const kkStreak = Number(localStorage.getItem('sd_kk_streak') || 0);
+      const legacyStreak = Number(localStorage.getItem('sd_win_streak') || 0);
+
+      const gameData = {
+        result: gameResult,
+        difficulty: G.diff,
+        weapon: G.weapon,
+        discipline: G.discipline,
+        shotCount: G.maxShots,
+        totalScore: Number(ppInt != null ? ppInt : pp) || 0,
+        shots: questShots,
+        consistency: questConsistency
+      };
+      const statsData = {
+        currentStreak: Math.max(Number(G.streak || 0), lgStreak, kkStreak, legacyStreak)
+      };
+      DailyChallenge.trackGame(gameData, statsData);
+    }
+
+    // StreakTracker: 1 Duell = +1 Streak (Mo-Fr ab 12:00)
+    if (typeof StreakTracker !== 'undefined') {
+      const streakResult = StreakTracker.recordGame();
+      if (streakResult.streakIncreased && streakResult.milestone) {
+        console.log('[Streak] Milestone erreicht:', streakResult.milestone);
+      }
+    }
+  }
+
+  // Update UI in case user views result details
+  updateSchuetzenpass();
+
+  if (DOM.analysisResult) DOM.analysisResult.innerHTML = '';
+  const totalDuels = getTotalDuels();
+
+  // Sicherstellen, dass Feedback-Plan initialisiert ist
+  ensureFeedbackSchedule();
+
+  // Share-Daten für den Teilen-Button speichern
+  const diffNames = {
+    easy: 'Einfach-Bot', real: 'Mittel-Bot',
+    hard: 'Elite-Bot', elite: 'Profi-Bot'
+  };
+  _lastShareData = {
+    kk3x20,
+    emoji: DOM.goEmoji.textContent,
+    title: DOM.goTitle.textContent,
+    resultClass: gameResult,
+    playerPts: kk3x20
+      ? String(ppInt != null ? ppInt : Math.floor(pp))
+      : fmtPts(pp),
+    botPts: kk3x20
+      ? String(G.botTotalInt)
+      : fmtPts(bp),
+    margin: DOM.goMargin.textContent,
+    diffLabel: diffNames[G.diff] || G.diff,
+    meta: `${DISC[G.discipline]?.name || G.discipline} · ${G.dist}m · ${G.maxShots} Schuss`,
+  };
+
+  // Bot-Zustandsanzeige stoppen
+  if (typeof stopBotStatusUpdates === 'function') stopBotStatusUpdates();
+
+  // Zuerst screenOver anzeigen, dann dynamisch zur Umfrage wechseln, falls nötig
+  showScreen('screenOver');
+
+  // NEW: Show v2 feedback screen with duel data
+  const result = G.playerTotal >= G.botTotal ? 'win' : G.playerTotal < G.botTotal ? 'loss' : 'draw';
+  const duelResultData = {
+    discipline: DISC[G.discipline]?.name || G.discipline,
+    opponent: G.botName || undefined,
+    result: result,
+    score: `Score: ${G.playerTotal} / ${G.botTotal}`
+  };
+
+  if (shouldShowFeedback(totalDuels)) {
+    // Instead of old prompt, show v2 feedback after short delay
+    setTimeout(() => showFeedbackScreen(totalDuels, duelResultData), 2500);
+  }
+
+  HealthyEngagement.onMatchFinished(G.gameDuration);
+
+  if (result === 'win' && window.ClubsSystem) {
+    window.ClubsSystem.recordBotDuel(G.discipline, G.playerTotal, G.botTotal);
+  }
+}
+
+/* ─── SHARE TARGET ────────────────────────── */
+window.shareTarget = async function () {
+  // Wir nutzen das goTargetCanvas (GameOver Vorschau) zum Teilen
+  const canvas = document.getElementById('goTargetCanvas') || document.getElementById('targetCanvas');
+  if (!canvas) return;
+
+  try {
+    // Blob aus Canvas erstellen
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    const file = new File([blob], 'mein-schuetzen-challenge-duell-ergebnis.png', { type: 'image/png' });
+
+    // Prüfen ob Web Share API unterstützt wird und Dateien teilen kann
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: 'Mein Duell-Ergebnis · Schützen Challenge',
+        text: `Schützen Challenge – mein Duell-Ergebnis: ${G.playerShots.length > 0 ? G.playerShots.reduce((a, b) => a + b.pts, 0).toFixed(1) : '–'}`
+      });
+    } else {
+      // Fallback: Bild herunterladen
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = 'schuetzen-challenge-duell-ergebnis.png';
+      link.click();
+      showEngagementToast('Teilen nicht unterstützt – Bild wurde heruntergeladen.');
+    }
+  } catch (err) {
+    console.error('Fehler beim Teilen:', err);
+    showEngagementToast('Teilen fehlgeschlagen.');
+  }
+};
+
+/* ─── SHARE FEATURE ──────────────────────────────
+   Speichert das letzte Ergebnis und füllt die Share-Card.
+──────────────────────────────────────────────────*/
+
+// Letztes Ergebnis für Share merken (wird in showGameOver gesetzt)
+let _lastShareData = null;
+
+function openShareCard() {
+  if (!_lastShareData) return;
+  const d = _lastShareData;
+  const kk3x20 = d.kk3x20;
+
+  // Card-Felder befüllen
+  document.getElementById('scResultEmoji').textContent = d.emoji;
+  document.getElementById('scResultTitle').textContent = d.title;
+  document.getElementById('scResultTitle').className = 'sc-result-title ' + d.resultClass;
+  document.getElementById('scPlayerPts').textContent = d.playerPts;
+  document.getElementById('scPlayerUnit').textContent = kk3x20 ? 'Ringe' : 'Zehntel';
+  document.getElementById('scBotPts').textContent = d.botPts;
+  document.getElementById('scBotUnit').textContent = kk3x20 ? 'Ringe' : 'Zehntel';
+  document.getElementById('scBotLabel').textContent = '🤖 ' + d.diffLabel;
+  document.getElementById('scMargin').textContent = d.margin;
+  document.getElementById('scMeta').textContent = d.meta;
+
+  // Web Share API verfügbar?
+  const hasShare = !!navigator.share;
+  document.getElementById('shareGoBtn').textContent = hasShare
+    ? '📤 \u00a0Jetzt teilen'
+    : '📋 \u00a0Link kopieren';
+  document.getElementById('shareCopyRow').style.display = hasShare ? 'none' : 'flex';
+
+  document.body.dataset.shareScrollY = String(window.scrollY || 0);
+  document.body.style.position = 'fixed';
+  document.body.style.top = '-' + (window.scrollY || 0) + 'px';
+  document.body.style.width = '100%';
+  document.body.style.overflow = 'hidden';
+  document.getElementById('shareOverlay').classList.add('active');
+}
+
+function closeShareCard(e) {
+  const overlay = document.getElementById('shareOverlay');
+  // BUGFIX: Wenn das Overlay-Element fehlt (z. B. bei Hot-Reload-Edge-Cases
+  // oder programmatischem Aufruf), warf der nachfolgende classList-Zugriff
+  // einen TypeError und setzte body.overflow nie zurück → Seite blieb
+  // unscrollbar. Jetzt früh raus, aber overflow trotzdem aufräumen.
+  if (!overlay) {
+    document.body.style.overflow = '';
+    document.body.style.position = '';
+    document.body.style.top = '';
+    document.body.style.width = '';
+    return;
+  }
+  if (e && e.target !== overlay && !overlay.contains(e.target)) return;
+  overlay.classList.remove('active');
+  const scrollY = parseInt(document.body.dataset.shareScrollY || '0', 10);
+  document.body.style.overflow = '';
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.width = '';
+  delete document.body.dataset.shareScrollY;
+  void document.body.offsetHeight; // Force reflow – iOS Safari flush before scroll restore
+  window.scrollTo(0, scrollY);
+}
+
+function getShareText() {
+  const d = _lastShareData;
+  if (!d) return null;
+  return `🎯 Schützen Challenge\n` +
+    `${d.emoji} ${d.title}\n\n` +
+    `👧 Ich: ${d.playerPts} vs 🤖 ${d.diffLabel}: ${d.botPts}\n` +
+    `${d.margin}\n` +
+    `${d.meta}\n\n` +
+    `Schieß du auch gegen den Bot! 👇`;
+}
+
+async function doShare() {
+  const d = _lastShareData;
+  if (!d) return;
+
+  const text = getShareText();
+  const url = 'https://kr511.github.io/schuss-challenge/';
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: '🎯 Schützen Challenge', text, url });
+      // Share-Erfolg tracken
+      try {
+        const stats = JSON.parse(localStorage.getItem('sd_shares') || '{}');
+        stats.count = (stats.count || 0) + 1;
+        stats.last = Date.now();
+        localStorage.setItem('sd_shares', JSON.stringify(stats));
+      } catch (_) { }
+    } catch (err) {
+      if (err.name !== 'AbortError') console.warn('Share failed:', err);
+    }
+  } else {
+    // Fallback: Link kopieren
+    copyShareLink();
+  }
+}
+
+function copyShareLink() {
+  const url = 'https://kr511.github.io/schuss-challenge/';
+  let textToCopy = getShareText() || '';
+  if (textToCopy) textToCopy += '\n\n' + url;
+  else textToCopy = url;
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      const btn = document.querySelector('.share-copy-btn');
+      if (btn) { btn.textContent = '✅ Kopiert!'; setTimeout(() => btn.textContent = '📋 Kopieren', 2000); }
+    });
+  } else {
+    const inp = document.getElementById('shareCopyInp');
+    if (inp) {
+      inp.value = textToCopy.replace(/\n/g, ' ');
+      inp.select();
+      document.execCommand('copy');
+    }
+  }
+}
+
+function toggleSoundSetting(btn) {
+  if (typeof Sounds === 'undefined') return;
+  const on = Sounds.toggle();
+  if (btn) btn.textContent = on ? '🔊 \u00a0Sound: AN' : '🔇 \u00a0Sound: AUS';
+}
+
+function initSoundToggleBtn() {
+  const btn = document.getElementById('soundToggleBtn');
+  if (!btn || typeof Sounds === 'undefined') return;
+  btn.textContent = Sounds.enabled ? '🔊 \u00a0Sound: AN' : '🔇 \u00a0Sound: AUS';
+}
+
+async function hardResetProgress() {
+  const confirmed = window.MobileResponsive && typeof window.MobileResponsive.confirmDialog === 'function'
+    ? await window.MobileResponsive.confirmDialog(
+        'Wirklich gesamten Fortschritt löschen? XP, Siege, Erfolge und Streaks werden unwiderruflich gelöscht.',
+        { title: 'Fortschritt löschen', confirmText: 'Alles löschen', cancelText: 'Abbrechen', danger: true }
+      )
+    : confirm("Möchtest du wirklich deinen gesamten Fortschritt (XP, Siege, Erfolge und Streaks) löschen? Dies kann nicht rückgängig gemacht werden!");
+  if (!confirmed) return;
+
+  const backupName = G.username;
+  StorageManager.clearAll(['reset_v3', 'reset_v4', 'username']);
+  StorageManager.setRaw('reset_v3', 'true');
+  if (backupName) StorageManager.setRaw('username', backupName);
+
+  loadXP();
+  G.targetShots = [];
+  G.botShots = []; G.botPlan = null; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
+  loadAllStreaks();
+  updateSchuetzenpass();
+  checkSunAchievements();
+  scheduleCloudSync('hard_reset');
+
+  location.reload();
+}
+
+function restartGame() {
+  clearPendingFeedbackPrompt();
+  clearBattleTimers();
+  if (typeof stopBotStatusUpdates === 'function') stopBotStatusUpdates();
+  G.targetShots = [];
+  G.botShots = []; G.botPlan = null; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
+  G.playerTotal = 0; G.playerTotalInt = 0; G._playerTotalTenths = 0;
+  G.playerShotsLeft = G.shots; G.botShotsLeft = G.shots; G.maxShots = G.shots;
+  G.dnf = false;
+  G._lastPlayerShotAt = 0;
+  G.playerShots = [];
+  G.currentDetectedShots = [];
+  // BUG-FIX: Spiel-Zustand komplett zurücksetzen
+  G.probeActive = false;
+  G.probeSecsLeft = 0;
+  G.botStarted = false;
+  G.transitionSecsLeft = 0;
+  G.transitionLabel = '';
+  G.is3x20 = false;
+  G.posIdx = 0; G.posShots = 0; G.posResults = [];
+  G.positions = []; G.posIcons = [];
+  if (DOM.profileOverlay) DOM.profileOverlay.classList.remove('active');
+  if (DOM.profileIcon) DOM.profileIcon.classList.remove('active');
+
+  setSz(); drawTarget([]);
+  window.scrollTo(0, 0);
+  showScreen('screenSetup');
+}
+
+// Schnell-Rematch: gleiche Disziplin + Schwierigkeit, ohne Umweg über Setup
+function restartSameSettings() {
+  clearPendingFeedbackPrompt();
+  clearBattleTimers();
+  if (typeof stopBotStatusUpdates === 'function') stopBotStatusUpdates();
+  // State leeren wie in restartGame – aber NICHT zurück ins Setup
+  G.targetShots = [];
+  G.botShots = []; G.botPlan = null; G.botTotal = 0; G.botTotalInt = 0; G._botTotalTenths = 0;
+  G.playerTotal = 0; G.playerTotalInt = 0; G._playerTotalTenths = 0;
+  G.dnf = false;
+  G._lastPlayerShotAt = 0;
+  G.playerShots = [];
+  G.currentDetectedShots = [];
+  G.probeActive = false;
+  G.probeSecsLeft = 0;
+  G.botStarted = false;
+  G.transitionSecsLeft = 0;
+  G.transitionLabel = '';
+  G.is3x20 = false;
+  G.posIdx = 0; G.posShots = 0; G.posResults = [];
+  G.positions = []; G.posIcons = [];
+  if (DOM.profileOverlay) DOM.profileOverlay.classList.remove('active');
+  if (DOM.profileIcon) DOM.profileIcon.classList.remove('active');
+  window.scrollTo(0, 0);
+  // Direkt neu starten — startBattle nutzt G.discipline/G.diff/G.weapon
+  startBattle();
+}
+window.restartSameSettings = restartSameSettings;
+
+function showScreen(id) {
+  if (id !== 'screenOver') clearPendingFeedbackPrompt();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  // BUGFIX: Wenn die Ziel-Screen-ID im DOM fehlt (z. B. unbekannter Screen
+  // bei Refactor oder partiellem DOM), warf der direkte classList-Aufruf
+  // einen TypeError und sperrte die ganze Navigation. Jetzt loggen wir nur
+  // einen Hinweis, damit der Rest der App weiterläuft.
+  const target = document.getElementById(id);
+  if (!target) {
+    console.error(`[showScreen] Screen "${id}" nicht gefunden — Navigation abgebrochen.`);
+    return;
+  }
+  target.classList.add('active');
+  /* Hide bottom nav during game screens */
+  const gameScreens = ['screenBattle','screenEntry','screenOver','screenFeedback','screenLeaderboard'];
+  document.body.classList.toggle('game-screen-active', gameScreens.includes(id));
+  if (id === 'screenSetup') {
+    if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+    if (typeof updatePDGreeting === 'function') updatePDGreeting();
+  } else if (id === 'screenBattle') {
+    HealthyEngagement.hideBreakOverlay();
+  }
+}
+
+/* ─── INIT ───────────────────────────────── */
+initDOMCache();
+setSz();
+drawTarget([]);
+loadXP();
+// initDailyLoginRewards(); // Verschoben nach awardXP
+updateSchuetzenpass();
+// Premium Dashboard beim Laden mit echten Daten füllen
+if (typeof refreshPremiumDashboard === 'function') setTimeout(refreshPremiumDashboard, 500);
+if (typeof DailyChallenge !== 'undefined') DailyChallenge.init();
+if (typeof EnhancedAnalytics !== 'undefined') EnhancedAnalytics.init();
+updateLeaderboardScopeControl();
+refreshDebugToolsVisibility();
+
+checkSunAchievements(); // Check on load in case new achievements unlocked
+
+
+// NEU: Fallback-System zuerst initialisieren
+if (typeof FeatureFallback !== 'undefined') {
+  FeatureFallback.init();
+  console.log('🛡️ Feature Fallback System geladen');
+}
+
+// NEU: Neue Features initialisieren (mit Fallback-Schutz)
+if (typeof AdaptiveBotSystem !== 'undefined') {
+  try {
+    AdaptiveBotSystem.init();
+    console.log('🤖 Adaptive Bot System geladen');
+  } catch (error) {
+    console.error('❌ Adaptive Bot System Fehler:', error);
+    if (typeof FeatureFallback !== 'undefined') {
+      FeatureFallback.safelyExecute('adaptiveBot', () => { }, () => { });
+    }
+  }
+}
+
+if (typeof ContextualOCR !== 'undefined') {
+  try {
+    ContextualOCR.init();
+    console.log('🔍 Contextual OCR System geladen');
+  } catch (error) {
+    console.error('❌ Contextual OCR Fehler:', error);
+    if (typeof FeatureFallback !== 'undefined') {
+      FeatureFallback.safelyExecute('contextualOCR', () => { }, () => { });
+    }
+  }
+}
+
+if (typeof MultiScoreDetection !== 'undefined') {
+  try {
+    MultiScoreDetection.init();
+    console.log('📊 Multi-Score Detection System geladen');
+  } catch (error) {
+    console.error('❌ Multi-Score Detection Fehler:', error);
+    if (typeof FeatureFallback !== 'undefined') {
+      FeatureFallback.safelyExecute('multiScoreDetection', () => { }, () => { });
+    }
+  }
+}
+
+// Check Welcome screen on init
+function checkFirstVisit() {
+  const savedNameRaw = StorageManager.getRaw('username');
+  if (!savedNameRaw) {
+    document.getElementById('welcomeOverlay').classList.add('active');
+    setTimeout(() => document.getElementById('welcomeNameInp')?.focus(), 400);
+  } else {
+    const savedName = sanitizeUsername(savedNameRaw);
+    if (savedName !== savedNameRaw) {
+      StorageManager.setRaw('username', savedName);
+    }
+    G.username = savedName;
+    // Bekannter User: Profil im Hintergrund synchronisieren
+    setTimeout(() => syncProfileWithBackend(null, { reason: 'known_user' }), 1500);
+  }
+}
+
+window.addEventListener('difficultyAdapted', function (event) {
+  const detail = event.detail || {};
+  console.log('🎯 Schwierigkeit angepasst:', detail.discipline || 'global', detail.oldDifficulty, '→', detail.newDifficulty);
+  if (detail.discipline && detail.discipline !== G.discipline) return;
+  setDifficulty(detail.newDifficulty, { persist: false });
+});
+
+function saveWelcomeName() {
+  const inp = document.getElementById('welcomeNameInp');
+  const name = sanitizeUsername(inp.value);
+
+  StorageManager.setRaw('username', name);
+  G.username = name;
+
+  // Dashboard sofort mit dem neuen Namen aktualisieren
+  const pdUserName = document.getElementById('pdUserName');
+  if (pdUserName) pdUserName.innerText = name;
+  const pdProfileInitial = document.getElementById('pdProfileInitial');
+  if (pdProfileInitial) pdProfileInitial.innerText = name.charAt(0).toUpperCase();
+
+  scheduleCloudSync('username_changed', { immediate: true });
+  if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+
+  // Zeige Schritt 2 (Verein beitreten), wenn ClubsSystem verfügbar und User noch kein Mitglied
+  const step1 = document.getElementById('welcomeStep1');
+  const step2 = document.getElementById('welcomeStep2');
+  const clubsReady = typeof ClubsSystem !== 'undefined' && typeof ClubsSystem.getState === 'function';
+  const alreadyInClub = clubsReady && ClubsSystem.getState().myClub;
+  if (step1 && step2 && clubsReady && !alreadyInClub) {
+    step1.style.display = 'none';
+    step2.style.display = '';
+    setTimeout(() => document.getElementById('welcomeClubCodeInp')?.focus(), 250);
+  } else {
+    step1.style.display = 'none';
+    _advanceToStep3OrClose();
+  }
+}
+
+async function saveWelcomeClub() {
+  const inp = document.getElementById('welcomeClubCodeInp');
+  const msg = document.getElementById('welcomeClubMsg');
+  const btn = document.getElementById('welcomeClubJoinBtn');
+  if (!inp || !msg || !btn) { skipWelcomeClub(); return; }
+
+  const code = inp.value.trim().toUpperCase();
+  if (!code) { msg.style.color = '#ff6b6b'; msg.textContent = 'Bitte einen Vereinscode eingeben.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Wird gesucht…';
+  msg.style.color = 'rgba(255,255,255,.5)';
+  msg.textContent = '';
+
+  try {
+    if (typeof ClubsSystem !== 'undefined' && typeof ClubsSystem.joinByCode === 'function') {
+      const result = await ClubsSystem.joinByCode(code);
+      if (result && result.ok) {
+        msg.style.color = '#7ab030';
+        msg.textContent = '✓ Beigetreten!';
+        setTimeout(() => {
+          if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+          _advanceToStep3OrClose();
+        }, 900);
+        return;
+      }
+      msg.style.color = '#ff6b6b';
+      msg.textContent = (result && result.error) ? result.error : 'Vereinscode nicht gefunden.';
+    } else {
+      // ClubsSystem noch nicht bereit – einfach schließen
+      skipWelcomeClub();
+    }
+  } catch (e) {
+    msg.style.color = '#ff6b6b';
+    msg.textContent = 'Fehler beim Beitreten. Code prüfen?';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🏆 VEREIN BEITRETEN';
+  }
+}
+
+function _closeWelcomeOverlay() {
+  document.getElementById('welcomeOverlay').classList.remove('active');
+  const s1 = document.getElementById('welcomeStep1');
+  const s2 = document.getElementById('welcomeStep2');
+  const s3 = document.getElementById('welcomeStep3');
+  if (s1) s1.style.display = '';
+  if (s2) s2.style.display = 'none';
+  if (s3) s3.style.display = 'none';
+}
+
+function _isIOSNonStandalone() {
+  const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    window.navigator.standalone === true;
+  return isIOS && !isStandalone;
+}
+
+function _advanceToStep3OrClose() {
+  const s2 = document.getElementById('welcomeStep2');
+  const s3 = document.getElementById('welcomeStep3');
+  if (s2) s2.style.display = 'none';
+  const pn = window.PushNotifications;
+  if (!s3) { _closeWelcomeOverlay(); return; }
+  if (_isIOSNonStandalone() && !pn?.hasDecided()) {
+    document.getElementById('welcomeStep3Default') && (document.getElementById('welcomeStep3Default').style.display = 'none');
+    const iosEl = document.getElementById('welcomeStep3iOS');
+    if (iosEl) iosEl.style.display = '';
+    s3.style.display = '';
+  } else if (pn && pn.supported && !pn.hasDecided()) {
+    s3.style.display = '';
+  } else {
+    _closeWelcomeOverlay();
+  }
+}
+
+function skipWelcomeClub() {
+  _advanceToStep3OrClose();
+}
+
+async function enableWelcomePush() {
+  if (window.PushNotifications) await window.PushNotifications.requestAndStore();
+  if (window.ChatNotifications && typeof window.ChatNotifications.subscribe === 'function') {
+    try { await window.ChatNotifications.subscribe(); } catch (_e) {}
+  }
+  _closeWelcomeOverlay();
+}
+
+function skipWelcomePush() {
+  if (window.PushNotifications) window.PushNotifications.decline();
+  _closeWelcomeOverlay();
+}
+
+// Make inline onclick handlers robustly available from global scope.
+Object.assign(window, {
+  saveWelcomeName,
+  saveWelcomeClub,
+  skipWelcomeClub,
+  enableWelcomePush,
+  skipWelcomePush,
+  toggleMute,
+  toggleProfileMenu,
+  handleOverlayClick,
+  switchProfileTab,
+  enableDebugTools,
+  disableDebugTools,
+  refreshDebugPanel,
+  debugSyncNow,
+  setPerfWeapon,
+  toggleSoundSetting,
+  hardResetProgress,
+  switchWeapon,
+  showScreen,
+  loadLeaderboard,
+  setLeaderboardScope,
+  setLeaderboardPeriod,
+  showAccountSyncCode,
+  connectDeviceWithLinkCode,
+  selDisc,
+  selDist,
+  selDiff,
+  selShots,
+  toggleBurst,
+  startBattle,
+  doBattleFire,
+  skipProbe,
+  endBattleEarly,
+  calcResult,
+  quickResult,
+  restartGame,
+  submitSiteFeedback,
+  skipSiteFeedback,
+  fbSetDuel,
+  fbSetRating,
+  fbToggleTag,
+  fbSubmit,
+  fbUpdateCounter,
+  closeShareCard,
+  doShare,
+  copyShareLink
+});
+
+// Allow Enter key to submit welcome screen or calculation
+document.getElementById('welcomeNameInp')?.addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') saveWelcomeName();
+});
+document.getElementById('welcomeClubCodeInp')?.addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') saveWelcomeClub();
+});
+document.getElementById('playerInp')?.addEventListener('keypress', function (e) {
+  if (e.key !== 'Enter') return;
+  // Auto-Format: Ganzzahl → .0
+  const v = parseFloat(this.value);
+  if (!isNaN(v)) this.value = v.toFixed(1);
+  document.getElementById('playerInpInt')?.focus();
+});
+document.getElementById('playerInpInt')?.addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') calcResult();
+});
+
+checkFirstVisit();
+HealthyEngagement.init();
+
+// Build initial discipline tabs for default weapon (lg)
+buildDiscTabs('lg');
+selDisc('lg40'); // sets dist, shots, hides/shows cards
+
+loadAllStreaks();
+ensureFeedbackSchedule();
+
+window.addEventListener('online', () => {
+  scheduleCloudSync('went_online', { immediate: true });
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    scheduleCloudSync('page_hidden');
+  }
+});
+
+let _rzTimer = null;
+window.addEventListener('resize', () => {
+  if (_rzTimer) cancelAnimationFrame(_rzTimer);
+  _rzTimer = requestAnimationFrame(() => {
+    const prevSz = _lastSz;
+    setSz();
+    // Only redraw if canvas size actually changed
+    if (_lastSz !== prevSz) drawTarget(G.targetShots);
+  });
+}, { passive: true });
+
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => {
+    setSz();
+    drawTarget(G.targetShots);
+  }, 200);
+});
+
+// Swipe-down to close profile sheet
+(function () {
+  let startY = 0;
+  const sheet = document.getElementById('profileSheet');
+  if (!sheet) return;
+  sheet.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+  sheet.addEventListener('touchend', e => {
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy > 80) toggleProfileMenu();
+  }, { passive: true });
+})();
+
+// ── Service Worker (PWA / Offline) ──────────────────────────────────
+if ('serviceWorker' in navigator && typeof MobileFeatures === 'undefined') {
+  let hadServiceWorkerController = false;
+  window.addEventListener('load', () => {
+    hadServiceWorkerController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('./sw.js?v=4.1').then(registration => {
+      const activeScriptUrlAtRegister = registration.active && registration.active.scriptURL;
+      console.log('✅ Service Worker registriert');
+
+      // Prüfe auf Updates
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (
+            newWorker.state === 'installed' &&
+            hadServiceWorkerController &&
+            activeScriptUrlAtRegister &&
+            activeScriptUrlAtRegister !== newWorker.scriptURL
+          ) {
+            // Neue Version verfügbar - benachrichtige Benutzer
+            console.log('🔄 Neue Version verfügbar! Seite neu laden für Updates.');
+            if (typeof showUpdateNotification === 'function') {
+              showUpdateNotification();
+            }
+          }
+        });
+      });
+    }).catch(() => { });
+  });
+
+  // Höre auf Nachrichten vom Service Worker
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data && event.data.type === 'SW_UPDATED' && hadServiceWorkerController) {
+      showUpdateNotification();
+    }
+  });
+}
+
+// ── SW Update Toast ──────────────────────────────────────────────────
+function showUpdateNotification() {
+  if (document.getElementById('swUpdateToast')) return;
+  const toast = document.createElement('div');
+  toast.id = 'swUpdateToast';
+  toast.style.cssText = 'position:fixed;bottom:calc(var(--nav-total,72px) + 8px);left:50%;transform:translateX(-50%);background:#1e3a0f;border:1px solid #7ab030;color:#e8f4d4;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;z-index:99999;box-shadow:0 4px 20px rgba(0,0,0,.5);max-width:320px;width:calc(100% - 32px);font-size:0.9rem;';
+  toast.innerHTML = '<span>🔄 Neue Version verfügbar</span><button style="margin-left:auto;background:#7ab030;color:#0f1a0a;border:none;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;white-space:nowrap;" onclick="location.reload()">Neu laden</button>';
+  document.body.appendChild(toast);
+}
+
+// ── Offline-Banner ───────────────────────────────────────────────────
+(function initOfflineBanner() {
+  if (typeof document === 'undefined') return;
+  function getOrCreateBanner() {
+    let b = document.getElementById('appOfflineBanner');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = 'appOfflineBanner';
+      b.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;background:#2a1a0a;color:#f0c060;text-align:center;padding:calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;font-size:0.85rem;z-index:99998;border-bottom:1px solid #f0c060;';
+      b.textContent = '📵 Offline – soziale Funktionen nicht verfügbar';
+      document.body.appendChild(b);
+    }
+    return b;
+  }
+  function update() {
+    const b = getOrCreateBanner();
+    b.style.display = navigator.onLine ? 'none' : 'block';
+  }
+  window.addEventListener('online', update);
+  window.addEventListener('offline', update);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', update);
+  } else {
+    update();
+  }
+})();
+
+// ── Streak Countdown Timer (aktualisiert jede Minute) ───────────────
+let _streakCountdownInterval = null;
+function startStreakCountdown() {
+  if (_streakCountdownInterval) clearInterval(_streakCountdownInterval);
+
+  function updateCountdown() {
+    const timerEl = document.getElementById('streakCountdownTimer');
+    if (!timerEl) return;
+
+    const now = new Date();
+    const nextMidnight = new Date(now);
+    nextMidnight.setHours(24, 0, 0, 0);
+    const msLeft = Math.max(0, nextMidnight.getTime() - now.getTime());
+    const minsLeft = Math.floor(msLeft / 60000);
+    const hLeft = Math.floor(minsLeft / 60);
+    const mLeft = minsLeft % 60;
+    timerEl.textContent = `${String(hLeft).padStart(2, '0')}:${String(mLeft).padStart(2, '0')}`;
+
+    // Wenn Mitternacht erreicht → Dashboard neu laden
+    if (msLeft <= 0) {
+      if (typeof refreshPremiumDashboard === 'function') refreshPremiumDashboard();
+    }
+  }
+
+  updateCountdown();
+  _streakCountdownInterval = setInterval(updateCountdown, 30000); // Alle 30s aktualisieren
+}
+
+// Countdown starten wenn Dashboard sichtbar ist
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(startStreakCountdown, 1000);
+    setTimeout(refreshPremiumDashboard, 300);
+
+    // Auth Form Listener initialisieren
+    setTimeout(() => {
+      initAuthFormListeners();
+      injectAuthSpinnerCSS();
+    }, 500);
+  });
+}
