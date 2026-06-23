@@ -226,13 +226,31 @@ function handleOverlayClick(e) {
   }
 }
 
+async function renderActivityHeatmap() {
+  if (typeof TrainingHeatmap === 'undefined') return;
+  try {
+    const token = window.SupabaseSession?.access_token || window.SupabaseAuth?.getSession?.()?.access_token;
+    if (!token) { TrainingHeatmap.renderProfile(); return; }
+    const res = await fetch('/api/sessions?limit=100', { headers: { authorization: `Bearer ${token}` } });
+    if (!res.ok) { TrainingHeatmap.renderProfile(); return; }
+    const data = await res.json();
+    TrainingHeatmap.renderProfile(data.sessions || []);
+  } catch (_e) {
+    TrainingHeatmap.renderProfile();
+  }
+}
+
 function switchProfileTab(tab) {
   document.querySelectorAll('.ps-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   const panels = document.querySelectorAll('.ps-panel');
   panels.forEach(p => p.classList.toggle('active', p.id === 'psPanel-' + tab));
 
-  if (tab === 'sun') renderSunGrid();
+  if (tab === 'sun') {
+    renderSunGrid();
+    if (typeof EnhancedAchievements !== 'undefined') EnhancedAchievements.renderUI();
+  }
   if (tab === 'history') renderHistory();
+  if (tab === 'activity') renderActivityHeatmap();
   if (tab === 'debug') refreshDebugPanel();
   if (tab === 'settings') refreshSettingsPanelUI();
   if (tab === 'stats') {
@@ -321,7 +339,7 @@ function refreshProfileSheet() {
   const activeTab = document.querySelector('.ps-tab.active');
   if (activeTab) {
     const t = activeTab.dataset.tab;
-    if (t === 'sun') renderSunGrid();
+    if (t === 'sun') { renderSunGrid(); if (typeof EnhancedAchievements !== 'undefined') EnhancedAchievements.renderUI(); }
     if (t === 'history') renderHistory();
     if (t === 'debug') renderDebugPanel();
     if (t === 'settings') refreshSettingsPanelUI();

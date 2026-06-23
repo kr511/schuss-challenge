@@ -125,6 +125,46 @@
 </head>
 
 <body>
+  <!-- SPLASH SCREEN -->
+  <div id="splashScreen" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:radial-gradient(ellipse 65% 65% at 50% 50%,rgba(34,197,94,0.07) 0%,transparent 65%),#0a0a0a;transition:opacity 0.4s ease,visibility 0.4s ease;">
+    <svg viewBox="0 0 80 80" width="80" height="80" style="filter:drop-shadow(0 0 16px rgba(74,222,128,0.6))">
+      <circle cx="40" cy="40" r="38" fill="#0f0f0f" stroke="rgba(255,255,255,0.1)" stroke-width="0.8"/>
+      <circle cx="40" cy="40" r="30" fill="#191919" stroke="rgba(255,255,255,0.12)" stroke-width="0.8"/>
+      <circle cx="40" cy="40" r="22" fill="rgba(235,233,225,0.92)"/>
+      <circle cx="40" cy="40" r="15" fill="rgba(235,233,225,0.96)"/>
+      <circle cx="40" cy="40" r="9" fill="rgba(34,197,94,0.45)" stroke="#22c55e" stroke-width="1.2"/>
+      <circle cx="40" cy="40" r="4" fill="#4ade80"/>
+      <line x1="40" y1="2" x2="40" y2="12" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="40" y1="68" x2="40" y2="78" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="2" y1="40" x2="12" y2="40" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="68" y1="40" x2="78" y2="40" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+    </svg>
+    <div style="text-align:center">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.15em;color:#fff">SCHUSS</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.42em;color:#22c55e;margin-top:1px">CHALLENGE</div>
+    </div>
+    <div style="width:120px;height:2px;background:rgba(255,255,255,0.06);border-radius:1px;overflow:hidden;margin-top:8px">
+      <div id="splashBar" style="width:0%;height:100%;background:#22c55e;border-radius:1px;box-shadow:0 0 6px rgba(34,197,94,0.7);transition:width 1.2s ease"></div>
+    </div>
+  </div>
+  <script>
+    (function() {
+      var bar = document.getElementById('splashBar');
+      var splash = document.getElementById('splashScreen');
+      if (bar) requestAnimationFrame(function() { bar.style.width = '70%'; });
+      function hideSplash() {
+        if (!splash || splash.style.visibility === 'hidden') return;
+        if (bar) bar.style.width = '100%';
+        setTimeout(function() {
+          splash.style.opacity = '0';
+          splash.style.visibility = 'hidden';
+        }, 200);
+      }
+      window.addEventListener('load', function() { setTimeout(hideSplash, 600); });
+      setTimeout(hideSplash, 2800);
+    })();
+  </script>
+
   <!-- WELCOME OVERLAY -->
   <div id="welcomeOverlay">
     <div class="welcome-card">
@@ -1167,6 +1207,7 @@
           <div class="ps-tab active" data-tab="stats" onclick="switchProfileTab('stats')">📊 Stats</div>
           <div class="ps-tab" data-tab="sun" onclick="switchProfileTab('sun')">⭐ Erfolge</div>
           <div class="ps-tab" data-tab="history" onclick="switchProfileTab('history')">📋 Verlauf</div>
+          <div class="ps-tab" data-tab="activity" onclick="switchProfileTab('activity')">🗓 Aktivität</div>
           <div class="ps-tab" data-tab="settings" onclick="switchProfileTab('settings')">⚙ Konto</div>
           <div class="ps-tab" data-tab="debug" style="display:none;" onclick="switchProfileTab('debug')">🛠 Debug</div>
         </div>
@@ -1299,6 +1340,8 @@
               <div class="sun-section-title">◇ Meister-Erfolge <span id="sunCount-master" style="font-size:0.6rem;color:rgba(255,255,255,.3);font-weight:400;margin-left:6px;"></span></div>
               <div class="sun-grid" id="sunGrid-master"></div>
             </div>
+
+            <div id="enhancedAchievementsMount"></div>
           </div>
 
           <!-- ── LEADERBOARD PANEL ── -->
@@ -1308,6 +1351,10 @@
               <div class="ps-history-empty">Noch keine Duelle gespeichert.<br>Spiel ein Duell, um den Verlauf zu
                 sehen!</div>
             </div>
+          </div>
+
+          <div class="ps-panel" id="psPanel-activity">
+            <div id="trainingHeatmapProfile"></div>
           </div>
 
           <div class="ps-panel" id="psPanel-settings">

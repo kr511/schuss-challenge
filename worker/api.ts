@@ -16,6 +16,9 @@ import {
   setActivity,
   getLiveActivity,
   getLeaderboard,
+  savePushSubscription,
+  deletePushSubscription as deletePushSub,
+  getDisciplineAverage,
 } from "./db";
 import type { Env, Feedback, FeedbackStatus, GameMode } from "./types";
 
@@ -78,6 +81,20 @@ const profileInputSchema = z.object({
 const activityInputSchema = z.object({
   discipline: z.string().trim().min(1).max(80),
   difficulty: z.string().trim().min(1).max(80),
+});
+
+const pushSubscribeSchema = z.object({
+  endpoint: z.string().url().max(2000),
+  p256dh: z.string().min(1).max(1000),
+  authKey: z.string().min(1).max(500),
+});
+
+const pushUnsubscribeSchema = z.object({
+  endpoint: z.string().url().max(2000),
+});
+
+const disciplineQuerySchema = z.object({
+  discipline: z.string().trim().min(1).max(40),
 });
 
 // UUID v4 shape used by crypto.randomUUID()
@@ -186,6 +203,39 @@ function serviceUnavailableError(message: string): Response {
 
 function hasSupabaseConfig(env: Env): boolean {
   return Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_KEY);
+}
+
+async function checkRateLimit(
+  request: Request,
+  env: Env,
+  slug: string,
+  max: number,
+  windowSec: number,
+  origin: string,
+): Promise<Response | null> {
+  const kv = env.RATE_LIMIT_KV;
+  if (!kv) return null; // silent skip when KV not bound (local dev / unconfigured)
+  const ip = request.headers.get("CF-Connecting-IP") ?? "unknown";
+  const key = `rl:${slug}:${ip}`;
+  const current = await kv.get(key);
+  const count = current ? parseInt(current, 10) : 0;
+  if (count >= max) {
+    return withCors(
+      new Response(
+        JSON.stringify({ error: true, code: "RATE_LIMITED", message: "Too many requests" }),
+        {
+          status: 429,
+          headers: {
+            "content-type": "application/json; charset=utf-8",
+            "retry-after": String(windowSec),
+          },
+        },
+      ),
+      origin,
+    );
+  }
+  await kv.put(key, String(count + 1), { expirationTtl: windowSec });
+  return null;
 }
 
 function isLocalDevelopmentRequest(url: URL): boolean {
@@ -381,7 +431,7 @@ async function handlePostSession(request: Request, env: Env, userId: string): Pr
 
   await saveGameSession(env, userId, {
     mode: payload.mode,
-    discipline: payload.discipline,
+    discipline: payload.discipline ?? "",
     score: payload.score,
     shotsFired: payload.shotsFired,
     durationSeconds: payload.durationSeconds,
@@ -520,9 +570,26 @@ async function handleGetProfile(url: URL, env: Env): Promise<Response> {
 
 async function handlePostProfile(request: Request, env: Env, userId: string): Promise<Response> {
   const payload = await parseJson(request, profileInputSchema);
-  const bestStats = payload.bestStats == null ? null : JSON.stringify(payload.bestStats);
-  await updateProfile(env, userId, payload.displayName, payload.privacySettings, bestStats);
+  await updateProfile(env, userId, payload.displayName, payload.privacySettings, payload.bestStats ?? null);
   return json({ ok: true });
+}
+
+async function handlePostPushSubscribe(request: Request, env: Env, userId: string): Promise<Response> {
+  const payload = await parseJson(request, pushSubscribeSchema);
+  await savePushSubscription(env, userId, payload.endpoint, payload.p256dh, payload.authKey);
+  return json({ ok: true });
+}
+
+async function handleDeletePushSubscribe(request: Request, env: Env, userId: string): Promise<Response> {
+  const payload = await parseJson(request, pushUnsubscribeSchema);
+  await deletePushSub(env, userId, payload.endpoint);
+  return json({ ok: true });
+}
+
+async function handleGetDisciplineAverage(url: URL, env: Env): Promise<Response> {
+  const query = parseQuery(url, disciplineQuerySchema);
+  const result = await getDisciplineAverage(env, query.discipline);
+  return json(result);
 }
 
 async function handleSetActivity(request: Request, env: Env, userId: string): Promise<Response> {
@@ -560,22 +627,37 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
     }
 
     if (path === "/api/leaderboard" && request.method === "GET") {
+      const rl = await checkRateLimit(request, env, "lb", 20, 60, origin);
+      if (rl) return rl;
       return withCors(await handleGetLeaderboard(url, env), origin);
     }
 
     // Feedback submission does not require authentication
     if (path === "/api/feedback" && request.method === "POST") {
+      const rl = await checkRateLimit(request, env, "feedback", 3, 300, origin);
+      if (rl) return rl;
       return withCors(await handlePostFeedback(request, env), origin);
     }
 
     // Public live activity feed (no auth required)
     if (path === "/api/activity/live" && request.method === "GET") {
+      const rl = await checkRateLimit(request, env, "activity-live", 30, 60, origin);
+      if (rl) return rl;
       return withCors(await handleGetLiveActivity(env), origin);
     }
 
     // Public profile lookup (no auth required)
     if (path.startsWith("/api/profile/") && request.method === "GET") {
+      const rl = await checkRateLimit(request, env, "profile", 30, 60, origin);
+      if (rl) return rl;
       return withCors(await handleGetProfile(url, env), origin);
+    }
+
+    // Public discipline average (rate-limited)
+    if (path === "/api/stats/average" && request.method === "GET") {
+      const rl = await checkRateLimit(request, env, "stats-avg", 20, 60, origin);
+      if (rl) return rl;
+      return withCors(await handleGetDisciplineAverage(url, env), origin);
     }
 
     const userId = await resolveAuthenticatedUserId(request, env, url);
@@ -616,6 +698,13 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
     }
     if (path === "/api/activity/start" && request.method === "POST") {
       return withCors(await handleSetActivity(request, env, userId), origin);
+    }
+
+    if (path === "/api/push/subscribe" && request.method === "POST") {
+      return withCors(await handlePostPushSubscribe(request, env, userId), origin);
+    }
+    if (path === "/api/push/subscribe" && request.method === "DELETE") {
+      return withCors(await handleDeletePushSubscribe(request, env, userId), origin);
     }
 
     if (path === "/api/sessions" && request.method === "POST") {

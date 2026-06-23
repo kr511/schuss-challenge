@@ -42,8 +42,17 @@ const AdaptiveBotSystem = (function () {
     return DIFFICULTIES.includes(difficulty) ? difficulty : 'easy';
   }
 
+  const DISCIPLINE_ALIASES = {
+    'air_rifle_10m': 'lg40',
+    'air_rifle_60':  'lg60',
+    'smallbore_50m': 'kk50',
+    'smallbore_100m':'kk100',
+    'kk_3x20':       'kk3x20',
+  };
+
   function normalizeDiscipline(discipline) {
-    return DISCIPLINE_KEYS.includes(discipline) ? discipline : null;
+    const mapped = DISCIPLINE_ALIASES[discipline] || discipline;
+    return DISCIPLINE_KEYS.includes(mapped) ? mapped : null;
   }
 
   function trimTail(list, maxItems) {
@@ -244,7 +253,7 @@ const AdaptiveBotSystem = (function () {
     stressLevel: 15,           // 0–100
     fatigue: 10,               // 0–100
     currentDifficulty: 'real',
-    discipline: 'air_rifle_10m',
+    discipline: 'lg40',
     moodTimer: null,           // Automatischer Stimmungswechsel / Auto mood switch
     shotsFiredInSession: 0     // Schüsse in dieser Session / Shots this session
   };
@@ -906,101 +915,11 @@ const AdaptiveBotSystem = (function () {
     return Math.sqrt(squaredDiffs.reduce((sum, diff) => sum + diff, 0) / values.length);
   }
 
-  function getDifficultyRecommendation() {
-    if (adaptiveData.games.length < CONFIG.minGamesForAnalysis) {
-      return {
-        recommended: adaptiveData.currentDifficulty,
-        reason: 'Noch nicht genügend Daten für Empfehlung',
-        confidence: 0
-      };
-    }
-
-    const recentGames = adaptiveData.games.slice(-Math.min(10, adaptiveData.games.length));
-    const avgDifference = recentGames.reduce((sum, g) => sum + g.scoreDifference, 0) / recentGames.length;
-    const winRate = recentGames.filter(g => g.playerWon).length / recentGames.length;
-
-    let recommended = adaptiveData.currentDifficulty;
-    let reason = '';
-    let confidence = 0;
-
-    if (winRate > 0.7 && avgDifference > 15) {
-      recommended = getNextDifficulty(adaptiveData.currentDifficulty);
-      reason = 'Sie gewinnen zu oft mit großem Vorsprung';
-      confidence = 0.8;
-    } else if (winRate < 0.3) {
-      recommended = getPreviousDifficulty(adaptiveData.currentDifficulty);
-      reason = 'Der Bot ist zu stark für Sie';
-      confidence = 0.8;
-    } else if (avgDifference < 5) {
-      reason = 'Sehr ausgeglichene Spiele - perfekte Balance';
-      confidence = 0.9;
-    } else {
-      reason = 'Aktuelle Schwierigkeit scheint passend';
-      confidence = 0.6;
-    }
-
-    return { recommended, reason, confidence, winRate, avgDifference };
-  }
-
-  function getNextDifficulty(current) {
-    const difficulties = ['easy', 'real', 'hard', 'elite'];
-    const idx = difficulties.indexOf(current);
-    return difficulties[Math.min(idx + 1, difficulties.length - 1)];
-  }
-
-  function getPreviousDifficulty(current) {
-    const difficulties = ['easy', 'real', 'hard', 'elite'];
-    const idx = difficulties.indexOf(current);
-    return difficulties[Math.max(idx - 1, 0)];
-  }
-
-  function getStatistics() {
-    const games = adaptiveData.games;
-    if (games.length === 0) return null;
-
-    const totalGames = games.length;
-    const wins = games.filter(g => g.playerWon).length;
-    const winRate = wins / totalGames;
-    const avgScore = games.reduce((sum, g) => sum + g.playerScore, 0) / totalGames;
-    const avgDifference = games.reduce((sum, g) => sum + g.scoreDifference, 0) / totalGames;
-
-    return {
-      totalGames, wins,
-      losses: totalGames - wins,
-      winRate, avgScore, avgDifference,
-      currentDifficulty: adaptiveData.currentDifficulty,
-      skillLevel: adaptiveData.skillLevel,
-      // NEU: Bot-Physiologie-Status / NEW: Bot physiology status
-      botMood: botState.mood,
-      botStress: botState.stressLevel,
-      botFatigue: botState.fatigue,
-      botHeartRate: physicsEngine ? physicsEngine.getHeartRate() : null
-    };
-  }
-
   function setEnabled(enabled) {
     adaptiveData.enabled = enabled;
     CONFIG.enabled = enabled;
     saveData();
     console.log(`🤖 Adaptive Bot System ${enabled ? 'aktiviert' : 'deaktiviert'}`);
-  }
-
-  function reset() {
-    adaptiveData = {
-      games: [],
-      currentDifficulty: 'easy',
-      skillLevel: 'beginner',
-      adaptationHistory: [],
-      enabled: true
-    };
-    botState.fatigue = 10;
-    botState.stressLevel = 15;
-    botState.mood = 'focused';
-    botState.shotsFiredInSession = 0;
-    playerHistory = [];
-    saveData();
-    try { localStorage.removeItem(CONFIG.playerHistoryKey); } catch (e) { /* silent */ }
-    console.log('🔄 Adaptive Bot Daten zurückgesetzt (v2.0)');
   }
 
   /**

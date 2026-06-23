@@ -42,11 +42,11 @@ const ClubsSystem = (function () {
   function loadStoredRankingFilters() {
     try {
       const raw = getStorageRaw(RANKING_FILTERS_KEY, '');
-      if (!raw) return { discipline: 'all', timeRange: 'alltime' };
+      if (!raw) return { discipline: 'all', timeRange: 'week' };
       const parsed = JSON.parse(raw);
       return {
         discipline: DISCIPLINE_LABELS[parsed.discipline] ? parsed.discipline : 'all',
-        timeRange: TIME_RANGE_LABELS[parsed.timeRange] ? parsed.timeRange : 'alltime',
+        timeRange: TIME_RANGE_LABELS[parsed.timeRange] ? parsed.timeRange : 'week',
       };
     } catch (_error) {
       return { discipline: 'all', timeRange: 'alltime' };
@@ -67,7 +67,7 @@ const ClubsSystem = (function () {
     lastError: '',
     currentChallenge: null,
     challengeStandings: [],
-    clubRankingFilters: { discipline: 'all', timeRange: 'alltime' },
+    clubRankingFilters: { discipline: 'all', timeRange: 'week' },
   };
 
   function getClient() {

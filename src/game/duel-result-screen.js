@@ -61,14 +61,62 @@
       style.id = 'duelResultScreenStyles';
       document.head.appendChild(style);
     }
-
     style.textContent = `
-      .duel-result-overlay{position:fixed;inset:0;z-index:2147483100;display:grid;place-items:end center;padding:16px 14px calc(18px + env(safe-area-inset-bottom));background:radial-gradient(circle at 18% 12%,rgba(0,195,255,.16),transparent 34%),radial-gradient(circle at 90% 42%,rgba(169,239,58,.12),transparent 42%),rgba(2,4,7,.94);color:#f3f6f8;font-family:'Outfit',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
-      .duel-result-card{width:min(100%,560px);max-height:94dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;border:1px solid rgba(120,144,160,.34);border-radius:28px;padding:18px;background:linear-gradient(180deg,rgba(16,25,34,.98),rgba(8,13,19,.985));box-shadow:0 24px 80px rgba(0,0,0,.66),inset 0 1px 0 rgba(255,255,255,.04)}
-      .duel-result-card.win{border-color:rgba(169,239,58,.68);box-shadow:0 0 42px rgba(169,239,58,.12),0 24px 80px rgba(0,0,0,.66)}.duel-result-card.lose{border-color:rgba(255,110,110,.52)}.duel-result-card.draw{border-color:rgba(22,215,236,.64)}
-      .duel-result-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}.duel-result-kicker{color:rgba(230,238,244,.55);font-size:.76rem;font-weight:950;letter-spacing:.14em;text-transform:uppercase}.duel-result-title{margin:3px 0 5px;font-size:clamp(2rem,10vw,3rem);line-height:.95;font-weight:950;letter-spacing:.02em;text-transform:uppercase}.duel-result-card.win .duel-result-title{color:#a9ef3a}.duel-result-card.lose .duel-result-title{color:#ff8c8c}.duel-result-card.draw .duel-result-title{color:#16d7ec}.duel-result-subtitle{color:rgba(230,238,244,.74);font-size:.92rem;font-weight:800;line-height:1.3}.duel-result-close{width:42px;height:42px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.12);border-radius:50%;background:rgba(255,255,255,.06);color:rgba(255,255,255,.78);font-size:1.15rem;font-weight:900;cursor:pointer}
-      .duel-score-card{padding:15px;border:1px solid rgba(66,108,126,.72);border-radius:19px;background:linear-gradient(90deg,rgba(8,18,24,.96),rgba(8,41,54,.82)),radial-gradient(circle at 96% 12%,rgba(0,195,255,.14),transparent 48%)}.duel-score-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}.duel-score-side{padding:12px 10px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.04);text-align:center}.duel-score-side.winner{border-color:rgba(169,239,58,.78);background:rgba(169,239,58,.10);box-shadow:0 0 24px rgba(169,239,58,.14)}.duel-score-label{color:rgba(230,238,244,.55);font-size:.74rem;font-weight:950;letter-spacing:.12em;text-transform:uppercase}.duel-score-value{margin-top:5px;color:#f5f8fa;font-size:clamp(2.1rem,11vw,3.25rem);line-height:.95;font-weight:950}.duel-score-side.winner .duel-score-value{color:#a9ef3a}.duel-score-vs{color:rgba(230,238,244,.42);font-size:.86rem;font-weight:950;letter-spacing:.1em}.duel-diff-line{margin-top:12px;color:rgba(230,238,244,.74);text-align:center;font-size:.94rem;font-weight:850}
-      .duel-result-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.duel-result-stat{min-height:84px;padding:12px;border:1px solid rgba(117,137,154,.30);border-radius:16px;background:linear-gradient(145deg,rgba(21,31,42,.95),rgba(9,16,23,.96))}.duel-result-stat-label{color:rgba(230,238,244,.52);font-size:.72rem;font-weight:950;letter-spacing:.08em;text-transform:uppercase}.duel-result-stat-value{margin-top:8px;color:#16d7ec;font-size:1.28rem;font-weight:950;line-height:1.1}.duel-result-reward{margin-top:14px;padding:13px 14px;border:1px solid rgba(169,239,58,.34);border-radius:16px;background:rgba(169,239,58,.08);color:rgba(235,255,220,.9);font-weight:850;line-height:1.35}.duel-result-reward strong{color:#a9ef3a;font-size:1.1rem}.duel-result-actions{display:grid;grid-template-columns:1fr;gap:9px;margin-top:14px}.duel-result-btn{min-height:56px;border:0;border-radius:16px;color:#031219;background:linear-gradient(135deg,#18d7ed 0%,#19bbd6 55%,#0ee2ea 100%);box-shadow:0 0 0 1px rgba(143,250,255,.55),0 12px 28px rgba(0,195,255,.20);font-size:.98rem;font-weight:950;letter-spacing:.08em;cursor:pointer}.duel-result-btn.secondary{color:#f3f6f8;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.13);box-shadow:none}@media(min-width:440px){.duel-result-actions{grid-template-columns:1fr 1fr 1fr}}
+      .duel-result-overlay{position:fixed;inset:0;z-index:2147483100;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:env(safe-area-inset-top,20px) 20px calc(20px + env(safe-area-inset-bottom));font-family:'Outfit',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#fff}
+      .duel-result-overlay.win{background:radial-gradient(ellipse 90% 55% at 50% 0%,rgba(34,197,94,.18) 0%,transparent 60%),#0a0a0a}
+      .duel-result-overlay.lose{background:radial-gradient(ellipse 70% 45% at 50% 0%,rgba(255,255,255,.04) 0%,transparent 60%),#0a0a0a}
+      .duel-result-overlay.draw{background:radial-gradient(ellipse 70% 45% at 50% 0%,rgba(0,195,255,.08) 0%,transparent 60%),#0a0a0a}
+      .drs-hero{text-align:center;padding:22px 0 16px}
+      .drs-title{font-family:'Bebas Neue',sans-serif;letter-spacing:.09em;color:#fff;font-size:30px;line-height:1}
+      .drs-title.win{}
+      .drs-xp{font-size:18px;font-weight:700;margin-top:5px}
+      .drs-xp.win{color:#4ade80;text-shadow:0 0 14px rgba(74,222,128,.5)}
+      .drs-xp.lose,.drs-xp.draw{color:rgba(255,255,255,.4);font-size:15px;font-weight:600}
+      .drs-card{width:100%;background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:16px;margin-bottom:12px}
+      .drs-diff-pill{display:flex;justify-content:center;margin-bottom:14px}
+      .drs-pill{border-radius:100px;padding:4px 14px;font-size:12px;font-weight:800;letter-spacing:.04em}
+      .drs-pill.win{background:#22c55e;color:#000}
+      .drs-pill.lose,.drs-pill.draw{background:rgba(255,255,255,.1);color:rgba(255,255,255,.6);font-weight:700}
+      .drs-scores{display:flex;align-items:center}
+      .drs-col{flex:1;text-align:center}
+      .drs-col-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px}
+      .drs-score{font-family:'Bebas Neue',sans-serif;letter-spacing:.02em;line-height:1}
+      .drs-score.winner{font-size:50px;color:#4ade80;text-shadow:0 0 20px rgba(34,197,94,.4)}
+      .drs-score.loser{font-size:36px;color:rgba(255,255,255,.45)}
+      .drs-score.draw-val{font-size:44px;color:rgba(255,255,255,.8)}
+      .drs-score.bot-winner{font-size:50px;color:rgba(255,255,255,.9);letter-spacing:.02em}
+      .drs-col-sub{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px}
+      .drs-divider{width:1px;height:56px;background:rgba(255,255,255,.1);flex-shrink:0}
+      .drs-dist-card{width:100%;background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:13px 15px;margin-bottom:12px}
+      .drs-dist-lbl{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3);font-weight:600;margin-bottom:10px}
+      .drs-dist-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+      .drs-dist-key{font-size:11px;color:rgba(255,255,255,.4);width:30px;text-align:right;flex-shrink:0}
+      .drs-dist-track{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+      .drs-dist-fill{height:100%;border-radius:3px}
+      .drs-dist-fill.t10{background:#22c55e}
+      .drs-dist-fill.t9{background:rgba(34,197,94,.6)}
+      .drs-dist-fill.t8{background:rgba(34,197,94,.3)}
+      .drs-dist-fill.tlow{background:rgba(255,149,0,.4)}
+      .drs-dist-count{font-size:11px;width:18px;text-align:right;flex-shrink:0}
+      .drs-dist-count.t10{color:#22c55e}
+      .drs-dist-count.t9{color:rgba(255,255,255,.5)}
+      .drs-dist-count.t8,.drs-dist-count.tlow{color:rgba(255,255,255,.35)}
+      .drs-stats-row{display:flex;gap:10px;margin-bottom:12px}
+      .drs-stat{flex:1;background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:11px 10px;text-align:center}
+      .drs-stat-lbl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);font-weight:600}
+      .drs-stat-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:#fff;margin-top:4px}
+      .drs-xp-wrap{width:100%;margin-bottom:16px}
+      .drs-xp-hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+      .drs-rank-lbl{font-size:12px;font-weight:700;color:#22c55e}
+      .drs-xp-lbl{font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.4)}
+      .drs-xp-track{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+      .drs-xp-fill{height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:3px;box-shadow:0 0 8px rgba(34,197,94,.4)}
+      .drs-actions{width:100%;display:flex;flex-direction:column;gap:10px}
+      .drs-btn-primary{width:100%;padding:15px;background:#22c55e;color:#000;border:none;border-radius:14px;font-family:'Outfit',sans-serif;font-size:15px;font-weight:800;letter-spacing:.06em;cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,.3)}
+      .drs-btn-ghost{width:100%;padding:13px;background:transparent;color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.12);border-radius:14px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+      .drs-btn-ghost-row{display:flex;gap:10px}
+      .drs-btn-ghost-row .drs-btn-ghost{flex:1}
+      .drs-motivate{font-size:11px;color:rgba(34,197,94,.7);text-align:center;margin-top:-4px;margin-bottom:4px}
     `;
   }
 
@@ -232,6 +280,46 @@
     };
   }
 
+  function buildDist(values, shots) {
+    if (!values.length) return '';
+    const total = shots || values.length || 1;
+    const bucket = (lo, hi) => values.filter(v => {
+      const w = typeof v === 'number' ? Math.floor(v) : 0;
+      return w >= lo && w <= hi;
+    }).length;
+    const rows = [
+      { key: '10er', cnt: bucket(10, 10), cls: 't10' },
+      { key: '9er',  cnt: bucket(9, 9),   cls: 't9' },
+      { key: '8er',  cnt: bucket(8, 8),   cls: 't8' },
+      { key: '<8',   cnt: bucket(0, 7),   cls: 'tlow' },
+    ];
+    return rows.filter(r => r.cnt > 0).map(r => {
+      const pct = Math.round((r.cnt / total) * 100);
+      return `<div class="drs-dist-row"><div class="drs-dist-key">${html(r.key)}</div><div class="drs-dist-track"><div class="drs-dist-fill ${r.cls}" style="width:${pct}%"></div></div><div class="drs-dist-count ${r.cls}">${r.cnt}</div></div>`;
+    }).join('');
+  }
+
+  function xpMeta() {
+    const game = getGame();
+    const xp = number(game?.xp, 0);
+    const rankList = window.RANKS || [
+      { name: 'Anfänger', min: 0, max: 99 },
+      { name: 'Schütze', min: 100, max: 299 },
+      { name: 'Fortgeschr.', min: 300, max: 599 },
+      { name: 'Meister', min: 600, max: 999 },
+      { name: 'Großmeister', min: 1000, max: 1999 },
+      { name: 'Legende', min: 2000, max: Infinity }
+    ];
+    const idx = rankList.findIndex(r => xp >= r.min && xp <= r.max);
+    const rank = rankList[idx >= 0 ? idx : 0];
+    const nextRank = rankList[idx + 1] || null;
+    const pct = nextRank
+      ? Math.min(100, Math.round(((xp - rank.min) / (nextRank.min - rank.min)) * 100))
+      : 100;
+    const xpLabel = nextRank ? `${xp} / ${nextRank.min} XP` : `${xp} XP`;
+    return { rankName: rank.name, xpLabel, pct };
+  }
+
   function resultText(result, diffAbs) {
     if (result === 'win') return `Stark geschossen — du hast den Bot um ${diffAbs} Punkte geschlagen.`;
     if (result === 'lose') return `Knapp daneben — dir fehlen ${diffAbs} Punkte zur Revanche.`;
@@ -253,21 +341,87 @@
     state.lastSignature = signature;
 
     document.querySelectorAll('.duel-result-overlay').forEach((node) => node.remove());
-    const title = payload.result === 'win' ? '🏆 SIEG!' : payload.result === 'lose' ? '😔 NIEDERLAGE' : '🤝 UNENTSCHIEDEN';
+
+    const isWin = payload.result === 'win';
+    const isDraw = payload.result === 'draw';
+    const isLose = payload.result === 'lose';
     const disciplineLabel = DISCIPLINE_LABELS[payload.discipline] || payload.discipline;
     const difficultyLabel = DIFFICULTY_LABELS[payload.difficulty] || payload.difficulty;
-    const winnerPlayer = payload.result === 'win';
-    const winnerBot = payload.result === 'lose';
+    const xpGained = isWin ? (XP_REWARD[payload.difficulty] || 10) : isDraw ? 10 : 5;
+    const playerValues = shotValues('player');
+
+    const title = isWin ? '🏆 GEWONNEN' : isDraw ? '🤝 UNENTSCHIEDEN' : 'KNAPP VERLOREN';
+    const xpLine = isWin
+      ? `+${xpGained} XP ✨`
+      : isDraw
+      ? `+10 XP · Starkes Duell`
+      : `+${xpGained} XP Trost-Punkte`;
+
+    const diffAbs = Math.abs(payload.diff);
+    const diffSign = payload.diff > 0 ? '+' : '';
+    const diffLabel = `${diffSign}${typeof payload.diff === 'number' ? payload.diff.toFixed(1).replace('.', ',') : payload.diff} Ringe`;
+
+    const playerScoreCls = isWin ? 'winner' : isDraw ? 'draw-val' : 'loser';
+    const botScoreCls = isLose ? 'bot-winner' : isDraw ? 'draw-val' : 'loser';
+
+    const distRows = buildDist(playerValues, payload.shots);
+    const xp = xpMeta();
+
+    const xpFillStyle = (isWin || isDraw)
+      ? 'background:linear-gradient(90deg,#16a34a,#4ade80);box-shadow:0 0 8px rgba(34,197,94,.4)'
+      : 'background:linear-gradient(90deg,rgba(80,80,80,.6),rgba(140,140,140,.5))';
+    const rankStyle = (isWin || isDraw) ? 'color:#22c55e' : 'color:rgba(255,255,255,.45)';
+    const xpLblStyle = (isWin || isDraw) ? '' : 'color:rgba(255,255,255,.35)';
+
+    const motivateLine = isLose
+      ? `<div class="drs-motivate">Noch ${typeof diffAbs === 'number' ? diffAbs.toFixed(1).replace('.', ',') : diffAbs} Ringe gefehlt 🎯</div>`
+      : '';
+
+    const primaryLabel = isLose ? 'REVANCHE' : 'NOCHMAL';
 
     const overlay = document.createElement('div');
-    overlay.className = 'duel-result-overlay';
+    overlay.className = `duel-result-overlay ${payload.result}`;
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', 'Duell Ergebnis');
     overlay.innerHTML = `
-      <div class="duel-result-card ${payload.result}" role="dialog" aria-modal="true" aria-label="Duell Ergebnis">
-        <div class="duel-result-top"><div><div class="duel-result-kicker">DUELL ERGEBNIS</div><div class="duel-result-title">${html(title)}</div><div class="duel-result-subtitle">${html(disciplineLabel)} · ${html(difficultyLabel)} · ${html(payload.shots)} Schuss<br>${html(resultText(payload.result, payload.diffAbs))}</div></div><button class="duel-result-close" type="button" onclick="DuelResultScreen.close()">×</button></div>
-        <div class="duel-score-card"><div class="duel-score-row"><div class="duel-score-side ${winnerPlayer ? 'winner' : ''}"><div class="duel-score-label">DU</div><div class="duel-score-value">${html(payload.playerScore)}</div></div><div class="duel-score-vs">VS</div><div class="duel-score-side ${winnerBot ? 'winner' : ''}"><div class="duel-score-label">BOT</div><div class="duel-score-value">${html(payload.botScore)}</div></div></div><div class="duel-diff-line">Differenz: ${payload.diff > 0 ? '+' : ''}${html(payload.diff)}</div></div>
-        <div class="duel-result-grid"><div class="duel-result-stat"><div class="duel-result-stat-label">Beste Serie</div><div class="duel-result-stat-value">${html(payload.bestSeries)}</div></div><div class="duel-result-stat"><div class="duel-result-stat-label">Durchschnitt</div><div class="duel-result-stat-value">${html(payload.average)}</div></div><div class="duel-result-stat"><div class="duel-result-stat-label">Bot-Zielbereich</div><div class="duel-result-stat-value">${html(payload.targetRange)}</div></div><div class="duel-result-stat"><div class="duel-result-stat-label">Entfernung</div><div class="duel-result-stat-value">${html(payload.distance)} m</div></div></div>
-        <div class="duel-result-reward">${rewardText(payload.result, payload.difficulty, payload.diffAbs)}</div>
-        <div class="duel-result-actions"><button class="duel-result-btn" type="button" onclick="DuelResultScreen.rematch()">🔁 REVANCHE</button><button class="duel-result-btn secondary" type="button" onclick="DuelResultScreen.newSettings()">⚙️ NEU</button><button class="duel-result-btn secondary" type="button" onclick="DuelResultScreen.close()">🏠 DASHBOARD</button></div>
+      <div class="drs-hero">
+        <div class="drs-title">${html(title)}</div>
+        <div class="drs-xp ${payload.result}">${html(xpLine)}</div>
+      </div>
+      <div class="drs-card">
+        <div class="drs-diff-pill"><div class="drs-pill ${payload.result}">${html(diffLabel)}</div></div>
+        <div class="drs-scores">
+          <div class="drs-col">
+            <div class="drs-col-lbl">Du</div>
+            <div class="drs-score ${playerScoreCls}">${html(payload.playerScore)}</div>
+            <div class="drs-col-sub">Ringe</div>
+          </div>
+          <div class="drs-divider"></div>
+          <div class="drs-col">
+            <div class="drs-col-lbl">Bot</div>
+            <div class="drs-score ${botScoreCls}">${html(payload.botScore)}</div>
+            <div class="drs-col-sub">Ringe</div>
+          </div>
+        </div>
+      </div>
+      ${distRows ? `<div class="drs-dist-card"><div class="drs-dist-lbl">Verteilung</div>${distRows}</div>` : ''}
+      <div class="drs-stats-row">
+        <div class="drs-stat"><div class="drs-stat-lbl">Disziplin</div><div class="drs-stat-val">${html(disciplineLabel)}</div></div>
+        <div class="drs-stat"><div class="drs-stat-lbl">Modus</div><div class="drs-stat-val">${html(difficultyLabel)}</div></div>
+        <div class="drs-stat"><div class="drs-stat-lbl">${html(payload.shots)} Schuss · ${html(payload.distance)} m</div><div class="drs-stat-val">Beste Serie: ${html(payload.bestSeries)}</div></div>
+      </div>
+      <div class="drs-xp-wrap">
+        <div class="drs-xp-hdr">
+          <div class="drs-rank-lbl" style="${rankStyle}">Rang: ${html(xp.rankName)}</div>
+          <div class="drs-xp-lbl" style="${xpLblStyle}">${html(xp.xpLabel)}</div>
+        </div>
+        <div class="drs-xp-track"><div class="drs-xp-fill" style="width:${xp.pct}%;${xpFillStyle}"></div></div>
+      </div>
+      ${motivateLine}
+      <div class="drs-actions">
+        <button class="drs-btn-primary" type="button" onclick="DuelResultScreen.rematch()">${html(primaryLabel)}</button>
+        <button class="drs-btn-ghost" type="button" onclick="DuelResultScreen.close()">Profil</button>
       </div>
     `;
     document.body.appendChild(overlay);

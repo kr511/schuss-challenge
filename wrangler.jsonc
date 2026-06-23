@@ -7,6 +7,10 @@
   "assets": { "directory": "." },
   "compatibility_flags": ["nodejs_compat"],
 
+  // Rate-limiting KV: create namespace in Cloudflare Dashboard → KV → Create namespace
+  // named "schuss-rate-limit", then fill in the ID below and uncomment.
+  // "kv_namespaces": [{ "binding": "RATE_LIMIT_KV", "id": "<your-kv-namespace-id>" }],
+
   "vars": {
     "SUPABASE_URL": "https://fknftkvozwfkcarldzms.supabase.co",
     "ALLOW_INSECURE_DEV_AUTH": "false",

@@ -57,7 +57,7 @@ type ApiProfileRow = {
   public_id: string;
   display_name: string | null;
   privacy_settings: "public" | "private";
-  best_stats: string | null;
+  best_stats: Record<string, unknown> | null;
   updated_at: string | null;
 };
 
@@ -129,6 +129,7 @@ function mapSession(row: SessionRow): GameSession {
     id: row.id,
     userId: row.user_id,
     mode: row.mode,
+    discipline: row.discipline,
     score: numberFrom(row.score),
     shotsFired: numberFrom(row.shots_fired),
     durationSeconds: numberFrom(row.duration_seconds),
@@ -610,7 +611,7 @@ export async function updateProfile(
   userId: string,
   displayName: string,
   privacySettings: "public" | "private" = "private",
-  bestStats: string | null,
+  bestStats: Record<string, unknown> | null,
 ): Promise<void> {
   await ensureUserExists(env, userId);
 
@@ -680,6 +681,57 @@ export async function getLiveActivity(env: Env): Promise<ActivityRow[]> {
     },
     { allowMissingRelation: true },
   );
+}
+
+export async function savePushSubscription(
+  env: Env,
+  userId: string,
+  endpoint: string,
+  p256dh: string,
+  authKey: string,
+): Promise<void> {
+  await upsertRow(
+    env,
+    "push_subscriptions",
+    { user_id: userId, endpoint, p256dh, auth_key: authKey, updated_at: new Date().toISOString() },
+    "user_id,endpoint",
+    "resolution=merge-duplicates,return=minimal",
+  );
+}
+
+export async function deletePushSubscription(env: Env, userId: string, endpoint: string): Promise<void> {
+  await supabaseRequest<void>(env, "push_subscriptions", {
+    method: "DELETE",
+    query: { user_id: `eq.${userId}`, endpoint: `eq.${endpoint}` },
+  });
+}
+
+export async function getPushSubscriptionsByUser(
+  env: Env,
+  userId: string,
+): Promise<Array<{ endpoint: string; p256dh: string; auth_key: string }>> {
+  type Row = { endpoint: string; p256dh: string; auth_key: string };
+  return selectRows<Row>(env, "push_subscriptions", {
+    select: "endpoint,p256dh,auth_key",
+    user_id: `eq.${userId}`,
+  }, { allowMissingRelation: true });
+}
+
+export async function getDisciplineAverage(
+  env: Env,
+  discipline: string,
+): Promise<{ discipline: string; avgScore: number; count: number; bestScore: number }> {
+  type Row = { score: number | string };
+  const rows = await selectRows<Row>(env, "game_sessions", {
+    select: "score",
+    discipline: `eq.${discipline}`,
+    limit: 10000,
+  }, { allowMissingRelation: true });
+  const scores = rows.map(r => typeof r.score === 'number' ? r.score : Number(r.score)).filter(n => n > 0);
+  const count = scores.length;
+  const avgScore = count > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / count * 10) / 10 : 0;
+  const bestScore = count > 0 ? Math.max(...scores) : 0;
+  return { discipline, avgScore, count, bestScore };
 }
 
 export function dbHelpers(env: Env) {

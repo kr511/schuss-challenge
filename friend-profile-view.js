@@ -10,10 +10,39 @@
     isOpen: false,
     friend: null,
     ownStats: null,
+    workerProfile: null,
     closingFromPop: false,
     popHandler: null,
     scrollY: 0,
   };
+
+  async function fetchWorkerProfile(publicId) {
+    if (!publicId) return null;
+    try {
+      const res = await fetch('/api/profile/' + encodeURIComponent(publicId));
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (_e) { return null; }
+  }
+
+  function renderKaderVergleich(workerProfile, own) {
+    if (!workerProfile || !workerProfile.bestStats) return '';
+    const bs = workerProfile.bestStats;
+    const friendBest = bs.bestScore ? Math.round(bs.bestScore) : null;
+    const ownBest = own && own.bestRinge ? Math.round(own.bestRinge) : null;
+    const friendWr = typeof bs.winRate === 'number' ? Math.round(bs.winRate * 100) + '%' : null;
+    const ownWins = own && own.duelsWon ? own.duelsWon : 0;
+    const ownTotal = own && own.trainings ? own.trainings : 0;
+    const ownWr = ownTotal > 0 ? Math.round((ownWins / ownTotal) * 100) + '%' : null;
+    const rows = [
+      friendBest && ownBest ? `<div class="kv-row"><span class="kv-label">Beste Ringe</span><span class="kv-me">${ownBest}</span><span class="kv-vs">vs</span><span class="kv-them">${friendBest}</span></div>` : '',
+      friendWr && ownWr ? `<div class="kv-row"><span class="kv-label">Siegquote</span><span class="kv-me">${ownWr}</span><span class="kv-vs">vs</span><span class="kv-them">${friendWr}</span></div>` : '',
+    ].filter(Boolean).join('');
+    if (!rows) return '';
+    return '<div class="kv-card" style="background:rgba(18,18,18,.92);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;margin-top:12px;">' +
+      '<div style="font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);font-weight:700;margin-bottom:10px;">Kader-Vergleich</div>' +
+      rows + '</div>';
+  }
 
   function esc(value) {
     const div = document.createElement('div');
@@ -273,12 +302,14 @@
 
   function renderBody(f, own) {
     const compare = renderCompare(f, own);
+    const kader = renderKaderVergleich(state.workerProfile, own);
     return (
       '<div class="fp-body">' +
         renderHero(f) +
         renderActions() +
         renderStatTiles(f) +
         compare +
+        kader +
       '</div>'
     );
   }
@@ -413,9 +444,22 @@
 
     state.friend = friend;
     state.ownStats = getOwnStats();
+    state.workerProfile = null;
     state.isOpen = true;
 
     render();
+
+    // Async: fetch worker profile for Kader-Vergleich
+    const publicId = friend.publicId || friend.public_id;
+    if (publicId) {
+      fetchWorkerProfile(publicId).then(wp => {
+        if (state.isOpen && state.friend && state.friend.userId === friendId) {
+          state.workerProfile = wp;
+          render();
+          wireActions();
+        }
+      });
+    }
 
     ov.style.display = 'block';
     state.scrollY = window.scrollY || window.pageYOffset || 0;

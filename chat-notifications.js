@@ -21,23 +21,23 @@
     return ('Notification' in window) ? Notification.permission : 'unsupported';
   }
 
-  async function saveSubscription(sub) {
-    const client = window.SupabaseAuth && window.SupabaseAuth.client;
-    const session = (window.SupabaseAuth && window.SupabaseAuth.getSession && window.SupabaseAuth.getSession())
-      || window.SupabaseSession;
-    const myId = session && session.user && session.user.id;
-    if (!client || !myId) return;
+  async function getToken() {
+    const session = (window.SupabaseAuth && typeof window.SupabaseAuth.getSession === 'function'
+      ? window.SupabaseAuth.getSession() : null) || window.SupabaseSession;
+    return session && session.access_token ? session.access_token : null;
+  }
 
+  async function saveSubscription(sub) {
+    const token = await getToken();
+    if (!token) return;
     const json = sub.toJSON();
     const keys = json.keys || {};
     try {
-      await client.from('push_subscriptions').upsert({
-        user_id: myId,
-        endpoint: sub.endpoint,
-        p256dh: keys.p256dh,
-        auth_key: keys.auth,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id,endpoint' });
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({ endpoint: sub.endpoint, p256dh: keys.p256dh, authKey: keys.auth }),
+      });
     } catch (err) {
       console.warn('[ChatNotif] save failed:', err && err.message);
     }

@@ -45,6 +45,12 @@ export interface Feedback {
   updatedAt: number | null;
 }
 
+interface KVNamespace {
+  get(key: string): Promise<string | null>;
+  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
+}
+
 export interface Env {
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_KEY?: string;
@@ -55,6 +61,12 @@ export interface Env {
   ADMIN_EMAIL?: string;
   /** Comma-separated list of user IDs that are allowed to hit /api/admin/* routes. */
   ADMIN_USER_IDS?: string;
+  /** Cloudflare KV namespace for rate limiting. Bind via wrangler.jsonc kv_namespaces. */
+  RATE_LIMIT_KV?: KVNamespace;
+  /** VAPID keys for Web Push (wrangler secret put). */
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_SUBJECT?: string;
   ASSETS?: {
     fetch(request: Request): Promise<Response>;
   };

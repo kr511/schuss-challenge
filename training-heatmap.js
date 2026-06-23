@@ -15,11 +15,20 @@
     return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
   }
 
-  function render() {
-    var container = document.getElementById('trainingHeatmap');
+  function render(sessions, containerId) {
+    var container = document.getElementById(containerId || 'trainingHeatmap');
     if (!container) return;
 
-    var history = _readHistory();
+    // sessions: optional array from Worker API (each item has played_at timestamp)
+    // Falls nicht übergeben: lokale sd_history verwenden
+    var history;
+    if (sessions && Array.isArray(sessions)) {
+      history = sessions.map(function(s) {
+        return { timestamp: typeof s.playedAt === 'number' ? s.playedAt : (s.played_at ? new Date(s.played_at).getTime() : Date.now()) };
+      });
+    } else {
+      history = _readHistory();
+    }
     var now = Date.now();
     var todayKey = _dayKey(now);
     var cutoff = now - TOTAL_DAYS * 24 * 60 * 60 * 1000;
@@ -88,5 +97,8 @@
       '</div>';
   }
 
-  window.TrainingHeatmap = { render: render };
+  window.TrainingHeatmap = {
+    render: render,
+    renderProfile: function(sessions) { render(sessions, 'trainingHeatmapProfile'); }
+  };
 })();

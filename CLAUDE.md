@@ -53,3 +53,16 @@ The Worker (`worker/index.ts`) routes `/api/*` to `worker/api.ts` and everything
 **Vision / OCR:** Photo-based score detection is beta. Results must always be manually verified. The pipeline is in `src/vision/` and is lazily loaded — paths are configured in `performance-config.js`.
 
 **Deployment:** `wrangler deploy` (Worker to Cloudflare). Before deploying, bump `CACHE_VERSION` in `sw.js` and the `?v=X.X` query string in `index.html`. Secrets must be set via `wrangler secret put`, never in `wrangler.jsonc`.
+
+## Aktive Roadmap
+
+Wir arbeiten auf V0.8 hin. **Beim Sitzungsstart immer `ROADMAP.md` lesen** und beim nächsten
+nicht abgehakten Item (`- [ ]`) weitermachen. Nach Abschluss eines Items die Checkbox auf `- [x]` setzen.
+
+Details zu jedem Item: Implementierungsplan in `~/.claude/plans/auf-welche-version-sind-cozy-leaf.md`.
+
+```
+V0.6 → V0.7 → V0.8
+Migrationen: npm run supabase:apply
+Tests:       npm test
+```
