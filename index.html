@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Schuss-Challenge">
+<title>Schuss-Challenge</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── RESET ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; background: #000; }
+body {
+  height: 100%;
+  font-family: 'Outfit', sans-serif;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+button { font-family: 'Outfit', sans-serif; cursor: pointer; border: none; background: none; }
+button:active { transform: scale(0.95); }
+
+/* ── PHONE SHELL ── */
+#app-shell {
+  width: 390px;
+  height: 100dvh;
+  max-height: 844px;
+  position: relative;
+  overflow: hidden;
+  background: #0a0a0a;
+  border-radius: 0;
+}
+@media (min-height: 860px) and (min-width: 430px) {
+  #app-shell {
+    border-radius: 46px;
+    border: 11px solid #1b1b1d;
+    box-shadow: 0 0 0 2px #000, 0 40px 90px rgba(0,0,0,0.65);
+    height: 844px;
+  }
+}
+@media (max-width: 389px) {
+  #app-shell { width: 100vw; }
+}
+
+/* ── SCREENS ── */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.screen.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* ── STATUS BAR NOTCH ── */
+.notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 130px;
+  height: 26px;
+  background: #000;
+  border-radius: 0 0 16px 16px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* ── TYPOGRAPHY ── */
+.font-display { font-family: 'Bebas Neue', sans-serif; }
+.font-mono { font-family: 'DM Mono', monospace; }
+
+/* ── CARDS ── */
+.card {
+  background: rgba(18,18,18,0.92);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+}
+.card-lg {
+  background: rgba(18,18,18,0.92);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+}
+.card-accent {
+  background: linear-gradient(160deg, rgba(34,197,94,0.14), rgba(18,18,18,0.92) 60%);
+  border: 1px solid rgba(34,197,94,0.22);
+  border-radius: 20px;
+}
+
+/* ── BUTTONS ── */
+.btn-primary {
+  width: 100%;
+  padding: 15px;
+  background: #22c55e;
+  color: #000;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 20px rgba(34,197,94,0.3);
+}
+.btn-ghost {
+  width: 100%;
+  padding: 13px;
+  background: transparent;
+  color: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.btn-schuss {
+  width: 100%;
+  padding: 16px;
+  background: #22c55e;
+  color: #000;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  box-shadow: 0 4px 20px rgba(34,197,94,0.35);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.btn-schuss:active {
+  transform: scale(0.96);
+  box-shadow: 0 2px 10px rgba(34,197,94,0.25);
+}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  background: rgba(10,10,10,0.92);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  z-index: 40;
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: rgba(255,255,255,0.32);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.nav-item.active { color: #22c55e; }
+.nav-icon {
+  width: 44px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  transition: background 0.2s;
+}
+.nav-item.active .nav-icon {
+  background: rgba(34,197,94,0.12);
+}
+.nav-item.active svg {
+  filter: drop-shadow(0 0 5px rgba(34,197,94,0.6));
+}
+.nav-label { font-size: 9px; font-weight: 600; }
+.nav-item.active .nav-label { font-weight: 700; }
+
+/* ── FROSTED HEADER ── */
+.frosted-header {
+  background: rgba(10,10,10,0.82);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+
+/* ── SEGMENTED CONTROL ── */
+.seg-control {
+  display: flex;
+  background: rgba(255,255,255,0.04);
+  border-radius: 18px;
+  padding: 4px;
+  gap: 2px;
+}
+.seg-item {
+  flex: 1;
+  padding: 9px 6px;
+  color: rgba(255,255,255,0.4);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 14px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.seg-item.active {
+  background: rgba(255,255,255,0.09);
+  color: #fff;
+  font-weight: 800;
+}
+
+/* ── PROGRESS BAR ── */
+.progress-track {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #16a34a, #4ade80);
+  border-radius: 3px;
+  box-shadow: 0 0 8px rgba(34,197,94,0.4);
+}
+
+/* ── FAB ── */
+.fab {
+  position: absolute;
+  bottom: 86px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #22c55e;
+  color: #000;
+  border-radius: 100px;
+  padding: 13px 22px;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 8px 28px rgba(34,197,94,0.4);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.fab:active {
+  transform: translateX(-50%) scale(0.95);
+  box-shadow: 0 4px 16px rgba(34,197,94,0.3);
+}
+
+/* ── TAB PANELS ── */
+.tab-panel {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+.tab-panel.active { display: flex; }
+
+/* ── SCROLL CONTENT ── */
+.scroll-content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.scroll-content::-webkit-scrollbar { display: none; }
+.scroll-inner {
+  padding: 16px 18px 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── STAT CHIP ── */
+.shot-chip {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 6px 13px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+.shot-chip.perfect {
+  background: rgba(34,197,94,0.2);
+  border-color: rgba(34,197,94,0.35);
+  color: #4ade80;
+  font-weight: 700;
+}
+
+/* ── FRIEND AVATAR ── */
+.friend-avatar {
+  position: relative;
+  flex-shrink: 0;
+}
+.avatar-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+.status-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid #0f0f0f;
+}
+.status-online { background: #22c55e; }
+.status-away { background: #ffc840; }
+.status-offline { background: rgba(255,255,255,0.3); }
+
+/* ── ACHIEVEMENT BADGE ── */
+.badge {
+  flex-shrink: 0;
+  width: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+.badge-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+.badge-label {
+  font-size: 9px;
+  color: rgba(255,255,255,0.55);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── DIVIDER ── */
+.divider { height: 1px; background: rgba(255,255,255,0.06); }
+
+/* ── GAME BG ── */
+.game-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 50% at 50% -5%, rgba(34,197,94,0.10) 0%, transparent 60%), #0a0a0a;
+  z-index: 0;
+}
+.splash-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 65% 65% at 50% 50%, rgba(34,197,94,0.07) 0%, transparent 65%), #0a0a0a;
+  z-index: 0;
+}
+.win-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 90% 55% at 50% 0%, rgba(34,197,94,0.18) 0%, transparent 60%), #0a0a0a;
+  z-index: 0;
+}
+
+/* ── XP BAR ── */
+.xp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.xp-label { font-size: 12px; font-weight: 700; }
+
+/* ── INLINE GRID ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+/* ── DISTRIBUTION BAR ── */
+.dist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dist-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  width: 30px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.dist-track {
+  flex: 1;
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.dist-fill { height: 100%; border-radius: 3px; }
+.dist-count {
+  font-size: 11px;
+  width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── PULSE ANIMATION (loading bar) ── */
+@keyframes loadPulse {
+  0% { width: 20%; }
+  50% { width: 85%; }
+  100% { width: 60%; }
+}
+.loading-bar-fill {
+  height: 100%;
+  background: #22c55e;
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(34,197,94,0.7);
+  animation: loadPulse 1.5s ease-in-out infinite;
+}
+
+/* ── FLASH ANIMATION (shot) ── */
+@keyframes shotFlash {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.shot-flash { animation: shotFlash 0.15s ease; }
+
+/* ── COUNTDOWN ── */
+@keyframes tickDown { from { opacity: 1; } to { opacity: 0.6; } }
+.countdown { animation: tickDown 1s infinite alternate; }
+
+</style>
+</head>
+<body>
+
+<div id="app-shell">
+  <!-- ════════════════════════════════════
+       SPLASH SCREEN
+  ════════════════════════════════════ -->
+  <div id="screen-splash" class="screen active">
+    <div class="splash-bg"></div>
+    <div class="notch"></div>
+    <div style="position:relative;z-index:1;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+      <!-- Target icon -->
+      <svg viewBox="0 0 80 80" width="80" height="80" style="filter:drop-shadow(0 0 16px rgba(74,222,128,0.6))">
+        <circle cx="40" cy="40" r="38" fill="#0f0f0f" stroke="rgba(255,255,255,0.1)" stroke-width="0.8"/>
+        <circle cx="40" cy="40" r="30" fill="#191919" stroke="rgba(255,255,255,0.12)" stroke-width="0.8"/>
+        <circle cx="40" cy="40" r="22" fill="rgba(235,233,225,0.92)"/>
+        <circle cx="40" cy="40" r="15" fill="rgba(235,233,225,0.96)"/>
+        <circle cx="40" cy="40" r="9" fill="rgba(34,197,94,0.45)" stroke="#22c55e" stroke-width="1.2"/>
+        <circle cx="40" cy="40" r="4" fill="#4ade80"/>
+        <line x1="40" y1="2" x2="40" y2="12" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="40" y1="68" x2="40" y2="78" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="2" y1="40" x2="12" y2="40" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="68" y1="40" x2="78" y2="40" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+      <!-- App name -->
+      <div style="text-align:center">
+        <div class="font-display" style="font-size:32px;letter-spacing:0.15em;color:#fff">SCHUSS</div>
+        <div class="font-display" style="font-size:13px;letter-spacing:0.42em;color:#22c55e;margin-top:1px">CHALLENGE</div>
+      </div>
+      <!-- Loading bar -->
+      <div style="width:120px;height:2px;background:rgba(255,255,255,0.06);border-radius:1px;overflow:hidden;margin-top:16px">
+        <div class="loading-bar-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       ONBOARDING SCREEN
+  ════════════════════════════════════ -->
+  <div id="screen-onboarding" class="screen">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.10) 0%,transparent 55%),#0a0a0a;z-index:0"></div>
+    <div class="notch"></div>
+    <!-- Skip -->
+    <div style="position:absolute;top:50px;right:22px;z-index:20;font-size:13px;color:rgba(255,255,255,0.3);font-weight:500;cursor:pointer" onclick="showMain()">Überspringen</div>
+
+    <div style="position:relative;z-index:1;flex:1;display:flex;flex-direction:column">
+      <!-- Illustration top 55% -->
+      <div style="height:55%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+        <div style="position:absolute;bottom:0;left:0;right:0;height:100px;background:linear-gradient(to top,rgba(34,197,94,0.07),transparent)"></div>
+        <div style="transform:perspective(700px) rotateX(6deg)">
+          <svg viewBox="0 0 260 260" width="240" height="240" style="filter:drop-shadow(0 0 40px rgba(34,197,94,0.25))">
+            <circle cx="130" cy="130" r="126" fill="#060606" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+            <circle cx="130" cy="130" r="112" fill="#0c0c0c" stroke="rgba(255,255,255,0.09)" stroke-width="1"/>
+            <circle cx="130" cy="130" r="98" fill="#111" stroke="rgba(255,255,255,0.11)" stroke-width="1"/>
+            <circle cx="130" cy="130" r="84" fill="#171717" stroke="rgba(255,255,255,0.14)" stroke-width="1"/>
+            <circle cx="130" cy="130" r="70" fill="#1e1e1e" stroke="rgba(255,255,255,0.17)" stroke-width="1"/>
+            <circle cx="130" cy="130" r="56" fill="rgba(238,236,228,0.93)" stroke="rgba(0,0,0,0.2)" stroke-width="1"/>
+            <circle cx="130" cy="130" r="43" fill="rgba(238,236,228,0.95)" stroke="rgba(0,0,0,0.2)" stroke-width="1"/>
+            <circle cx="130" cy="130" r="31" fill="rgba(235,233,225,0.97)" stroke="rgba(0,0,0,0.2)" stroke-width="1"/>
+            <circle cx="130" cy="130" r="21" fill="rgba(34,197,94,0.35)" stroke="#22c55e" stroke-width="1.5"/>
+            <circle cx="130" cy="130" r="12" fill="#22c55e" stroke="#4ade80" stroke-width="1.5"/>
+            <circle cx="130" cy="130" r="6" fill="#4ade80"/>
+            <line x1="130" y1="4" x2="130" y2="24" stroke="rgba(255,255,255,0.5)" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="130" y1="236" x2="130" y2="256" stroke="rgba(255,255,255,0.5)" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="4" y1="130" x2="24" y2="130" stroke="rgba(255,255,255,0.5)" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="236" y1="130" x2="256" y2="130" stroke="rgba(255,255,255,0.5)" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="130" y1="24" x2="130" y2="236" stroke="rgba(255,255,255,0.06)" stroke-width="0.7"/>
+            <line x1="24" y1="130" x2="236" y2="130" stroke="rgba(255,255,255,0.06)" stroke-width="0.7"/>
+            <circle cx="88" cy="88" r="3" fill="rgba(34,197,94,0.6)"/>
+            <circle cx="172" cy="92" r="2.5" fill="rgba(34,197,94,0.45)"/>
+            <circle cx="130" cy="130" r="2.5" fill="rgba(34,197,94,0.9)"/>
+          </svg>
+        </div>
+      </div>
+      <!-- Text bottom 45% -->
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:28px 26px 36px">
+        <div>
+          <h1 style="font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1.2">Trainiere wie ein Profi.</h1>
+          <p style="font-size:15px;color:rgba(255,255,255,0.55);margin-top:10px;line-height:1.5">Duell gegen den adaptiven Bot. Dein Niveau. Dein Tempo.</p>
+        </div>
+        <div>
+          <!-- Dots -->
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:22px">
+            <div style="width:20px;height:7px;background:#22c55e;border-radius:4px"></div>
+            <div style="width:7px;height:7px;background:rgba(255,255,255,0.2);border-radius:50%"></div>
+            <div style="width:7px;height:7px;background:rgba(255,255,255,0.2);border-radius:50%"></div>
+          </div>
+          <button class="btn-primary" onclick="showMain()" style="font-size:16px;letter-spacing:0.05em;box-shadow:0 0 20px rgba(34,197,94,0.3)">JETZT STARTEN</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       MAIN APP SCREEN
+  ════════════════════════════════════ -->
+  <div id="screen-main" class="screen">
+    <div class="notch"></div>
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+
+      <!-- ── START TAB ── -->
+      <div id="tab-start" class="tab-panel active" style="background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.10) 0%,transparent 55%),#0a0a0a">
+        <div class="frosted-header" style="padding:44px 20px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+            <div>
+              <div style="font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;margin-bottom:3px">MONTAG, 23. JUNI</div>
+              <div style="font-size:22px;font-weight:700;color:#fff">Hallo, Max 👋</div>
+            </div>
+            <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="rgba(255,255,255,0.6)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div class="scroll-content">
+          <div class="scroll-inner">
+            <!-- Tagesziel card -->
+            <div class="card-accent" style="padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.55)">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg viewBox="0 0 24 24" width="22" height="22" stroke="#22c55e" fill="none" stroke-width="2" stroke-linecap="round">
+                    <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+                    <line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/>
+                    <line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/>
+                  </svg>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.45);font-weight:600;margin-bottom:3px">Dein heutiges Ziel</div>
+                  <div style="font-size:17px;font-weight:800;color:#fff">390+ Ringe schießen</div>
+                </div>
+                <!-- Radial progress -->
+                <div style="position:relative;width:56px;height:56px;flex-shrink:0">
+                  <svg viewBox="0 0 56 56" width="56" height="56" style="transform:rotate(-90deg)">
+                    <circle cx="28" cy="28" r="23" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="5"/>
+                    <circle cx="28" cy="28" r="23" fill="none" stroke="#22c55e" stroke-width="5" stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="39" style="filter:drop-shadow(0 0 4px rgba(34,197,94,0.5))"/>
+                  </svg>
+                  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#22c55e">73%</div>
+                </div>
+              </div>
+              <div style="margin-top:14px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <div style="font-size:11px;color:rgba(255,255,255,0.45)">Fortschritt: 284 Ringe</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.45)">Heute 18:00</div>
+                </div>
+                <div class="progress-track" style="height:7px">
+                  <div class="progress-fill" style="width:73%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Übersicht 3-col -->
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div style="font-size:16px;font-weight:700;color:#fff">Übersicht</div>
+                <div style="font-size:12px;color:#22c55e;font-weight:600">Alle anzeigen →</div>
+              </div>
+              <div class="grid-3">
+                <div class="card" style="padding:13px 10px;display:flex;flex-direction:column;gap:6px">
+                  <div style="width:32px;height:32px;border-radius:10px;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center">
+                    <svg viewBox="0 0 24 24" width="17" height="17" stroke="#22c55e" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="22,7 13.5,15.5 8.5,10.5 2,17"/><polyline points="16,7 22,7 22,13"/>
+                    </svg>
+                  </div>
+                  <div style="font-size:21px;font-weight:800;color:#fff;line-height:1;letter-spacing:-0.02em">387,2</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:500;line-height:1.3">Ø Ringe Diese Woche</div>
+                </div>
+                <div class="card" style="padding:13px 10px;display:flex;flex-direction:column;gap:6px">
+                  <div style="width:32px;height:32px;border-radius:10px;background:rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center">
+                    <svg viewBox="0 0 24 24" width="17" height="17" stroke="#00c3ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                      <path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>
+                    </svg>
+                  </div>
+                  <div style="font-size:21px;font-weight:800;color:#fff;line-height:1;letter-spacing:-0.02em">12</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:500;line-height:1.3">Challenges Gewonnen</div>
+                </div>
+                <div class="card" style="padding:13px 10px;display:flex;flex-direction:column;gap:6px">
+                  <div style="width:32px;height:32px;border-radius:10px;background:rgba(170,90,255,0.15);display:flex;align-items:center;justify-content:center">
+                    <svg viewBox="0 0 24 24" width="17" height="17" stroke="#aa5aff" fill="none" stroke-width="2" stroke-linecap="round">
+                      <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+                    </svg>
+                  </div>
+                  <div style="font-size:21px;font-weight:800;color:#fff;line-height:1;letter-spacing:-0.02em">48</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:500;line-height:1.3">Trainings Gesamt</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Letztes Training -->
+            <div>
+              <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:10px">Letztes Training</div>
+              <div class="card-lg" style="overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.55)">
+                <div style="display:flex;align-items:center;gap:14px;padding:15px 16px">
+                  <div style="width:56px;height:56px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">🎯</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:15px;font-weight:700;color:#fff">LG 40 · 10m</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Heute · 09:30 Uhr</div>
+                  </div>
+                  <div style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);border-radius:14px;padding:8px 12px;text-align:center;flex-shrink:0">
+                    <div style="font-size:21px;font-weight:800;color:#22c55e;line-height:1">391,4</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:2px;text-transform:uppercase;letter-spacing:0.08em">Ringe</div>
+                  </div>
+                </div>
+                <div style="display:flex;border-top:1px solid rgba(255,255,255,0.06)">
+                  <div style="flex:1;padding:11px 8px;text-align:center;border-right:1px solid rgba(255,255,255,0.06)">
+                    <div style="font-size:13px;font-weight:700;color:#fff">40</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:2px">Schuss</div>
+                  </div>
+                  <div style="flex:1;padding:11px 8px;text-align:center;border-right:1px solid rgba(255,255,255,0.06)">
+                    <div style="font-size:13px;font-weight:700;color:#fff">96,8%</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:2px">Ø Ring</div>
+                  </div>
+                  <div style="flex:1;padding:11px 8px;text-align:center">
+                    <div style="font-size:13px;font-weight:700;color:#22c55e">+20 XP</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:2px">Belohnung</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- FAB -->
+        <button class="fab" onclick="startGame()">
+          <svg viewBox="0 0 24 24" width="17" height="17" stroke="#000" fill="none" stroke-width="2.5" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+          </svg>
+          DUELL STARTEN
+        </button>
+      </div>
+
+      <!-- ── TRAINING TAB ── -->
+      <div id="tab-training" class="tab-panel" style="background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.08) 0%,transparent 55%),#0a0a0a">
+        <div class="frosted-header" style="padding:44px 20px 14px">
+          <div style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1">Training</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px">5 Modi · Deine Woche</div>
+        </div>
+        <div class="scroll-content">
+          <div class="scroll-inner" style="gap:12px">
+            <!-- Segmented tabs -->
+            <div class="seg-control" style="flex-shrink:0">
+              <div class="seg-item active">Alle</div>
+              <div class="seg-item">LG</div>
+              <div class="seg-item">KK</div>
+            </div>
+            <!-- Training cards -->
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div class="card" style="border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="startGame()">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,107,53,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⚡</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:700;color:#fff">Geschwindigkeit</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">60 Sek · 30 Schuss max</div>
+                  <div style="display:flex;gap:4px;margin-top:6px">
+                    <span style="font-size:14px;opacity:0.3">🥉</span><span style="font-size:14px;opacity:0.3">🥈</span><span style="font-size:14px;opacity:0.3">🥇</span>
+                  </div>
+                </div>
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg>
+                </div>
+              </div>
+              <div class="card" style="border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="startGame()">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(78,205,196,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🎯</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:700;color:#fff">Präzision</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">10 Schuss · Kein Limit</div>
+                  <div style="display:flex;gap:4px;margin-top:6px">
+                    <span style="font-size:14px">🥉</span><span style="font-size:14px;opacity:0.3">🥈</span><span style="font-size:14px;opacity:0.3">🥇</span>
+                  </div>
+                </div>
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg>
+                </div>
+              </div>
+              <div class="card" style="border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="startGame()">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(69,183,209,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🌬️</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:700;color:#fff">Ausdauer</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">40 Schuss · LG 10m</div>
+                  <div style="display:flex;gap:4px;margin-top:6px">
+                    <span style="font-size:14px">🥉</span><span style="font-size:14px">🥈</span><span style="font-size:14px;opacity:0.3">🥇</span>
+                  </div>
+                </div>
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg>
+                </div>
+              </div>
+              <div class="card" style="border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;border-color:rgba(255,200,64,0.15);cursor:pointer" onclick="startGame()">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(247,183,49,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🏅</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:700;color:#fff">Druck</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Zeitlimit · Steigend</div>
+                  <div style="display:flex;gap:4px;margin-top:6px">
+                    <span style="font-size:14px">🥉</span><span style="font-size:14px">🥈</span><span style="font-size:14px">🥇</span>
+                  </div>
+                </div>
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg>
+                </div>
+              </div>
+            </div>
+            <!-- Heatmap -->
+            <div>
+              <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:10px">Deine Woche</div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <div style="display:flex;gap:4px;align-items:center">
+                  <div style="font-size:9px;color:rgba(255,255,255,0.2);width:16px;text-align:right;flex-shrink:0">Mo</div>
+                  <div style="display:flex;gap:3px">
+                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center">
+                  <div style="font-size:9px;color:rgba(255,255,255,0.2);width:16px;text-align:right;flex-shrink:0">Di</div>
+                  <div style="display:flex;gap:3px">
+                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center">
+                  <div style="font-size:9px;color:rgba(255,255,255,0.2);width:16px;text-align:right;flex-shrink:0">Mi</div>
+                  <div style="display:flex;gap:3px">
+                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CHALLENGES TAB ── -->
+      <div id="tab-challenges" class="tab-panel" style="background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.08) 0%,transparent 55%),#0a0a0a">
+        <div class="frosted-header" style="padding:44px 20px 14px">
+          <div style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.02em">Challenges</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px">Tages-Aufgaben · Club</div>
+        </div>
+        <div class="scroll-content">
+          <div class="scroll-inner" style="gap:12px">
+            <!-- Daily challenge -->
+            <div class="card-accent" style="padding:16px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:#22c55e;font-weight:600">⚡ Tages-Challenge</div>
+                <div class="font-mono countdown" style="font-size:12px;color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.06);border-radius:100px;padding:3px 10px">04:22:11</div>
+              </div>
+              <div style="font-size:16px;font-weight:700;color:#fff;margin-top:10px;line-height:1.3">Schieße 5 Duelle auf Schwierigkeit Mittel</div>
+              <div style="margin-top:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <div style="font-size:12px;font-weight:700;color:#22c55e">3 / 5 Duelle</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4)">60%</div>
+                </div>
+                <div class="progress-track" style="height:7px">
+                  <div class="progress-fill" style="width:60%"></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <div style="background:rgba(255,200,64,0.12);border:1px solid rgba(255,200,64,0.25);border-radius:100px;padding:4px 12px;font-size:12px;font-weight:700;color:#ffc840">+25 XP</div>
+                <div style="background:rgba(255,255,255,0.05);border-radius:100px;padding:4px 12px;font-size:12px;color:rgba(255,255,255,0.5)">🎯 Disziplin: LG 40</div>
+              </div>
+            </div>
+            <!-- Weitere Aufgaben -->
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-size:15px;font-weight:700;color:#fff">Weitere Aufgaben</div>
+                <div style="font-size:12px;color:#22c55e;font-weight:600">Alle →</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="card" style="border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+                  <div style="width:36px;height:36px;border-radius:50%;background:rgba(34,197,94,0.12);border:2px solid #22c55e;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">✅</div>
+                  <div style="flex:1;font-size:14px;font-weight:600;color:rgba(255,255,255,0.5)">Schieße 1 Schuss in den 10er Ring</div>
+                  <div style="color:#22c55e;flex-shrink:0">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+                  </div>
+                </div>
+                <div class="card" style="border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px">
+                  <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,149,0,0.12);border:2px solid rgba(255,149,0,0.35);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🔥</div>
+                  <div style="flex:1;font-size:14px;font-weight:700;color:#fff">Streak: 3 Duelle in Folge gewinnen</div>
+                  <div style="background:rgba(255,200,64,0.12);border-radius:100px;padding:3px 10px;font-size:11px;font-weight:700;color:#ffc840;flex-shrink:0">+15 XP</div>
+                </div>
+                <div class="card" style="border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:12px;opacity:0.6">
+                  <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🔒</div>
+                  <div style="flex:1;font-size:14px;color:rgba(255,255,255,0.3)">Foto-Challenge: Lade ein Scheibenfoto hoch</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.25);flex-shrink:0">Morgen</div>
+                </div>
+              </div>
+            </div>
+            <!-- Club Challenge -->
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-size:15px;font-weight:700;color:#fff">🏛 Club-Challenge</div>
+                <div style="font-size:12px;color:#22c55e;font-weight:600">Alle →</div>
+              </div>
+              <div class="card" style="border-radius:18px;padding:14px 16px">
+                <div style="font-size:15px;font-weight:800;color:#fff">Wochenliga: 395+ Ringe erzielen</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">SV Präzision e.V.</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+                  <div style="font-size:12px;color:rgba(255,255,255,0.5)">👥 8 Teilnehmer</div>
+                  <div style="font-size:13px;font-weight:700;color:#ffc840">🏆 500 XP</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── FREUNDE TAB ── -->
+      <div id="tab-friends" class="tab-panel" style="background:#0a0a0a">
+        <div class="frosted-header" style="padding:44px 20px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-end">
+            <div>
+              <div style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.02em">Freunde</div>
+              <div style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px">5 online · 12 Freunde gesamt</div>
+            </div>
+            <div style="border:1px solid rgba(34,197,94,0.35);color:#22c55e;border-radius:100px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">＋ Hinzufügen</div>
+          </div>
+        </div>
+        <div class="scroll-content">
+          <div class="scroll-inner" style="gap:10px">
+            <!-- Duel invite -->
+            <div style="display:flex;align-items:center;gap:12px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.18);border-left:3px solid #22c55e;border-radius:14px;padding:12px 14px">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:700;color:#fff">📨 MaxM. fordert dich heraus!</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px">LG 40 · Mittel · Läuft noch 22h</div>
+              </div>
+              <button style="background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.3);color:#22c55e;border-radius:100px;padding:7px 14px;font-size:12px;font-weight:700;white-space:nowrap" onclick="startGame()">Annehmen</button>
+            </div>
+            <!-- Online friends -->
+            <div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <div style="font-size:15px;font-weight:700;color:#fff">Jetzt online</div>
+                <div style="background:#22c55e;color:#000;border-radius:100px;padding:1px 8px;font-size:11px;font-weight:800">5</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="card" style="border-radius:16px;padding:11px 14px;display:flex;align-items:center;gap:12px">
+                  <div class="friend-avatar">
+                    <div class="avatar-circle" style="background:linear-gradient(135deg,rgba(34,197,94,0.3),rgba(0,195,255,0.25))">M</div>
+                    <div class="status-dot status-online"></div>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:700;color:#fff">MaxMuster</div>
+                    <div style="font-size:10px;color:#22c55e;margin-top:1px">Online · LG 40 üben</div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:16px;font-weight:800;color:#fff">392</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.3)">Ringe</div>
+                  </div>
+                </div>
+                <div class="card" style="border-radius:16px;padding:11px 14px;display:flex;align-items:center;gap:12px">
+                  <div class="friend-avatar">
+                    <div class="avatar-circle" style="background:linear-gradient(135deg,rgba(255,200,64,0.2),rgba(255,149,0,0.15))">A</div>
+                    <div class="status-dot status-away"></div>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:700;color:#fff">AnnaS.</div>
+                    <div style="font-size:10px;color:#ffc840;margin-top:1px">Vor 5 min · KK 50m</div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:16px;font-weight:800;color:#fff">388</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.3)">Ringe</div>
+                  </div>
+                </div>
+                <div class="card" style="border-radius:16px;padding:11px 14px;display:flex;align-items:center;gap:12px">
+                  <div class="friend-avatar">
+                    <div class="avatar-circle" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5)">K</div>
+                    <div class="status-dot status-offline"></div>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.7)">KlausP.</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:1px">Offline · Vor 2h</div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:16px;font-weight:800;color:rgba(255,255,255,0.5)">381</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.25)">Ringe</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Friend code -->
+            <div class="card" style="border-radius:16px;padding:14px">
+              <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.35);font-weight:600;margin-bottom:6px">Dein Freundescode</div>
+              <div class="font-mono" style="font-size:28px;color:#fff;letter-spacing:0.2em;text-align:center;margin:6px 0 12px">XK4R9P</div>
+              <button class="btn-primary" style="padding:11px;font-size:14px;font-weight:700;letter-spacing:0">Teilen →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PROFIL TAB ── -->
+      <div id="tab-profile" class="tab-panel" style="background:#0a0a0a">
+        <div class="frosted-header" style="padding:44px 20px 14px">
+          <div style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.02em">Profil</div>
+        </div>
+        <div class="scroll-content">
+          <div class="scroll-inner" style="gap:12px">
+            <!-- Hero card -->
+            <div style="background:linear-gradient(160deg,rgba(34,197,94,0.12),rgba(18,18,18,0.92) 55%);border:1px solid rgba(34,197,94,0.18);border-radius:22px;padding:18px 16px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:64px;height:64px;border-radius:50%;background:rgba(34,197,94,0.14);border:2px solid #22c55e;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;box-shadow:0 0 20px rgba(34,197,94,0.25)">🎯</div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-0.01em">MaxMuster</div>
+                    <div style="font-size:9px;font-weight:700;padding:3px 9px;border-radius:100px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6)">Öffentlich</div>
+                  </div>
+                  <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">🏛 SV Präzision e.V.</div>
+                </div>
+              </div>
+              <div style="margin-top:12px">
+                <div class="xp-row">
+                  <div class="xp-label" style="color:#22c55e;letter-spacing:0.04em;font-size:11px">⭐ MEISTER</div>
+                  <div class="font-mono" style="font-size:11px;color:rgba(255,255,255,0.4)">820 / 1000 XP</div>
+                </div>
+                <div class="progress-track"><div class="progress-fill" style="width:82%"></div></div>
+              </div>
+            </div>
+            <!-- Inner tabs -->
+            <div class="seg-control">
+              <div class="seg-item active">Stats</div>
+              <div class="seg-item">Erfolge</div>
+              <div class="seg-item">Verlauf</div>
+              <div class="seg-item">Konto</div>
+            </div>
+            <!-- Stats 2x2 -->
+            <div class="grid-2">
+              <div class="card" style="padding:13px 14px">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:8px">
+                  <svg viewBox="0 0 24 24" width="17" height="17" stroke="#22c55e" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+                    <path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/>
+                  </svg>
+                </div>
+                <div class="font-display" style="font-size:36px;color:#22c55e;line-height:1;letter-spacing:0.02em">142</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">Siege</div>
+              </div>
+              <div class="card" style="padding:13px 14px">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,149,0,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:8px;font-size:16px">🔥</div>
+                <div class="font-display" style="font-size:36px;color:#ff9500;line-height:1;letter-spacing:0.02em">12</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">Aktueller Streak</div>
+              </div>
+              <div class="card" style="padding:13px 14px">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,200,64,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:8px;font-size:16px">⭐</div>
+                <div class="font-display" style="font-size:36px;color:#ffc840;line-height:1;letter-spacing:0.02em">71%</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">Siegesrate</div>
+              </div>
+              <div class="card" style="padding:13px 14px">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(170,90,255,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:8px">
+                  <svg viewBox="0 0 24 24" width="17" height="17" stroke="#aa5aff" fill="none" stroke-width="2" stroke-linecap="round">
+                    <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
+                  </svg>
+                </div>
+                <div class="font-display" style="font-size:36px;color:#fff;line-height:1;letter-spacing:0.02em">1.240</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">XP Gesamt</div>
+              </div>
+            </div>
+            <!-- Achievements -->
+            <div>
+              <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:10px">Auszeichnungen</div>
+              <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none">
+                <div class="badge">
+                  <div class="badge-icon" style="background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.3)">🔥</div>
+                  <div class="badge-label">10er Streak</div>
+                </div>
+                <div class="badge">
+                  <div class="badge-icon" style="background:rgba(0,195,255,0.14);border:1px solid rgba(0,195,255,0.3)">🏆</div>
+                  <div class="badge-label">Erster Sieg</div>
+                </div>
+                <div class="badge">
+                  <div class="badge-icon" style="background:rgba(255,200,64,0.14);border:1px solid rgba(255,200,64,0.35)">⭐</div>
+                  <div class="badge-label">Scharfschütze</div>
+                </div>
+                <div class="badge" style="opacity:0.4">
+                  <div class="badge-icon" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);filter:grayscale(1)">👑</div>
+                  <div class="badge-label">Legende</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <div class="nav-item active" data-tab="start" onclick="switchTab('start')">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9,22 9,12 15,12 15,22"/>
+          </svg>
+        </div>
+        <div class="nav-label">Start</div>
+      </div>
+      <div class="nav-item" data-tab="training" onclick="switchTab('training')">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>
+          </svg>
+        </div>
+        <div class="nav-label">Training</div>
+      </div>
+      <div class="nav-item" data-tab="challenges" onclick="switchTab('challenges')">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="6"/>
+            <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>
+          </svg>
+        </div>
+        <div class="nav-label">Challenges</div>
+      </div>
+      <div class="nav-item" data-tab="friends" onclick="switchTab('friends')">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div class="nav-label">Freunde</div>
+      </div>
+      <div class="nav-item" data-tab="profile" onclick="switchTab('profile')">
+        <div class="nav-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="nav-label">Profil</div>
+      </div>
+    </nav>
+  </div>
+
+  <!-- ════════════════════════════════════
+       GAME SCREEN
+  ════════════════════════════════════ -->
+  <div id="screen-game" class="screen">
+    <div class="game-bg"></div>
+    <div class="notch"></div>
+    <div style="position:relative;z-index:1;flex:1;display:flex;flex-direction:column">
+      <!-- Top bar -->
+      <div style="height:46px"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:0 22px 14px">
+        <div>
+          <div style="font-size:18px;font-weight:700;color:#fff">LG 40</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4)">Schießen</div>
+        </div>
+        <div style="text-align:center">
+          <div id="game-score" class="font-display" style="font-size:38px;color:#fff;letter-spacing:0.02em;line-height:1">385,6</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:0.12em;text-transform:uppercase;margin-top:1px">Ringe</div>
+        </div>
+        <div style="text-align:right">
+          <div id="shot-counter" style="font-size:15px;font-weight:700;color:#fff">3 / 40</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4)">Schuss</div>
+        </div>
+      </div>
+      <!-- Target -->
+      <div style="display:flex;align-items:center;justify-content:center;flex:1">
+        <div style="position:relative;display:inline-flex" id="target-wrap">
+          <div style="position:absolute;inset:-24px;background:radial-gradient(circle,rgba(34,197,94,0.13) 0%,transparent 65%);pointer-events:none;border-radius:50%"></div>
+          <svg viewBox="0 0 220 220" width="216" height="216">
+            <circle cx="110" cy="110" r="108" fill="#060606" stroke="rgba(255,255,255,0.07)" stroke-width="0.8"/>
+            <circle cx="110" cy="110" r="96" fill="#0c0c0c" stroke="rgba(255,255,255,0.09)" stroke-width="0.8"/>
+            <circle cx="110" cy="110" r="84" fill="#111" stroke="rgba(255,255,255,0.11)" stroke-width="0.8"/>
+            <circle cx="110" cy="110" r="72" fill="#161616" stroke="rgba(255,255,255,0.14)" stroke-width="0.8"/>
+            <circle cx="110" cy="110" r="60" fill="#1c1c1c" stroke="rgba(255,255,255,0.17)" stroke-width="0.8"/>
+            <circle cx="110" cy="110" r="48" fill="rgba(238,236,228,0.93)" stroke="rgba(0,0,0,0.2)" stroke-width="0.8"/>
+            <circle cx="110" cy="110" r="37" fill="rgba(238,236,228,0.95)" stroke="rgba(0,0,0,0.2)" stroke-width="0.8"/>
+            <circle cx="110" cy="110" r="27" fill="rgba(235,233,225,0.97)" stroke="rgba(0,0,0,0.2)" stroke-width="0.8"/>
+            <circle cx="110" cy="110" r="18" fill="rgba(34,197,94,0.35)" stroke="#22c55e" stroke-width="1.2"/>
+            <circle cx="110" cy="110" r="10" fill="#22c55e" stroke="#4ade80" stroke-width="1"/>
+            <circle cx="110" cy="110" r="5" fill="#4ade80"/>
+            <line x1="110" y1="2" x2="110" y2="22" stroke="rgba(255,255,255,0.45)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="110" y1="198" x2="110" y2="218" stroke="rgba(255,255,255,0.45)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="2" y1="110" x2="22" y2="110" stroke="rgba(255,255,255,0.45)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="198" y1="110" x2="218" y2="110" stroke="rgba(255,255,255,0.45)" stroke-width="1.1" stroke-linecap="round"/>
+            <line x1="110" y1="22" x2="110" y2="198" stroke="rgba(255,255,255,0.055)" stroke-width="0.6"/>
+            <line x1="22" y1="110" x2="198" y2="110" stroke="rgba(255,255,255,0.055)" stroke-width="0.6"/>
+          </svg>
+        </div>
+      </div>
+      <!-- Recent shots row -->
+      <div style="padding:12px 22px">
+        <div id="shot-chips" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none">
+          <div class="shot-chip perfect">10</div>
+          <div class="shot-chip">9,8</div>
+          <div class="shot-chip perfect">10</div>
+          <div class="shot-chip">9,6</div>
+        </div>
+      </div>
+      <!-- Bottom: bot + schuss -->
+      <div style="padding:12px 22px 28px">
+        <div id="bot-row" style="display:flex;align-items:center;gap:12px;background:rgba(255,74,74,0.06);border:1px solid rgba(255,74,74,0.12);border-radius:14px;padding:11px 14px;margin-bottom:14px">
+          <div style="width:38px;height:38px;border-radius:50%;background:rgba(255,74,74,0.15);border:1px solid rgba(255,74,74,0.25);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🤖</div>
+          <div style="flex:1">
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:1px">Bot · Realistisch</div>
+            <div id="bot-score" class="font-display" style="font-size:22px;color:#ff4a4a;letter-spacing:0.02em;line-height:1">383,2</div>
+          </div>
+          <div id="bot-delta" style="font-size:12px;color:rgba(255,74,74,0.65);font-weight:600">−2,4</div>
+        </div>
+        <button class="btn-schuss" onclick="handleSchuss()">SCHUSS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       WIN SCREEN
+  ════════════════════════════════════ -->
+  <div id="screen-win" class="screen">
+    <div class="win-bg"></div>
+    <div class="notch"></div>
+    <div style="position:relative;z-index:1;flex:1;display:flex;flex-direction:column;align-items:center;padding:0 20px">
+      <div style="height:50px"></div>
+      <div style="text-align:center;padding:18px 0 14px">
+        <div class="font-display" style="font-size:30px;letter-spacing:0.1em;color:#fff">🏆 GEWONNEN</div>
+        <div style="font-size:18px;font-weight:700;color:#4ade80;margin-top:4px;text-shadow:0 0 14px rgba(74,222,128,0.5)">+20 XP ✨</div>
+      </div>
+      <!-- Score card -->
+      <div class="card-lg" style="width:100%;padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:center;margin-bottom:14px">
+          <div style="background:#22c55e;color:#000;border-radius:100px;padding:4px 14px;font-size:12px;font-weight:800;letter-spacing:0.04em">+4,3 Ringe</div>
+        </div>
+        <div style="display:flex;align-items:center">
+          <div style="flex:1;text-align:center">
+            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px">Du</div>
+            <div class="font-display" style="font-size:50px;color:#4ade80;line-height:1;text-shadow:0 0 20px rgba(34,197,94,0.4);letter-spacing:0.02em">387,4</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Ringe</div>
+          </div>
+          <div style="width:1px;height:56px;background:rgba(255,255,255,0.1);flex-shrink:0"></div>
+          <div style="flex:1;text-align:center">
+            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px">Bot</div>
+            <div class="font-display" style="font-size:36px;color:rgba(255,255,255,0.45);line-height:1;letter-spacing:0.02em">383,1</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:2px">Ringe</div>
+          </div>
+        </div>
+      </div>
+      <!-- Distribution -->
+      <div class="card" style="width:100%;border-radius:16px;padding:13px 15px;margin-bottom:12px">
+        <div style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.3);font-weight:600;margin-bottom:10px">Verteilung</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div class="dist-row">
+            <div class="dist-label">10er</div>
+            <div class="dist-track"><div class="dist-fill" style="width:30%;background:#22c55e"></div></div>
+            <div class="dist-count" style="color:#22c55e">12</div>
+          </div>
+          <div class="dist-row">
+            <div class="dist-label">9er</div>
+            <div class="dist-track"><div class="dist-fill" style="width:50%;background:rgba(34,197,94,0.6)"></div></div>
+            <div class="dist-count" style="color:rgba(255,255,255,0.5)">20</div>
+          </div>
+          <div class="dist-row">
+            <div class="dist-label">8er</div>
+            <div class="dist-track"><div class="dist-fill" style="width:20%;background:rgba(34,197,94,0.3)"></div></div>
+            <div class="dist-count" style="color:rgba(255,255,255,0.35)">8</div>
+          </div>
+        </div>
+      </div>
+      <!-- XP bar -->
+      <div style="width:100%;margin-bottom:14px">
+        <div class="xp-row">
+          <div class="xp-label" style="color:#22c55e">Rang: Schütze</div>
+          <div class="font-mono" style="font-size:11px;color:rgba(255,255,255,0.4)">220 / 300 XP</div>
+        </div>
+        <div class="progress-track"><div class="progress-fill" style="width:73%"></div></div>
+      </div>
+      <!-- Buttons -->
+      <div style="width:100%;display:flex;flex-direction:column;gap:10px">
+        <button class="btn-primary" onclick="startGame()">NOCHMAL</button>
+        <button class="btn-ghost" onclick="showMain()">Profil</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════
+       LOSS SCREEN
+  ════════════════════════════════════ -->
+  <div id="screen-loss" class="screen">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 45% at 50% 0%,rgba(255,255,255,0.04) 0%,transparent 60%),#0a0a0a;z-index:0"></div>
+    <div class="notch"></div>
+    <div style="position:relative;z-index:1;flex:1;display:flex;flex-direction:column;align-items:center;padding:0 20px">
+      <div style="height:50px"></div>
+      <div style="text-align:center;padding:18px 0 14px">
+        <div class="font-display" style="font-size:26px;letter-spacing:0.08em;color:#fff">KNAPP VERLOREN</div>
+        <div style="font-size:15px;font-weight:600;color:rgba(255,255,255,0.4);margin-top:6px">+5 XP Trost-Punkte</div>
+      </div>
+      <!-- Score card -->
+      <div class="card-lg" style="width:100%;padding:16px;margin-bottom:12px">
+        <div style="display:flex;justify-content:center;margin-bottom:14px">
+          <div style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);border-radius:100px;padding:4px 14px;font-size:12px;font-weight:700">−2,1 Ringe</div>
+        </div>
+        <div style="display:flex;align-items:center">
+          <div style="flex:1;text-align:center">
+            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px">Du</div>
+            <div class="font-display" style="font-size:40px;color:rgba(255,255,255,0.45);line-height:1;letter-spacing:0.02em">385,4</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:2px">Ringe</div>
+          </div>
+          <div style="width:1px;height:56px;background:rgba(255,255,255,0.1);flex-shrink:0"></div>
+          <div style="flex:1;text-align:center">
+            <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px">Bot</div>
+            <div class="font-display" style="font-size:50px;color:rgba(255,255,255,0.9);line-height:1;letter-spacing:0.02em">387,5</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Ringe</div>
+          </div>
+        </div>
+      </div>
+      <!-- Distribution -->
+      <div class="card" style="width:100%;border-radius:16px;padding:13px 15px;margin-bottom:12px">
+        <div style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.3);font-weight:600;margin-bottom:10px">Verteilung</div>
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div class="dist-row">
+            <div class="dist-label">10er</div>
+            <div class="dist-track"><div class="dist-fill" style="width:22%;background:rgba(255,255,255,0.3)"></div></div>
+            <div class="dist-count" style="color:rgba(255,255,255,0.4)">9</div>
+          </div>
+          <div class="dist-row">
+            <div class="dist-label">9er</div>
+            <div class="dist-track"><div class="dist-fill" style="width:55%;background:rgba(255,255,255,0.25)"></div></div>
+            <div class="dist-count" style="color:rgba(255,255,255,0.4)">22</div>
+          </div>
+          <div class="dist-row">
+            <div class="dist-label">8er</div>
+            <div class="dist-track"><div class="dist-fill" style="width:22%;background:rgba(255,255,255,0.18)"></div></div>
+            <div class="dist-count" style="color:rgba(255,255,255,0.3)">9</div>
+          </div>
+        </div>
+      </div>
+      <!-- XP bar -->
+      <div style="width:100%;margin-bottom:10px">
+        <div class="xp-row">
+          <div class="xp-label" style="color:rgba(255,255,255,0.45)">Rang: Schütze</div>
+          <div class="font-mono" style="font-size:11px;color:rgba(255,255,255,0.35)">205 / 300 XP</div>
+        </div>
+        <div class="progress-track">
+          <div style="width:68%;height:100%;background:linear-gradient(90deg,rgba(80,80,80,0.6),rgba(140,140,140,0.5));border-radius:3px"></div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:rgba(34,197,94,0.5);text-align:center;margin-bottom:14px">Noch 2,1 Ringe gefehlt 🎯</div>
+      <!-- Buttons -->
+      <div style="width:100%;display:flex;flex-direction:column;gap:10px">
+        <button class="btn-primary" onclick="startGame()">REVANCHE</button>
+        <button class="btn-ghost" onclick="showMain()">Profil</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app-shell -->
+
+<script>
+// ── STATE ──
+let gameShots = 3;
+let gameScore = 385.6;
+let botScore = 383.2;
+let recentShots = ['10', '9,8', '10', '9,6'];
+let shotsTaken = 0;
+
+// ── NAVIGATION ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showMain() {
+  showScreen('screen-main');
+  switchTab('start');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
+  // FAB only on start tab
+  const fab = document.querySelector('.fab');
+  if (fab) fab.style.display = (tab === 'start') ? 'flex' : 'none';
+}
+
+// ── GAME ──
+function startGame() {
+  gameShots = 3;
+  gameScore = 385.6;
+  botScore = 383.2;
+  shotsTaken = 0;
+  recentShots = ['10', '9,8', '10', '9,6'];
+  updateGameUI();
+  showScreen('screen-game');
+}
+
+function handleSchuss() {
+  const target = document.getElementById('target-wrap');
+  target.classList.add('shot-flash');
+  setTimeout(() => target.classList.remove('shot-flash'), 200);
+
+  // Generate shot value (8.0–10.0)
+  const shot = (8 + Math.random() * 2).toFixed(1).replace('.', ',');
+  const shotVal = parseFloat(shot.replace(',', '.'));
+  const isPerfect = shotVal >= 9.8;
+
+  gameScore = parseFloat((gameScore + shotVal).toFixed(1));
+  botScore = parseFloat((botScore + (8.5 + Math.random() * 1.5)).toFixed(1));
+  gameShots++;
+  shotsTaken++;
+
+  // Update recent shots (keep last 4)
+  recentShots.unshift(shot);
+  if (recentShots.length > 6) recentShots.pop();
+
+  updateGameUI();
+
+  // After 5 shots, show result
+  if (shotsTaken >= 5) {
+    setTimeout(() => {
+      if (gameScore > botScore) showScreen('screen-win');
+      else showScreen('screen-loss');
+    }, 400);
+  }
+}
+
+function updateGameUI() {
+  document.getElementById('game-score').textContent = gameScore.toFixed(1).replace('.', ',');
+  document.getElementById('shot-counter').textContent = gameShots + ' / 40';
+  const delta = gameScore - botScore;
+  const botDeltaEl = document.getElementById('bot-delta');
+  document.getElementById('bot-score').textContent = botScore.toFixed(1).replace('.', ',');
+  botDeltaEl.textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1).replace('.', ',');
+  botDeltaEl.style.color = delta >= 0 ? 'rgba(74,222,128,0.65)' : 'rgba(255,74,74,0.65)';
+
+  // Rebuild shot chips
+  const chips = document.getElementById('shot-chips');
+  chips.innerHTML = recentShots.map(s => {
+    const v = parseFloat(s.replace(',', '.'));
+    const cls = v >= 9.8 ? 'shot-chip perfect' : 'shot-chip';
+    return `<div class="${cls}">${s}</div>`;
+  }).join('');
+}
+
+// ── SEGMENTED CONTROLS ──
+document.querySelectorAll('.seg-control').forEach(ctrl => {
+  ctrl.querySelectorAll('.seg-item').forEach(item => {
+    item.addEventListener('click', () => {
+      ctrl.querySelectorAll('.seg-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+});
+
+// ── SPLASH AUTO-ADVANCE ──
+setTimeout(() => {
+  showScreen('screen-onboarding');
+}, 2200);
+
+// ── PWA SERVICE WORKER ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
