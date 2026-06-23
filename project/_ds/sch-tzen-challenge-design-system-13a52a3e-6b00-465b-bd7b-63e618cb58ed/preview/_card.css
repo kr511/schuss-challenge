@@ -1,0 +1,28 @@
+/* Shared framing for Design System preview cards.
+   Each card links ../colors_and_type.css then this file. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  background: var(--bg-primary);
+  font-family: var(--font-main);
+  color: var(--text-soft);
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  /* subtle product background: green glows + on near-black */
+  background:
+    radial-gradient(ellipse 70% 60% at 20% -10%, rgba(34,197,94,0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 50% at 100% 110%, rgba(34,197,94,0.06) 0%, transparent 55%),
+    #0a0a0a;
+  padding: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+.swatch { border-radius: var(--r-sm); border: 1px solid var(--line); }
+.lbl { font-size: 0.6rem; letter-spacing: .04em; color: var(--text-muted); margin-top: 6px; }
+.hex { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-dim); }
+.eyebrow {
+  font-size: 0.55rem; letter-spacing: .28em; text-transform: uppercase;
+  font-weight: 600; color: var(--text-dim);
+}

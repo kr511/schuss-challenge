@@ -1,0 +1,216 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "ui_kits/app/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Bebas Neue|Outfit|DM Mono))/i]",
+        "message": "Font not provided by the design system. Available: Bebas Neue, Outfit, DM Mono."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {},
+    "tokens": [
+      "--accent",
+      "--accent-bright",
+      "--accent-dark",
+      "--accent-dim",
+      "--accent-glow",
+      "--accent-glow-soft",
+      "--accent-leaf",
+      "--accent-lime",
+      "--bg-card",
+      "--bg-card-2",
+      "--bg-elevated",
+      "--bg-inner",
+      "--bg-oled",
+      "--bg-primary",
+      "--blue",
+      "--blue-2",
+      "--body-line",
+      "--body-size",
+      "--body-weight",
+      "--border-accent",
+      "--bronze",
+      "--caption-size",
+      "--caption-weight",
+      "--display-lg-size",
+      "--display-lg-spacing",
+      "--display-xl-size",
+      "--display-xl-spacing",
+      "--eyebrow-size",
+      "--eyebrow-spacing",
+      "--eyebrow-weight",
+      "--font-display",
+      "--font-main",
+      "--font-mono",
+      "--glass-bg",
+      "--glass-blur",
+      "--gold",
+      "--gold-2",
+      "--h1-size",
+      "--h1-spacing",
+      "--h1-weight",
+      "--h2-size",
+      "--h2-spacing",
+      "--h2-weight",
+      "--h3-size",
+      "--h3-weight",
+      "--line",
+      "--line-faint",
+      "--line-strong",
+      "--orange",
+      "--purple",
+      "--purple-2",
+      "--r-full",
+      "--r-lg",
+      "--r-md",
+      "--r-sm",
+      "--r-xl",
+      "--red",
+      "--red-2",
+      "--sh-accent",
+      "--sh-lg",
+      "--sh-md",
+      "--sh-sm",
+      "--silver",
+      "--sp-1",
+      "--sp-2",
+      "--sp-3",
+      "--sp-4",
+      "--sp-5",
+      "--sp-6",
+      "--sp-8",
+      "--text-dim",
+      "--text-faint",
+      "--text-main",
+      "--text-muted",
+      "--text-soft",
+      "--tier-gold"
+    ],
+    "tokenKinds": {
+      "--accent": "color",
+      "--accent-bright": "color",
+      "--accent-dark": "color",
+      "--accent-lime": "color",
+      "--accent-leaf": "color",
+      "--accent-glow-soft": "color",
+      "--accent-dim": "color",
+      "--accent-glow": "color",
+      "--bg-primary": "color",
+      "--bg-oled": "color",
+      "--bg-card": "color",
+      "--bg-card-2": "color",
+      "--bg-elevated": "color",
+      "--bg-inner": "color",
+      "--glass-bg": "color",
+      "--glass-blur": "other",
+      "--line": "color",
+      "--line-strong": "color",
+      "--line-faint": "color",
+      "--border-accent": "color",
+      "--text-main": "font",
+      "--text-soft": "font",
+      "--text-muted": "font",
+      "--text-dim": "font",
+      "--text-faint": "font",
+      "--blue": "color",
+      "--blue-2": "color",
+      "--gold": "color",
+      "--gold-2": "color",
+      "--purple": "color",
+      "--purple-2": "color",
+      "--red": "color",
+      "--red-2": "color",
+      "--orange": "color",
+      "--bronze": "color",
+      "--silver": "color",
+      "--tier-gold": "color",
+      "--sh-sm": "shadow",
+      "--sh-md": "shadow",
+      "--sh-lg": "shadow",
+      "--sh-accent": "shadow",
+      "--r-sm": "spacing",
+      "--r-md": "spacing",
+      "--r-lg": "spacing",
+      "--r-xl": "spacing",
+      "--r-full": "spacing",
+      "--sp-1": "spacing",
+      "--sp-2": "spacing",
+      "--sp-3": "spacing",
+      "--sp-4": "spacing",
+      "--sp-5": "spacing",
+      "--sp-6": "spacing",
+      "--sp-8": "spacing",
+      "--font-display": "font",
+      "--font-main": "font",
+      "--font-mono": "font",
+      "--display-xl-size": "spacing",
+      "--display-xl-spacing": "spacing",
+      "--display-lg-size": "spacing",
+      "--display-lg-spacing": "spacing",
+      "--h1-size": "spacing",
+      "--h1-weight": "font",
+      "--h1-spacing": "spacing",
+      "--h2-size": "spacing",
+      "--h2-weight": "font",
+      "--h2-spacing": "spacing",
+      "--h3-size": "spacing",
+      "--h3-weight": "font",
+      "--body-size": "spacing",
+      "--body-weight": "font",
+      "--body-line": "other",
+      "--caption-size": "spacing",
+      "--caption-weight": "font",
+      "--eyebrow-size": "spacing",
+      "--eyebrow-spacing": "spacing",
+      "--eyebrow-weight": "font"
+    },
+    "fontFamilies": [
+      "Bebas Neue",
+      "DM Mono",
+      "Outfit"
+    ]
+  }
+}

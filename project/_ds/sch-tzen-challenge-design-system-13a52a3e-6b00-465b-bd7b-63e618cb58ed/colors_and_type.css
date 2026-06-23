@@ -1,0 +1,192 @@
+/* ═══════════════════════════════════════════════════════════════
+   SCHÜTZEN CHALLENGE — COLORS & TYPE
+   Foundational + semantic design tokens lifted from the live PWA
+   (styles.css + redesign.css). The "redesign" layer is canonical:
+   pure dark surfaces (#0a0a0a) with a single bright sport-green accent.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Webfonts — the app loads these from Google Fonts.
+   Bebas Neue (display), Outfit (UI / body), DM Mono (numeric / mono). */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ─────────────────────────────────────────────
+     CORE BRAND COLOR — sport green
+     The single hero hue. Used for primary actions,
+     active states, positive deltas, focus rings.
+  ───────────────────────────────────────────── */
+  --accent:        #22c55e;   /* primary green            */
+  --accent-bright: #4ade80;   /* hover / highlight green  */
+  --accent-dark:   #16a34a;   /* pressed / deep green     */
+  --accent-lime:   #8ecf40;   /* legacy logo lime         */
+  --accent-leaf:   #7ab030;   /* PWA theme-color / manifest */
+  --accent-glow-soft: #c8ee80;/* glowing active text      */
+  --accent-dim:    rgba(34, 197, 94, 0.15);
+  --accent-glow:   rgba(34, 197, 94, 0.35);
+
+  /* ─────────────────────────────────────────────
+     NEUTRALS / SURFACES — OLED-leaning darks
+  ───────────────────────────────────────────── */
+  --bg-primary:   #0a0a0a;            /* app canvas               */
+  --bg-oled:      #050505;            /* deepest black            */
+  --bg-card:      rgba(18, 18, 18, 0.92);  /* default card        */
+  --bg-card-2:    rgba(26, 26, 26, 0.95);  /* pressed / nested     */
+  --bg-elevated:  rgba(32, 32, 32, 0.98);  /* sheets / menus       */
+  --bg-inner:     rgba(255, 255, 255, 0.03);/* inset wells         */
+  --glass-bg:     rgba(20, 24, 18, 0.65);   /* glassmorphism base  */
+  --glass-blur:   blur(20px);
+
+  /* Hairlines / borders */
+  --line:         rgba(255, 255, 255, 0.07);
+  --line-strong:  rgba(255, 255, 255, 0.10);
+  --line-faint:   rgba(255, 255, 255, 0.06);
+  --border-accent: rgba(34, 197, 94, 0.25);
+
+  /* ─────────────────────────────────────────────
+     TEXT
+  ───────────────────────────────────────────── */
+  --text-main:  #ffffff;                    /* headings / values   */
+  --text-soft:  #e8e8e0;                    /* warm body white     */
+  --text-muted: rgba(255, 255, 255, 0.40);  /* labels / captions   */
+  --text-dim:   rgba(255, 255, 255, 0.25);  /* hints / disabled    */
+  --text-faint: rgba(255, 255, 255, 0.18);  /* chevrons / ticks    */
+
+  /* ─────────────────────────────────────────────
+     SEMANTIC ACCENTS — discipline & status coding
+  ───────────────────────────────────────────── */
+  --blue:    #00c3ff;   /* Kleinkaliber / info / "real" mode */
+  --blue-2:  #70aaf0;   /* profile blue                      */
+  --gold:    #ffc840;   /* elite / rewards / win-rate        */
+  --gold-2:  #f0e0a0;   /* logo wordmark cream               */
+  --purple:  #aa5aff;   /* streak / totals                   */
+  --purple-2:#c880ff;
+  --red:     #ff4a4a;   /* loss / danger / low-ammo          */
+  --red-2:   #f08070;   /* softened loss text                */
+  --orange:  #ff9500;   /* warning / mid score               */
+
+  /* Medal tiers */
+  --bronze: #cd7f32;
+  --silver: #c0c0c0;
+  --tier-gold: #ffd700;
+
+  /* ─────────────────────────────────────────────
+     ELEVATION & RADII (mirrors redesign.css)
+  ───────────────────────────────────────────── */
+  --sh-sm: 0 2px 8px rgba(0,0,0,0.5);
+  --sh-md: 0 8px 24px rgba(0,0,0,0.55);
+  --sh-lg: 0 16px 48px rgba(0,0,0,0.65);
+  --sh-accent: 0 4px 20px rgba(34,197,94,0.3);
+
+  --r-sm: 10px; --r-md: 16px; --r-lg: 20px;
+  --r-xl: 28px; --r-full: 100px;
+
+  /* Spacing scale */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+
+  /* ─────────────────────────────────────────────
+     TYPE FAMILIES
+  ───────────────────────────────────────────── */
+  --font-display: 'Bebas Neue', sans-serif;  /* tall condensed caps  */
+  --font-main:    'Outfit', sans-serif;       /* UI / body            */
+  --font-mono:    'DM Mono', monospace;       /* codes / XP / numbers */
+
+  /* ─────────────────────────────────────────────
+     SEMANTIC TYPE TOKENS
+     (size / weight / spacing pairings in use)
+  ───────────────────────────────────────────── */
+  /* Display numerals & big stat values — Bebas Neue */
+  --display-xl-size: 3.2rem;  --display-xl-spacing: .04em;
+  --display-lg-size: 1.8rem;  --display-lg-spacing: .02em;
+
+  /* Page titles — Outfit 800, tight */
+  --h1-size: 1.7rem;  --h1-weight: 800;  --h1-spacing: -0.02em;
+  /* Section / card titles — Outfit 700 */
+  --h2-size: 1.05rem; --h2-weight: 700;  --h2-spacing: 0;
+  /* Greeting */
+  --h3-size: 1.3rem;  --h3-weight: 700;
+
+  /* Body */
+  --body-size: 0.9rem;   --body-weight: 400;  --body-line: 1.5;
+  /* Caption / meta */
+  --caption-size: 0.72rem; --caption-weight: 500;
+  /* Eyebrow / overline — uppercase, wide tracking */
+  --eyebrow-size: 0.55rem; --eyebrow-spacing: 0.28em; --eyebrow-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SEMANTIC ELEMENT DEFAULTS
+   Apply on a host that also sets background:var(--bg-primary).
+   ═══════════════════════════════════════════════════════════════ */
+body {
+  font-family: var(--font-main);
+  color: var(--text-soft);
+  background: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, .h1 {
+  font-family: var(--font-main);
+  font-size: var(--h1-size);
+  font-weight: var(--h1-weight);
+  letter-spacing: var(--h1-spacing);
+  color: var(--text-main);
+  line-height: 1.1;
+}
+h2, .h2 {
+  font-family: var(--font-main);
+  font-size: var(--h2-size);
+  font-weight: var(--h2-weight);
+  color: var(--text-main);
+  line-height: 1.2;
+}
+h3, .h3 {
+  font-family: var(--font-main);
+  font-size: var(--h3-size);
+  font-weight: var(--h3-weight);
+  color: var(--text-main);
+}
+
+/* Big condensed stat numbers (e.g. ring totals, XP, streak) */
+.display, .stat-display {
+  font-family: var(--font-display);
+  font-size: var(--display-lg-size);
+  letter-spacing: var(--display-lg-spacing);
+  color: var(--accent);
+  line-height: 1;
+}
+
+/* The Bebas Neue wordmark logo: cream caps with a lime accent letter */
+.wordmark {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 8vw, 2.8rem);
+  letter-spacing: .16em;
+  color: var(--gold-2);
+  line-height: 1;
+}
+.wordmark em { color: var(--accent-lime); font-style: normal; }
+
+p, .body {
+  font-size: var(--body-size);
+  font-weight: var(--body-weight);
+  line-height: var(--body-line);
+  color: var(--text-soft);
+}
+.caption, small {
+  font-size: var(--caption-size);
+  font-weight: var(--caption-weight);
+  color: var(--text-muted);
+}
+/* Uppercase overline used above section titles & on tiny labels */
+.eyebrow {
+  font-size: var(--eyebrow-size);
+  letter-spacing: var(--eyebrow-spacing);
+  text-transform: uppercase;
+  font-weight: var(--eyebrow-weight);
+  color: var(--text-dim);
+}
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}

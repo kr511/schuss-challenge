@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #181818; }
+  </style>
+</helmet>
+
+<div style="font-family:'Outfit',sans-serif;background:#181818;min-width:100%;width:max-content;min-height:100vh;padding:48px;box-sizing:border-box">
+
+  <!-- ── HEADER ── -->
+  <div style="margin-bottom:56px">
+    <div style="font-size:11px;letter-spacing:0.35em;text-transform:uppercase;color:#22c55e;font-weight:600;margin-bottom:6px">Schützen Challenge · Design Handoff</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;letter-spacing:0.08em;color:#fff;line-height:1">10 SCREENS</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.35);margin-top:6px">Vollständige Spezifikation für Claude Code · Mobile PWA · Dark / OLED · Deutsch</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION 01 — MOBILE SCREENS
+  ══════════════════════════════════════════════════════ -->
+  <div style="font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:36px">01 — Mobile Screens · 390 × 844 px</div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;margin-bottom:80px">
+
+    <!-- ─── 02 SPLASH SCREEN ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">02 — Splash / Loading</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 65% 65% at 50% 50%,rgba(34,197,94,0.07) 0%,transparent 65%),#0a0a0a;z-index:0"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+          <svg viewBox="0 0 80 80" width="80" height="80" style="filter:drop-shadow(0 0 16px rgba(74,222,128,0.6))">
+            <circle cx="40" cy="40" r="38" fill="#0f0f0f" stroke="rgba(255,255,255,0.1)" stroke-width="0.8" />
+            <circle cx="40" cy="40" r="30" fill="#191919" stroke="rgba(255,255,255,0.12)" stroke-width="0.8" />
+            <circle cx="40" cy="40" r="22" fill="rgba(235,233,225,0.92)" />
+            <circle cx="40" cy="40" r="15" fill="rgba(235,233,225,0.96)" />
+            <circle cx="40" cy="40" r="9" fill="rgba(34,197,94,0.45)" stroke="#22c55e" stroke-width="1.2" />
+            <circle cx="40" cy="40" r="4" fill="#4ade80" />
+            <line x1="40" y1="2" x2="40" y2="12" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round" />
+            <line x1="40" y1="68" x2="40" y2="78" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round" />
+            <line x1="2" y1="40" x2="12" y2="40" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round" />
+            <line x1="68" y1="40" x2="78" y2="40" stroke="rgba(255,255,255,0.55)" stroke-width="1.2" stroke-linecap="round" />
+          </svg>
+          <div style="text-align:center">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.15em;color:#fff">SCHUSS</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.42em;color:#22c55e;margin-top:1px">CHALLENGE</div>
+          </div>
+          <div style="width:120px;height:2px;background:rgba(255,255,255,0.06);border-radius:1px;overflow:hidden;margin-top:16px">
+            <div style="width:60%;height:100%;background:#22c55e;border-radius:1px;box-shadow:0 0 6px rgba(34,197,94,0.7)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 03 IN-GAME SCREEN ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">03 — In-Game · LG 40 Schuss</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.10) 0%,transparent 60%),#0a0a0a;z-index:0"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column">
+          <div style="height:46px"></div>
+          <!-- top bar -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0 22px 14px">
+            <div>
+              <div style="font-size:18px;font-weight:700;color:#fff">LG 40</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.4)">Schießen</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-family:'Bebas Neue',sans-serif;font-size:38px;color:#fff;letter-spacing:0.02em;line-height:1">385,6</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:0.12em;text-transform:uppercase;margin-top:1px">Ringe</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:15px;font-weight:700;color:#fff">3 / 40</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.4)">Schuss</div>
+            </div>
+          </div>
+          <!-- target -->
+          <div style="display:flex;align-items:center;justify-content:center;flex:1">
+            <div style="position:relative;display:inline-flex">
+              <div style="position:absolute;inset:-24px;background:radial-gradient(circle,rgba(34,197,94,0.13) 0%,transparent 65%);pointer-events:none;border-radius:50%"></div>
+              <svg viewBox="0 0 220 220" width="216" height="216">
+                <circle cx="110" cy="110" r="108" fill="#060606" stroke="rgba(255,255,255,0.07)" stroke-width="0.8" />
+                <circle cx="110" cy="110" r="96" fill="#0c0c0c" stroke="rgba(255,255,255,0.09)" stroke-width="0.8" />
+                <circle cx="110" cy="110" r="84" fill="#111" stroke="rgba(255,255,255,0.11)" stroke-width="0.8" />
+                <circle cx="110" cy="110" r="72" fill="#161616" stroke="rgba(255,255,255,0.14)" stroke-width="0.8" />
+                <circle cx="110" cy="110" r="60" fill="#1c1c1c" stroke="rgba(255,255,255,0.17)" stroke-width="0.8" />
+                <circle cx="110" cy="110" r="48" fill="rgba(238,236,228,0.93)" stroke="rgba(0,0,0,0.2)" stroke-width="0.8" />
+                <circle cx="110" cy="110" r="37" fill="rgba(238,236,228,0.95)" stroke="rgba(0,0,0,0.2)" stroke-width="0.8" />
+                <circle cx="110" cy="110" r="27" fill="rgba(235,233,225,0.97)" stroke="rgba(0,0,0,0.2)" stroke-width="0.8" />
+                <circle cx="110" cy="110" r="18" fill="rgba(34,197,94,0.35)" stroke="#22c55e" stroke-width="1.2" />
+                <circle cx="110" cy="110" r="10" fill="#22c55e" stroke="#4ade80" stroke-width="1" />
+                <circle cx="110" cy="110" r="5" fill="#4ade80" />
+                <line x1="110" y1="2" x2="110" y2="22" stroke="rgba(255,255,255,0.45)" stroke-width="1.1" stroke-linecap="round" />
+                <line x1="110" y1="198" x2="110" y2="218" stroke="rgba(255,255,255,0.45)" stroke-width="1.1" stroke-linecap="round" />
+                <line x1="2" y1="110" x2="22" y2="110" stroke="rgba(255,255,255,0.45)" stroke-width="1.1" stroke-linecap="round" />
+                <line x1="198" y1="110" x2="218" y2="110" stroke="rgba(255,255,255,0.45)" stroke-width="1.1" stroke-linecap="round" />
+                <line x1="110" y1="22" x2="110" y2="198" stroke="rgba(255,255,255,0.055)" stroke-width="0.6" />
+                <line x1="22" y1="110" x2="198" y2="110" stroke="rgba(255,255,255,0.055)" stroke-width="0.6" />
+              </svg>
+            </div>
+          </div>
+          <!-- recent shots -->
+          <div style="padding:12px 22px">
+            <div style="display:flex;gap:8px">
+              <div style="background:rgba(34,197,94,0.2);border:1px solid rgba(34,197,94,0.35);border-radius:20px;padding:6px 13px;font-size:14px;font-weight:700;color:#4ade80">10</div>
+              <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:6px 13px;font-size:14px;font-weight:600;color:#fff">9,8</div>
+              <div style="background:rgba(34,197,94,0.2);border:1px solid rgba(34,197,94,0.35);border-radius:20px;padding:6px 13px;font-size:14px;font-weight:700;color:#4ade80">10</div>
+              <div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:6px 13px;font-size:14px;font-weight:600;color:#fff">9,6</div>
+            </div>
+          </div>
+          <!-- bottom -->
+          <div style="padding:12px 22px 28px">
+            <div style="display:flex;align-items:center;gap:12px;background:rgba(255,74,74,0.06);border:1px solid rgba(255,74,74,0.12);border-radius:14px;padding:11px 14px;margin-bottom:14px">
+              <div style="width:38px;height:38px;border-radius:50%;background:rgba(255,74,74,0.15);border:1px solid rgba(255,74,74,0.25);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🤖</div>
+              <div style="flex:1">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-bottom:1px">Bot · Realistisch</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#ff4a4a;letter-spacing:0.02em;line-height:1">383,2</div>
+              </div>
+              <div style="font-size:12px;color:rgba(255,74,74,0.65);font-weight:600">−2,4</div>
+            </div>
+            <button style="width:100%;padding:16px;background:#22c55e;color:#000;border:none;border-radius:14px;font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;letter-spacing:0.06em;cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,0.35)">SCHUSS</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 04 WIN SCREEN ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">04 — Ergebnis · Sieg 🏆</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 90% 55% at 50% 0%,rgba(34,197,94,0.18) 0%,transparent 60%),#0a0a0a;z-index:0"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;padding:0 20px">
+          <div style="height:50px"></div>
+          <div style="text-align:center;padding:18px 0 14px">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:0.1em;color:#fff">🏆 GEWONNEN</div>
+            <div style="font-size:18px;font-weight:700;color:#4ade80;margin-top:4px;text-shadow:0 0 14px rgba(74,222,128,0.5)">+20 XP ✨</div>
+          </div>
+          <!-- score card -->
+          <div style="width:100%;background:rgba(18,18,18,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:16px;margin-bottom:12px">
+            <div style="display:flex;justify-content:center;margin-bottom:14px">
+              <div style="background:#22c55e;color:#000;border-radius:100px;padding:4px 14px;font-size:12px;font-weight:800;letter-spacing:0.04em">+4,3 Ringe</div>
+            </div>
+            <div style="display:flex;align-items:center">
+              <div style="flex:1;text-align:center">
+                <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px">Du</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:50px;color:#4ade80;line-height:1;text-shadow:0 0 20px rgba(34,197,94,0.4);letter-spacing:0.02em">387.4</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Ringe</div>
+              </div>
+              <div style="width:1px;height:56px;background:rgba(255,255,255,0.1);flex-shrink:0"></div>
+              <div style="flex:1;text-align:center">
+                <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px">Bot</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:rgba(255,255,255,0.45);line-height:1;letter-spacing:0.02em">383.1</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:2px">Ringe</div>
+              </div>
+            </div>
+          </div>
+          <!-- distribution -->
+          <div style="width:100%;background:rgba(18,18,18,0.95);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:13px 15px;margin-bottom:12px">
+            <div style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.3);font-weight:600;margin-bottom:10px">Verteilung</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);width:30px;text-align:right;flex-shrink:0">10er</div>
+                <div style="flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden"><div style="width:30%;height:100%;background:#22c55e;border-radius:3px"></div></div>
+                <div style="font-size:11px;color:#22c55e;width:18px;text-align:right;flex-shrink:0">12</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);width:30px;text-align:right;flex-shrink:0">9er</div>
+                <div style="flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden"><div style="width:50%;height:100%;background:rgba(34,197,94,0.6);border-radius:3px"></div></div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.5);width:18px;text-align:right;flex-shrink:0">20</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);width:30px;text-align:right;flex-shrink:0">8er</div>
+                <div style="flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden"><div style="width:20%;height:100%;background:rgba(34,197,94,0.3);border-radius:3px"></div></div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.35);width:18px;text-align:right;flex-shrink:0">8</div>
+              </div>
+            </div>
+          </div>
+          <!-- xp bar -->
+          <div style="width:100%;margin-bottom:14px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+              <div style="font-size:12px;font-weight:700;color:#22c55e">Rang: Schütze</div>
+              <div style="font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,0.4)">220 / 300 XP</div>
+            </div>
+            <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+              <div style="width:73%;height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:3px;box-shadow:0 0 8px rgba(34,197,94,0.4)"></div>
+            </div>
+          </div>
+          <!-- buttons -->
+          <div style="width:100%;display:flex;flex-direction:column;gap:10px">
+            <button style="width:100%;padding:15px;background:#22c55e;color:#000;border:none;border-radius:14px;font-family:'Outfit',sans-serif;font-size:15px;font-weight:800;letter-spacing:0.06em;cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,0.3)">NOCHMAL</button>
+            <button style="width:100%;padding:13px;background:transparent;color:rgba(255,255,255,0.55);border:1px solid rgba(255,255,255,0.12);border-radius:14px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer">Profil</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 05 LOSS SCREEN ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">05 — Ergebnis · Niederlage</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 45% at 50% 0%,rgba(255,255,255,0.04) 0%,transparent 60%),#0a0a0a;z-index:0"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;padding:0 20px">
+          <div style="height:50px"></div>
+          <div style="text-align:center;padding:18px 0 14px">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:0.08em;color:#fff">KNAPP VERLOREN</div>
+            <div style="font-size:15px;font-weight:600;color:rgba(255,255,255,0.4);margin-top:6px">+5 XP Trost-Punkte</div>
+          </div>
+          <!-- score card -->
+          <div style="width:100%;background:rgba(18,18,18,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:16px;margin-bottom:12px">
+            <div style="display:flex;justify-content:center;margin-bottom:14px">
+              <div style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);border-radius:100px;padding:4px 14px;font-size:12px;font-weight:700">−2,1 Ringe</div>
+            </div>
+            <div style="display:flex;align-items:center">
+              <div style="flex:1;text-align:center">
+                <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px">Du</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:40px;color:rgba(255,255,255,0.45);line-height:1;letter-spacing:0.02em">385.4</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:2px">Ringe</div>
+              </div>
+              <div style="width:1px;height:56px;background:rgba(255,255,255,0.1);flex-shrink:0"></div>
+              <div style="flex:1;text-align:center">
+                <div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px">Bot</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:50px;color:rgba(255,255,255,0.9);line-height:1;letter-spacing:0.02em">387.5</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Ringe</div>
+              </div>
+            </div>
+          </div>
+          <!-- distribution -->
+          <div style="width:100%;background:rgba(18,18,18,0.95);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:13px 15px;margin-bottom:12px">
+            <div style="font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:rgba(255,255,255,0.3);font-weight:600;margin-bottom:10px">Verteilung</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);width:30px;text-align:right;flex-shrink:0">10er</div>
+                <div style="flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden"><div style="width:22%;height:100%;background:rgba(255,255,255,0.3);border-radius:3px"></div></div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);width:18px;text-align:right;flex-shrink:0">9</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);width:30px;text-align:right;flex-shrink:0">9er</div>
+                <div style="flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden"><div style="width:55%;height:100%;background:rgba(255,255,255,0.25);border-radius:3px"></div></div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);width:18px;text-align:right;flex-shrink:0">22</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);width:30px;text-align:right;flex-shrink:0">8er</div>
+                <div style="flex:1;height:5px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden"><div style="width:22%;height:100%;background:rgba(255,255,255,0.18);border-radius:3px"></div></div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.3);width:18px;text-align:right;flex-shrink:0">9</div>
+              </div>
+            </div>
+          </div>
+          <!-- xp bar -->
+          <div style="width:100%;margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+              <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.45)">Rang: Schütze</div>
+              <div style="font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,0.35)">205 / 300 XP</div>
+            </div>
+            <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden">
+              <div style="width:68%;height:100%;background:linear-gradient(90deg,rgba(80,80,80,0.6),rgba(140,140,140,0.5));border-radius:3px"></div>
+            </div>
+          </div>
+          <div style="font-size:13px;color:rgba(34,197,94,0.5);text-align:center;margin-bottom:14px">Noch 2,1 Ringe gefehlt 🎯</div>
+          <!-- buttons -->
+          <div style="width:100%;display:flex;flex-direction:column;gap:10px">
+            <button style="width:100%;padding:15px;background:#22c55e;color:#000;border:none;border-radius:14px;font-family:'Outfit',sans-serif;font-size:15px;font-weight:800;letter-spacing:0.06em;cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,0.3)">REVANCHE</button>
+            <button style="width:100%;padding:13px;background:transparent;color:rgba(255,255,255,0.55);border:1px solid rgba(255,255,255,0.12);border-radius:14px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer">Profil</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 09 ONBOARDING ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">09 — Onboarding · Schritt 1 von 3</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.10) 0%,transparent 55%),#0a0a0a;z-index:0"></div>
+        <div style="position:absolute;top:50px;right:22px;z-index:20;font-size:13px;color:rgba(255,255,255,0.3);font-weight:500">Überspringen</div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column">
+          <!-- illustration top 55% -->
+          <div style="height:55%;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">
+            <div style="position:absolute;bottom:0;left:0;right:0;height:100px;background:linear-gradient(to top,rgba(34,197,94,0.07),transparent)"></div>
+            <div style="transform:perspective(700px) rotateX(6deg)">
+              <svg viewBox="0 0 260 260" width="240" height="240" style="filter:drop-shadow(0 0 40px rgba(34,197,94,0.25))">
+                <circle cx="130" cy="130" r="126" fill="#060606" stroke="rgba(255,255,255,0.07)" stroke-width="1" />
+                <circle cx="130" cy="130" r="112" fill="#0c0c0c" stroke="rgba(255,255,255,0.09)" stroke-width="1" />
+                <circle cx="130" cy="130" r="98" fill="#111" stroke="rgba(255,255,255,0.11)" stroke-width="1" />
+                <circle cx="130" cy="130" r="84" fill="#171717" stroke="rgba(255,255,255,0.14)" stroke-width="1" />
+                <circle cx="130" cy="130" r="70" fill="#1e1e1e" stroke="rgba(255,255,255,0.17)" stroke-width="1" />
+                <circle cx="130" cy="130" r="56" fill="rgba(238,236,228,0.93)" stroke="rgba(0,0,0,0.2)" stroke-width="1" />
+                <circle cx="130" cy="130" r="43" fill="rgba(238,236,228,0.95)" stroke="rgba(0,0,0,0.2)" stroke-width="1" />
+                <circle cx="130" cy="130" r="31" fill="rgba(235,233,225,0.97)" stroke="rgba(0,0,0,0.2)" stroke-width="1" />
+                <circle cx="130" cy="130" r="21" fill="rgba(34,197,94,0.35)" stroke="#22c55e" stroke-width="1.5" />
+                <circle cx="130" cy="130" r="12" fill="#22c55e" stroke="#4ade80" stroke-width="1.5" />
+                <circle cx="130" cy="130" r="6" fill="#4ade80" />
+                <line x1="130" y1="4" x2="130" y2="24" stroke="rgba(255,255,255,0.5)" stroke-width="1.3" stroke-linecap="round" />
+                <line x1="130" y1="236" x2="130" y2="256" stroke="rgba(255,255,255,0.5)" stroke-width="1.3" stroke-linecap="round" />
+                <line x1="4" y1="130" x2="24" y2="130" stroke="rgba(255,255,255,0.5)" stroke-width="1.3" stroke-linecap="round" />
+                <line x1="236" y1="130" x2="256" y2="130" stroke="rgba(255,255,255,0.5)" stroke-width="1.3" stroke-linecap="round" />
+                <line x1="130" y1="24" x2="130" y2="236" stroke="rgba(255,255,255,0.06)" stroke-width="0.7" />
+                <line x1="24" y1="130" x2="236" y2="130" stroke="rgba(255,255,255,0.06)" stroke-width="0.7" />
+                <circle cx="88" cy="88" r="3" fill="rgba(34,197,94,0.6)" />
+                <circle cx="172" cy="92" r="2.5" fill="rgba(34,197,94,0.45)" />
+                <circle cx="130" cy="130" r="2.5" fill="rgba(34,197,94,0.9)" />
+              </svg>
+            </div>
+          </div>
+          <!-- text bottom 45% -->
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:28px 26px 30px">
+            <div>
+              <h1 style="font-family:'Outfit',sans-serif;font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1.2;margin:0">Trainiere wie ein Profi.</h1>
+              <p style="font-size:15px;color:rgba(255,255,255,0.55);margin-top:10px;line-height:1.5">Duell gegen den adaptiven Bot. Dein Niveau. Dein Tempo.</p>
+            </div>
+            <div>
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:22px">
+                <div style="width:20px;height:7px;background:#22c55e;border-radius:4px"></div>
+                <div style="width:7px;height:7px;background:rgba(255,255,255,0.2);border-radius:50%"></div>
+                <div style="width:7px;height:7px;background:rgba(255,255,255,0.2);border-radius:50%"></div>
+              </div>
+              <button style="width:100%;padding:16px;background:#22c55e;color:#000;border:none;border-radius:14px;font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;letter-spacing:0.05em;cursor:pointer;box-shadow:0 0 20px rgba(34,197,94,0.3)">JETZT STARTEN</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION 02 — CARDS & WIDGETS
+  ══════════════════════════════════════════════════════ -->
+  <div style="font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:36px">02 — Cards &amp; Widgets</div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;margin-bottom:80px">
+
+    <!-- ─── 06 PROFILE SHARE CARD ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">06 — Profil-Karte · Share Card · 390 × 693</div>
+      <div style="width:390px;height:693px;background:#0a0a0a;border-radius:24px;border:1px solid rgba(255,255,255,0.08);box-shadow:0 20px 60px rgba(0,0,0,0.8);overflow:hidden;position:relative">
+        <div style="position:absolute;top:0;left:0;right:0;height:200px;background:radial-gradient(ellipse 80% 70% at 50% 0%,rgba(34,197,94,0.14) 0%,transparent 70%)"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;align-items:center;padding:40px 28px 32px;gap:20px">
+          <!-- avatar + name + rank -->
+          <div style="text-align:center">
+            <div style="font-size:60px;line-height:1;margin-bottom:12px">🎯</div>
+            <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.01em">EliteSchütze</div>
+            <div style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,200,64,0.12);border:1px solid rgba(255,200,64,0.2);border-radius:100px;padding:4px 12px;margin-top:8px">
+              <span style="font-size:12px">⭐</span>
+              <span style="font-size:12px;font-weight:700;color:#ffc840">Meister</span>
+            </div>
+          </div>
+          <!-- stats 2×2 -->
+          <div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px">
+              <div style="font-size:18px;margin-bottom:4px">🏆</div>
+              <div style="font-size:20px;font-weight:800;color:#fff;line-height:1">142</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">Siege</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px">
+              <div style="font-size:18px;margin-bottom:4px">🔥</div>
+              <div style="font-size:20px;font-weight:800;color:#ff9500;line-height:1">12</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">Streak</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px">
+              <div style="font-size:18px;margin-bottom:4px">📊</div>
+              <div style="font-size:20px;font-weight:800;color:#22c55e;line-height:1">71%</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">Winrate</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px">
+              <div style="font-size:18px;margin-bottom:4px">⭐</div>
+              <div style="font-size:20px;font-weight:800;color:#ffc840;line-height:1">1.240</div>
+              <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">XP</div>
+            </div>
+          </div>
+          <!-- best score -->
+          <div style="width:100%">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px">
+              <div style="font-size:12px;color:rgba(255,255,255,0.5);font-weight:600">Bestleistung LG</div>
+              <div style="font-size:14px;font-weight:800;color:#22c55e">392,4 Ringe</div>
+            </div>
+            <div style="height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden">
+              <div style="width:98%;height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:3px;box-shadow:0 0 8px rgba(34,197,94,0.4)"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px">
+              <div style="font-size:10px;color:rgba(255,255,255,0.2)">0</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.2)">400</div>
+            </div>
+          </div>
+          <div style="flex:1"></div>
+          <!-- footer -->
+          <div style="width:100%;display:flex;align-items:center;justify-content:space-between">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.2em;color:rgba(255,255,255,0.2)">SCHUSS-CHALLENGE</div>
+            <div style="width:40px;height:40px;border:1px solid rgba(255,255,255,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center">
+              <svg viewBox="0 0 20 20" width="22" height="22">
+                <rect x="2" y="2" width="6" height="6" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+                <rect x="3" y="3" width="4" height="4" fill="rgba(255,255,255,0.3)" />
+                <rect x="12" y="2" width="6" height="6" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+                <rect x="13" y="3" width="4" height="4" fill="rgba(255,255,255,0.3)" />
+                <rect x="2" y="12" width="6" height="6" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+                <rect x="3" y="13" width="4" height="4" fill="rgba(255,255,255,0.3)" />
+                <rect x="12" y="12" width="2" height="2" fill="rgba(255,255,255,0.3)" />
+                <rect x="16" y="12" width="2" height="2" fill="rgba(255,255,255,0.3)" />
+                <rect x="12" y="16" width="2" height="2" fill="rgba(255,255,255,0.3)" />
+                <rect x="16" y="16" width="2" height="2" fill="rgba(255,255,255,0.3)" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 08 CLUB LEADERBOARD ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">08 — Club-Rangliste Widget · 390 px</div>
+      <div style="width:390px;background:rgba(18,18,18,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.55)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:16px 18px 14px">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#fff">🏛 Mein Verein</div>
+            <div style="font-size:12px;color:#22c55e;margin-top:2px;font-weight:600">Diese Woche</div>
+          </div>
+          <div style="font-size:13px;color:#22c55e;font-weight:600;cursor:pointer">Alle sehen →</div>
+        </div>
+        <div style="height:1px;background:rgba(255,255,255,0.06)"></div>
+        <!-- rank 1 — current user -->
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-left:3px solid #22c55e;background:rgba(34,197,94,0.04)">
+          <div style="font-size:16px;flex-shrink:0">🥇</div>
+          <div style="width:34px;height:34px;border-radius:50%;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🎯</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:700;color:#fff">MaxMuster</div>
+            <div style="font-size:11px;color:#22c55e;margin-top:1px">Du · Online</div>
+          </div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:#fff;letter-spacing:0.02em;flex-shrink:0">412 Ringe</div>
+        </div>
+        <div style="height:1px;background:rgba(255,255,255,0.06)"></div>
+        <!-- rank 2 -->
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-left:3px solid transparent">
+          <div style="font-size:16px;flex-shrink:0">🥈</div>
+          <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">👤</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.8)">AnnaS.</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:1px">Offline</div>
+          </div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:rgba(255,255,255,0.55);letter-spacing:0.02em;flex-shrink:0">398 Ringe</div>
+        </div>
+        <div style="height:1px;background:rgba(255,255,255,0.06)"></div>
+        <!-- rank 3 -->
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 18px;border-left:3px solid transparent">
+          <div style="font-size:16px;flex-shrink:0">🥉</div>
+          <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">👤</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.6)">KlausP.</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:1px">Vor 2h</div>
+          </div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;color:rgba(255,255,255,0.4);letter-spacing:0.02em;flex-shrink:0">391 Ringe</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION 03 — ASSETS & BADGES
+  ══════════════════════════════════════════════════════ -->
+  <div style="font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:36px">03 — Assets &amp; Badges</div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;margin-bottom:80px">
+
+    <!-- ─── 01 APP ICON ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">01 — App Icon · 3 Größen</div>
+      <div style="background:rgba(18,18,18,0.8);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 32px;display:flex;align-items:center;gap:28px">
+        <!-- 180px -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+          <div style="width:180px;height:180px;border-radius:40px;background:radial-gradient(circle at 50% 42%,rgba(34,197,94,0.15) 0%,#060606 60%),#060606;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(0,0,0,0.7)">
+            <svg viewBox="0 0 120 120" width="120" height="120" style="filter:drop-shadow(0 0 20px rgba(74,222,128,0.5))">
+              <circle cx="60" cy="60" r="56" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1" />
+              <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(255,255,255,0.09)" stroke-width="1" />
+              <circle cx="60" cy="60" r="40" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+              <circle cx="60" cy="60" r="31" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
+              <circle cx="60" cy="60" r="23" fill="rgba(238,236,228,0.92)" stroke="rgba(0,0,0,0.2)" stroke-width="0.8" />
+              <circle cx="60" cy="60" r="16" fill="rgba(238,236,228,0.95)" stroke="rgba(0,0,0,0.2)" stroke-width="0.8" />
+              <circle cx="60" cy="60" r="10" fill="rgba(34,197,94,0.5)" stroke="#22c55e" stroke-width="1.2" />
+              <circle cx="60" cy="60" r="5" fill="#4ade80" />
+              <line x1="60" y1="4" x2="60" y2="16" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" stroke-linecap="round" />
+              <line x1="60" y1="104" x2="60" y2="116" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" stroke-linecap="round" />
+              <line x1="4" y1="60" x2="16" y2="60" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" stroke-linecap="round" />
+              <line x1="104" y1="60" x2="116" y2="60" stroke="rgba(255,255,255,0.5)" stroke-width="1.2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3)">180 × 180</div>
+        </div>
+        <!-- 90px -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+          <div style="width:90px;height:90px;border-radius:20px;background:radial-gradient(circle at 50% 42%,rgba(34,197,94,0.15) 0%,#060606 60%),#060606;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.7)">
+            <svg viewBox="0 0 120 120" width="60" height="60" style="filter:drop-shadow(0 0 10px rgba(74,222,128,0.5))">
+              <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(255,255,255,0.09)" stroke-width="1" />
+              <circle cx="60" cy="60" r="38" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1" />
+              <circle cx="60" cy="60" r="27" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1" />
+              <circle cx="60" cy="60" r="20" fill="rgba(238,236,228,0.92)" />
+              <circle cx="60" cy="60" r="13" fill="rgba(238,236,228,0.95)" />
+              <circle cx="60" cy="60" r="8" fill="rgba(34,197,94,0.5)" stroke="#22c55e" stroke-width="1" />
+              <circle cx="60" cy="60" r="4" fill="#4ade80" />
+              <line x1="60" y1="6" x2="60" y2="16" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-linecap="round" />
+              <line x1="60" y1="104" x2="60" y2="114" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-linecap="round" />
+              <line x1="6" y1="60" x2="16" y2="60" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-linecap="round" />
+              <line x1="104" y1="60" x2="114" y2="60" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3)">90 × 90</div>
+        </div>
+        <!-- 48px -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+          <div style="width:48px;height:48px;border-radius:11px;background:radial-gradient(circle at 50% 42%,rgba(34,197,94,0.15) 0%,#060606 60%),#060606;overflow:hidden;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.7)">
+            <svg viewBox="0 0 120 120" width="32" height="32">
+              <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.2" />
+              <circle cx="60" cy="60" r="32" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1.2" />
+              <circle cx="60" cy="60" r="21" fill="rgba(238,236,228,0.93)" />
+              <circle cx="60" cy="60" r="13" fill="rgba(238,236,228,0.95)" />
+              <circle cx="60" cy="60" r="8" fill="#22c55e" />
+              <circle cx="60" cy="60" r="4" fill="#4ade80" />
+            </svg>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3)">48 × 48</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 07 ACHIEVEMENT BADGES ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">07 — Achievement Badges · 80 × 80 px</div>
+      <div style="background:rgba(18,18,18,0.8);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:28px 32px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+          <!-- badge 1: Erster Schuss (locked) -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+            <div style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,0.06);border:2px solid rgba(34,197,94,0.3);display:flex;align-items:center;justify-content:center;opacity:0.45">
+              <svg viewBox="0 0 24 24" width="32" height="32" stroke="rgba(255,255,255,0.6)" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="6" />
+                <circle cx="12" cy="12" r="2" />
+                <line x1="12" y1="2" x2="12" y2="4" />
+                <line x1="12" y1="20" x2="12" y2="22" />
+                <line x1="2" y1="12" x2="4" y2="12" />
+                <line x1="20" y1="12" x2="22" y2="12" />
+              </svg>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.45)">Erster Schuss</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.22);margin-top:2px">Gesperrt</div>
+            </div>
+          </div>
+          <!-- badge 2: 10er Streak (orange) -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+            <div style="width:80px;height:80px;border-radius:50%;background:rgba(255,149,0,0.12);border:2px solid #ff9500;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(255,149,0,0.35)">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#ff9500" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2c0 0-5 6-5 10a5 5 0 0 0 10 0c0-4-5-10-5-10z" />
+                <path d="M8 17c-2 1.5-3 3-3 4h14c0-1-1-2.5-3-4" />
+              </svg>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:11px;font-weight:700;color:#ff9500">10er Streak</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">Freigeschaltet</div>
+            </div>
+          </div>
+          <!-- badge 3: Scharfschütze (gold) -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+            <div style="width:80px;height:80px;border-radius:50%;background:rgba(255,200,64,0.12);border:2px solid #ffc840;display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(255,200,64,0.35)">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#ffc840" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12,2 15.1,8.3 22,9.3 17,14.1 18.2,21 12,17.8 5.8,21 7,14.1 2,9.3 8.9,8.3" />
+              </svg>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:11px;font-weight:700;color:#ffc840">Scharfschütze</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">Freigeschaltet</div>
+            </div>
+          </div>
+          <!-- badge 4: Legende (purple, rare) -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px">
+            <div style="width:80px;height:80px;border-radius:50%;background:rgba(170,90,255,0.15);border:2px solid #aa5aff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 18px rgba(170,90,255,0.5),0 0 6px rgba(170,90,255,0.3)">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="#aa5aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7l3.5 9h11L21 7l-6 4-3-7-3 7-6-4z" />
+                <line x1="7.5" y1="16" x2="7.5" y2="19" />
+                <line x1="16.5" y1="16" x2="16.5" y2="19" />
+                <line x1="5" y1="19" x2="19" y2="19" />
+              </svg>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:11px;font-weight:700;color:#aa5aff">Legende</div>
+              <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px">Selten · Top-Tier</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION 04 — MARKETING BANNER
+  ══════════════════════════════════════════════════════ -->
+  <div style="font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:36px">04 — Marketing Banner · 1280 × 720</div>
+
+  <div style="flex:none;margin-bottom:80px">
+    <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">10 — Social Media · Discord Banner · 16:9</div>
+    <div style="width:1280px;height:720px;background:#0a0a0a;border-radius:12px;overflow:hidden;position:relative">
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse 55% 70% at 18% 50%,rgba(34,197,94,0.15) 0%,transparent 65%),#0a0a0a"></div>
+      <!-- grid overlay -->
+      <div style="position:absolute;inset:0;opacity:0.028">
+        <svg width="100%" height="100%">
+          <defs>
+            <pattern id="sc-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="0.5" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#sc-grid)" />
+        </svg>
+      </div>
+      <!-- content -->
+      <div style="position:relative;z-index:1;height:100%;display:flex;align-items:center">
+        <!-- left: text -->
+        <div style="flex:1;padding:80px 70px 80px 100px;display:flex;flex-direction:column;gap:22px">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:0.35em;color:#22c55e;text-transform:uppercase">App für Schiesssport</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:84px;color:#fff;line-height:0.93;letter-spacing:0.02em">TRAINIERE<br/>SMARTER.</div>
+          <div style="font-size:20px;color:rgba(255,255,255,0.5);line-height:1.6">Adaptiver Bot · Tägliche Challenges<br/>Club-Ranglisten</div>
+          <div style="margin-top:6px">
+            <div style="display:inline-flex;align-items:center;gap:8px;background:#22c55e;color:#000;border-radius:100px;padding:14px 28px;font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,0.4)">Jetzt trainieren →</div>
+          </div>
+        </div>
+        <!-- right: phone mockup -->
+        <div style="flex-shrink:0;padding:50px 100px 50px 0;display:flex;align-items:center;justify-content:center">
+          <div style="transform:rotate(5deg);filter:drop-shadow(0 0 50px rgba(34,197,94,0.22))">
+            <div style="width:240px;height:520px;border-radius:36px;background:#0a0a0a;border:8px solid #1b1b1d;box-shadow:0 0 0 1.5px #000,0 40px 80px rgba(0,0,0,0.7);overflow:hidden;position:relative">
+              <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:80px;height:17px;background:#000;border-radius:0 0 10px 10px;z-index:50"></div>
+              <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.12) 0%,transparent 60%),#0a0a0a;z-index:0"></div>
+              <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column">
+                <div style="height:30px"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:0 14px 8px">
+                  <div style="font-family:'Outfit',sans-serif;font-size:11px;font-weight:700;color:#fff">LG 40</div>
+                  <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;color:#fff;letter-spacing:0.02em;line-height:1">385,6</div>
+                  <div style="font-family:'Outfit',sans-serif;font-size:10px;color:rgba(255,255,255,0.5)">3/40</div>
+                </div>
+                <div style="flex:1;display:flex;align-items:center;justify-content:center">
+                  <svg viewBox="0 0 140 140" width="130" height="130" style="filter:drop-shadow(0 0 18px rgba(34,197,94,0.2))">
+                    <circle cx="70" cy="70" r="67" fill="#060606" stroke="rgba(255,255,255,0.07)" stroke-width="0.7" />
+                    <circle cx="70" cy="70" r="57" fill="#0c0c0c" stroke="rgba(255,255,255,0.09)" stroke-width="0.7" />
+                    <circle cx="70" cy="70" r="47" fill="#111" stroke="rgba(255,255,255,0.11)" stroke-width="0.7" />
+                    <circle cx="70" cy="70" r="37" fill="#181818" stroke="rgba(255,255,255,0.14)" stroke-width="0.7" />
+                    <circle cx="70" cy="70" r="28" fill="rgba(238,236,228,0.93)" />
+                    <circle cx="70" cy="70" r="20" fill="rgba(238,236,228,0.96)" />
+                    <circle cx="70" cy="70" r="14" fill="rgba(235,233,225,0.97)" />
+                    <circle cx="70" cy="70" r="9" fill="rgba(34,197,94,0.4)" stroke="#22c55e" stroke-width="1" />
+                    <circle cx="70" cy="70" r="5" fill="#22c55e" />
+                    <circle cx="70" cy="70" r="2.5" fill="#4ade80" />
+                    <line x1="70" y1="3" x2="70" y2="14" stroke="rgba(255,255,255,0.4)" stroke-width="0.9" stroke-linecap="round" />
+                    <line x1="70" y1="126" x2="70" y2="137" stroke="rgba(255,255,255,0.4)" stroke-width="0.9" stroke-linecap="round" />
+                    <line x1="3" y1="70" x2="14" y2="70" stroke="rgba(255,255,255,0.4)" stroke-width="0.9" stroke-linecap="round" />
+                    <line x1="126" y1="70" x2="137" y2="70" stroke="rgba(255,255,255,0.4)" stroke-width="0.9" stroke-linecap="round" />
+                  </svg>
+                </div>
+                <div style="padding:8px 14px 16px">
+                  <div style="width:100%;padding:10px;background:#22c55e;color:#000;border-radius:10px;font-family:'Outfit',sans-serif;font-size:12px;font-weight:800;text-align:center;letter-spacing:0.06em;box-shadow:0 2px 12px rgba(34,197,94,0.35)">SCHUSS</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:32px;right:48px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.22em;color:rgba(255,255,255,0.18)">SCHUSS-CHALLENGE</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION 05 — APP TABS (NEU)
+  ══════════════════════════════════════════════════════ -->
+  <div style="font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:36px">05 — App Tabs · 390 × 844 px (Screens 11–15)</div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;margin-bottom:80px">
+
+    <!-- ─── 11 HOME / START-TAB ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">11 — Home · Start-Tab</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.10) 0%,transparent 55%),#0a0a0a;z-index:0"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column">
+          <!-- frosted header -->
+          <div style="padding:44px 20px 14px;background:rgba(10,10,10,0.82);backdrop-filter:blur(24px) saturate(1.6);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px">
+              <div>
+                <div style="font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;margin-bottom:3px">MONTAG, 23. JUNI</div>
+                <div style="font-size:22px;font-weight:700;color:#fff;font-family:'Outfit',sans-serif">Hallo, Max 👋</div>
+              </div>
+              <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg viewBox="0 0 24 24" width="18" height="18" stroke="rgba(255,255,255,0.6)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </div>
+            </div>
+          </div>
+          <!-- scroll content -->
+          <div style="flex:1;overflow:hidden;padding:16px 18px 0;display:flex;flex-direction:column;gap:14px">
+            <!-- tagesziel card -->
+            <div style="background:linear-gradient(160deg,rgba(34,197,94,0.14),rgba(18,18,18,0.92) 60%);border:1px solid rgba(34,197,94,0.22);border-radius:20px;padding:16px;box-shadow:0 8px 24px rgba(0,0,0,0.55);flex-shrink:0">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg viewBox="0 0 24 24" width="22" height="22" stroke="#22c55e" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/></svg>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.45);font-weight:600;margin-bottom:3px">Dein heutiges Ziel</div>
+                  <div style="font-size:17px;font-weight:800;color:#fff">390+ Ringe schießen</div>
+                </div>
+                <div style="position:relative;width:56px;height:56px;flex-shrink:0">
+                  <svg viewBox="0 0 56 56" width="56" height="56" style="transform:rotate(-90deg)">
+                    <circle cx="28" cy="28" r="23" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="5" />
+                    <circle cx="28" cy="28" r="23" fill="none" stroke="#22c55e" stroke-width="5" stroke-linecap="round" stroke-dasharray="144.5" stroke-dashoffset="39" style="filter:drop-shadow(0 0 4px rgba(34,197,94,0.5))" />
+                  </svg>
+                  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#22c55e">73%</div>
+                </div>
+              </div>
+              <div style="margin-top:14px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <div style="font-size:11px;color:rgba(255,255,255,0.45)">Fortschritt: 284 Ringe</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.45)">Heute 18:00</div>
+                </div>
+                <div style="height:7px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden"><div style="width:73%;height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:4px"></div></div>
+              </div>
+            </div>
+            <!-- übersicht -->
+            <div style="flex-shrink:0">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                <div style="font-size:16px;font-weight:700;color:#fff">Übersicht</div>
+                <div style="font-size:12px;color:#22c55e;font-weight:600">Alle anzeigen →</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                <div style="background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:13px 10px;display:flex;flex-direction:column;gap:6px">
+                  <div style="width:32px;height:32px;border-radius:10px;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="17" height="17" stroke="#22c55e" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22,7 13.5,15.5 8.5,10.5 2,17"/><polyline points="16,7 22,7 22,13"/></svg></div>
+                  <div style="font-size:21px;font-weight:800;color:#fff;line-height:1;letter-spacing:-0.02em">387,2</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:500;line-height:1.3">Ø Ringe Diese Woche</div>
+                </div>
+                <div style="background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:13px 10px;display:flex;flex-direction:column;gap:6px">
+                  <div style="width:32px;height:32px;border-radius:10px;background:rgba(0,195,255,0.15);display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="17" height="17" stroke="#00c3ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg></div>
+                  <div style="font-size:21px;font-weight:800;color:#fff;line-height:1;letter-spacing:-0.02em">12</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:500;line-height:1.3">Challenges Gewonnen</div>
+                </div>
+                <div style="background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:13px 10px;display:flex;flex-direction:column;gap:6px">
+                  <div style="width:32px;height:32px;border-radius:10px;background:rgba(170,90,255,0.15);display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="17" height="17" stroke="#aa5aff" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+                  <div style="font-size:21px;font-weight:800;color:#fff;line-height:1;letter-spacing:-0.02em">48</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:500;line-height:1.3">Trainings Gesamt</div>
+                </div>
+              </div>
+            </div>
+            <!-- letztes training -->
+            <div style="flex-shrink:0">
+              <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:10px">Letztes Training</div>
+              <div style="background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.08);border-radius:20px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.55)">
+                <div style="display:flex;align-items:center;gap:14px;padding:15px 16px">
+                  <div style="width:56px;height:56px;border-radius:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">🎯</div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:15px;font-weight:700;color:#fff">LG 40 · 10m</div>
+                    <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Heute · 09:30 Uhr</div>
+                  </div>
+                  <div style="background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.25);border-radius:14px;padding:8px 12px;text-align:center;flex-shrink:0">
+                    <div style="font-size:21px;font-weight:800;color:#22c55e;line-height:1">391,4</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.4);font-weight:600;margin-top:2px;text-transform:uppercase;letter-spacing:0.08em">Ringe</div>
+                  </div>
+                </div>
+                <div style="display:flex;border-top:1px solid rgba(255,255,255,0.06)">
+                  <div style="flex:1;padding:11px 8px;text-align:center;border-right:1px solid rgba(255,255,255,0.06)"><div style="font-size:13px;font-weight:700;color:#fff">40</div><div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:2px">Schuss</div></div>
+                  <div style="flex:1;padding:11px 8px;text-align:center;border-right:1px solid rgba(255,255,255,0.06)"><div style="font-size:13px;font-weight:700;color:#fff">96,8%</div><div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:2px">Ø Ring</div></div>
+                  <div style="flex:1;padding:11px 8px;text-align:center"><div style="font-size:13px;font-weight:700;color:#22c55e">+20 XP</div><div style="font-size:9px;color:rgba(255,255,255,0.35);margin-top:2px">Belohnung</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- FAB -->
+          <div style="position:absolute;bottom:86px;left:50%;transform:translateX(-50%);z-index:45">
+            <button style="display:flex;align-items:center;gap:8px;background:#22c55e;color:#000;border:none;border-radius:100px;padding:13px 22px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 8px 28px rgba(34,197,94,0.4);white-space:nowrap">
+              <svg viewBox="0 0 24 24" width="17" height="17" stroke="#000" fill="none" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+              DUELL STARTEN
+            </button>
+          </div>
+        </div>
+        <!-- nav: Start active -->
+        <div style="position:absolute;bottom:0;left:0;right:0;height:72px;z-index:40;background:rgba(10,10,10,0.92);backdrop-filter:blur(28px) saturate(1.8);border-top:1px solid rgba(255,255,255,0.08);display:flex">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#22c55e"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(34,197,94,0.12)"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px rgba(34,197,94,0.6))"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div><div style="font-size:9px;font-weight:700">Start</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div style="font-size:9px;font-weight:600">Training</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div><div style="font-size:9px;font-weight:600">Challenges</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:9px;font-weight:600">Freunde</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div style="font-size:9px;font-weight:600">Profil</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 12 TRAINING-TAB ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">12 — Training-Tab</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.08) 0%,transparent 55%),#0a0a0a;z-index:0"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column">
+          <!-- header -->
+          <div style="padding:44px 20px 14px;background:rgba(10,10,10,0.82);backdrop-filter:blur(24px) saturate(1.6);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0">
+            <div style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1">Training</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px">5 Modi · Deine Woche</div>
+          </div>
+          <!-- content -->
+          <div style="flex:1;overflow:hidden;padding:14px 18px 0;display:flex;flex-direction:column;gap:12px">
+            <!-- segmented tabs -->
+            <div style="display:flex;background:rgba(255,255,255,0.04);border-radius:18px;padding:4px;gap:2px;flex-shrink:0">
+              <div style="flex:1;padding:9px 6px;background:rgba(255,255,255,0.09);color:#fff;font-size:13px;font-weight:800;border-radius:14px;text-align:center">Alle</div>
+              <div style="flex:1;padding:9px 6px;color:rgba(255,255,255,0.4);font-size:13px;font-weight:600;border-radius:14px;text-align:center">LG</div>
+              <div style="flex:1;padding:9px 6px;color:rgba(255,255,255,0.4);font-size:13px;font-weight:600;border-radius:14px;text-align:center">KK</div>
+            </div>
+            <!-- training cards -->
+            <div style="display:flex;flex-direction:column;gap:10px;flex-shrink:0">
+              <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:14px 16px">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,107,53,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⚡</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:700;color:#fff">Geschwindigkeit</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">60 Sek · 30 Schuss max</div>
+                  <div style="display:flex;gap:4px;margin-top:6px">
+                    <span style="font-size:14px;opacity:0.3">🥉</span><span style="font-size:14px;opacity:0.3">🥈</span><span style="font-size:14px;opacity:0.3">🥇</span>
+                  </div>
+                </div>
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" width="16" height="16" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:14px 16px">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(78,205,196,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🎯</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:700;color:#fff">Präzision</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">10 Schuss · Kein Limit</div>
+                  <div style="display:flex;gap:4px;margin-top:6px">
+                    <span style="font-size:14px">🥉</span><span style="font-size:14px;opacity:0.3">🥈</span><span style="font-size:14px;opacity:0.3">🥇</span>
+                  </div>
+                </div>
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" width="16" height="16" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:14px 16px">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(69,183,209,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🌬️</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:700;color:#fff">Ausdauer</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">40 Schuss · LG 10m</div>
+                  <div style="display:flex;gap:4px;margin-top:6px">
+                    <span style="font-size:14px">🥉</span><span style="font-size:14px">🥈</span><span style="font-size:14px;opacity:0.3">🥇</span>
+                  </div>
+                </div>
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" width="16" height="16" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,200,64,0.15);border-radius:18px;padding:14px 16px">
+                <div style="width:44px;height:44px;border-radius:12px;background:rgba(247,183,49,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🏅</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:15px;font-weight:700;color:#fff">Druck</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">Zeitlimit · Steigend</div>
+                  <div style="display:flex;gap:4px;margin-top:6px">
+                    <span style="font-size:14px">🥉</span><span style="font-size:14px">🥈</span><span style="font-size:14px">🥇</span>
+                  </div>
+                </div>
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg viewBox="0 0 24 24" width="16" height="16" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9,18 15,12 9,6"/></svg></div>
+              </div>
+            </div>
+            <!-- heatmap -->
+            <div style="flex-shrink:0">
+              <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:10px">Deine Woche</div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <div style="display:flex;gap:4px;align-items:center">
+                  <div style="font-size:9px;color:rgba(255,255,255,0.2);width:16px;text-align:right;flex-shrink:0">Mo</div>
+                  <div style="display:flex;gap:3px">
+                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center">
+                  <div style="font-size:9px;color:rgba(255,255,255,0.2);width:16px;text-align:right;flex-shrink:0">Di</div>
+                  <div style="display:flex;gap:3px">
+                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center">
+                  <div style="font-size:9px;color:rgba(255,255,255,0.2);width:16px;text-align:right;flex-shrink:0">Mi</div>
+                  <div style="display:flex;gap:3px">
+                    <div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.4)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,1.0)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(34,197,94,0.65)"></div><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,0.05)"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- nav: Training active -->
+        <div style="position:absolute;bottom:0;left:0;right:0;height:72px;z-index:40;background:rgba(10,10,10,0.92);backdrop-filter:blur(28px) saturate(1.8);border-top:1px solid rgba(255,255,255,0.08);display:flex">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div><div style="font-size:9px;font-weight:600">Start</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#22c55e"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(34,197,94,0.12)"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" style="filter:drop-shadow(0 0 5px rgba(34,197,94,0.6))"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div style="font-size:9px;font-weight:700">Training</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div><div style="font-size:9px;font-weight:600">Challenges</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:9px;font-weight:600">Freunde</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div style="font-size:9px;font-weight:600">Profil</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 13 CHALLENGES-TAB ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">13 — Challenges-Tab</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(34,197,94,0.08) 0%,transparent 55%),#0a0a0a;z-index:0"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column">
+          <div style="padding:44px 20px 14px;background:rgba(10,10,10,0.82);backdrop-filter:blur(24px) saturate(1.6);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0">
+            <div style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.02em">Challenges</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px">Tages-Aufgaben · Club</div>
+          </div>
+          <div style="flex:1;overflow:hidden;padding:14px 18px 0;display:flex;flex-direction:column;gap:12px">
+            <!-- daily challenge card -->
+            <div style="background:linear-gradient(160deg,rgba(34,197,94,0.14),rgba(18,18,18,0.95) 55%);border:1px solid rgba(34,197,94,0.22);border-radius:20px;padding:16px;flex-shrink:0">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:#22c55e;font-weight:600">⚡ Tages-Challenge</div>
+                <div style="font-family:'DM Mono',monospace;font-size:12px;color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.06);border-radius:100px;padding:3px 10px">04:22:11</div>
+              </div>
+              <div style="font-size:16px;font-weight:700;color:#fff;margin-top:10px;line-height:1.3">Schieße 5 Duelle auf Schwierigkeit Mittel</div>
+              <div style="margin-top:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <div style="font-size:12px;font-weight:700;color:#22c55e">3 / 5 Duelle</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.4)">60%</div>
+                </div>
+                <div style="height:7px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden"><div style="width:60%;height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:4px"></div></div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px">
+                <div style="background:rgba(255,200,64,0.12);border:1px solid rgba(255,200,64,0.25);border-radius:100px;padding:4px 12px;font-size:12px;font-weight:700;color:#ffc840">+25 XP</div>
+                <div style="background:rgba(255,255,255,0.05);border-radius:100px;padding:4px 12px;font-size:12px;color:rgba(255,255,255,0.5)">🎯 Disziplin: LG 40</div>
+              </div>
+            </div>
+            <!-- weitere challenges -->
+            <div style="flex-shrink:0">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-size:15px;font-weight:700;color:#fff">Weitere Aufgaben</div>
+                <div style="font-size:12px;color:#22c55e;font-weight:600">Alle →</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <!-- completed -->
+                <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:12px 14px">
+                  <div style="width:36px;height:36px;border-radius:50%;background:rgba(34,197,94,0.12);border:2px solid #22c55e;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">✅</div>
+                  <div style="flex:1;font-size:14px;font-weight:600;color:rgba(255,255,255,0.5)">Schieße 1 Schuss in den 10er Ring</div>
+                  <div style="color:#22c55e;flex-shrink:0"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20,6 9,17 4,12"/></svg></div>
+                </div>
+                <!-- active -->
+                <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:12px 14px">
+                  <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,149,0,0.12);border:2px solid rgba(255,149,0,0.35);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🔥</div>
+                  <div style="flex:1;font-size:14px;font-weight:700;color:#fff">Streak: 3 Duelle in Folge gewinnen</div>
+                  <div style="background:rgba(255,200,64,0.12);border-radius:100px;padding:3px 10px;font-size:11px;font-weight:700;color:#ffc840;flex-shrink:0">+15 XP</div>
+                </div>
+                <!-- locked -->
+                <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:12px 14px;opacity:0.6">
+                  <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.04);border:2px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">🔒</div>
+                  <div style="flex:1;font-size:14px;color:rgba(255,255,255,0.3)">Foto-Challenge: Lade ein Scheibenfoto hoch</div>
+                  <div style="font-size:11px;color:rgba(255,255,255,0.25);flex-shrink:0">Morgen</div>
+                </div>
+              </div>
+            </div>
+            <!-- club challenge -->
+            <div style="flex-shrink:0">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-size:15px;font-weight:700;color:#fff">🏛 Club-Challenge</div>
+                <div style="font-size:12px;color:#22c55e;font-weight:600">Alle →</div>
+              </div>
+              <div style="background:rgba(18,18,18,0.95);border:1px solid rgba(255,255,255,0.08);border-radius:18px;padding:14px 16px">
+                <div style="font-size:15px;font-weight:800;color:#fff">Wochenliga: 395+ Ringe erzielen</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">SV Präzision e.V.</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+                  <div style="font-size:12px;color:rgba(255,255,255,0.5)">👥 8 Teilnehmer</div>
+                  <div style="font-size:13px;font-weight:700;color:#ffc840">🏆 500 XP</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- nav: Challenges active -->
+        <div style="position:absolute;bottom:0;left:0;right:0;height:72px;z-index:40;background:rgba(10,10,10,0.92);backdrop-filter:blur(28px) saturate(1.8);border-top:1px solid rgba(255,255,255,0.08);display:flex">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div><div style="font-size:9px;font-weight:600">Start</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div style="font-size:9px;font-weight:600">Training</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#22c55e"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(34,197,94,0.12)"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px rgba(34,197,94,0.6))"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div><div style="font-size:9px;font-weight:700">Challenges</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:9px;font-weight:600">Freunde</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div style="font-size:9px;font-weight:600">Profil</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 14 FREUNDE-TAB ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">14 — Freunde-Tab</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:#0a0a0a;z-index:0"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column">
+          <div style="padding:44px 20px 14px;background:rgba(10,10,10,0.82);backdrop-filter:blur(24px) saturate(1.6);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end">
+              <div>
+                <div style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.02em">Freunde</div>
+                <div style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:3px">5 online · 12 Freunde gesamt</div>
+              </div>
+              <div style="border:1px solid rgba(34,197,94,0.35);color:#22c55e;border-radius:100px;padding:8px 14px;font-size:12px;font-weight:700">＋ Hinzufügen</div>
+            </div>
+          </div>
+          <div style="flex:1;overflow:hidden;padding:14px 18px 0;display:flex;flex-direction:column;gap:10px">
+            <!-- duel invitation -->
+            <div style="display:flex;align-items:center;gap:12px;background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.18);border-left:3px solid #22c55e;border-radius:14px;padding:12px 14px;flex-shrink:0">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;font-weight:700;color:#fff">📨 MaxM. fordert dich heraus!</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px">LG 40 · Mittel · Läuft noch 22h</div>
+              </div>
+              <div style="background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.3);color:#22c55e;border-radius:100px;padding:7px 14px;font-size:12px;font-weight:700;flex-shrink:0;white-space:nowrap">Annehmen</div>
+            </div>
+            <!-- online friends -->
+            <div style="flex-shrink:0">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                <div style="font-size:15px;font-weight:700;color:#fff">Jetzt online</div>
+                <div style="background:#22c55e;color:#000;border-radius:100px;padding:1px 8px;font-size:11px;font-weight:800">5</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <!-- friend 1 online -->
+                <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:11px 14px">
+                  <div style="position:relative;flex-shrink:0">
+                    <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,rgba(34,197,94,0.3),rgba(0,195,255,0.25));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">M</div>
+                    <div style="position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;background:#22c55e;border:2px solid #0f0f0f"></div>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:700;color:#fff">MaxMuster</div>
+                    <div style="font-size:10px;color:#22c55e;margin-top:1px">Online · LG 40 üben</div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:16px;font-weight:800;color:#fff">392</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.3)">Ringe</div>
+                  </div>
+                </div>
+                <!-- friend 2 away -->
+                <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:11px 14px">
+                  <div style="position:relative;flex-shrink:0">
+                    <div style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,rgba(255,200,64,0.2),rgba(255,149,0,0.15));display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff">A</div>
+                    <div style="position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;background:#ffc840;border:2px solid #0f0f0f"></div>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:700;color:#fff">AnnaS.</div>
+                    <div style="font-size:10px;color:#ffc840;margin-top:1px">Vor 5 min · KK 50m</div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:16px;font-weight:800;color:#fff">388</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.3)">Ringe</div>
+                  </div>
+                </div>
+                <!-- friend 3 offline -->
+                <div style="display:flex;align-items:center;gap:12px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.06);border-radius:16px;padding:11px 14px">
+                  <div style="position:relative;flex-shrink:0">
+                    <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:rgba(255,255,255,0.5)">K</div>
+                    <div style="position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,0.3);border:2px solid #0f0f0f"></div>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,0.7)">KlausP.</div>
+                    <div style="font-size:10px;color:rgba(255,255,255,0.35);margin-top:1px">Offline · Vor 2h</div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0">
+                    <div style="font-size:16px;font-weight:800;color:rgba(255,255,255,0.5)">381</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,0.25)">Ringe</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- friend code -->
+            <div style="background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:14px;flex-shrink:0">
+              <div style="font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.35);font-weight:600;margin-bottom:6px">Dein Freundescode</div>
+              <div style="font-family:'DM Mono',monospace;font-size:28px;color:#fff;letter-spacing:0.2em;text-align:center;margin:6px 0 12px">XK4R9P</div>
+              <button style="width:100%;padding:11px;background:#22c55e;color:#000;border:none;border-radius:12px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;cursor:pointer">Teilen →</button>
+            </div>
+          </div>
+        </div>
+        <!-- nav: Freunde active -->
+        <div style="position:absolute;bottom:0;left:0;right:0;height:72px;z-index:40;background:rgba(10,10,10,0.92);backdrop-filter:blur(28px) saturate(1.8);border-top:1px solid rgba(255,255,255,0.08);display:flex">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div><div style="font-size:9px;font-weight:600">Start</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div style="font-size:9px;font-weight:600">Training</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div><div style="font-size:9px;font-weight:600">Challenges</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#22c55e"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(34,197,94,0.12)"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px rgba(34,197,94,0.6))"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:9px;font-weight:700">Freunde</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div style="font-size:9px;font-weight:600">Profil</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─── 15 PROFIL-TAB ─── -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">15 — Profil-Tab</div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;position:relative;background:#0a0a0a;border:11px solid #1b1b1d;box-shadow:0 0 0 2px #000,0 40px 90px rgba(0,0,0,0.65)">
+        <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:130px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:50"></div>
+        <div style="position:absolute;inset:0;background:#0a0a0a;z-index:0"></div>
+        <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column">
+          <div style="padding:44px 20px 14px;background:rgba(10,10,10,0.82);backdrop-filter:blur(24px) saturate(1.6);border-bottom:1px solid rgba(255,255,255,0.06);flex-shrink:0">
+            <div style="font-size:27px;font-weight:800;color:#fff;letter-spacing:-0.02em">Profil</div>
+          </div>
+          <div style="flex:1;overflow:hidden;padding:14px 18px 0;display:flex;flex-direction:column;gap:12px">
+            <!-- profile hero -->
+            <div style="background:linear-gradient(160deg,rgba(34,197,94,0.12),rgba(18,18,18,0.92) 55%);border:1px solid rgba(34,197,94,0.18);border-radius:22px;padding:18px 16px;flex-shrink:0">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:64px;height:64px;border-radius:50%;background:rgba(34,197,94,0.14);border:2px solid #22c55e;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;box-shadow:0 0 20px rgba(34,197,94,0.25)">🎯</div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div style="font-size:21px;font-weight:800;color:#fff;letter-spacing:-0.01em">MaxMuster</div>
+                    <div style="font-size:9px;font-weight:700;padding:3px 9px;border-radius:100px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.6)">Öffentlich</div>
+                  </div>
+                  <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:4px">🏛 SV Präzision e.V.</div>
+                </div>
+              </div>
+              <div style="margin-top:12px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+                  <div style="font-size:11px;font-weight:700;color:#22c55e;letter-spacing:0.04em">⭐ MEISTER</div>
+                  <div style="font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,0.4)">820 / 1000 XP</div>
+                </div>
+                <div style="height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden"><div style="width:82%;height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:3px"></div></div>
+              </div>
+            </div>
+            <!-- inner tabs -->
+            <div style="display:flex;background:rgba(255,255,255,0.04);border-radius:18px;padding:4px;gap:2px;flex-shrink:0">
+              <div style="flex:1;padding:8px 4px;background:rgba(255,255,255,0.09);color:#fff;font-size:12px;font-weight:800;border-radius:14px;text-align:center">Stats</div>
+              <div style="flex:1;padding:8px 4px;color:rgba(255,255,255,0.4);font-size:12px;font-weight:600;border-radius:14px;text-align:center">Erfolge</div>
+              <div style="flex:1;padding:8px 4px;color:rgba(255,255,255,0.4);font-size:12px;font-weight:600;border-radius:14px;text-align:center">Verlauf</div>
+              <div style="flex:1;padding:8px 4px;color:rgba(255,255,255,0.4);font-size:12px;font-weight:600;border-radius:14px;text-align:center">Konto</div>
+            </div>
+            <!-- stats 2x2 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;flex-shrink:0">
+              <div style="background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:13px 14px">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(34,197,94,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:8px"><svg viewBox="0 0 24 24" width="17" height="17" stroke="#22c55e" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg></div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:#22c55e;line-height:1;letter-spacing:0.02em">142</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">Siege</div>
+              </div>
+              <div style="background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:13px 14px">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,149,0,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:8px;font-size:16px">🔥</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:#ff9500;line-height:1;letter-spacing:0.02em">12</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">Aktueller Streak</div>
+              </div>
+              <div style="background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:13px 14px">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(255,200,64,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:8px;font-size:16px">⭐</div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:#ffc840;line-height:1;letter-spacing:0.02em">71%</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">Siegesrate</div>
+              </div>
+              <div style="background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:13px 14px">
+                <div style="width:32px;height:32px;border-radius:10px;background:rgba(170,90,255,0.15);display:flex;align-items:center;justify-content:center;margin-bottom:8px"><svg viewBox="0 0 24 24" width="17" height="17" stroke="#aa5aff" fill="none" stroke-width="2" stroke-linecap="round"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg></div>
+                <div style="font-family:'Bebas Neue',sans-serif;font-size:36px;color:#fff;line-height:1;letter-spacing:0.02em">1.240</div>
+                <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:3px">XP Gesamt</div>
+              </div>
+            </div>
+            <!-- achievements scroll -->
+            <div style="flex-shrink:0">
+              <div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:10px">Auszeichnungen</div>
+              <div style="display:flex;gap:12px;overflow:hidden">
+                <div style="flex-shrink:0;width:76px;display:flex;flex-direction:column;align-items:center;gap:7px"><div style="width:56px;height:56px;border-radius:16px;background:rgba(34,197,94,0.14);border:1px solid rgba(34,197,94,0.3);display:flex;align-items:center;justify-content:center;font-size:24px">🔥</div><div style="font-size:9px;color:rgba(255,255,255,0.55);font-weight:600;text-align:center">10er Streak</div></div>
+                <div style="flex-shrink:0;width:76px;display:flex;flex-direction:column;align-items:center;gap:7px"><div style="width:56px;height:56px;border-radius:16px;background:rgba(0,195,255,0.14);border:1px solid rgba(0,195,255,0.3);display:flex;align-items:center;justify-content:center;font-size:24px">🏆</div><div style="font-size:9px;color:rgba(255,255,255,0.55);font-weight:600;text-align:center">Erster Sieg</div></div>
+                <div style="flex-shrink:0;width:76px;display:flex;flex-direction:column;align-items:center;gap:7px"><div style="width:56px;height:56px;border-radius:16px;background:rgba(255,200,64,0.14);border:1px solid rgba(255,200,64,0.35);display:flex;align-items:center;justify-content:center;font-size:24px">⭐</div><div style="font-size:9px;color:rgba(255,255,255,0.55);font-weight:600;text-align:center">Scharfschütze</div></div>
+                <div style="flex-shrink:0;width:76px;display:flex;flex-direction:column;align-items:center;gap:7px;opacity:0.4"><div style="width:56px;height:56px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;font-size:24px;filter:grayscale(1)">👑</div><div style="font-size:9px;color:rgba(255,255,255,0.4);font-weight:600;text-align:center">Legende</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- nav: Profil active -->
+        <div style="position:absolute;bottom:0;left:0;right:0;height:72px;z-index:40;background:rgba(10,10,10,0.92);backdrop-filter:blur(28px) saturate(1.8);border-top:1px solid rgba(255,255,255,0.08);display:flex">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div><div style="font-size:9px;font-weight:600">Start</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div style="font-size:9px;font-weight:600">Training</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div><div style="font-size:9px;font-weight:600">Challenges</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:9px;font-weight:600">Freunde</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#22c55e"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(34,197,94,0.12)"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px rgba(34,197,94,0.6))"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div style="font-size:9px;font-weight:700">Profil</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION 06 — NAVIGATION BAR (3 States)
+  ══════════════════════════════════════════════════════ -->
+  <div style="font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:36px">06 — Bottom-Navigation-Bar · 390 × 72 · 3 Zustände (Screen 16)</div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;margin-bottom:80px">
+
+    <!-- State A: Start active -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">State A — Start aktiv</div>
+      <div style="width:390px;background:#0a0a0a;border-radius:16px;overflow:hidden">
+        <div style="height:20px;background:#0a0a0a"></div>
+        <div style="height:72px;background:rgba(10,10,10,0.92);backdrop-filter:blur(28px) saturate(1.8);border-top:1px solid rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.08);display:flex">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#22c55e"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(34,197,94,0.12)"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px rgba(34,197,94,0.6))"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div><div style="font-size:9px;font-weight:700">Start</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div style="font-size:9px;font-weight:600">Training</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div><div style="font-size:9px;font-weight:600">Challenges</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:9px;font-weight:600">Freunde</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div style="font-size:9px;font-weight:600">Profil</div></div>
+        </div>
+        <div style="height:20px;background:#0a0a0a"></div>
+      </div>
+    </div>
+
+    <!-- State B: Training active -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">State B — Training aktiv</div>
+      <div style="width:390px;background:#0a0a0a;border-radius:16px;overflow:hidden">
+        <div style="height:20px;background:#0a0a0a"></div>
+        <div style="height:72px;background:rgba(10,10,10,0.92);backdrop-filter:blur(28px) saturate(1.8);border-top:1px solid rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.08);display:flex">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div><div style="font-size:9px;font-weight:600">Start</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#22c55e"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(34,197,94,0.12)"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" style="filter:drop-shadow(0 0 5px rgba(34,197,94,0.6))"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div style="font-size:9px;font-weight:700">Training</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div><div style="font-size:9px;font-weight:600">Challenges</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:9px;font-weight:600">Freunde</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div style="font-size:9px;font-weight:600">Profil</div></div>
+        </div>
+        <div style="height:20px;background:#0a0a0a"></div>
+      </div>
+    </div>
+
+    <!-- State C: Profil active -->
+    <div style="flex:none">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px">State C — Profil aktiv</div>
+      <div style="width:390px;background:#0a0a0a;border-radius:16px;overflow:hidden">
+        <div style="height:20px;background:#0a0a0a"></div>
+        <div style="height:72px;background:rgba(10,10,10,0.92);backdrop-filter:blur(28px) saturate(1.8);border-top:1px solid rgba(255,255,255,0.08);border-bottom:1px solid rgba(255,255,255,0.08);display:flex">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></div><div style="font-size:9px;font-weight:600">Start</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div style="font-size:9px;font-weight:600">Training</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></svg></div><div style="font-size:9px;font-weight:600">Challenges</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:rgba(255,255,255,0.32)"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div style="font-size:9px;font-weight:600">Freunde</div></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#22c55e"><div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(34,197,94,0.12)"><svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 5px rgba(34,197,94,0.6))"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div><div style="font-size:9px;font-weight:700">Profil</div></div>
+        </div>
+        <div style="height:20px;background:#0a0a0a"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       DESIGN TOKENS REFERENCE
+  ══════════════════════════════════════════════════════ -->
+  <div style="font-size:11px;letter-spacing:0.25em;text-transform:uppercase;color:rgba(255,255,255,0.25);font-weight:600;padding-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:36px">07 — Design Tokens</div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;margin-bottom:80px">
+
+    <!-- colors -->
+    <div style="flex:none;width:380px">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px">Farben</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,0.4)"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">#22c55e</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Akzent · Primär</div></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:#4ade80"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">#4ade80</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Akzent · Hover / Glow</div></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:#16a34a"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">#16a34a</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Akzent · Gedrückt</div></div>
+        <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 0"></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:#0a0a0a;border:1px solid rgba(255,255,255,0.1)"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">#0a0a0a</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">BG Canvas</div></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:rgba(18,18,18,0.92);border:1px solid rgba(255,255,255,0.1)"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">rgba(18,18,18,.92)</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Card</div></div>
+        <div style="height:1px;background:rgba(255,255,255,0.06);margin:4px 0"></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:#00c3ff"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">#00c3ff</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Blau · KK / Info</div></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:#ffc840"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">#ffc840</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Gold · Elite / Rewards</div></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:#aa5aff"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">#aa5aff</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Lila · Streak</div></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:#ff4a4a"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">#ff4a4a</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Rot · Verlust / Gefahr</div></div>
+        <div style="display:flex;align-items:center;gap:12px"><div style="width:36px;height:20px;border-radius:5px;background:#ff9500"></div><div style="font-family:'DM Mono',monospace;font-size:12px;color:#fff">#ff9500</div><div style="font-size:12px;color:rgba(255,255,255,0.4)">Orange · Warnung</div></div>
+      </div>
+    </div>
+
+    <!-- type -->
+    <div style="flex:none;width:460px">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px">Typografie</div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:14px">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;color:#22c55e;letter-spacing:0.04em;line-height:1">385,6</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px">Bebas Neue · Display Zahlen / Wordmark</div>
+        </div>
+        <div style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:14px">
+          <div style="font-family:'Outfit',sans-serif;font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.02em;line-height:1.1">Trainiere wie ein Profi.</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px">Outfit 800 · Seitentitel / CTA-Überschriften</div>
+        </div>
+        <div style="border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:14px">
+          <div style="font-family:'Outfit',sans-serif;font-size:15px;font-weight:400;color:rgba(255,255,255,0.55);line-height:1.5">Duell gegen den adaptiven Bot. Dein Niveau. Dein Tempo.</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px">Outfit 400 · Body · rgba(255,255,255,0.55)</div>
+        </div>
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;color:rgba(255,255,255,0.5)">220 / 300 XP</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:4px">DM Mono · XP / Codes / Tabular</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- spacing + radii -->
+    <div style="flex:none;width:280px">
+      <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:16px">Radien &amp; Schatten</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:24px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:10px"></div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.45)">r-sm: 10px · Chips / Tags</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:24px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:16px"></div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.45)">r-md: 16px · Karten</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:24px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:20px"></div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.45)">r-lg: 20px · Feature Cards</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:44px;height:24px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:100px"></div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.45)">r-full: pill · Buttons / Tags</div>
+        </div>
+        <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:12px">
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-bottom:8px">Hairlines</div>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,0.4);line-height:1.8">
+            rgba(255,255,255,0.07) · default<br/>
+            rgba(255,255,255,0.06) · divider<br/>
+            rgba(34,197,94,0.25) · accent border
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
