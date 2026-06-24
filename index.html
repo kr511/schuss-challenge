@@ -297,9 +297,11 @@
               </div>
             </div>
             <div class="gc-bar-wrap">
-              <div class="gc-bar-label">Fortschritt: <span id="gcProgressText">– Ringe</span></div>
+              <div class="gc-bar-label">
+                <span>Fortschritt: <span id="gcProgressText">– Ringe</span></span>
+                <span id="gcTimeLeft"></span>
+              </div>
               <div class="gc-bar"><div class="gc-bar-fill" id="gcBarFill" style="width:0%"></div></div>
-              <div id="gcTimeLeft" style="font-size:0.68rem;color:rgba(255,255,255,0.4);margin-top:4px;text-align:right;"></div>
             </div>
           </div>
 
@@ -388,154 +390,76 @@
       <div class="tab-panel" id="tabTraining">
         <div class="page-content">
 
-          <!-- Inner Tabs -->
-          <div class="inner-tabs" id="trainingInnerTabsWrap">
-            <button class="it-tab active" data-itab="verlauf" onclick="switchInnerTab('trainingInnerTabsWrap','verlauf')">
-              <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              Verlauf
+          <!-- Training Mode Filter -->
+          <div class="tm-filter" id="trainingModeFilter">
+            <button class="tmf-btn active" data-filter="alle" onclick="setTrainingFilter(this,'alle')">Alle</button>
+            <button class="tmf-btn" data-filter="lg" onclick="setTrainingFilter(this,'lg')">LG</button>
+            <button class="tmf-btn" data-filter="kk" onclick="setTrainingFilter(this,'kk')">KK</button>
+          </div>
+
+          <!-- Training Mode Cards -->
+          <div class="tmc-list" id="trainingModeCards">
+            <button class="tmc-card" data-modes="alle" onclick="openDuelSetup()">
+              <div class="tmc-icon" style="background:rgba(255,107,53,0.15);">⚡</div>
+              <div class="tmc-info">
+                <div class="tmc-title">Geschwindigkeit</div>
+                <div class="tmc-sub">60 Sek · 30 Schuss max</div>
+                <div class="tmc-trophies"><span style="opacity:0.3">🥉</span><span style="opacity:0.3">🥈</span><span style="opacity:0.3">🥇</span></div>
+              </div>
+              <svg class="tmc-chevron" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
             </button>
-            <button class="it-tab" data-itab="statistiken" onclick="switchInnerTab('trainingInnerTabsWrap','statistiken')">
-              <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-              Statistiken
+            <button class="tmc-card" data-modes="alle lg" onclick="openDuelSetup()">
+              <div class="tmc-icon" style="background:rgba(78,205,196,0.15);">🎯</div>
+              <div class="tmc-info">
+                <div class="tmc-title">Präzision</div>
+                <div class="tmc-sub">10 Schuss · Kein Limit</div>
+                <div class="tmc-trophies"><span>🥉</span><span style="opacity:0.3">🥈</span><span style="opacity:0.3">🥇</span></div>
+              </div>
+              <svg class="tmc-chevron" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+            </button>
+            <button class="tmc-card" data-modes="alle lg" onclick="openDuelSetup()">
+              <div class="tmc-icon" style="background:rgba(69,183,209,0.15);">🌬️</div>
+              <div class="tmc-info">
+                <div class="tmc-title">Ausdauer</div>
+                <div class="tmc-sub">40 Schuss · LG 10m</div>
+                <div class="tmc-trophies"><span>🥉</span><span>🥈</span><span style="opacity:0.3">🥇</span></div>
+              </div>
+              <svg class="tmc-chevron" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+            </button>
+            <button class="tmc-card" data-modes="alle" onclick="openDuelSetup()">
+              <div class="tmc-icon" style="background:rgba(247,183,49,0.15);">🏅</div>
+              <div class="tmc-info">
+                <div class="tmc-title">Druck</div>
+                <div class="tmc-sub">Zeitlimit · Steigend</div>
+                <div class="tmc-trophies"><span>🥉</span><span>🥈</span><span>🥇</span></div>
+              </div>
+              <svg class="tmc-chevron" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+            </button>
+            <button class="tmc-card" data-modes="alle lg kk" onclick="openDuelSetup()">
+              <div class="tmc-icon" style="background:rgba(170,90,255,0.15);">🏆</div>
+              <div class="tmc-info">
+                <div class="tmc-title">Wettkampf</div>
+                <div class="tmc-sub">LG 40 · Standard</div>
+                <div class="tmc-trophies"><span>🥉</span><span>🥈</span><span>🥇</span></div>
+              </div>
+              <svg class="tmc-chevron" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
             </button>
           </div>
 
-          <!-- Verlauf Panel -->
-          <div class="it-panel" data-itab="verlauf">
-            <!-- Overview Stats -->
-            <div class="overview-card">
-              <div class="overview-card-hdr">
-                <svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                Übersicht
-              </div>
-              <div class="stat-tiles-4">
-                <div class="stat-tile">
-                  <div class="st-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
-                  <div class="st-label">Ø Ringe</div>
-                  <div class="st-value" id="tAvgRinge">–</div>
-                  <div class="st-delta positive" id="tAvgDelta"></div>
-                </div>
-                <div class="stat-tile">
-                  <div class="st-icon blue"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
-                  <div class="st-label">Bestes Training</div>
-                  <div class="st-value" id="tBestTraining">–</div>
-                  <div class="st-delta" id="tBestDate" style="color:rgba(255,255,255,0.3);font-size:0.6rem;"></div>
-                </div>
-                <div class="stat-tile">
-                  <div class="st-icon purple"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
-                  <div class="st-label">Trainings</div>
-                  <div class="st-value" id="tWeekCount">–</div>
-                  <div class="st-delta" style="color:rgba(255,255,255,0.3);font-size:0.6rem;">Diese Woche</div>
-                </div>
-                <div class="stat-tile">
-                  <div class="st-icon gold"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-                  <div class="st-label">Gesamt</div>
-                  <div class="st-value" id="tTotalCount">–</div>
-                  <div class="st-delta" style="color:rgba(255,255,255,0.3);font-size:0.6rem;">Trainings</div>
-                </div>
-              </div>
-            </div>
+          <!-- Heatmap "Deine Woche" — rendered in Start tab via #trainingHeatmap -->
+          <div style="flex-shrink:0;" id="trainingWeekHeatmap"></div>
 
-            <!-- Training History -->
-            <div>
-              <div class="section-title" style="margin-bottom:12px;">Training Verlauf</div>
-              <div class="training-list" id="trainingListContainer">
-                <div class="empty-state"><div class="empty-state-icon">📋</div><div>Noch keine Trainingseinheiten</div></div>
-              </div>
-            </div>
-
-            <!-- CTA -->
-            <button class="cta-card" onclick="openDuelSetup()" style="width:100%;text-align:left;cursor:pointer;">
-              <div class="cta-icon">📷</div>
-              <div class="cta-text">
-                <div class="cta-title">Neues Training erfassen</div>
-                <div class="cta-sub">Ergebnisse hochladen oder manuell eingeben</div>
-              </div>
-            </button>
-          </div>
-
-          <!-- Statistiken Panel (hidden by default) -->
-          <div class="it-panel" data-itab="statistiken" style="display:none;">
-
-            <!-- Performance Summary -->
-            <div class="overview-card">
-              <div class="overview-card-hdr">
-                <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                Performance
-              </div>
-              <div class="stat-tiles">
-                <div class="stat-tile">
-                  <div class="st-icon green"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
-                  <div class="st-label">Konstanz</div>
-                  <div class="st-value" id="sKonstanz">–</div>
-                  <div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Letzte 10</div>
-                </div>
-                <div class="stat-tile">
-                  <div class="st-icon blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-                  <div class="st-label">Ø Dauer</div>
-                  <div class="st-value" id="sAvgDuration">–</div>
-                  <div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">pro Training</div>
-                </div>
-                <div class="stat-tile">
-                  <div class="st-icon purple"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-                  <div class="st-label">Top Treffer</div>
-                  <div class="st-value" id="sTopShot">–</div>
-                  <div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Bestwert</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Performance Curve -->
-            <div class="overview-card">
-              <div class="overview-card-hdr" style="justify-content:space-between;display:flex;align-items:center;">
-                <span style="display:flex;align-items:center;gap:8px;">
-                  <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--accent);fill:none;stroke-width:2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                  Leistungskurve
-                </span>
-                <div style="display:flex;gap:6px;">
-                  <button class="perf-toggle active" id="perfToggleLG2" onclick="setPerfWeapon('lg')" style="background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);color:var(--accent);font-size:0.65rem;padding:5px 10px;border-radius:8px;cursor:pointer;font-weight:600;">🌬️ LG</button>
-                  <button class="perf-toggle" id="perfToggleKK2" onclick="setPerfWeapon('kk')" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);font-size:0.65rem;padding:5px 10px;border-radius:8px;cursor:pointer;font-weight:600;">🎯 KK</button>
-                </div>
-              </div>
-              <div class="perf-chart-box" style="height:180px;position:relative;width:100%;">
-                <canvas id="perfChart2" style="display:block;"></canvas>
-                <div id="perfChart2Empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.3);font-size:0.8rem;text-align:center;">
-                  Noch keine Daten verfügbar<br><span style="font-size:0.7rem;opacity:0.7;">Absolviere ein Training für deine Kurve</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Discipline Breakdown -->
-            <div class="overview-card">
-              <div class="overview-card-hdr">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
-                Disziplinen
-              </div>
-              <div style="display:flex;flex-direction:column;gap:10px;" id="disciplineBreakdown">
-                <div class="discipline-row">
-                  <div class="dr-icon" style="background:rgba(34,197,94,0.15);color:var(--accent);">🌬️</div>
-                  <div class="dr-info">
-                    <div class="dr-name">Luftgewehr · 10m</div>
-                    <div class="dr-meta" id="dLGMeta">– Trainings · Ø –</div>
-                  </div>
-                  <div class="dr-value" id="dLGAvg">–</div>
-                </div>
-                <div class="discipline-row">
-                  <div class="dr-icon" style="background:rgba(0,195,255,0.15);color:#00c3ff;">🎯</div>
-                  <div class="dr-info">
-                    <div class="dr-name">Kleinkaliber · 50m</div>
-                    <div class="dr-meta" id="dKKMeta">– Trainings · Ø –</div>
-                  </div>
-                  <div class="dr-value" id="dKKAvg">–</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Enhanced Analytics Mount -->
+          <!-- Hidden mounts for JS compatibility -->
+          <div style="display:none" aria-hidden="true">
+            <div class="training-list" id="trainingListContainer"></div>
+            <span id="tAvgRinge"></span><span id="tAvgDelta"></span>
+            <span id="tBestTraining"></span><span id="tBestDate"></span>
+            <span id="tWeekCount"></span><span id="tTotalCount"></span>
+            <span id="sKonstanz"></span><span id="sAvgDuration"></span><span id="sTopShot"></span>
+            <canvas id="perfChart2"></canvas><div id="perfChart2Empty"></div>
+            <div id="disciplineBreakdown"><span id="dLGMeta"></span><span id="dLGAvg"></span><span id="dKKMeta"></span><span id="dKKAvg"></span></div>
             <div id="enhancedAnalyticsMountTraining"></div>
           </div>
-
-          <!-- Übungen Panel (hidden by default) -->
 
         </div><!-- /page-content -->
       </div><!-- /tabTraining -->
@@ -544,40 +468,17 @@
       <div class="tab-panel" id="tabChallenges">
         <div class="page-content">
 
-          <!-- Inner Tabs -->
-          <div class="inner-tabs" id="challengesInnerTabsWrap">
-            <button class="it-tab active" data-itab="aktiv" onclick="switchInnerTab('challengesInnerTabsWrap','aktiv')">
-              <svg viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l3.5 3.5"/><path d="M19 21l-3-3"/></svg>
-              Aktiv
-            </button>
-            <button class="it-tab" data-itab="einladungen" onclick="switchInnerTab('challengesInnerTabsWrap','einladungen')">
-              <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              Einladungen
-            </button>
-            <button class="it-tab" data-itab="abgeschlossen" onclick="switchInnerTab('challengesInnerTabsWrap','abgeschlossen')">
-              <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              Abgeschlossen
-            </button>
-          </div>
+          <!-- Daily Challenge (rendered by JS into #dailyChallengeUI) -->
+          <div id="dailyChallengeUI"></div>
 
-          <!-- Aktiv Panel -->
-          <div class="it-panel" data-itab="aktiv">
-            <div class="section-title" style="margin-bottom:12px;">Deine aktiven Challenges</div>
-
-            <!-- Daily Challenge mount (existing system renders here) -->
-            <div id="dailyChallengeUI"></div>
-
-            <!-- Vereinsmodus liegt jetzt im Profil-Tab (#profileClubMount). -->
-
-            <!-- Duel vs Bot CTA -->
-            <button class="cta-card" onclick="openDuelSetup()" style="width:100%;text-align:left;cursor:pointer;margin-top:4px;">
-              <div class="cta-icon">⚔️</div>
-              <div class="cta-text">
-                <div class="cta-title" style="color:var(--accent);">Neues Duell starten</div>
-                <div class="cta-sub">Gegen Bot oder Freunde antreten</div>
-              </div>
-            </button>
-          </div>
+          <!-- Neues Duell starten CTA -->
+          <button class="cta-card" onclick="openDuelSetup()" style="width:100%;text-align:left;cursor:pointer;">
+            <div class="cta-icon">⚔️</div>
+            <div class="cta-text">
+              <div class="cta-title" style="color:var(--accent);">Neues Duell starten</div>
+              <div class="cta-sub">Gegen Bot oder Freunde antreten</div>
+            </div>
+          </button>
 
           <!-- Einladungen Panel -->
           <div class="it-panel" data-itab="einladungen" style="display:none;">
@@ -2259,6 +2160,15 @@
       }
     }
     
+    function setTrainingFilter(btn, filter) {
+      document.querySelectorAll('.tmf-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.tmc-card').forEach(card => {
+        const modes = (card.dataset.modes || '').split(' ');
+        card.style.display = (filter === 'alle' || modes.includes(filter)) ? '' : 'none';
+      });
+    }
+
     function openDuelSetup() {
       if (typeof triggerHaptic === 'function') triggerHaptic();
       const ov = document.getElementById('duelSetupSheetOverlay');
