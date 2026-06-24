@@ -344,8 +344,7 @@
             </div>
           </div>
 
-          <!-- TRAININGS-HEATMAP -->
-          <div id="trainingHeatmap"></div>
+          <!-- TRAININGS-HEATMAP moved to Training tab (#trainingHeatmap) -->
 
           <!-- AKTIVE CHALLENGES (daily missions mount) -->
           <div>
@@ -451,8 +450,11 @@
             </button>
           </div>
 
-          <!-- Heatmap "Deine Woche" — rendered in Start tab via #trainingHeatmap -->
-          <div style="flex-shrink:0;" id="trainingWeekHeatmap"></div>
+          <!-- Heatmap "Deine Woche" -->
+          <div style="flex-shrink:0;">
+            <div class="section-title" style="margin-bottom:10px;">Deine Woche</div>
+            <div id="trainingHeatmap"></div>
+          </div>
 
           <!-- Hidden mounts for JS compatibility -->
           <div style="display:none" aria-hidden="true">
