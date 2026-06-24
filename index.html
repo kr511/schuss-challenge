@@ -58,6 +58,7 @@
   <script src="haptics.js?v=3.0"></script>
   <script src="sounds.js?v=3.0"></script>
   <script src="tutorial.js?v=3.0"></script>
+  <script src="onboarding.js?v=1.0"></script>
   <script src="image-compare-brain.js?v=3.1"></script>
   <script src="gemini-ai.js?v=3.0" defer></script>
   <script src="src/vision/image-quality-analyzer.js?v=1.0" defer></script>
@@ -1456,40 +1457,34 @@
 
   <!-- ══════════════════════════ BATTLE ══════════════════════════ -->
   <div id="screenBattle" class="screen">
-    <div class="hdr">
-      <div style="width:100%;display:flex;align-items:center;justify-content:space-between;">
-        <div class="logo" style="font-size:1.7rem;letter-spacing:.14em;">SCHUSS<em>DUELL</em></div>
-        <!-- Match Timer -->
-        <div class="match-timer-box" id="matchTimerBox">
-          <span class="mt-ico">⏱️</span>
-          <div class="mt-inf">
-            <div class="mt-val" id="matchTimerVal">–:––</div>
-            <div class="mt-lbl">Restzeit</div>
-          </div>
+    <div class="hdr ig-hdr">
+      <!-- 3-column top bar matching handoff design -->
+      <div class="ig-topbar">
+        <div class="ig-col ig-col-left">
+          <div class="ig-disc-label" id="igDisciplineLabel">LG 40</div>
+          <div class="ig-disc-sub">Schießen</div>
+        </div>
+        <div class="ig-col ig-col-center">
+          <div class="ig-score" id="playerScoreChip">0</div>
+          <div class="ig-score-sub" id="playerScoreChipSub">Ringe</div>
+        </div>
+        <div class="ig-col ig-col-right">
+          <div class="ig-shot-count" id="igShotCounter">0 / 40</div>
+          <div class="ig-shot-sub">Schuss</div>
         </div>
       </div>
-      <div class="hdr-chips">
-        <div class="chip gold">
-          <div class="chip-label">Übrig</div>
-          <div class="chip-val" id="shotsLeft">40</div>
-          <div class="chip-sub">Schuss</div>
-        </div>
-        <div class="chip red" style="flex-direction:row;gap:2px;padding:6px 8px;min-width:unset;">
-          <div id="botScoreChipContainer" style="display:flex;flex-direction:column;align-items:center;min-width:52px;">
-            <div class="chip-label">Zehntel</div>
-            <div class="chip-val" id="botScoreChip" style="font-size:1.25rem;color:#f08070;">0.0</div>
-          </div>
-          <div id="botScoreDivider"
-            style="width:1px;background:rgba(255,255,255,.1);margin:4px 4px;align-self:stretch;"></div>
-          <div style="display:flex;flex-direction:column;align-items:center;min-width:48px;">
-            <div class="chip-label">Ganze</div>
-            <div class="chip-val" id="botScoreChipInt" style="font-size:1.25rem;color:rgba(240,130,110,.5);">0</div>
-          </div>
-        </div>
+
+      <!-- Legacy hidden elements (kept for app.js compatibility) -->
+      <div style="display:none">
+        <div id="matchTimerBox"><div id="matchTimerVal"></div></div>
+        <div id="shotsLeft">40</div>
+        <div id="botScoreChipContainer"><div id="botScoreChip">0.0</div></div>
+        <div id="botScoreDivider"></div>
+        <div id="botScoreChipInt">0</div>
+        <div id="battleTag">◆ SCHUSS 1 / 40 ◆</div>
+        <div id="battleBadge"></div>
+        <div id="battleWeaponBadge"></div>
       </div>
-      <div class="hdr-tag" id="battleTag">◆ SCHUSS 1 / 40 ◆</div>
-      <div class="diff-badge easy" id="battleBadge">😊 KREISKLASSE</div>
-      <div class="weapon-badge lg" id="battleWeaponBadge" style="margin-bottom:8px;">🌬️ LUFTGEWEHR</div>
     </div>
 
     <!-- Position Bar (3×20 only) -->
@@ -1591,7 +1586,7 @@
     </div>
 
     <div class="actions">
-      <button class="btn-fire" id="battleFireBtn" onclick="doBattleFire()">🔫 &nbsp;FEUER!</button>
+      <button class="btn-fire" id="battleFireBtn" onclick="doBattleFire()">SCHUSS</button>
       <button class="btn-burst" id="battleBurstBtn" onclick="doBattleFire()" style="display:none;">⚡ &nbsp;5 SCHUSS AUF
         EINMAL</button>
       <button class="btn-sec" id="skipProbeBtn" onclick="skipProbe()"

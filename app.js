@@ -2499,6 +2499,7 @@ const DOM = {};
 function initDOMCache() {
   const ids = [
     'shotsLeft', 'playerScoreChip', 'playerScoreChipSub', 'botScoreChip', 'botScoreChipInt', 'botScoreChipContainer', 'botScoreDivider',
+    'igDisciplineLabel', 'igShotCounter',
     'lsbDec', 'lsbDecBlock', 'lsbDecDivider', 'lsbInt', 'lsbProj',
     'spFill', 'spCount', 'spLbl', 'spPosRow', 'spPosLbl', 'spPosCount', 'spPosFill',
     'battleTag', 'battleFireBtn', 'battleBurstBtn', 'skipProbeBtn',
@@ -3470,6 +3471,10 @@ function startBattle() {
   DOM.battleWeaponBadge.className = 'weapon-badge ' + weapCfg.badgeCls;
   DOM.entryTag.textContent = `◆ ${G.dist} METER · ${dc.name} · ${G.maxShots} SCHUSS ◆`;
 
+  // New topbar: discipline label + reset shot counter
+  if (DOM.igDisciplineLabel) DOM.igDisciplineLabel.textContent = dc.name;
+  if (DOM.igShotCounter) DOM.igShotCounter.textContent = `0 / ${G.maxShots}`;
+
   DOM.posBar.classList.toggle('visible', G.is3x20);
   if (G.is3x20) updatePosBar();
   if (DOM.spPosRow) DOM.spPosRow.style.display = G.is3x20 ? '' : 'none';
@@ -3519,6 +3524,11 @@ function updateBattleUI() {
   DOM.shotsLeft.className = low ? 'chip-val low' : 'chip-val';
   DOM.botScoreChipInt.textContent = G.botTotalInt;
   DOM.lsbInt.textContent = G.botTotalInt;
+
+  // New topbar: shot counter
+  if (DOM.igShotCounter) {
+    DOM.igShotCounter.textContent = `${fired} / ${G.maxShots}`;
+  }
 
   // Nur KK 3×20: keine Zehntel anzeigen. KK 50m/100m zeigen Zehntel normal.
   const noTenths = G.is3x20 && G.weapon === 'kk';
@@ -5118,6 +5128,8 @@ if (typeof MultiScoreDetection !== 'undefined') {
 function checkFirstVisit() {
   const savedNameRaw = StorageManager.getRaw('username');
   if (!savedNameRaw) {
+    // Neues Onboarding hat Vorrang — welcomeOverlay nur als Fallback
+    if (typeof Onboarding !== 'undefined' && !Onboarding.isDone()) return;
     document.getElementById('welcomeOverlay').classList.add('active');
     setTimeout(() => document.getElementById('welcomeNameInp')?.focus(), 400);
   } else {

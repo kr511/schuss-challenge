@@ -2953,3 +2953,63 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
 .kv-me { font-size: 0.92rem; font-weight: 800; color: var(--accent); min-width: 40px; text-align: right; }
 .kv-vs { font-size: 0.7rem; color: rgba(255,255,255,0.25); min-width: 20px; text-align: center; }
 .kv-them { font-size: 0.92rem; font-weight: 800; color: #fff; min-width: 40px; }
+
+/* ═══════════════════════════════════════════
+   IN-GAME TOPBAR — 3-column layout (Handoff Screen 03)
+═══════════════════════════════════════════ */
+#screenBattle .ig-hdr {
+  padding: 0 22px 12px !important;
+  flex-direction: column !important;
+}
+
+.ig-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 4px;
+  width: 100%;
+}
+
+.ig-col { display: flex; flex-direction: column; }
+.ig-col-left  { align-items: flex-start; }
+.ig-col-center { align-items: center; flex: 1; }
+.ig-col-right  { align-items: flex-end; }
+
+.ig-disc-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+}
+.ig-disc-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  margin-top: 1px;
+}
+
+.ig-score {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 38px;
+  color: #fff;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.ig-score-sub {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+.ig-shot-count {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+}
+.ig-shot-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  margin-top: 1px;
+}

@@ -14,6 +14,9 @@ Alle Prompts benutzen das bestehende Design-System der App.
 - [14. Freunde-Tab](#14-freunde-tab)
 - [15. Profil-Tab](#15-profil-tab)
 - [16. Bottom-Navigation-Bar](#16-bottom-navigation-bar)
+- [17. Spielerprofil Freund B (V0.9)](#17-spielerprofil-freund-b-v09)
+- [18. Onboarding Flow — 3 Schritte](#18-onboarding-flow--3-schritte)
+- [19. In-Game Screen — Topbar Redesign](#19-in-game-screen--topbar-redesign)
 
 **Einzelne Screens (bestehend)**
 - 01 App Icon · 02 Splash · 03 In-Game · 04 Win · 05 Loss · 06 Profil-Karte · 07 Achievement Badges · 08 Club-Rangliste Widget · 09 Onboarding · 10 Marketing Banner
@@ -725,4 +728,228 @@ Show the bar in 3 states side by side:
 
 Background below the bar: just #0a0a0a, no content needed.
 Include safe-area bottom spacing (env(safe-area-inset-bottom)) as extra bottom padding.
+```
+
+---
+
+## 17. Spielerprofil Freund B (V0.9)
+
+> **Session-Prompt** — Copy-Paste in ein neues Claude-Code-Gespräch um V0.9.1 zu implementieren.
+
+```
+# Schuss-Challenge — V0.9 Session: Spielerprofil für Freund B
+
+## Kontext
+Projekt: Schuss-Challenge (Schützen-App), PWA mit Cloudflare Worker + Supabase.
+V0.8 ist komplett deployed (Push, Club-Rangliste, Kader-Vergleich, Redesign).
+Wir starten jetzt V0.9, erstes Item: reichhaltiges Freundesprofil.
+
+## Was existiert
+`friend-profile-view.js` + `friend-profile.css` — ein Overlay das beim Antippen
+einer Freundeszeile öffnet. Zeigt bereits:
+- Hero-Karte (Avatar, Name, Online-Status, Mitglied-seit)
+- Aktions-Buttons (Nachricht, Duell, Freund-Remove)
+- Stat-Tiles (Ø-Ringe, Beste Ringe, aus Social-Daten)
+- Kader-Vergleich (ich vs. Freund, von V0.8.3)
+
+`visitenkarte.html` — eigene sharable Profilseite, als Referenz für Daten-Layout.
+`worker/api.ts` — Route `GET /api/profile/:publicId` gibt bestStats JSONB zurück.
+`src/features/enhanced-achievements.js` — 14 Achievement-Definitionen mit renderUI().
+`training-heatmap.js` — Heatmap-Komponente, nimmt optionales sessions-Array.
+
+## Was fehlt / zu bauen
+Ziel: Das Overlay wird zur vollständigen Profil-Ansicht von Freund B.
+
+### A — Tabs im Overlay
+Drei Tabs unter dem Hero-Bereich (analog zu eigenem Profil-Sheet):
+- Statistik (Standard) — bestehende Stat-Tiles + Kader-Vergleich
+- Erfolge — Achievements von Freund B (aus bestStats oder eigenem Achievement-System)
+- Aktivität — Mini-Heatmap der letzten 12 Wochen
+
+### B — Statistik-Tab erweitern
+Aktuell nur Ø + Best aus Social-Daten. Ergänzen aus workerProfile.bestStats:
+- Siegquote (winRate → %)
+- Gesamtspiele (totalGames)
+- Lieblingsdisziplin (favDiscipline, falls vorhanden)
+Jedes Stat-Tile mit Icon + Label + Wert, gleiche Designsprache wie redesign.css.
+
+### C — Erfolge-Tab
+bestStats enthält kein Achievement-Array für Freunde → Fallback: Zeige nur
+freigeschaltete Basis-Badges basierend auf verfügbaren Stats:
+- 🎯 "Scharfschütze" → bestScore ≥ 390
+- 🔥 "Auf Achse" → totalGames ≥ 10
+- 🏆 "Duell-Profi" → winRate ≥ 0.6
+- ⚡ "Schnellstarter" → immer (alle haben es)
+Gesperrte Achievements: ausgegraut mit Schloss-Icon (kein konkreter Wert anzeigen).
+
+### D — Aktivitäts-Tab
+`GET /api/sessions?userId=<publicId>&limit=100` existiert NICHT für fremde User →
+Worker-Endpunkt `GET /api/profile/:publicId/activity` hinzufügen:
+- Auth optional (Rate-Limit: 20 req/60s)
+- Query: game_sessions WHERE user_id = (SELECT id FROM api_profiles WHERE public_id = :publicId)
+  ORDER BY played_at DESC LIMIT 100
+- Gibt zurück: [{ date: "2026-06-20", count: 3 }] (gruppiert nach Tag)
+
+In friend-profile-view.js: beim Tab-Wechsel zu "Aktivität" Daten laden,
+TrainingHeatmap.render(sessions) aufrufen in #fpHeatmapMount.
+
+### E — Head-to-Head Rekord
+Oben im Statistik-Tab, direkt unter Hero: kleines Banner
+"Du vs. [Name]: X Siege — Y Niederlagen"
+Daten aus localStorage sd_history: Einträge die opponentId === friend.userId haben
+(falls vorhanden — graceful skip wenn nicht).
+
+## Technische Constraints
+- Kein neuer npm-Package
+- worker/api.ts: bestehende checkRateLimit() + supabaseRequest() Pattern nutzen
+- friend-profile-view.js: bestehende state{} Struktur beibehalten
+- XSS-Schutz: immer esc() für User-Content
+
+## Dateien die du anfassen wirst
+- `friend-profile-view.js` — Tabs + Tab-Switching + renderBody() erweitern
+- `friend-profile.css` — Styles für Tabs + Heatmap-Wrapper + Achievement-Badges
+- `worker/api.ts` — neuer Endpunkt /api/profile/:publicId/activity
+- `worker/db.ts` — getFriendActivity(env, publicId): → [{date, count}]
+
+## Verifikation
+1. `npm run check:js` — kein Syntaxfehler
+2. `npm test` — alle Tests grün
+3. Freundesprofil öffnen → drei Tabs erscheinen
+4. Statistik-Tab → bestStats-Werte sichtbar
+5. Erfolge-Tab → Badges angezeigt, gesperrte ausgegraut
+6. Aktivität-Tab → Heatmap lädt (oder leerer State wenn keine Daten)
+
+## ROADMAP.md Update nach Abschluss
+Neuen Abschnitt an ROADMAP.md anhängen:
+
+## V0.9 — Spielerprofil & Polish
+- [x] V0.9.1 — Spielerprofil Freund B (Tabs: Statistik, Erfolge, Aktivität)
+
+Fang mit `friend-profile-view.js` an und lies die Datei vollständig.
+```
+
+---
+
+## 18. Onboarding Flow — 3 Schritte
+
+```
+Design a 3-step full-screen onboarding flow for "Schuss-Challenge" (390×844px, dark OLED).
+Background: radial-gradient(ellipse 70% 50% at 50% -5%, rgba(34,197,94,0.10) 0%, transparent 55%), #0a0a0a
+Font: Outfit. Accent: #22c55e.
+
+── SHARED ELEMENTS (all 3 steps) ──
+Top-right skip link: "Überspringen" Outfit 500 13px rgba(255,255,255,0.3)
+Bottom progress dots (flex row, gap 6px, margin-bottom 22px):
+  Active dot: 20×7px, #22c55e, border-radius 4px
+  Inactive dot: 7×7px, rgba(255,255,255,0.2), border-radius 50%
+
+── STEP 1: WELCOME (matches Handoff Screen 09) ──
+Top 55%: Shooting target SVG (260×260px perspective-tilted), centered
+  Rings from outside in: #060606 → #0c0c0c → #111 → #171717 → #1e1e1e → cream inner rings → rgba(34,197,94,0.35) → #22c55e bullseye → #4ade80 center
+  SVG filter: drop-shadow(0 0 40px rgba(34,197,94,0.25))
+  Below illustration: gradient fade rgba(34,197,94,0.07) to transparent
+
+Bottom 45%:
+  Dots: ● ○ ○
+  H1 "Trainiere wie ein Profi." Outfit 800, 28px, white, letter-spacing -0.02em
+  P "Duell gegen den adaptiven Bot. Dein Niveau. Dein Tempo." 15px rgba(255,255,255,0.55)
+  CTA button "JETZT STARTEN": full-width, #22c55e bg, #000 text, Outfit 800 16px,
+    letter-spacing 0.05em, border-radius 14px, padding 16px, box-shadow 0 0 20px rgba(34,197,94,0.3)
+
+── STEP 2: DISCIPLINE SELECTION ──
+Top area (130px, no illustration):
+  Eyebrow "SCHRITT 2 / 3" #22c55e 11px 700 uppercase letter-spacing 0.25em
+  Title "Deine Lieblingsdisziplin?" Outfit 800, 22px, white
+
+2-column card grid (gap 14px, full-width):
+  Card style: rgba(18,18,18,0.95) bg, 2px border, border-radius 18px, padding 22px 16px, text-center, cursor pointer
+  UNSELECTED: border rgba(255,255,255,0.08)
+  SELECTED: border #22c55e, background rgba(34,197,94,0.08)
+
+  Card "LG":
+    Icon 🌬️ 40px (filter: drop-shadow(0 0 8px rgba(34,197,94,0.6)) when selected)
+    Name "LG" Outfit 800 18px (white / #4ade80 when selected)
+    Sub "Luftgewehr\n10m · 40/60 Schuss" 12px rgba(255,255,255,0.4)
+
+  Card "KK":
+    Icon 🎯 40px
+    Name "KK" Outfit 800 18px
+    Sub "Kleinkaliber\n50m / 100m" 12px rgba(255,255,255,0.4)
+
+  Below: "Du kannst das später jederzeit ändern." 14px rgba(255,255,255,0.4)
+
+Dots: ○ ● ○
+CTA "WEITER" (opacity 0.45 until selection, 1.0 after) — same style as step 1
+
+── STEP 3: NAME + AGE ──
+Top area (130px):
+  Eyebrow "SCHRITT 3 / 3" #22c55e
+  Title "Wie sollen wir dich nennen?" Outfit 800, 22px
+  Sub "Dein Name erscheint im Profil und in der Rangliste." 14px rgba(255,255,255,0.4)
+
+Input fields (full-width):
+  Label: uppercase 11px rgba(255,255,255,0.38) letter-spacing 0.12em margin-bottom 8px
+  Input field: rgba(18,18,18,0.95) bg, border 1px rgba(255,255,255,0.12), border-radius 14px,
+    padding 15px 16px, Outfit 600 16px white, placeholder rgba(255,255,255,0.2),
+    focus: border rgba(34,197,94,0.55)
+
+  Field 1 "DEIN NAME / SPITZNAME" — placeholder "z.B. MaxMuster"
+  Field 2 "ALTER (OPTIONAL)" — placeholder "z.B. 24", type number
+
+Dots: ○ ○ ●
+CTA "LOS GEHT'S 🎯" (opacity 0.45 until ≥2 chars in name input, 1.0 after) — same style
+
+Show all 3 steps side by side in iPhone mockups.
+Mood: Welcoming, sportlich, premium dark. Green glow = Energie.
+```
+
+---
+
+## 19. In-Game Screen — Topbar Redesign
+
+```
+Design the in-game battle screen for "Schuss-Challenge" (390×844px, dark OLED).
+Matches Handoff Screen 03: LG 40 Schuss.
+
+Background: radial-gradient(ellipse 70% 50% at 50% -5%, rgba(34,197,94,0.10) 0%, transparent 60%), #0a0a0a
+
+── TOP BAR (3-column, padding 0 22px) ──
+Left column (align left):
+  "LG 40" Outfit 700 18px white / line-height 1.1
+  "Schießen" 11px rgba(255,255,255,0.4) margin-top 1px
+
+Center column (align center):
+  "385,6" Bebas Neue 38px white letter-spacing 0.02em / line-height 1
+  "RINGE" 10px rgba(255,255,255,0.4) uppercase letter-spacing 0.12em margin-top 1px
+
+Right column (align right):
+  "3 / 40" Outfit 700 15px white / line-height 1.1
+  "Schuss" 11px rgba(255,255,255,0.4) margin-top 1px
+
+── TARGET (center flex area) ──
+SVG shooting target 216×216px, same ring structure as onboarding target but smaller (r=108 outermost)
+Radial glow behind: position absolute, inset -24px, radial-gradient circle rgba(34,197,94,0.13) center → transparent 65%, border-radius 50%
+
+── RECENT SHOTS ROW (padding 12px 22px) ──
+Horizontal flex, gap 8px:
+  10er chip: rgba(34,197,94,0.2) bg, border 1px rgba(34,197,94,0.35), border-radius 20px, padding 6px 13px, 14px 700 #4ade80
+  9.8 chip: rgba(255,255,255,0.06) bg, border rgba(255,255,255,0.1), 14px 600 white
+  (repeat pattern for recent shots)
+
+── BOT CARD (padding 12px 22px, above button) ──
+Background: rgba(255,74,74,0.06), border 1px rgba(255,74,74,0.12), border-radius 14px, padding 11px 14px
+Flex row, gap 12px:
+  Left: 38×38px circle, rgba(255,74,74,0.15) bg, border 1px rgba(255,74,74,0.25), center: 🤖 emoji 16px
+  Middle (flex 1):
+    "Bot · Realistisch" 11px rgba(255,255,255,0.4) margin-bottom 1px
+    "383,2" Bebas Neue 22px #ff4a4a letter-spacing 0.02em line-height 1
+  Right: "−2,4" 12px rgba(255,74,74,0.65) font-weight 600
+
+── SCHUSS BUTTON ──
+Full-width, padding 16px, #22c55e bg, #000 text, border-radius 14px
+Outfit 800, 16px, letter-spacing 0.06em
+Box-shadow: 0 4px 20px rgba(34,197,94,0.35)
+Text: "SCHUSS" (no emoji)
+
+Show: game in progress (3 shots fired, score building up). Energy: focused, sport, dark precision.
 ```

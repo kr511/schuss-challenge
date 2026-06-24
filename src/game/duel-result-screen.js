@@ -68,7 +68,7 @@
       .duel-result-overlay.draw{background:radial-gradient(ellipse 70% 45% at 50% 0%,rgba(0,195,255,.08) 0%,transparent 60%),#0a0a0a}
       .drs-hero{text-align:center;padding:22px 0 16px}
       .drs-title{font-family:'Bebas Neue',sans-serif;letter-spacing:.09em;color:#fff;font-size:30px;line-height:1}
-      .drs-title.win{}
+      .drs-title.lose{font-size:26px;letter-spacing:.08em}
       .drs-xp{font-size:18px;font-weight:700;margin-top:5px}
       .drs-xp.win{color:#4ade80;text-shadow:0 0 14px rgba(74,222,128,.5)}
       .drs-xp.lose,.drs-xp.draw{color:rgba(255,255,255,.4);font-size:15px;font-weight:600}
@@ -83,6 +83,7 @@
       .drs-score{font-family:'Bebas Neue',sans-serif;letter-spacing:.02em;line-height:1}
       .drs-score.winner{font-size:50px;color:#4ade80;text-shadow:0 0 20px rgba(34,197,94,.4)}
       .drs-score.loser{font-size:36px;color:rgba(255,255,255,.45)}
+      .drs-score.player-loser{font-size:40px;color:rgba(255,255,255,.45)}
       .drs-score.draw-val{font-size:44px;color:rgba(255,255,255,.8)}
       .drs-score.bot-winner{font-size:50px;color:rgba(255,255,255,.9);letter-spacing:.02em}
       .drs-col-sub{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px}
@@ -116,7 +117,7 @@
       .drs-btn-ghost{width:100%;padding:13px;background:transparent;color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.12);border-radius:14px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
       .drs-btn-ghost-row{display:flex;gap:10px}
       .drs-btn-ghost-row .drs-btn-ghost{flex:1}
-      .drs-motivate{font-size:11px;color:rgba(34,197,94,.7);text-align:center;margin-top:-4px;margin-bottom:4px}
+      .drs-motivate{font-size:13px;color:rgba(34,197,94,.5);text-align:center;margin-bottom:14px}
     `;
   }
 
@@ -280,13 +281,21 @@
     };
   }
 
-  function buildDist(values, shots) {
+  function buildDist(values, shots, result) {
     if (!values.length) return '';
     const total = shots || values.length || 1;
+    const isLose = result === 'lose';
     const bucket = (lo, hi) => values.filter(v => {
       const w = typeof v === 'number' ? Math.floor(v) : 0;
       return w >= lo && w <= hi;
     }).length;
+    // Handoff loss screen uses muted grey fills; win uses green
+    const fillStyle = isLose
+      ? { t10: 'rgba(255,255,255,0.30)', t9: 'rgba(255,255,255,0.25)', t8: 'rgba(255,255,255,0.18)', tlow: 'rgba(255,255,255,0.12)' }
+      : { t10: '', t9: '', t8: '', tlow: '' };
+    const countColor = isLose
+      ? { t10: 'rgba(255,255,255,0.4)', t9: 'rgba(255,255,255,0.4)', t8: 'rgba(255,255,255,0.3)', tlow: 'rgba(255,255,255,0.25)' }
+      : null;
     const rows = [
       { key: '10er', cnt: bucket(10, 10), cls: 't10' },
       { key: '9er',  cnt: bucket(9, 9),   cls: 't9' },
@@ -295,7 +304,9 @@
     ];
     return rows.filter(r => r.cnt > 0).map(r => {
       const pct = Math.round((r.cnt / total) * 100);
-      return `<div class="drs-dist-row"><div class="drs-dist-key">${html(r.key)}</div><div class="drs-dist-track"><div class="drs-dist-fill ${r.cls}" style="width:${pct}%"></div></div><div class="drs-dist-count ${r.cls}">${r.cnt}</div></div>`;
+      const fillInline = fillStyle[r.cls] ? `style="width:${pct}%;background:${fillStyle[r.cls]}"` : `style="width:${pct}%"`;
+      const countInline = countColor ? `style="color:${countColor[r.cls]}"` : '';
+      return `<div class="drs-dist-row"><div class="drs-dist-key">${html(r.key)}</div><div class="drs-dist-track"><div class="drs-dist-fill ${r.cls}" ${fillInline}></div></div><div class="drs-dist-count ${r.cls}" ${countInline}>${r.cnt}</div></div>`;
     }).join('');
   }
 
@@ -361,10 +372,10 @@
     const diffSign = payload.diff > 0 ? '+' : '';
     const diffLabel = `${diffSign}${typeof payload.diff === 'number' ? payload.diff.toFixed(1).replace('.', ',') : payload.diff} Ringe`;
 
-    const playerScoreCls = isWin ? 'winner' : isDraw ? 'draw-val' : 'loser';
+    const playerScoreCls = isWin ? 'winner' : isDraw ? 'draw-val' : 'player-loser';
     const botScoreCls = isLose ? 'bot-winner' : isDraw ? 'draw-val' : 'loser';
 
-    const distRows = buildDist(playerValues, payload.shots);
+    const distRows = buildDist(playerValues, payload.shots, payload.result);
     const xp = xpMeta();
 
     const xpFillStyle = (isWin || isDraw)
