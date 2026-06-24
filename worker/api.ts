@@ -19,6 +19,7 @@ import {
   savePushSubscription,
   deletePushSubscription as deletePushSub,
   getDisciplineAverage,
+  getFriendActivity,
 } from "./db";
 import type { Env, Feedback, FeedbackStatus, GameMode } from "./types";
 
@@ -563,9 +564,18 @@ async function handlePatchFeedback(request: Request, env: Env, feedbackId: strin
 }
 
 async function handleGetProfile(url: URL, env: Env): Promise<Response> {
-  const publicId = url.pathname.split("/").pop() || "";
+  const parts = url.pathname.split("/");
+  const publicId = parts[3] || "";
   const profile = await getProfile(env, publicId);
   return profile ? json(profile) : json({ error: "Profile not found" }, 404);
+}
+
+async function handleGetFriendActivity(url: URL, env: Env): Promise<Response> {
+  const parts = url.pathname.split("/");
+  const publicId = parts[3] || "";
+  if (!publicId) return json({ error: "Missing publicId" }, 400);
+  const data = await getFriendActivity(env, publicId);
+  return json({ activity: data });
 }
 
 async function handlePostProfile(request: Request, env: Env, userId: string): Promise<Response> {
@@ -644,6 +654,13 @@ export async function handleApiRequest(request: Request, env: Env): Promise<Resp
       const rl = await checkRateLimit(request, env, "activity-live", 30, 60, origin);
       if (rl) return rl;
       return withCors(await handleGetLiveActivity(env), origin);
+    }
+
+    // Public friend activity (no auth required)
+    if (path.match(/^\/api\/profile\/[^/]+\/activity$/) && request.method === "GET") {
+      const rl = await checkRateLimit(request, env, "friend-activity", 20, 60, origin);
+      if (rl) return rl;
+      return withCors(await handleGetFriendActivity(url, env), origin);
     }
 
     // Public profile lookup (no auth required)

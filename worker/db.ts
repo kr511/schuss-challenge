@@ -717,6 +717,40 @@ export async function getPushSubscriptionsByUser(
   }, { allowMissingRelation: true });
 }
 
+export async function getFriendActivity(
+  env: Env,
+  publicId: string,
+): Promise<Array<{ date: string; count: number }>> {
+  type SessionRow2 = { played_at: number | string };
+  // Resolve user_id from api_profiles
+  const profiles = await selectRows<ApiProfileRow>(
+    env,
+    "api_profiles",
+    { select: "user_id", public_id: `eq.${publicId}`, privacy_settings: "eq.public", limit: 1 },
+    { allowMissingRelation: true },
+  );
+  const profile = profiles[0];
+  if (!profile) return [];
+
+  const rows = await selectRows<SessionRow2>(
+    env,
+    "game_sessions",
+    { select: "played_at", user_id: `eq.${profile.user_id}`, order: "played_at.desc", limit: 100 },
+    { allowMissingRelation: true },
+  );
+
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const ms = numberFrom(row.played_at);
+    const d = new Date(ms > 1e12 ? ms : ms * 1000);
+    const key = d.toISOString().slice(0, 10);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export async function getDisciplineAverage(
   env: Env,
   discipline: string,

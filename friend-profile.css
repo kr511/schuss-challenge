@@ -1,4 +1,4 @@
-/* Friend Profile Overlay — neues Design-System (schwarz + grüner Glow) */
+/* Friend Profile Overlay — Design-System: schwarz + grüner Glow */
 
 .fp-overlay {
   position: fixed;
@@ -36,7 +36,7 @@
   transform: translateY(0);
 }
 
-/* Header (sticky) */
+/* ── Header (sticky) ── */
 .fp-header {
   position: sticky;
   top: 0;
@@ -96,7 +96,7 @@
   letter-spacing: 0.01em;
 }
 
-/* Body */
+/* ── Body ── */
 .fp-body {
   padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 36px);
   display: flex;
@@ -114,7 +114,7 @@
   margin-bottom: 4px;
 }
 
-/* Action buttons row */
+/* ── Action buttons row ── */
 .fp-actions {
   display: flex;
   gap: 8px;
@@ -169,7 +169,160 @@
   cursor: not-allowed;
 }
 
-/* Compare section */
+/* ── Tabs ── */
+.fp-tab-bar {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 4px;
+}
+
+.fp-tab-btn {
+  flex: 1;
+  padding: 9px 6px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fp-tab-btn.fp-tab-active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.fp-tab-btn:active {
+  opacity: 0.75;
+}
+
+.fp-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── H2H Banner ── */
+.fp-h2h-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(34, 197, 94, 0.06);
+  border: 1px solid rgba(34, 197, 94, 0.18);
+  border-radius: 14px;
+  padding: 12px 16px;
+}
+
+.fp-h2h-me,
+.fp-h2h-them {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.fp-h2h-score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fp-h2h-wins {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #22c55e;
+  letter-spacing: -0.02em;
+}
+
+.fp-h2h-sep {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.fp-h2h-losses {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: -0.02em;
+}
+
+/* ── 6 Stat Tiles (scoped to fp-sheet to avoid conflicts with redesign.css) ── */
+.fp-sheet .stat-tiles-6 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.fp-sheet .stat-tile {
+  background: rgba(18, 18, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 14px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.fp-sheet .st-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+
+.fp-sheet .st-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fp-sheet .st-icon.green  { background: rgba(34,197,94,0.12);  color: #22c55e; }
+.fp-sheet .st-icon.blue   { background: rgba(59,130,246,0.12); color: #60a5fa; }
+.fp-sheet .st-icon.purple { background: rgba(139,92,246,0.12); color: #a78bfa; }
+.fp-sheet .st-icon.orange { background: rgba(249,115,22,0.12); color: #fb923c; }
+.fp-sheet .st-icon.cyan   { background: rgba(6,182,212,0.12);  color: #22d3ee; }
+.fp-sheet .st-icon.red    { background: rgba(239,68,68,0.12);  color: #f87171; }
+
+.fp-sheet .st-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.38);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fp-sheet .st-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.fp-sheet .st-delta {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.25);
+  font-weight: 500;
+}
+
+/* ── Compare section ── */
 .fp-compare {
   background: rgba(18, 18, 18, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -279,13 +432,8 @@
   font-weight: 700;
 }
 
-.fp-bar-row-vals .fp-val-me {
-  color: #22c55e;
-}
-
-.fp-bar-row-vals .fp-val-them {
-  color: rgba(255, 255, 255, 0.7);
-}
+.fp-bar-row-vals .fp-val-me   { color: #22c55e; }
+.fp-bar-row-vals .fp-val-them { color: rgba(255, 255, 255, 0.7); }
 
 .fp-bar-track {
   height: 5px;
@@ -304,17 +452,186 @@
   transition: width 0.4s ease;
 }
 
-.fp-bar-me {
-  left: 0;
-  background: linear-gradient(90deg, #16a34a, #22c55e);
+.fp-bar-me   { left: 0;  background: linear-gradient(90deg, #16a34a, #22c55e); }
+.fp-bar-them { right: 0; background: rgba(255, 255, 255, 0.22); }
+
+/* ── Achievements Tab ── */
+.fp-achievements {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.fp-bar-them {
-  right: 0;
-  background: rgba(255, 255, 255, 0.22);
+.fp-achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
 }
 
-/* 3-Dot popover menu */
+.fp-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: center;
+  transition: transform 0.12s;
+}
+
+.fp-badge-unlocked {
+  background: rgba(34, 197, 94, 0.07);
+  border-color: rgba(34, 197, 94, 0.22);
+}
+
+.fp-badge-locked {
+  background: rgba(255, 255, 255, 0.02);
+  opacity: 0.45;
+}
+
+.fp-badge-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.fp-badge-locked .fp-badge-icon svg {
+  stroke: rgba(255, 255, 255, 0.35);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fp-badge-name {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+.fp-badge-unlocked .fp-badge-name {
+  color: #4ade80;
+}
+
+.fp-badge-desc {
+  font-size: 0.62rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.fp-privacy-note {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.28);
+  text-align: center;
+  padding: 4px 0 8px;
+}
+
+/* ── Activity Tab ── */
+.fp-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fp-activity-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.fp-activity-tile {
+  background: rgba(18, 18, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 14px 10px;
+  text-align: center;
+}
+
+.fp-at-value {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #22c55e;
+  letter-spacing: -0.02em;
+}
+
+.fp-at-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.38);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fp-heatmap-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.fp-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: rgba(18, 18, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.fp-section-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 12px 14px 8px;
+}
+
+.fp-session-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.fp-session-date {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+.fp-session-count {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #4ade80;
+}
+
+/* ── Empty / Loading states ── */
+.fp-empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.fp-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(34, 197, 94, 0.15);
+  border-top-color: #22c55e;
+  border-radius: 50%;
+  animation: fp-spin 0.7s linear infinite;
+  margin: 40px auto;
+}
+
+@keyframes fp-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── 3-Dot popover menu ── */
 .fp-menu-popover {
   position: absolute;
   top: calc(env(safe-area-inset-top, 0px) + 60px);
@@ -358,7 +675,7 @@
   color: #f87171;
 }
 
-/* Scroll-lock */
+/* ── Scroll-lock ── */
 body.fp-scroll-lock {
   overflow: hidden;
 }

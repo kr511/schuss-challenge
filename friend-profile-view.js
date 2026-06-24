@@ -11,6 +11,9 @@
     friend: null,
     ownStats: null,
     workerProfile: null,
+    activeTab: 'stats',
+    activityData: null,
+    activityLoading: false,
     closingFromPop: false,
     popHandler: null,
     scrollY: 0,
@@ -25,23 +28,14 @@
     } catch (_e) { return null; }
   }
 
-  function renderKaderVergleich(workerProfile, own) {
-    if (!workerProfile || !workerProfile.bestStats) return '';
-    const bs = workerProfile.bestStats;
-    const friendBest = bs.bestScore ? Math.round(bs.bestScore) : null;
-    const ownBest = own && own.bestRinge ? Math.round(own.bestRinge) : null;
-    const friendWr = typeof bs.winRate === 'number' ? Math.round(bs.winRate * 100) + '%' : null;
-    const ownWins = own && own.duelsWon ? own.duelsWon : 0;
-    const ownTotal = own && own.trainings ? own.trainings : 0;
-    const ownWr = ownTotal > 0 ? Math.round((ownWins / ownTotal) * 100) + '%' : null;
-    const rows = [
-      friendBest && ownBest ? `<div class="kv-row"><span class="kv-label">Beste Ringe</span><span class="kv-me">${ownBest}</span><span class="kv-vs">vs</span><span class="kv-them">${friendBest}</span></div>` : '',
-      friendWr && ownWr ? `<div class="kv-row"><span class="kv-label">Siegquote</span><span class="kv-me">${ownWr}</span><span class="kv-vs">vs</span><span class="kv-them">${friendWr}</span></div>` : '',
-    ].filter(Boolean).join('');
-    if (!rows) return '';
-    return '<div class="kv-card" style="background:rgba(18,18,18,.92);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;">' +
-      '<div style="font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35);font-weight:800;margin-bottom:12px;">Kader-Vergleich</div>' +
-      rows + '</div>';
+  async function fetchFriendActivity(publicId) {
+    if (!publicId) return null;
+    try {
+      const res = await fetch('/api/profile/' + encodeURIComponent(publicId) + '/activity');
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.activity || [];
+    } catch (_e) { return null; }
   }
 
   function esc(value) {
@@ -84,7 +78,6 @@
     return { cls: 'offline', text: 'Offline' };
   }
 
-  /* ─── Own stats for compare section ─── */
   function getOwnStats() {
     const stats = { avgRinge: null, bestRinge: null, trainings: 0, duelsWon: 0, streak: 0 };
     try {
@@ -102,7 +95,6 @@
         }
       }
     } catch (_e) { /* ignore */ }
-
     try {
       if (window.gameState && Number.isFinite(window.gameState.streak)) {
         stats.streak = window.gameState.streak;
@@ -111,10 +103,22 @@
         if (s != null) stats.streak = Number(s) || 0;
       }
     } catch (_e) { /* ignore */ }
-
     return stats;
   }
-  /* --- Render helpers --- */
+
+  function getH2HRecord(friendId) {
+    try {
+      const raw = localStorage.getItem('sd_history');
+      const hist = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(hist)) return null;
+      const relevant = hist.filter(h => h && (h.opponentId === friendId || h.friendId === friendId));
+      if (!relevant.length) return null;
+      const wins = relevant.filter(h => h.won === true || h.result === 'win').length;
+      return { wins, losses: relevant.length - wins };
+    } catch (_e) { return null; }
+  }
+
+  /* ─── Render helpers ─── */
   function renderHeader() {
     return (
       '<div class="fp-header">' +
@@ -157,16 +161,14 @@
             '<span class="fr-status-dot ' + status.cls + '" style="position:static;width:8px;height:8px;display:inline-block;"></span>' +
             '<span class="fr-status-text ' + status.cls + '" style="margin:0;">' + status.text + '</span>' +
           '</div>' +
-          (memberSince
-            ? '<div class="ph-club" data-fp-member>📅 Mitglied seit ' + esc(memberSince) + '</div>'
-            : '') +
+          (memberSince ? '<div class="ph-club" data-fp-member>📅 Mitglied seit ' + esc(memberSince) + '</div>' : '') +
           '<div class="ph-club" data-fp-club style="display:none;"></div>' +
         '</div>' +
       '</div>'
     );
   }
 
-  function renderActions() {
+  function renderActions(f) {
     return (
       '<div class="fp-actions">' +
         '<button class="fp-action-btn fp-message" data-fp-action="message">' +
@@ -185,40 +187,83 @@
     );
   }
 
+  function renderTabs() {
+    const tabs = [
+      { id: 'stats', label: 'Statistik' },
+      { id: 'achievements', label: 'Erfolge' },
+      { id: 'activity', label: 'Aktivität' },
+    ];
+    return (
+      '<div class="fp-tab-bar">' +
+        tabs.map(t =>
+          '<button class="fp-tab-btn' + (state.activeTab === t.id ? ' fp-tab-active' : '') + '" data-fp-tab="' + t.id + '">' +
+            t.label +
+          '</button>'
+        ).join('') +
+      '</div>'
+    );
+  }
+
+  function renderH2H(f) {
+    const rec = getH2HRecord(f.userId);
+    if (!rec) return '';
+    const name = esc(f.username || 'Freund');
+    return (
+      '<div class="fp-h2h-banner">' +
+        '<span class="fp-h2h-me">Du</span>' +
+        '<div class="fp-h2h-score">' +
+          '<span class="fp-h2h-wins">' + rec.wins + '</span>' +
+          '<span class="fp-h2h-sep">:</span>' +
+          '<span class="fp-h2h-losses">' + rec.losses + '</span>' +
+        '</div>' +
+        '<span class="fp-h2h-them">' + name + '</span>' +
+      '</div>'
+    );
+  }
+
   function renderStatTiles(f) {
-    const avg = (f.avgScore || f.avgRinge);
-    const avgText = (avg != null && avg !== '–' && Number.isFinite(Number(avg)))
-      ? Number(avg).toFixed(1)
-      : '–';
-    const best = f.bestScore || f.score;
-    const bestText = (best != null && best !== '–') ? String(best) : '–';
+    const avg = Number(f.avgScore || f.avgRinge);
+    const avgText = Number.isFinite(avg) && avg > 0 ? avg.toFixed(1) : '–';
+    const best = Number(f.bestScore || f.score);
+    const bestText = Number.isFinite(best) && best > 0 ? String(Math.round(best)) : '–';
+
+    const bs = (state.workerProfile && state.workerProfile.bestStats) || {};
+    const winRate = typeof bs.winRate === 'number' ? Math.round(bs.winRate * 100) + '%' : '–';
+    const totalGames = Number.isFinite(bs.totalGames) && bs.totalGames > 0 ? String(bs.totalGames) : '–';
+    const streak = Number.isFinite(bs.currentStreak) && bs.currentStreak > 0 ? String(bs.currentStreak) : '–';
+    const duelsWon = Number.isFinite(bs.wins) && bs.wins > 0 ? String(bs.wins) : '–';
 
     return (
-      '<div class="stat-tiles-4">' +
-        '<div class="stat-tile">' +
-          '<div class="st-icon green"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>' +
-          '<div class="st-label">Ø Ringe</div>' +
-          '<div class="st-value">' + avgText + '</div>' +
-          '<div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Saison</div>' +
-        '</div>' +
-        '<div class="stat-tile">' +
-          '<div class="st-icon blue"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>' +
-          '<div class="st-label">Bestes</div>' +
-          '<div class="st-value">' + bestText + '</div>' +
-          '<div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Training</div>' +
-        '</div>' +
-        '<div class="stat-tile">' +
-          '<div class="st-icon purple"><svg viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg></div>' +
-          '<div class="st-label">Duelle</div>' +
-          '<div class="st-value" data-fp-stat="duels">–</div>' +
-          '<div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">Gewonnen</div>' +
-        '</div>' +
-        '<div class="stat-tile">' +
-          '<div class="st-icon orange"><svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>' +
-          '<div class="st-label">Tage</div>' +
-          '<div class="st-value" data-fp-stat="streak">–</div>' +
-          '<div class="st-delta" style="font-size:0.6rem;color:rgba(255,255,255,0.3);">In Folge</div>' +
-        '</div>' +
+      '<div class="stat-tiles-6">' +
+        tile('green',
+          '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>',
+          'Ø Ringe', avgText, 'Saison') +
+        tile('blue',
+          '<svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg>',
+          'Bestes', bestText, 'Training') +
+        tile('purple',
+          '<svg viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></svg>',
+          'Duelle', duelsWon, 'Gewonnen') +
+        tile('orange',
+          '<svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+          'Streak', streak, 'Tage') +
+        tile('cyan',
+          '<svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>',
+          'Siegquote', winRate, 'Duelle') +
+        tile('red',
+          '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+          'Spiele', totalGames, 'Gesamt') +
+      '</div>'
+    );
+  }
+
+  function tile(color, iconSvg, label, value, sub) {
+    return (
+      '<div class="stat-tile">' +
+        '<div class="st-icon ' + color + '">' + iconSvg + '</div>' +
+        '<div class="st-label">' + esc(label) + '</div>' +
+        '<div class="st-value">' + esc(value) + '</div>' +
+        '<div class="st-delta">' + esc(sub) + '</div>' +
       '</div>'
     );
   }
@@ -300,16 +345,124 @@
     );
   }
 
+  function renderAchievements(wp) {
+    const bs = (wp && wp.bestStats) || {};
+    const bestScore = Number(bs.bestScore) || 0;
+    const totalGames = Number(bs.totalGames) || 0;
+    const winRate = typeof bs.winRate === 'number' ? bs.winRate : 0;
+
+    const allBadges = [
+      { emoji: '⚡', name: 'Schnellstarter', desc: 'Erste Partie gespielt', unlocked: true },
+      { emoji: '🎯', name: 'Scharfschütze', desc: 'Score ≥ 390 erreicht', unlocked: bestScore >= 390 },
+      { emoji: '🔥', name: 'Auf Achse', desc: '10+ Partien gespielt', unlocked: totalGames >= 10 },
+      { emoji: '🏆', name: 'Duell-Profi', desc: '60%+ Siegquote', unlocked: winRate >= 0.6 },
+      { emoji: '💎', name: 'Meisterschütze', desc: 'Privat', unlocked: false },
+      { emoji: '🔰', name: 'Veteran', desc: 'Privat', unlocked: false },
+      { emoji: '🎖️', name: 'Turnierprofi', desc: 'Privat', unlocked: false },
+      { emoji: '🌟', name: 'Legende', desc: 'Privat', unlocked: false },
+    ];
+
+    const hasAny = allBadges.some(b => b.unlocked);
+
+    return (
+      '<div class="fp-achievements">' +
+        '<div class="fp-achievements-grid">' +
+          allBadges.map(b =>
+            '<div class="fp-badge' + (b.unlocked ? ' fp-badge-unlocked' : ' fp-badge-locked') + '">' +
+              '<div class="fp-badge-icon">' +
+                (b.unlocked ? b.emoji : '<svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>') +
+              '</div>' +
+              '<div class="fp-badge-name">' + esc(b.name) + '</div>' +
+              '<div class="fp-badge-desc">' + esc(b.desc) + '</div>' +
+            '</div>'
+          ).join('') +
+        '</div>' +
+        (!hasAny && !wp ? '<div class="fp-empty-state">Keine Daten verfügbar.</div>' : '') +
+        '<div class="fp-privacy-note">🔒 Einige Erfolge sind privat und werden nicht angezeigt.</div>' +
+      '</div>'
+    );
+  }
+
+  function renderActivityPanel() {
+    const data = state.activityData;
+    const loading = state.activityLoading;
+
+    if (loading) {
+      return '<div class="fp-activity"><div class="fp-loading-spinner"></div></div>';
+    }
+
+    if (!data || data.length === 0) {
+      return (
+        '<div class="fp-activity">' +
+          '<div class="fp-empty-state">' +
+            '<div style="font-size:2rem;margin-bottom:8px;">📭</div>' +
+            '<div>Noch keine Aktivität sichtbar.</div>' +
+          '</div>' +
+        '</div>'
+      );
+    }
+
+    const totalSessions = data.reduce((s, d) => s + d.count, 0);
+    const activeDays = data.length;
+    const maxPerDay = data.reduce((m, d) => Math.max(m, d.count), 0);
+
+    const sessions = [];
+    for (const entry of data.slice(-5).reverse()) {
+      const d = new Date(entry.date);
+      const label = d.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' });
+      sessions.push('<div class="fp-session-row">' +
+        '<span class="fp-session-date">' + esc(label) + '</span>' +
+        '<span class="fp-session-count">' + entry.count + ' Partie' + (entry.count !== 1 ? 'n' : '') + '</span>' +
+        '</div>');
+    }
+
+    return (
+      '<div class="fp-activity">' +
+        '<div class="fp-activity-tiles">' +
+          '<div class="fp-activity-tile">' +
+            '<div class="fp-at-value">' + totalSessions + '</div>' +
+            '<div class="fp-at-label">Partien</div>' +
+          '</div>' +
+          '<div class="fp-activity-tile">' +
+            '<div class="fp-at-value">' + activeDays + '</div>' +
+            '<div class="fp-at-label">Aktive Tage</div>' +
+          '</div>' +
+          '<div class="fp-activity-tile">' +
+            '<div class="fp-at-value">' + maxPerDay + '</div>' +
+            '<div class="fp-at-label">Max. pro Tag</div>' +
+          '</div>' +
+        '</div>' +
+        '<div id="fpHeatmapMount" class="fp-heatmap-wrap"></div>' +
+        '<div class="fp-session-list">' +
+          '<div class="fp-section-label">Letzte Sessions</div>' +
+          sessions.join('') +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderTabContent(f, own) {
+    switch (state.activeTab) {
+      case 'stats':
+        return renderH2H(f) + renderStatTiles(f) + renderCompare(f, own);
+      case 'achievements':
+        return renderAchievements(state.workerProfile);
+      case 'activity':
+        return renderActivityPanel();
+      default:
+        return '';
+    }
+  }
+
   function renderBody(f, own) {
-    const compare = renderCompare(f, own);
-    const kader = renderKaderVergleich(state.workerProfile, own);
     return (
       '<div class="fp-body">' +
         renderHero(f) +
-        renderActions() +
-        renderStatTiles(f) +
-        compare +
-        kader +
+        renderActions(f) +
+        renderTabs() +
+        '<div class="fp-tab-content" id="fpTabContent">' +
+          renderTabContent(f, own) +
+        '</div>' +
       '</div>'
     );
   }
@@ -318,6 +471,27 @@
     const ov = document.getElementById(OVERLAY_ID);
     if (!ov || !state.friend) return;
     ov.innerHTML = '<div class="fp-sheet">' + renderHeader() + renderBody(state.friend, state.ownStats) + '</div>';
+    mountHeatmapIfNeeded();
+  }
+
+  function updateTabContent() {
+    const el = document.getElementById('fpTabContent');
+    if (!el || !state.friend) return;
+    el.innerHTML = renderTabContent(state.friend, state.ownStats);
+    mountHeatmapIfNeeded();
+  }
+
+  function mountHeatmapIfNeeded() {
+    if (state.activeTab !== 'activity') return;
+    const mount = document.getElementById('fpHeatmapMount');
+    if (!mount || !state.activityData || !state.activityData.length) return;
+    if (window.TrainingHeatmap && typeof window.TrainingHeatmap.render === 'function') {
+      const sessions = state.activityData.map(d => ({
+        date: d.date,
+        count: d.count,
+      }));
+      window.TrainingHeatmap.render(sessions, 'fpHeatmapMount');
+    }
   }
 
   /* ─── Actions wiring ─── */
@@ -331,12 +505,46 @@
     if (pop) pop.classList.remove('fp-menu-open');
   }
 
+  function switchTab(tab) {
+    if (state.activeTab === tab) return;
+    state.activeTab = tab;
+
+    const ov = document.getElementById(OVERLAY_ID);
+    if (!ov) return;
+    ov.querySelectorAll('.fp-tab-btn').forEach(btn => {
+      btn.classList.toggle('fp-tab-active', btn.dataset.fpTab === tab);
+    });
+
+    if (tab === 'activity' && !state.activityData && !state.activityLoading) {
+      const publicId = state.friend && (state.friend.publicId || state.friend.public_id);
+      if (publicId) {
+        state.activityLoading = true;
+        updateTabContent();
+        fetchFriendActivity(publicId).then(data => {
+          state.activityData = data || [];
+          state.activityLoading = false;
+          updateTabContent();
+        });
+        return;
+      }
+    }
+
+    updateTabContent();
+    haptic('light');
+  }
+
   function wireActions() {
     const ov = document.getElementById(OVERLAY_ID);
     if (!ov || ov._fpWired) return;
     ov._fpWired = true;
 
     ov.addEventListener('click', (e) => {
+      const tabBtn = e.target.closest('[data-fp-tab]');
+      if (tabBtn) {
+        switchTab(tabBtn.dataset.fpTab);
+        return;
+      }
+
       const backBtn = e.target.closest('[data-fp-back]');
       if (backBtn) {
         haptic('light');
@@ -351,7 +559,6 @@
       }
       const actionEl = e.target.closest('[data-fp-action]');
       if (!actionEl) {
-        // tap outside menu closes it
         closeMenu(ov);
         return;
       }
@@ -445,18 +652,21 @@
     state.friend = friend;
     state.ownStats = getOwnStats();
     state.workerProfile = null;
+    state.activeTab = 'stats';
+    state.activityData = null;
+    state.activityLoading = false;
     state.isOpen = true;
 
     render();
 
-    // Async: fetch worker profile for Kader-Vergleich
     const publicId = friend.publicId || friend.public_id;
     if (publicId) {
       fetchWorkerProfile(publicId).then(wp => {
         if (state.isOpen && state.friend && state.friend.userId === friendId) {
           state.workerProfile = wp;
-          render();
-          wireActions();
+          if (state.activeTab === 'stats') {
+            updateTabContent();
+          }
         }
       });
     }
@@ -477,7 +687,6 @@
     wireActions();
     haptic('medium');
 
-    // Browser-Back-Integration
     state.closingFromPop = false;
     try {
       history.pushState({ [HISTORY_STATE]: true }, '');
@@ -517,7 +726,6 @@
       state.popHandler = null;
     }
 
-    // Wenn User selbst geschlossen hat (Back-Button), History-Entry aufräumen
     if (via === 'user' && !state.closingFromPop) {
       try {
         if (history.state && history.state[HISTORY_STATE]) history.back();
@@ -526,13 +734,14 @@
 
     state.friend = null;
     state.ownStats = null;
+    state.workerProfile = null;
+    state.activityData = null;
     state.closingFromPop = false;
   }
 
   /* ─── Click delegation on friend list ─── */
   function setupDelegation() {
     document.addEventListener('click', (e) => {
-      // Klick auf Chat-Button (oder andere data-chat-btn-Elemente) ignorieren
       if (e.target.closest('[data-chat-btn]')) return;
       const row = e.target.closest('#inlineFriendsList .friend-row[data-friend-id]');
       if (!row) return;
