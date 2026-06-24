@@ -257,10 +257,16 @@
     if (name) {
       localStorage.setItem('sd_username', name);
       if (typeof G !== 'undefined') G.username = name;
-      const el = document.getElementById('pdUserName');
-      if (el) el.innerText = name;
+      // Update all name display elements
+      ['pdUserName', 'pdUserName2', 'psUsername'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = name;
+      });
       const ini = document.getElementById('pdProfileInitial');
       if (ini) ini.innerText = name.charAt(0).toUpperCase();
+      // Greeting subtitle
+      const greet = document.getElementById('pdGreetingSub');
+      if (greet) greet.textContent = 'Bereit für dein nächstes Training?';
       if (typeof scheduleCloudSync === 'function') scheduleCloudSync('username_changed', { immediate: true });
     }
     if (age) localStorage.setItem('sd_age', String(age));
@@ -276,12 +282,29 @@
     const wo = document.getElementById('welcomeOverlay');
     if (wo) wo.classList.remove('active');
 
+    // Vollständige UI-Aktualisierung nach kurzer Verzögerung
+    setTimeout(() => {
+      // Re-render Start-Tab header (tab-navigation.js renders greeting dynamically)
+      if (typeof switchTab === 'function') switchTab('start');
+      else if (typeof refreshStateFromLocalStorage === 'function') refreshStateFromLocalStorage();
+
+      // Lieblingsdisziplin-Badge direkt setzen (unabhängig von refreshProfilTab)
+      if (weapon) {
+        const label = weapon === 'lg' ? '🌬️ Luftgewehr' : '🎯 Kleinkaliber';
+        const pill = `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.55);background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.22);border-radius:100px;padding:3px 10px;letter-spacing:0.02em;">${label}</span>`;
+        ['psFavDisc', 'ptFavDisc'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) { el.innerHTML = pill; el.style.display = ''; }
+        });
+      }
+    }, 250);
+
     // Starte In-App Tutorial wenn noch nicht gemacht
     setTimeout(() => {
       if (typeof Tutorial !== 'undefined' && typeof Tutorial.startIfNew === 'function') {
         Tutorial.startIfNew();
       }
-    }, 600);
+    }, 700);
   }
 
   // ── Public API ───────────────────────────────────────────────────────────

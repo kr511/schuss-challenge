@@ -846,7 +846,8 @@
       try { window.ProfileClub.render(); } catch (_e) { /* non-blocking */ }
     }
     const username = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('username')) || 'Schütze';
-    const state = (typeof StorageManager !== 'undefined') ? JSON.parse(StorageManager.getRaw('gameState') || 'null') : null;
+    let state = null;
+    try { state = (typeof StorageManager !== 'undefined') ? JSON.parse(StorageManager.getRaw('gameState') || 'null') : null; } catch(_e) {}
     const avatar = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('avatar')) || '🎯';
 
     const nameEl = document.getElementById('ptProfileName');

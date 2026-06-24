@@ -3466,7 +3466,7 @@ function startBattle() {
   if (DOM.lastShotTxt) {
     DOM.lastShotTxt.innerHTML = G.is3x20
       ? `<b>Bereit!</b> Position 1: <b>${G.positions[0]}</b> · 20 Schüsse · Feuer frei!`
-      : '<b>Bereit!</b> Drück FEUER – du schießt in der echten Welt, der Bot schießt automatisch nach seinem Rhythmus.';
+      : '<b>Bereit!</b> Drück SCHUSS – du schießt in der echten Welt, der Bot schießt automatisch nach seinem Rhythmus.';
   }
 
   const diffCfg = DIFF[G.diff];
@@ -3549,7 +3549,8 @@ function updateBattleUI() {
     DOM.playerScoreChip.textContent = noTenths ? String(G.playerTotalInt) : fmtPts(G.playerTotal);
   }
   if (DOM.playerScoreChipSub) {
-    DOM.playerScoreChipSub.textContent = noTenths ? 'Ringe' : `${G.playerTotalInt} ganze`;
+    const hasFired = G.playerTotal > 0 || G.playerTotalInt > 0;
+    DOM.playerScoreChipSub.textContent = (noTenths || !hasFired) ? 'Ringe' : `${G.playerTotalInt} ganze`;
   }
   DOM.botScoreChipContainer.style.display = noTenths ? 'none' : 'flex';
   DOM.botScoreDivider.style.display = noTenths ? 'none' : 'block';
