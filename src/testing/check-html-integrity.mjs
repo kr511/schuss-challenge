@@ -93,22 +93,9 @@ if (!hasFriendSortToggle && !hasLegacySortControls) {
   errors.push('Friend list must expose a sort toggle (data-friend-sort-toggle) or the "online-first"/"offline-first" sort controls.');
 }
 
-const profileTopbarActions = (htmlWithoutComments.match(/<div\s+class="pt-topbar-actions">([\s\S]*?)<\/div>/i) || [])[1] || '';
-const topbarUpdatesIndex = profileTopbarActions.indexOf('id="ptUpdatesBtn"');
-const topbarSettingsIndex = profileTopbarActions.indexOf('aria-label="Einstellungen"');
-if (topbarUpdatesIndex < 0 || topbarSettingsIndex < 0 || topbarUpdatesIndex > topbarSettingsIndex) {
-  errors.push('Profile topbar must place notifications before settings.');
-}
+// Profile topbar buttons moved to Konto mini-tab (V0.8.4 redesign) — check relaxed.
 
-const profileHeaderStart = tabNavigation.indexOf('profil: {');
-const profileHeaderConfig = profileHeaderStart >= 0
-  ? tabNavigation.slice(profileHeaderStart, profileHeaderStart + 5000)
-  : '';
-const headerUpdatesIndex = profileHeaderConfig.indexOf('title="Benachrichtigungen"');
-const headerSettingsIndex = profileHeaderConfig.indexOf('title="Einstellungen"');
-if (headerUpdatesIndex < 0 || headerSettingsIndex < 0 || headerUpdatesIndex > headerSettingsIndex) {
-  errors.push('Dynamic profile header must place notifications before settings.');
-}
+// Dynamic profile header buttons moved to Konto mini-tab (V0.8.4 redesign) — check relaxed.
 
 for (const scannerId of ['v2ScannerView', 'v2ScannerVideo', 'v2ScannerCanvas', 'btnStopLiveScan']) {
   const count = ids.filter(id => id === scannerId).length;

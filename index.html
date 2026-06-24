@@ -672,20 +672,12 @@
       <div class="tab-panel" id="tabProfil">
         <div class="page-content">
 
-          <!-- Profil Topbar: Titel + Aktionen (Benachrichtigungen / Einstellungen) -->
+          <!-- Profil Topbar: Titel only (bell/settings moved to dashboard header / Konto tab) -->
           <div class="pt-topbar">
             <div class="pt-topbar-title">Profil</div>
-            <div class="pt-topbar-actions">
-              <button class="ah-icon-btn" id="ptUpdatesBtn" type="button" title="Benachrichtigungen" aria-label="Benachrichtigungen" style="position:relative;"
-                onclick="if(window.UpdatesSystem&&window.UpdatesSystem.toggleUpdates){window.UpdatesSystem.toggleUpdates(this);}">
-                <svg viewBox="0 0 24 24" width="24" height="24" style="width:24px;height:24px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              </button>
-              <button class="ah-icon-btn" type="button" title="Einstellungen" aria-label="Einstellungen"
-                onclick="if(window.ProfileSettings&&window.ProfileSettings.open){window.ProfileSettings.open();}else if(window.toggleProfileMenu){window.toggleProfileMenu();}">
-                <svg viewBox="0 0 24 24" width="24" height="24" style="width:24px;height:24px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              </button>
-            </div>
           </div>
+          <!-- Hidden mount for ptUpdatesBtn ID (referenced by some JS) -->
+          <div style="display:none" aria-hidden="true"><button id="ptUpdatesBtn"></button></div>
 
           <!-- Profile Hero Card (redesigned) -->
           <div class="ph2-hero">
@@ -718,10 +710,10 @@
 
           <!-- Profile inner tabs: Stats | Erfolge | Verlauf | Konto -->
           <div class="tm-filter" id="profileInnerTabs">
-            <button class="tmf-btn active" data-ptab="stats" onclick="switchProfileTab(this,'stats')">Stats</button>
-            <button class="tmf-btn" data-ptab="erfolge" onclick="switchProfileTab(this,'erfolge')">Erfolge</button>
-            <button class="tmf-btn" data-ptab="verlauf" onclick="switchProfileTab(this,'verlauf')">Verlauf</button>
-            <button class="tmf-btn" data-ptab="konto" onclick="switchProfileTab(this,'konto')">Konto</button>
+            <button class="tmf-btn active" data-ptab="stats" onclick="switchProMiniTab(this,'stats')">Stats</button>
+            <button class="tmf-btn" data-ptab="erfolge" onclick="switchProMiniTab(this,'erfolge')">Erfolge</button>
+            <button class="tmf-btn" data-ptab="verlauf" onclick="switchProMiniTab(this,'verlauf')">Verlauf</button>
+            <button class="tmf-btn" data-ptab="konto" onclick="switchProMiniTab(this,'konto')">Konto</button>
           </div>
 
           <!-- Stats panel (2×2 grid) -->
@@ -782,10 +774,58 @@
 
           <!-- Konto panel -->
           <div class="pt-stats-panel" id="ptKontoPanel" style="display:none">
-            <div class="pt-account-section">
-              <div class="pt-account-row">
-                <div style="font-size:12px;color:rgba(255,255,255,0.4);">Account</div>
+            <!-- Profil bearbeiten -->
+            <button class="pt-konto-row" onclick="openAvatarPicker()">
+              <div class="pt-konto-icon" style="background:rgba(34,197,94,0.15);">
+                <svg viewBox="0 0 24 24" width="17" height="17" stroke="#22c55e" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </div>
+              <div class="pt-konto-text">
+                <div class="pt-konto-label">Profil bearbeiten</div>
+                <div class="pt-konto-sub">Name, Avatar, Disziplin</div>
+              </div>
+              <svg class="pt-konto-chevron" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+            </button>
+
+            <!-- Einstellungen -->
+            <button class="pt-konto-row" onclick="if(window.ProfileSettings&&window.ProfileSettings.open){window.ProfileSettings.open();}else if(window.toggleProfileMenu){window.toggleProfileMenu();}">
+              <div class="pt-konto-icon" style="background:rgba(255,255,255,0.07);">
+                <svg viewBox="0 0 24 24" width="17" height="17" stroke="rgba(255,255,255,0.6)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </div>
+              <div class="pt-konto-text">
+                <div class="pt-konto-label">Einstellungen</div>
+                <div class="pt-konto-sub">Benachrichtigungen, Datenschutz</div>
+              </div>
+              <svg class="pt-konto-chevron" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+            </button>
+
+            <!-- Push-Benachrichtigungen -->
+            <button class="pt-konto-row" onclick="if(window.PushNotifications&&window.PushNotifications.requestPermission){window.PushNotifications.requestPermission();}">
+              <div class="pt-konto-icon" style="background:rgba(0,195,255,0.12);">
+                <svg viewBox="0 0 24 24" width="17" height="17" stroke="#00c3ff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+              </div>
+              <div class="pt-konto-text">
+                <div class="pt-konto-label">Benachrichtigungen</div>
+                <div class="pt-konto-sub">Push-Nachrichten aktivieren</div>
+              </div>
+              <svg class="pt-konto-chevron" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+            </button>
+
+            <!-- Datenschutz -->
+            <a class="pt-konto-row" href="datenschutz.html" style="text-decoration:none">
+              <div class="pt-konto-icon" style="background:rgba(255,255,255,0.05);">
+                <svg viewBox="0 0 24 24" width="17" height="17" stroke="rgba(255,255,255,0.4)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div class="pt-konto-text">
+                <div class="pt-konto-label">Datenschutz</div>
+                <div class="pt-konto-sub">Impressum & Datenschutzerklärung</div>
+              </div>
+              <svg class="pt-konto-chevron" viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg>
+            </a>
+
+            <!-- Account info (synced from JS via data-src pointers) -->
+            <div class="pt-konto-info">
+              <div class="pt-konto-info-row"><span style="color:rgba(255,255,255,0.4);font-size:11px;">Level</span><span class="pt-konto-level-display" style="font-size:13px;font-weight:600;color:#fff;">–</span></div>
+              <div class="pt-konto-info-row"><span style="color:rgba(255,255,255,0.4);font-size:11px;">E-Mail</span><span class="pt-konto-email-display" style="font-size:12px;color:rgba(255,255,255,0.6);">–</span></div>
             </div>
             <div id="enhancedAnalyticsMountProfile" style="display:none"></div>
           </div>
@@ -2050,12 +2090,20 @@
       }
     }
     
-    function switchProfileTab(btn, tab) {
+    function switchProMiniTab(btn, tab) {
       document.querySelectorAll('#profileInnerTabs .tmf-btn').forEach(function(b) { b.classList.remove('active'); });
       btn.classList.add('active');
       document.querySelectorAll('.pt-stats-panel').forEach(function(p) { p.style.display = 'none'; });
       var panel = document.getElementById('pt' + tab.charAt(0).toUpperCase() + tab.slice(1) + 'Panel');
       if (panel) panel.style.display = '';
+      if (tab === 'konto') {
+        var lvlSrc = document.getElementById('ptLevel');
+        var emailSrc = document.getElementById('ptEmail');
+        var lvlDst = document.querySelector('.pt-konto-level-display');
+        var emailDst = document.querySelector('.pt-konto-email-display');
+        if (lvlSrc && lvlDst) lvlDst.textContent = lvlSrc.textContent || '–';
+        if (emailSrc && emailDst) emailDst.textContent = emailSrc.textContent || '–';
+      }
     }
 
     function setModeFilter(btn, filter) {
