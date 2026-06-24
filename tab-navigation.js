@@ -854,6 +854,19 @@
     const avatarEl = document.getElementById('ptProfileAvatar');
     if (avatarEl) avatarEl.textContent = avatar;
 
+    // Lieblingsdisziplin-Badge
+    const favWeapon = localStorage.getItem('sd_fav_weapon');
+    const favDiscEl = document.getElementById('ptFavDisc');
+    if (favDiscEl) {
+      if (favWeapon === 'lg' || favWeapon === 'kk') {
+        const label = favWeapon === 'lg' ? '🌬️ Luftgewehr' : '🎯 Kleinkaliber';
+        favDiscEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:rgba(255,255,255,0.55);background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.22);border-radius:100px;padding:3px 10px;letter-spacing:0.02em;">${label}</span>`;
+        favDiscEl.style.display = '';
+      } else {
+        favDiscEl.style.display = 'none';
+      }
+    }
+
     if (state) {
       const stats = state.stats || {};
       const xp = state.xp || 0;
