@@ -392,9 +392,9 @@
 
           <!-- Training Mode Filter -->
           <div class="tm-filter" id="trainingModeFilter">
-            <button class="tmf-btn active" data-filter="alle" onclick="setTrainingFilter(this,'alle')">Alle</button>
-            <button class="tmf-btn" data-filter="lg" onclick="setTrainingFilter(this,'lg')">LG</button>
-            <button class="tmf-btn" data-filter="kk" onclick="setTrainingFilter(this,'kk')">KK</button>
+            <button class="tmf-btn active" data-filter="alle" onclick="setModeFilter(this,'alle')">Alle</button>
+            <button class="tmf-btn" data-filter="lg" onclick="setModeFilter(this,'lg')">LG</button>
+            <button class="tmf-btn" data-filter="kk" onclick="setModeFilter(this,'kk')">KK</button>
           </div>
 
           <!-- Training Mode Cards -->
@@ -2058,7 +2058,7 @@
       if (panel) panel.style.display = '';
     }
 
-    function setTrainingFilter(btn, filter) {
+    function setModeFilter(btn, filter) {
       document.querySelectorAll('.tmf-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       document.querySelectorAll('.tmc-card').forEach(card => {
