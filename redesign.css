@@ -349,6 +349,202 @@ body.game-screen-active .bottom-nav { display: none !important; }
 }
 .tmc-card[style*="display:none"] { display: none !important; }
 
+/* ── Training badge pills ── */
+.tmc-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  border-radius: 100px;
+  padding: 3px 9px;
+  text-transform: uppercase;
+}
+.tmc-badge-lg { background: rgba(34,197,94,0.14); color: #22c55e; border: 1px solid rgba(34,197,94,0.3); }
+.tmc-badge-kk { background: rgba(0,195,255,0.14); color: #00c3ff; border: 1px solid rgba(0,195,255,0.3); }
+.tmc-badge-all { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.12); }
+
+/* ═══════════════════════════════════════════
+   FRIENDS TAB (Tab 4) — redesign
+═══════════════════════════════════════════ */
+.fi-invite-wrap:empty { display: none; }
+.fi-invite-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.fi-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: rgba(34,197,94,0.08);
+  border: 1px solid rgba(34,197,94,0.22);
+  border-radius: 14px;
+  color: #22c55e;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.fi-add-btn:active { background: rgba(34,197,94,0.14); }
+.fi-section { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.fi-section-hdr { display: flex; align-items: center; gap: 8px; }
+.fi-section-title { font-size: 15px; font-weight: 700; color: #fff; }
+.fi-code-card {
+  background: rgba(18,18,18,0.92);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.fi-code-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  font-weight: 600;
+}
+.fi-code-display {
+  font-family: 'DM Mono', monospace;
+  font-size: 28px;
+  color: #fff;
+  letter-spacing: 0.2em;
+  text-align: center;
+  padding: 4px 0;
+}
+.fi-code-share-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════════════════
+   PROFILE TAB (Tab 5) — redesign
+═══════════════════════════════════════════ */
+.ph2-hero {
+  background: linear-gradient(160deg, rgba(34,197,94,0.12), rgba(18,18,18,0.92) 55%);
+  border: 1px solid rgba(34,197,94,0.18);
+  border-radius: 22px;
+  padding: 18px 16px;
+  flex-shrink: 0;
+}
+.ph2-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.ph2-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.ph2-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(34,197,94,0.14);
+  border: 2px solid #22c55e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  box-shadow: 0 0 20px rgba(34,197,94,0.25);
+}
+.ph2-info { flex: 1; min-width: 0; }
+.ph2-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ph2-name {
+  font-size: 21px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.ph2-club {
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+  margin-top: 4px;
+}
+.ph2-xp { margin-top: 12px; }
+.ph2-xp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.ph2-rank {
+  font-size: 11px;
+  font-weight: 700;
+  color: #22c55e;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ph2-xp-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+}
+.ph2-xp-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.ph2-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #16a34a, #4ade80);
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+/* Stats 2×2 grid */
+.pt-stats-panel { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
+.pt-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pt-stat-card {
+  background: rgba(18,18,18,0.92);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  padding: 13px 14px;
+}
+.pt-stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.pt-stat-value {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 36px;
+  color: #fff;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+.pt-stat-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  margin-top: 3px;
+}
+.pt-account-section {
+  background: rgba(18,18,18,0.92);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  padding: 16px;
+}
+.pt-account-row { display: flex; flex-direction: column; gap: 6px; }
+
 /* ═══════════════════════════════════════════
    GOAL CARD (Start Tab)
 ═══════════════════════════════════════════ */
