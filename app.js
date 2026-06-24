@@ -3214,7 +3214,16 @@ function startMatchTimer(totalSecs) {
     }
 
     if (val) val.textContent = timerDisp;
-    if (box) box.classList.toggle('warning', G._timerSecsLeft <= 300 && !G.probeActive); // Warnung ab 5 Min. (nach Probe)
+    if (box) box.classList.toggle('warning', G._timerSecsLeft <= 300 && !G.probeActive);
+
+    // Neues ig-topbar Timer-Element befüllen (immer sichtbar, zählt vom Start)
+    const igTimer = document.getElementById('igTimerDisplay');
+    if (igTimer && G._timerSecsLeft >= 0) {
+      const m = Math.floor(G._timerSecsLeft / 60);
+      const s = G._timerSecsLeft % 60;
+      igTimer.textContent = `${m}:${String(s).padStart(2, '0')}`;
+      igTimer.classList.toggle('ig-timer-low', G._timerSecsLeft <= 300 && G._timerSecsLeft > 0);
+    }
   }
   tick(); // sofort anzeigen
   G._timerInterval = setInterval(tick, 1000);
@@ -3484,9 +3493,14 @@ function startBattle() {
   DOM.battleWeaponBadge.className = 'weapon-badge ' + weapCfg.badgeCls;
   DOM.entryTag.textContent = `◆ ${G.dist} METER · ${dc.name} · ${G.maxShots} SCHUSS ◆`;
 
-  // New topbar: discipline label + reset shot counter
+  // New topbar: discipline label + time limit + reset shot counter + timer
   if (DOM.igDisciplineLabel) DOM.igDisciplineLabel.textContent = dc.name;
+  const _igTimeMins = dc.timeMins || 50;
+  const igDiscSub = document.getElementById('igDisciplineSub');
+  if (igDiscSub) igDiscSub.textContent = `${_igTimeMins} Min`;
   if (DOM.igShotCounter) DOM.igShotCounter.textContent = `0 / ${G.maxShots}`;
+  const igTimerEl = document.getElementById('igTimerDisplay');
+  if (igTimerEl) { igTimerEl.textContent = `${_igTimeMins}:00`; igTimerEl.classList.remove('ig-timer-low'); }
 
   DOM.posBar.classList.toggle('visible', G.is3x20);
   if (G.is3x20) updatePosBar();

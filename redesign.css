@@ -3008,8 +3008,15 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   color: #fff;
   line-height: 1.1;
 }
-.ig-shot-sub {
+.ig-timer {
+  font-family: 'DM Mono', monospace;
   font-size: 11px;
-  color: rgba(255,255,255,0.4);
-  margin-top: 1px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+.ig-timer.ig-timer-low {
+  color: #ff4a4a;
+  font-weight: 700;
 }
