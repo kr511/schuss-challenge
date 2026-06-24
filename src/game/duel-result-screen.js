@@ -62,17 +62,36 @@
       document.head.appendChild(style);
     }
     style.textContent = `
-      .duel-result-overlay{position:fixed;inset:0;z-index:2147483100;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:env(safe-area-inset-top,20px) 20px calc(20px + env(safe-area-inset-bottom));font-family:'Outfit',system-ui,sans-serif;-webkit-font-smoothing:antialiased;color:#fff}
+      /* ── Overlay ── */
+      .duel-result-overlay{
+        position:fixed;inset:0;z-index:2147483100;
+        overflow-y:auto;-webkit-overflow-scrolling:touch;
+        display:flex;flex-direction:column;align-items:center;
+        padding:0 20px calc(20px + env(safe-area-inset-bottom));
+        font-family:'Outfit',system-ui,sans-serif;
+        -webkit-font-smoothing:antialiased;color:#fff;
+      }
+      /* Backgrounds — 1:1 handoff */
       .duel-result-overlay.win{background:radial-gradient(ellipse 90% 55% at 50% 0%,rgba(34,197,94,.18) 0%,transparent 60%),#0a0a0a}
       .duel-result-overlay.lose{background:radial-gradient(ellipse 70% 45% at 50% 0%,rgba(255,255,255,.04) 0%,transparent 60%),#0a0a0a}
       .duel-result-overlay.draw{background:radial-gradient(ellipse 70% 45% at 50% 0%,rgba(0,195,255,.08) 0%,transparent 60%),#0a0a0a}
-      .drs-hero{text-align:center;padding:22px 0 16px}
-      .drs-title{font-family:'Bebas Neue',sans-serif;letter-spacing:.09em;color:#fff;font-size:30px;line-height:1}
+
+      /* ── Hero ── */
+      .drs-spacer{height:50px;flex-shrink:0}
+      .drs-hero{text-align:center;padding:18px 0 14px;width:100%}
+      .drs-title{font-family:'Bebas Neue',sans-serif;letter-spacing:.10em;color:#fff;font-size:30px;line-height:1}
       .drs-title.lose{font-size:26px;letter-spacing:.08em}
-      .drs-xp{font-size:18px;font-weight:700;margin-top:5px}
-      .drs-xp.win{color:#4ade80;text-shadow:0 0 14px rgba(74,222,128,.5)}
-      .drs-xp.lose,.drs-xp.draw{color:rgba(255,255,255,.4);font-size:15px;font-weight:600}
-      .drs-card{width:100%;background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:16px;margin-bottom:12px}
+      .drs-xp{margin-top:4px}
+      .drs-xp.win{font-size:18px;font-weight:700;color:#4ade80;text-shadow:0 0 14px rgba(74,222,128,.5)}
+      .drs-xp.lose{font-size:15px;font-weight:600;color:rgba(255,255,255,.4)}
+      .drs-xp.draw{font-size:15px;font-weight:600;color:rgba(255,255,255,.4)}
+
+      /* ── Score card ── */
+      .drs-card{
+        width:100%;background:rgba(18,18,18,.95);
+        border:1px solid rgba(255,255,255,.08);
+        border-radius:20px;padding:16px;margin-bottom:12px;
+      }
       .drs-diff-pill{display:flex;justify-content:center;margin-bottom:14px}
       .drs-pill{border-radius:100px;padding:4px 14px;font-size:12px;font-weight:800;letter-spacing:.04em}
       .drs-pill.win{background:#22c55e;color:#000}
@@ -81,19 +100,30 @@
       .drs-col{flex:1;text-align:center}
       .drs-col-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.4);margin-bottom:6px}
       .drs-score{font-family:'Bebas Neue',sans-serif;letter-spacing:.02em;line-height:1}
+      /* Win: player=50px green, bot=36px muted */
       .drs-score.winner{font-size:50px;color:#4ade80;text-shadow:0 0 20px rgba(34,197,94,.4)}
       .drs-score.loser{font-size:36px;color:rgba(255,255,255,.45)}
+      /* Loss: player=40px muted, bot=50px bright */
       .drs-score.player-loser{font-size:40px;color:rgba(255,255,255,.45)}
+      .drs-score.bot-winner{font-size:50px;color:rgba(255,255,255,.9)}
+      /* Draw */
       .drs-score.draw-val{font-size:44px;color:rgba(255,255,255,.8)}
-      .drs-score.bot-winner{font-size:50px;color:rgba(255,255,255,.9);letter-spacing:.02em}
       .drs-col-sub{font-size:11px;color:rgba(255,255,255,.4);margin-top:2px}
       .drs-divider{width:1px;height:56px;background:rgba(255,255,255,.1);flex-shrink:0}
-      .drs-dist-card{width:100%;background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:13px 15px;margin-bottom:12px}
+
+      /* ── Distribution card ── */
+      .drs-dist-card{
+        width:100%;background:rgba(18,18,18,.95);
+        border:1px solid rgba(255,255,255,.07);
+        border-radius:16px;padding:13px 15px;margin-bottom:12px;
+      }
       .drs-dist-lbl{font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.3);font-weight:600;margin-bottom:10px}
       .drs-dist-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+      .drs-dist-row:last-child{margin-bottom:0}
       .drs-dist-key{font-size:11px;color:rgba(255,255,255,.4);width:30px;text-align:right;flex-shrink:0}
       .drs-dist-track{flex:1;height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
       .drs-dist-fill{height:100%;border-radius:3px}
+      /* Win fills — green shades */
       .drs-dist-fill.t10{background:#22c55e}
       .drs-dist-fill.t9{background:rgba(34,197,94,.6)}
       .drs-dist-fill.t8{background:rgba(34,197,94,.3)}
@@ -102,22 +132,35 @@
       .drs-dist-count.t10{color:#22c55e}
       .drs-dist-count.t9{color:rgba(255,255,255,.5)}
       .drs-dist-count.t8,.drs-dist-count.tlow{color:rgba(255,255,255,.35)}
-      .drs-stats-row{display:flex;gap:10px;margin-bottom:12px}
-      .drs-stat{flex:1;background:rgba(18,18,18,.95);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:11px 10px;text-align:center}
-      .drs-stat-lbl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.3);font-weight:600}
-      .drs-stat-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:#fff;margin-top:4px}
-      .drs-xp-wrap{width:100%;margin-bottom:16px}
+
+      /* ── XP bar ── */
+      .drs-xp-wrap{width:100%;margin-bottom:14px}
       .drs-xp-hdr{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
-      .drs-rank-lbl{font-size:12px;font-weight:700;color:#22c55e}
+      .drs-rank-lbl{font-size:12px;font-weight:700}
       .drs-xp-lbl{font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.4)}
       .drs-xp-track{height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
-      .drs-xp-fill{height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:3px;box-shadow:0 0 8px rgba(34,197,94,.4)}
+      .drs-xp-fill{height:100%;border-radius:3px}
+
+      /* ── Motivate (Loss only) ── */
+      .drs-motivate{font-size:13px;color:rgba(34,197,94,.5);text-align:center;margin-bottom:14px}
+
+      /* ── Buttons ── */
       .drs-actions{width:100%;display:flex;flex-direction:column;gap:10px}
-      .drs-btn-primary{width:100%;padding:15px;background:#22c55e;color:#000;border:none;border-radius:14px;font-family:'Outfit',sans-serif;font-size:15px;font-weight:800;letter-spacing:.06em;cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,.3)}
-      .drs-btn-ghost{width:100%;padding:13px;background:transparent;color:rgba(255,255,255,.55);border:1px solid rgba(255,255,255,.12);border-radius:14px;font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+      .drs-btn-primary{
+        width:100%;padding:15px;
+        background:#22c55e;color:#000;border:none;
+        border-radius:14px;
+        font-family:'Outfit',sans-serif;font-size:15px;font-weight:800;letter-spacing:.06em;
+        cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,.3);
+      }
+      .drs-btn-ghost{
+        width:100%;padding:13px;
+        background:transparent;color:rgba(255,255,255,.55);
+        border:1px solid rgba(255,255,255,.12);border-radius:14px;
+        font-family:'Outfit',sans-serif;font-size:14px;font-weight:600;cursor:pointer;
+      }
       .drs-btn-ghost-row{display:flex;gap:10px}
       .drs-btn-ghost-row .drs-btn-ghost{flex:1}
-      .drs-motivate{font-size:13px;color:rgba(34,197,94,.5);text-align:center;margin-bottom:14px}
     `;
   }
 
@@ -396,8 +439,9 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.setAttribute('aria-label', 'Duell Ergebnis');
     overlay.innerHTML = `
+      <div class="drs-spacer"></div>
       <div class="drs-hero">
-        <div class="drs-title">${html(title)}</div>
+        <div class="drs-title ${payload.result}">${html(title)}</div>
         <div class="drs-xp ${payload.result}">${html(xpLine)}</div>
       </div>
       <div class="drs-card">
@@ -417,11 +461,6 @@
         </div>
       </div>
       ${distRows ? `<div class="drs-dist-card"><div class="drs-dist-lbl">Verteilung</div>${distRows}</div>` : ''}
-      <div class="drs-stats-row">
-        <div class="drs-stat"><div class="drs-stat-lbl">Disziplin</div><div class="drs-stat-val">${html(disciplineLabel)}</div></div>
-        <div class="drs-stat"><div class="drs-stat-lbl">Modus</div><div class="drs-stat-val">${html(difficultyLabel)}</div></div>
-        <div class="drs-stat"><div class="drs-stat-lbl">${html(payload.shots)} Schuss · ${html(payload.distance)} m</div><div class="drs-stat-val">Beste Serie: ${html(payload.bestSeries)}</div></div>
-      </div>
       <div class="drs-xp-wrap">
         <div class="drs-xp-hdr">
           <div class="drs-rank-lbl" style="${rankStyle}">Rang: ${html(xp.rankName)}</div>
