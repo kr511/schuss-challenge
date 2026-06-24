@@ -39,8 +39,8 @@
       friendWr && ownWr ? `<div class="kv-row"><span class="kv-label">Siegquote</span><span class="kv-me">${ownWr}</span><span class="kv-vs">vs</span><span class="kv-them">${friendWr}</span></div>` : '',
     ].filter(Boolean).join('');
     if (!rows) return '';
-    return '<div class="kv-card" style="background:rgba(18,18,18,.92);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px 16px;margin-top:12px;">' +
-      '<div style="font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.35);font-weight:700;margin-bottom:10px;">Kader-Vergleich</div>' +
+    return '<div class="kv-card" style="background:rgba(18,18,18,.92);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;">' +
+      '<div style="font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.35);font-weight:800;margin-bottom:12px;">Kader-Vergleich</div>' +
       rows + '</div>';
   }
 
