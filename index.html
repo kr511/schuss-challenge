@@ -2405,64 +2405,9 @@
           <button class="v10-notif-tab" data-filter="liga" onclick="filterNotifications(this,'liga')">Liga</button>
           <button class="v10-notif-tab" data-filter="erfolge" onclick="filterNotifications(this,'erfolge')">Erfolge</button>
         </div>
-      <!-- Notifications List -->
-      <div class="v10-notif-list">
-        <div class="v10-notif-section-label">HEUTE</div>
-
-        <div class="v10-notif-item" data-type="duelle">
-          <div class="v10-notif-icon v10-notif-icon-duel">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </div>
-          <div class="v10-notif-body">
-            <div class="v10-notif-text">MaxMuster fördert dich heraus</div>
-            <div class="v10-notif-sub">LG40: Schüsse 1 · Läuft noch: 20 Stunden</div>
-          </div>
-          <button class="v10-notif-action-btn" onclick="closeNotifications();switchTab('challenges')">Annehmen</button>
-        </div>
-
-        <div class="v10-notif-item" data-type="club">
-          <div class="v10-notif-icon v10-notif-icon-win">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="v10-notif-body">
-            <div class="v10-notif-text">Club-Match abgeschlossen: SV Präzision gewonnen!</div>
-            <div class="v10-notif-sub">LM40 → LG50: gegen SC Berlin</div>
-          </div>
-        </div>
-
-        <div class="v10-notif-item" data-type="erfolge">
-          <div class="v10-notif-icon v10-notif-icon-achievement">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          </div>
-          <div class="v10-notif-body">
-            <div class="v10-notif-text">Erfolg freigeschaltet: Sarien-Meister</div>
-            <div class="v10-notif-sub">50 Siege in Serie → +300 XP</div>
-          </div>
-        </div>
-
-        <div class="v10-notif-item" data-type="liga">
-          <div class="v10-notif-icon v10-notif-icon-timer">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          </div>
-          <div class="v10-notif-body">
-            <div class="v10-notif-text">Saison-Ende in 7 Tagen!</div>
-            <div class="v10-notif-sub">Division 1: SV Präzision auf Platz #3</div>
-          </div>
-        </div>
-
-        <div class="v10-notif-section-label">GESTERN</div>
-
-        <div class="v10-notif-item" data-type="duelle">
-          <div class="v10-notif-icon v10-notif-icon-win">
-            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="v10-notif-body">
-            <div class="v10-notif-text">Duel abgeschlossen — Sieg!</div>
-            <div class="v10-notif-sub">356.4 vs. Bot 340.2</div>
-          </div>
-        </div>
-
-        <div id="notifDynamic"></div>
+      <!-- Notifications List — fully JS-rendered by NotifStore -->
+      <div class="v10-notif-list" id="notifList">
+        <div class="v10-notif-empty">Benachrichtigungen werden geladen…</div>
       </div>
       <button class="v10-notif-settings-link" onclick="if(window.ProfileSettings&&window.ProfileSettings.open){closeNotifications();window.ProfileSettings.open();}">
         Benachrichtigungseinstellungen verwalten →
@@ -2604,13 +2549,265 @@
 
   <!-- V1.0 JS: overlay helpers + notifications logic -->
   <script>
+    /* ═══════════════════════════════════════
+       NOTIFICATION STORE
+    ═══════════════════════════════════════ */
+    (function() {
+      'use strict';
+
+      var KEY = 'sd_notifications_v1';
+      var _knownChallengeIds = new Set();
+
+      function _esc(s) {
+        return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      }
+
+      var ICONS = {
+        duelle: {
+          cls: 'v10-notif-icon-duel',
+          svg: '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+        },
+        win: {
+          cls: 'v10-notif-icon-win',
+          svg: '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+        },
+        erfolge: {
+          cls: 'v10-notif-icon-achievement',
+          svg: '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'
+        },
+        liga: {
+          cls: 'v10-notif-icon-timer',
+          svg: '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+        },
+        freunde: {
+          cls: 'v10-notif-icon-win',
+          svg: '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/></svg>'
+        }
+      };
+
+      function _iconFor(type) {
+        return ICONS[type] || ICONS.duelle;
+      }
+
+      function getAll() {
+        try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch(e) { return []; }
+      }
+
+      function save(arr) {
+        try { localStorage.setItem(KEY, JSON.stringify(arr.slice(0, 60))); } catch(e) {}
+      }
+
+      function add(type, title, sub, opts) {
+        opts = opts || {};
+        var arr = getAll();
+        /* Dedup: same title+sub within 10 minutes */
+        var exists = arr.find(function(n) {
+          return n.title === title && n.sub === sub && (Date.now() - n.ts) < 600000;
+        });
+        if (exists) return;
+        arr.unshift({ id: Date.now() + '_' + Math.random(), type: type, title: title, sub: sub,
+                      ts: Date.now(), read: false,
+                      actionLabel: opts.actionLabel || null,
+                      actionFn:    opts.actionFn    || null });
+        save(arr);
+        renderBadge();
+        render();
+      }
+
+      function markAllRead() {
+        var arr = getAll().map(function(n) { return Object.assign({}, n, { read: true }); });
+        save(arr);
+        renderBadge();
+        render();
+      }
+
+      function renderBadge() {
+        var unread = getAll().filter(function(n) { return !n.read; }).length;
+        ['notifBellBadge','infoBellBadge'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.style.display = unread ? '' : 'none';
+        });
+        var dot = document.getElementById('notifMainDot');
+        if (dot) dot.style.display = unread ? '' : 'none';
+      }
+
+      function _timeAgo(ts) {
+        var diff = Date.now() - ts;
+        var m = Math.floor(diff / 60000);
+        if (m < 1)  return 'jetzt';
+        if (m < 60) return m + ' min';
+        var h = Math.floor(diff / 3600000);
+        if (h < 24) return h + ' h';
+        return Math.floor(diff / 86400000) + ' d';
+      }
+
+      function _renderItem(n, filter) {
+        if (filter && filter !== 'alle' && n.type !== filter) return '';
+        var ico = _iconFor(n.type === 'duelle' && n.isWin ? 'win' : n.type);
+        var action = n.actionLabel
+          ? '<button class="v10-notif-action-btn" onclick="' + _esc(n.actionFn) + '">' + _esc(n.actionLabel) + '</button>'
+          : '';
+        var opacity = n.read ? 'opacity:0.55;' : '';
+        return '<div class="v10-notif-item" data-type="' + _esc(n.type) + '" style="' + opacity + '">'
+          + '<div class="v10-notif-icon ' + ico.cls + '">' + ico.svg + '</div>'
+          + '<div class="v10-notif-body">'
+          +   '<div class="v10-notif-text">' + _esc(n.title) + '</div>'
+          +   '<div class="v10-notif-sub">' + _esc(n.sub) + ' <span style="color:rgba(255,255,255,0.25);margin-left:4px;">' + _timeAgo(n.ts) + '</span></div>'
+          + '</div>'
+          + action
+          + '</div>';
+      }
+
+      function render(filter) {
+        var list = document.getElementById('notifList');
+        if (!list) return;
+        var arr = getAll();
+        if (arr.length === 0) {
+          list.innerHTML = '<div class="v10-notif-empty">Keine Benachrichtigungen</div>';
+          return;
+        }
+        var today = new Date().toDateString();
+        var todayItems  = arr.filter(function(n) { return new Date(n.ts).toDateString() === today; });
+        var olderItems  = arr.filter(function(n) { return new Date(n.ts).toDateString() !== today; });
+        var html = '';
+        var rendered = 0;
+        if (todayItems.length) {
+          var rows = todayItems.map(function(n) { return _renderItem(n, filter); }).filter(Boolean);
+          if (rows.length) { html += '<div class="v10-notif-section-label">HEUTE</div>' + rows.join(''); rendered += rows.length; }
+        }
+        if (olderItems.length) {
+          var rows2 = olderItems.slice(0,15).map(function(n) { return _renderItem(n, filter); }).filter(Boolean);
+          if (rows2.length) { html += '<div class="v10-notif-section-label">ÄLTER</div>' + rows2.join(''); rendered += rows2.length; }
+        }
+        list.innerHTML = rendered ? html : '<div class="v10-notif-empty">Keine Benachrichtigungen in dieser Kategorie</div>';
+      }
+
+      /* ── Sync incoming async challenges as notifications ── */
+      function syncChallengeNotifs() {
+        var AC = window.AsyncChallenge;
+        if (!AC || typeof AC.getState !== 'function') return;
+        var st = AC.getState();
+
+        /* Incoming (available) challenges */
+        (st.availableChallenges || []).forEach(function(c) {
+          if (_knownChallengeIds.has(c.id)) return;
+          _knownChallengeIds.add(c.id);
+          var from = c.fromUsername || c.creatorUsername || 'Jemand';
+          var disc = c.disciplineName || c.discipline || 'Duell';
+          var cid  = String(c.id || c.challengeId || '');
+          add('duelle',
+            from + ' fördert dich heraus',
+            disc + ' · Läuft noch: 20 Stunden',
+            {
+              actionLabel: 'Annehmen',
+              actionFn: 'closeNotifications();window.AsyncChallenge&&window.AsyncChallenge.acceptChallenge&&window.AsyncChallenge.acceptChallenge(' + JSON.stringify(cid) + ');switchTab(\'challenges\')'
+            }
+          );
+        });
+
+        /* Recently completed challenges */
+        (st.myChallenges || []).forEach(function(c) {
+          if (c.status !== 'completed' && c.status !== 'finished') return;
+          var key = 'done_' + c.id;
+          if (_knownChallengeIds.has(key)) return;
+          _knownChallengeIds.add(key);
+          var opp  = c.friendUsername || c.opponentUsername || 'Gegner';
+          var myPts = parseFloat(c.myScore || c.playerScore || 0).toFixed(1);
+          var oppPts = parseFloat(c.opponentScore || c.friendScore || 0).toFixed(1);
+          var isWin = parseFloat(myPts) > parseFloat(oppPts);
+          add('duelle',
+            'Challenge abgeschlossen gegen ' + opp,
+            myPts + ' vs. ' + oppPts + ' Ringe · ' + (isWin ? 'Sieg! 🏆' : 'Niederlage'),
+            { isWin: isWin }
+          );
+        });
+      }
+
+      /* ── Patch AsyncChallenge.createChallenge to add outgoing notification ── */
+      function patchAsyncChallenge() {
+        var AC = window.AsyncChallenge;
+        if (!AC || typeof AC.createChallenge !== 'function' || AC._notifPatched) return;
+        AC._notifPatched = true;
+        var orig = AC.createChallenge.bind(AC);
+        AC.createChallenge = function(friendId, friendUsername) {
+          var p = orig(friendId, friendUsername);
+          if (p && typeof p.then === 'function') {
+            p.then(function(result) {
+              if (result !== false) {
+                var name = friendUsername || 'Freund';
+                var disc = (window.G && window.G.discipline) ? window.G.discipline : 'Duell';
+                add('duelle', 'Du hast ' + name + ' herausgefordert', disc + ' · Warte auf Antwort');
+              }
+            });
+          }
+          return p;
+        };
+      }
+
+      /* ── Patch FriendsSystem incoming requests ── */
+      function syncFriendRequestNotifs() {
+        var FS = window.FriendsSystem;
+        if (!FS || typeof FS.getIncomingRequests !== 'function') return;
+        (FS.getIncomingRequests() || []).forEach(function(r) {
+          var key = 'fr_' + (r.id || r.userId || r.fromUsername);
+          if (_knownChallengeIds.has(key)) return;
+          _knownChallengeIds.add(key);
+          var name = r.fromUsername || r.username || 'Jemand';
+          add('freunde',
+            name + ' möchte dich als Freund hinzufügen',
+            'Freundschaftsanfrage',
+            {
+              actionLabel: 'Annehmen',
+              actionFn: 'acceptFriendRequest(' + JSON.stringify(String(r.id||r.userId||'')) + ');closeNotifications();'
+            }
+          );
+        });
+      }
+
+      /* ── Public API ── */
+      window.NotifStore = {
+        add: add,
+        render: render,
+        renderBadge: renderBadge,
+        markAllRead: markAllRead,
+        syncChallengeNotifs: syncChallengeNotifs,
+        syncFriendRequestNotifs: syncFriendRequestNotifs,
+        patchAsyncChallenge: patchAsyncChallenge
+      };
+
+      /* Init after page load */
+      window.addEventListener('load', function() {
+        patchAsyncChallenge();
+        renderBadge();
+        /* Patch override if AC loaded late */
+        setTimeout(patchAsyncChallenge, 2000);
+        /* Periodic sync: every 30s while page open */
+        setInterval(function() {
+          syncChallengeNotifs();
+          syncFriendRequestNotifs();
+          renderBadge();
+        }, 30000);
+      });
+    })();
+
     /* ── Info Overlay (Benachrichtigungen + Updates) ── */
     window.openNotifications = function(tab) {
       var ov = document.getElementById('notificationsOverlay');
       if (ov) {
+        /* Sync real data before opening */
+        if (window.NotifStore) {
+          window.NotifStore.syncChallengeNotifs();
+          window.NotifStore.syncFriendRequestNotifs();
+          window.NotifStore.render('alle');
+          window.NotifStore.renderBadge();
+        }
         ov.style.display = 'flex';
         requestAnimationFrame(function(){ ov.classList.add('v10-overlay-open'); });
         switchInfoTab(tab || 'benachrichtigungen');
+        /* Reset filter tabs to "Alle" */
+        document.querySelectorAll('.v10-notif-tab').forEach(function(b){ b.classList.remove('active'); });
+        var alleTab = document.querySelector('.v10-notif-tab[data-filter="alle"]');
+        if (alleTab) alleTab.classList.add('active');
       }
     };
     window.closeNotifications = function() {
@@ -2636,17 +2833,12 @@
       }
     });
     window.markAllNotificationsRead = function() {
-      var dot = document.querySelector('.v10-notif-dot');
-      var badge = document.getElementById('notifBellBadge');
-      if (dot) dot.style.display = 'none';
-      if (badge) badge.style.display = 'none';
+      if (window.NotifStore) window.NotifStore.markAllRead();
     };
     window.filterNotifications = function(btn, filter) {
       document.querySelectorAll('.v10-notif-tab').forEach(function(b){ b.classList.remove('active'); });
       btn.classList.add('active');
-      document.querySelectorAll('.v10-notif-item').forEach(function(item){
-        item.style.display = (filter === 'alle' || item.dataset.type === filter) ? '' : 'none';
-      });
+      if (window.NotifStore) window.NotifStore.render(filter);
     };
 
     /* ── Premium ── */

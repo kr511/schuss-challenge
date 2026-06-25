@@ -3553,3 +3553,11 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
 .akt-avatar-chip.online {
   box-shadow: 0 0 0 2px #22c55e;
 }
+
+/* Notification empty state */
+.v10-notif-empty {
+  text-align: center;
+  color: rgba(255,255,255,0.3);
+  font-size: 0.83rem;
+  padding: 40px 20px;
+}
