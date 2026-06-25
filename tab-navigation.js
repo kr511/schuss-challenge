@@ -642,35 +642,137 @@
     feed.innerHTML = `<div class="faf-wrap"><div class="faf-title">Jetzt aktiv</div>${items}</div>`;
   }
 
-  function refreshAktivitaetenTab() {
-    /* Refresh friend avatars in the feed header */
-    const avatarScroll = document.getElementById('aktFriendAvatars');
-    if (avatarScroll && window.FriendsSystem) {
-      const friends = typeof window.FriendsSystem.getSortedFriends === 'function'
-        ? window.FriendsSystem.getSortedFriends()
-        : (window.FriendsSystem.getFriends ? window.FriendsSystem.getFriends() : []);
-      if (friends.length > 0) {
-        const colors = [
-          'rgba(34,197,94,0.25);color:#22c55e',
-          'rgba(255,149,0,0.25);color:#ff9500',
-          'rgba(0,195,255,0.25);color:#00c3ff',
-          'rgba(170,90,255,0.25);color:#aa5aff',
-          'rgba(255,74,74,0.25);color:#ff4a4a'
-        ];
-        avatarScroll.innerHTML = friends.slice(0, 5).map((f, i) => {
-          const letter = (f.username || f.name || '?').charAt(0).toUpperCase();
-          const col = colors[i % colors.length];
-          return `<div class="akt-avatar-chip" style="background:${col.split(';')[0].replace('rgba', 'rgba')};${col.split(';')[1]}">${escapeHtml(letter)}</div>`;
-        }).join('');
-      }
-    }
-    /* Also refresh the friends panel if open */
-    const panel = document.getElementById('aktFriendsPanel');
-    if (panel && panel.classList.contains('open')) {
-      refreshFreundeTab();
-    }
+  const _AKT_COLORS = [
+    { bg: 'rgba(34,197,94,0.2)',  fg: '#22c55e' },
+    { bg: 'rgba(255,149,0,0.2)',  fg: '#ff9500' },
+    { bg: 'rgba(0,195,255,0.2)',  fg: '#00c3ff' },
+    { bg: 'rgba(170,90,255,0.2)', fg: '#aa5aff' },
+    { bg: 'rgba(255,74,74,0.2)',  fg: '#ff4a4a' },
+  ];
+
+  function _aktTimeAgo(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - Number(ts);
+    const m = Math.floor(diff / 60000);
+    if (m < 60)  return m + ' min';
+    const h = Math.floor(diff / 3600000);
+    if (h < 24)  return h + ' h';
+    return Math.floor(diff / 86400000) + ' d';
   }
-  /* Public so other modules can call it */
+
+  function _aktReactions() {
+    return `<div class="akt-item-reactions">
+      <button class="akt-react-btn">🔥 <span>0</span></button>
+      <button class="akt-react-btn">❤️ <span>0</span></button>
+      <button class="akt-react-btn">👏 <span>0</span></button>
+    </div>`;
+  }
+
+  function refreshAktivitaetenTab() {
+    const avatarsRow  = document.getElementById('aktAvatarsRow');
+    const avatarScroll = document.getElementById('aktFriendAvatars');
+    const feed        = document.getElementById('aktFeed');
+    if (!feed) return;
+
+    /* ── Get friends ── */
+    const fs = window.FriendsSystem;
+    const friends = fs
+      ? (typeof fs.getSortedFriends === 'function' ? fs.getSortedFriends()
+       : typeof fs.getFriends       === 'function' ? fs.getFriends() : [])
+      : [];
+
+    /* ── No friends → empty state, hide everything else ── */
+    if (!friends || friends.length === 0) {
+      if (avatarsRow) avatarsRow.style.display = 'none';
+      feed.innerHTML = `
+        <div class="akt-empty">
+          <div class="akt-empty-icon">👥</div>
+          <div class="akt-empty-title">Noch keine Freunde</div>
+          <div class="akt-empty-sub">Füge Schützenkollegen hinzu, um ihre Aktivitäten hier zu sehen.</div>
+          <button class="akt-empty-btn" onclick="switchTab('freunde')">
+            Freunde hinzufügen →
+          </button>
+        </div>`;
+      return;
+    }
+
+    /* ── Friends exist → show avatar row ── */
+    if (avatarsRow) avatarsRow.style.display = '';
+    if (avatarScroll) {
+      avatarScroll.innerHTML = friends.slice(0, 7).map((f, i) => {
+        const letter = (f.username || f.name || '?').charAt(0).toUpperCase();
+        const c = _AKT_COLORS[i % _AKT_COLORS.length];
+        const isOnline = fs && typeof fs.isFriendOnline === 'function' ? fs.isFriendOnline(f) : f.isOnline;
+        return `<div class="akt-avatar-chip${isOnline ? ' online' : ''}" style="background:${c.bg};color:${c.fg};" title="${escapeHtml(f.username||f.name||'')}">${escapeHtml(letter)}</div>`;
+      }).join('');
+    }
+
+    /* ── Build feed items ── */
+    const items = [];
+
+    /* Own recent duels from localStorage */
+    try {
+      const history = JSON.parse(localStorage.getItem('sd_history') || '[]');
+      const me = (typeof StorageManager !== 'undefined' && StorageManager.getRaw('username')) || 'Du';
+      history.slice(0, 5).forEach(entry => {
+        const isWin  = entry.result === 'win';
+        const isLoss = entry.result === 'lose' || entry.result === 'loss';
+        const pts    = parseFloat(entry.playerPts || 0).toFixed(1);
+        const bpts   = parseFloat(entry.botPts || 0).toFixed(1);
+        const disc   = escapeHtml(entry.disciplineName || entry.discipline || 'Duell');
+        const ago    = _aktTimeAgo(entry.timestamp);
+        const initial = me.charAt(0).toUpperCase();
+        items.push(`
+          <div class="akt-item">
+            <div class="akt-item-avatar" style="background:rgba(34,197,94,0.2);color:#22c55e;">${escapeHtml(initial)}</div>
+            <div class="akt-item-body">
+              <div class="akt-item-meta">
+                <span class="akt-item-name">${escapeHtml(me)}</span>
+                <span class="akt-item-action">${isWin ? 'hat gewonnen' : isLoss ? 'hat verloren' : 'hat gespielt'}</span>
+                <span class="akt-item-time">${ago}</span>
+              </div>
+              <div class="akt-item-score">
+                <span class="akt-score-val" style="color:${isWin?'#22c55e':isLoss?'#ff4a4a':'rgba(255,255,255,0.7)'}">${pts}</span>
+                <span class="akt-score-sep">Ringe · ${disc}</span>
+                ${isWin ? `<span class="akt-score-bot">vs. Bot ${bpts}</span>` : ''}
+              </div>
+              ${_aktReactions()}
+            </div>
+          </div>`);
+      });
+    } catch(_e) {}
+
+    /* Friend "last seen" entries (bestScore shown) */
+    friends.slice(0, 5).forEach((f, i) => {
+      const name  = f.username || f.name || 'Unbekannt';
+      const best  = parseFloat(f.bestScore || f.score || 0);
+      const avg   = parseFloat(f.avgScore || f.avgRinge || 0);
+      if (best <= 0 && avg <= 0) return;
+      const c   = _AKT_COLORS[i % _AKT_COLORS.length];
+      const val = best > 0 ? best.toFixed(1) : avg.toFixed(1);
+      const lbl = best > 0 ? 'Bestes Ergebnis' : 'Ø Ringe';
+      const initial = name.charAt(0).toUpperCase();
+      items.push(`
+        <div class="akt-item">
+          <div class="akt-item-avatar" style="background:${c.bg};color:${c.fg};">${escapeHtml(initial)}</div>
+          <div class="akt-item-body">
+            <div class="akt-item-meta">
+              <span class="akt-item-name">${escapeHtml(name)}</span>
+              <span class="akt-item-action">· ${lbl}</span>
+            </div>
+            <div class="akt-item-score">
+              <span class="akt-score-val">${val}</span>
+              <span class="akt-score-sep">Ringe</span>
+            </div>
+            ${_aktReactions()}
+          </div>
+        </div>`);
+    });
+
+    feed.innerHTML = items.length
+      ? items.join('')
+      : '<div class="akt-empty"><div class="akt-empty-sub" style="padding:32px 16px;">Noch keine Aktivitäten. Spielt Duelle, um hier zu erscheinen!</div></div>';
+  }
   window.refreshAktivitaetenTab = refreshAktivitaetenTab;
 
   function refreshFreundeTab() {
