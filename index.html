@@ -253,14 +253,9 @@
         <div class="ah-greeting-sub">Bereit für dein nächstes Training?</div>
       </div>
       <div class="ah-actions" id="ahActions">
-        <button class="ah-icon-btn" id="updatesButton" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Updates" style="position:relative;">
+        <button class="ah-icon-btn" id="updatesButton" onclick="if(window.openNotifications)window.openNotifications('benachrichtigungen');" title="Benachrichtigungen &amp; Updates" style="position:relative;">
           <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-          <div id="updatesDropdown" style="display:none;position:absolute;top:52px;right:0;width:min(320px,calc(100vw - 40px));max-height:400px;background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);border-radius:16px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow-y:auto;z-index:10000;opacity:0;transform:translateY(-10px);transition:all 0.2s;">
-            <div style="padding:16px;">
-              <div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:12px;">🔔 UPDATES</div>
-              <div id="updatesDropdownContent"></div>
-            </div>
-          </div>
+          <span id="infoBellBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;background:#22c55e;border-radius:50%;border:2px solid #0a0a0a;"></span>
         </button>
       </div>
     </header>
@@ -2454,25 +2449,40 @@
 
   <!-- ══════════════════════ V1.0 OVERLAYS ══════════════════════ -->
 
-  <!-- BENACHRICHTIGUNGEN OVERLAY -->
+  <!-- INFO OVERLAY (Benachrichtigungen + Updates kombiniert) -->
   <div id="notificationsOverlay" class="v10-overlay" onclick="if(event.target===this)closeNotifications()" style="display:none;">
     <div class="v10-sheet v10-notifications-sheet">
       <div class="v10-sheet-handle"></div>
-      <div class="v10-notif-header">
-        <div class="v10-notif-title-row">
-          <span class="v10-notif-title">Benachrichtigungen</span>
-          <span class="v10-notif-dot"></span>
+
+      <!-- HAUPT-REITER: Benachrichtigungen | Updates -->
+      <div class="v10-info-maintabs">
+        <button class="v10-info-maintab active" id="mainTabBenachrichtigungen" onclick="switchInfoTab('benachrichtigungen')">
+          Benachrichtigungen
+          <span class="v10-info-maintab-dot" id="notifMainDot"></span>
+        </button>
+        <button class="v10-info-maintab" id="mainTabUpdates" onclick="switchInfoTab('updates')">
+          Updates
+          <span class="v10-info-maintab-dot" id="updatesMainDot" style="display:none;"></span>
+        </button>
+      </div>
+
+      <!-- PANEL: Benachrichtigungen -->
+      <div id="infoPanelBenachrichtigungen">
+        <div class="v10-notif-header">
+          <div class="v10-notif-title-row">
+            <span class="v10-notif-title">Benachrichtigungen</span>
+            <span class="v10-notif-dot"></span>
+          </div>
+          <button class="v10-notif-read-all" onclick="markAllNotificationsRead()">Alle gelesen</button>
         </div>
-        <button class="v10-notif-read-all" onclick="markAllNotificationsRead()">Alle gelesen</button>
-      </div>
-      <!-- Filter Tabs -->
-      <div class="v10-notif-tabs">
-        <button class="v10-notif-tab active" data-filter="alle" onclick="filterNotifications(this,'alle')">Alle</button>
-        <button class="v10-notif-tab" data-filter="duelle" onclick="filterNotifications(this,'duelle')">Duelle</button>
-        <button class="v10-notif-tab" data-filter="club" onclick="filterNotifications(this,'club')">Club</button>
-        <button class="v10-notif-tab" data-filter="liga" onclick="filterNotifications(this,'liga')">Liga</button>
-        <button class="v10-notif-tab" data-filter="erfolge" onclick="filterNotifications(this,'erfolge')">Erfolge</button>
-      </div>
+        <!-- Filter Tabs -->
+        <div class="v10-notif-tabs">
+          <button class="v10-notif-tab active" data-filter="alle" onclick="filterNotifications(this,'alle')">Alle</button>
+          <button class="v10-notif-tab" data-filter="duelle" onclick="filterNotifications(this,'duelle')">Duelle</button>
+          <button class="v10-notif-tab" data-filter="club" onclick="filterNotifications(this,'club')">Club</button>
+          <button class="v10-notif-tab" data-filter="liga" onclick="filterNotifications(this,'liga')">Liga</button>
+          <button class="v10-notif-tab" data-filter="erfolge" onclick="filterNotifications(this,'erfolge')">Erfolge</button>
+        </div>
       <!-- Notifications List -->
       <div class="v10-notif-list">
         <div class="v10-notif-section-label">HEUTE</div>
@@ -2535,6 +2545,20 @@
       <button class="v10-notif-settings-link" onclick="if(window.ProfileSettings&&window.ProfileSettings.open){closeNotifications();window.ProfileSettings.open();}">
         Benachrichtigungseinstellungen verwalten →
       </button>
+      </div><!-- /infoPanelBenachrichtigungen -->
+
+      <!-- PANEL: Updates -->
+      <div id="infoPanelUpdates" style="display:none;">
+        <div class="v10-notif-header">
+          <div class="v10-notif-title-row">
+            <span class="v10-notif-title">Updates</span>
+          </div>
+        </div>
+        <div class="v10-updates-list" id="updatesDropdownContent">
+          <div class="v10-updates-empty">Keine neuen Updates</div>
+        </div>
+      </div><!-- /infoPanelUpdates -->
+
     </div>
   </div>
 
@@ -2658,15 +2682,37 @@
 
   <!-- V1.0 JS: overlay helpers + notifications logic -->
   <script>
-    /* ── Notifications ── */
-    window.openNotifications = function() {
+    /* ── Info Overlay (Benachrichtigungen + Updates) ── */
+    window.openNotifications = function(tab) {
       var ov = document.getElementById('notificationsOverlay');
-      if (ov) { ov.style.display = 'flex'; requestAnimationFrame(function(){ ov.classList.add('v10-overlay-open'); }); }
+      if (ov) {
+        ov.style.display = 'flex';
+        requestAnimationFrame(function(){ ov.classList.add('v10-overlay-open'); });
+        switchInfoTab(tab || 'benachrichtigungen');
+      }
     };
     window.closeNotifications = function() {
       var ov = document.getElementById('notificationsOverlay');
       if (ov) { ov.classList.remove('v10-overlay-open'); setTimeout(function(){ ov.style.display = 'none'; }, 280); }
     };
+    window.switchInfoTab = function(tab) {
+      var panels = { benachrichtigungen: 'infoPanelBenachrichtigungen', updates: 'infoPanelUpdates' };
+      var tabs   = { benachrichtigungen: 'mainTabBenachrichtigungen',   updates: 'mainTabUpdates' };
+      Object.keys(panels).forEach(function(k) {
+        var p = document.getElementById(panels[k]);
+        var t = document.getElementById(tabs[k]);
+        if (p) p.style.display = (k === tab) ? '' : 'none';
+        if (t) t.classList.toggle('active', k === tab);
+      });
+    };
+    /* Patch UpdatesSystem so its toggleUpdates opens our combined overlay on the Updates tab */
+    document.addEventListener('DOMContentLoaded', function() {
+      var orig = window.UpdatesSystem;
+      if (orig && orig.toggleUpdates) {
+        orig._origToggle = orig.toggleUpdates;
+        orig.toggleUpdates = function() { window.openNotifications('updates'); };
+      }
+    });
     window.markAllNotificationsRead = function() {
       var dot = document.querySelector('.v10-notif-dot');
       var badge = document.getElementById('notifBellBadge');

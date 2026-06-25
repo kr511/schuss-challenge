@@ -3453,3 +3453,59 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   color: rgba(255,255,255,0.25);
 }
 
+
+/* ── Info Overlay: Haupt-Reiter ── */
+.v10-info-maintabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin: 0 0 4px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+.v10-info-maintab {
+  flex: 1;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 10px 8px 12px;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: color 0.2s;
+  font-family: inherit;
+}
+.v10-info-maintab.active {
+  color: #fff;
+}
+.v10-info-maintab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 12%;
+  right: 12%;
+  height: 2px;
+  background: #22c55e;
+  border-radius: 2px;
+}
+.v10-info-maintab-dot {
+  width: 7px; height: 7px;
+  background: #22c55e;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.v10-updates-list {
+  overflow-y: auto;
+  padding: 8px 0 16px;
+}
+.v10-updates-empty {
+  text-align: center;
+  color: rgba(255,255,255,0.3);
+  font-size: 0.85rem;
+  padding: 32px 16px;
+}

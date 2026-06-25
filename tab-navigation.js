@@ -20,13 +20,9 @@
       start: {
         left: `<div class="ah-greeting-title">Hallo, ${escapeHtml(username)}! 👋</div>
                <div class="ah-greeting-sub">Bereit für dein nächstes Training?</div>`,
-        right: `<button class="ah-icon-btn" onclick="if(window.openNotifications)window.openNotifications();" title="Benachrichtigungen" aria-label="Benachrichtigungen öffnen" style="position:relative;">
+        right: `<button class="ah-icon-btn" onclick="if(window.openNotifications)window.openNotifications('benachrichtigungen');" title="Benachrichtigungen &amp; Updates" aria-label="Benachrichtigungen und Updates öffnen" style="position:relative;">
                   <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                   <span id="notifBellBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;background:#22c55e;border-radius:50%;border:2px solid #0a0a0a;"></span>
-                </button>
-                <button class="ah-icon-btn" id="updatesButton" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Updates" style="position:relative;">
-                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                  <div id="updatesDropdown" style="display:none;position:absolute;top:52px;right:0;width:min(320px,calc(100vw - 40px));max-height:400px;background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);border-radius:16px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow-y:auto;z-index:10000;opacity:0;transform:translateY(-10px);transition:all 0.2s;"><div style="padding:16px;"><div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:12px;">🔔 UPDATES</div><div id="updatesDropdownContent"></div></div></div>
                 </button>`
       },
       freunde: {
