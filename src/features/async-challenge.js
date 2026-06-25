@@ -236,7 +236,25 @@ const AsyncChallenge = (function() {
       }
       const challenge = mapSupabaseChallenge(result.challenge, 'available');
       state.currentChallenge = challenge;
-      startChallengeDuel(challenge);
+
+      // Creator's score laden, damit User B es sehen kann
+      let creatorScore = null;
+      if (hasSupabaseSocial() && typeof window.SupabaseSocial.loadChallengeResults === 'function') {
+        try {
+          const results = await window.SupabaseSocial.loadChallengeResults(challengeId);
+          const creatorResult = results.find(r => r.challengerId === challenge.creatorId);
+          if (creatorResult) creatorScore = Number(creatorResult.score);
+        } catch (e) {
+          console.warn('[AsyncChallenge] loadChallengeResults failed:', e);
+        }
+      }
+
+      if (typeof MultiplayerFlow !== 'undefined' && typeof MultiplayerFlow.showPendingChallenge === 'function') {
+        closeChallengesOverlay();
+        MultiplayerFlow.showPendingChallenge(challenge, creatorScore);
+      } else {
+        startChallengeDuel(challenge);
+      }
       showChallengeToast('⚔️ Challenge von ' + (challenge.creatorUsername || 'Spieler') + ' angenommen!', 'success');
       haptic('strong');
       return true;
@@ -699,6 +717,7 @@ const AsyncChallenge = (function() {
     createChallenge,
     acceptChallenge,
     submitResult,
+    compareResults,
     showChallengesOverlay,
     closeChallengesOverlay,
     addChallengeButton,

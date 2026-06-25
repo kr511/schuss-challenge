@@ -14,7 +14,8 @@
     mode: 'bot',
     weapon: 'lg',
     discipline: 'lg40',
-    difficulty: 'easy'
+    difficulty: 'easy',
+    selectedFriend: null
   };
 
 
@@ -313,11 +314,66 @@
     `;
   }
 
+  function renderFriendSelectionSection() {
+    const friends = (typeof SocialSystem !== 'undefined') ? SocialSystem.getFriends() : [];
+
+    if (friends.length === 0) {
+      return `
+        <section class="duel-section">
+          <div class="duel-section-title"><span class="duel-section-icon">👥</span>2. FREUND AUSWÄHLEN</div>
+          <div class="duel-hint"><span class="duel-hint-icon">i</span><span>Noch keine Freunde vorhanden. Füge Freunde im Freunde-Tab hinzu.</span></div>
+        </section>
+      `;
+    }
+
+    return `
+      <section class="duel-section">
+        <div class="duel-section-title"><span class="duel-section-icon">👥</span>2. FREUND AUSWÄHLEN</div>
+        <div class="duel-option-grid two">
+          ${friends.map(f => `
+            <button class="duel-card ${state.selectedFriend && state.selectedFriend.uid === f.uid ? 'selected' : ''}"
+              data-uid="${escapeHtml(f.uid)}" data-username="${escapeHtml(f.username)}"
+              data-action="select-friend" type="button">
+              ${renderCheck()}
+              <span class="duel-card-icon" aria-hidden="true" style="font-size:1.2rem;font-weight:900;">${escapeHtml(f.username.charAt(0).toUpperCase())}</span>
+              <span>
+                <span class="duel-card-title">${escapeHtml(f.username)}</span>
+                <span class="duel-card-sub">Freund</span>
+              </span>
+            </button>
+          `).join('')}
+        </div>
+      </section>
+    `;
+  }
+
   function renderSummarySection() {
     const disc = getActiveDiscipline();
+    const isMulti = state.mode === 'multiplayer';
+
+    if (isMulti) {
+      const friendName = state.selectedFriend ? state.selectedFriend.username : '—';
+      return `
+        <section class="duel-section">
+          <div class="duel-section-title"><span class="duel-section-icon">▣</span>4. AKTIVE AUSWAHL</div>
+          <div class="duel-summary-card">
+            <div class="duel-summary-target" aria-hidden="true"></div>
+            <div class="duel-summary-text">
+              <div class="duel-summary-main">
+                <span class="lime">${escapeHtml(disc.label)}</span><span class="dot">·</span><span class="cyan">${disc.shots} Schuss</span>
+              </div>
+              <div class="duel-summary-line">👥 Gegner: <b>${escapeHtml(friendName)}</b></div>
+              <div class="duel-summary-line">📏 Entfernung: <b>${escapeHtml(disc.dist)} m</b></div>
+            </div>
+          </div>
+          <div class="duel-hint"><span class="duel-hint-icon">i</span><span>Du gibst dein echtes Schieß-Ergebnis ein. Dein Freund schickt dann sein Ergebnis und der Gewinner wird ermittelt.</span></div>
+          <button class="duel-start-btn" onclick="DuelSetupRuntime.startDuel()" type="button">⚔️ HERAUSFORDERN</button>
+        </section>
+      `;
+    }
+
     const diff = getActiveDifficulty();
     const target = getTargetLabel();
-
     return `
       <section class="duel-section">
         <div class="duel-section-title"><span class="duel-section-icon">▣</span>5. AKTIVE AUSWAHL</div>
@@ -339,14 +395,16 @@
   }
 
   function renderOverview() {
+    const isMulti = state.mode === 'multiplayer';
     return `
       <div class="duel-runtime">
         <div class="duel-grabber" aria-hidden="true"></div>
         ${renderHeader()}
         ${renderModeSection()}
+        ${isMulti ? renderFriendSelectionSection() : ''}
         ${renderWeaponSection()}
         ${renderDisciplineSection()}
-        ${renderDifficultySection()}
+        ${isMulti ? '' : renderDifficultySection()}
         ${renderSummarySection()}
         <div id="duelStartError" class="duel-start-error" style="display:none"></div>
       </div>
@@ -367,14 +425,6 @@
 
   function renderSettings(mode) {
     if (mode) state.mode = mode === 'multiplayer' ? 'multiplayer' : 'bot';
-    if (state.mode === 'multiplayer') {
-      state.mode = 'bot';
-      setTimeout(() => {
-        const msg = 'Multiplayer ist noch nicht stabil. Bot-Modus wird geöffnet.';
-        if (typeof showEngagementToast === 'function') showEngagementToast(msg, 4000);
-        else alert(msg);
-      }, 0);
-    }
 
     ensureValidDisciplineForWeapon();
     const modeSelection = byId('gameModeSelection');
@@ -429,8 +479,37 @@
   }
 
   function startDuel() {
-    syncGameState();
     applyLayoutGuards();
+
+    if (state.mode === 'multiplayer') {
+      const hasLogin = !!(window.SupabaseSession && window.SupabaseSession.user);
+      if (!hasLogin) {
+        showStartError('Login erforderlich für Multiplayer-Duelle');
+        return false;
+      }
+      if (!state.selectedFriend) {
+        showStartError('Bitte wähle zuerst einen Freund aus');
+        return false;
+      }
+      if (typeof MultiplayerFlow === 'undefined' || typeof MultiplayerFlow.showResultEntry !== 'function') {
+        showStartError('Multiplayer-Modul nicht geladen. Bitte Seite neu laden.');
+        return false;
+      }
+      ensureValidDisciplineForWeapon();
+      const disc = getActiveDiscipline();
+      closeOverlayImmediately();
+      MultiplayerFlow.showResultEntry({
+        friendId: state.selectedFriend.uid,
+        friendUsername: state.selectedFriend.username,
+        weapon: state.weapon,
+        discipline: state.discipline,
+        distance: disc.dist,
+        shots: disc.shots,
+      });
+      return true;
+    }
+
+    syncGameState();
 
     const startButton = document.querySelector('.duel-start-btn');
     if (startButton) {
@@ -472,6 +551,7 @@
     startDuel,
     setMode(mode) {
       state.mode = mode === 'multiplayer' ? 'multiplayer' : 'bot';
+      if (mode !== 'multiplayer') state.selectedFriend = null;
       renderSettings(state.mode);
     },
     setWeapon(weapon) {
@@ -489,6 +569,10 @@
     },
     setDifficulty(difficulty) {
       state.difficulty = difficulties[difficulty] ? difficulty : 'easy';
+      renderSettings(state.mode);
+    },
+    selectFriend(uid, username) {
+      state.selectedFriend = { uid: String(uid), username: String(username) };
       renderSettings(state.mode);
     },
     getVisibleDisciplineKeys,
@@ -516,6 +600,12 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       renderSettings(botButton ? 'bot' : 'multiplayer');
+      return;
+    }
+    const friendBtn = event.target.closest && event.target.closest('[data-action="select-friend"]');
+    if (friendBtn) {
+      event.preventDefault();
+      api.selectFriend(friendBtn.dataset.uid, friendBtn.dataset.username);
     }
   }, true);
 
