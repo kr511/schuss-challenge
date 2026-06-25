@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  const TABS = ['start', 'training', 'challenges', 'freunde', 'profil'];
+  const TABS = ['start', 'freunde', 'aktivitaeten', 'challenges', 'profil'];
   let currentTab = 'start';
   let initialized = false;
   let filterDiscipline = 'alle';
@@ -20,20 +20,32 @@
       start: {
         left: `<div class="ah-greeting-title">Hallo, ${escapeHtml(username)}! 👋</div>
                <div class="ah-greeting-sub">Bereit für dein nächstes Training?</div>`,
-        right: `<button class="ah-icon-btn" id="updatesButton" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Updates" style="position:relative;">
+        right: `<button class="ah-icon-btn" onclick="if(window.openNotifications)window.openNotifications();" title="Benachrichtigungen" aria-label="Benachrichtigungen öffnen" style="position:relative;">
+                  <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  <span id="notifBellBadge" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;background:#22c55e;border-radius:50%;border:2px solid #0a0a0a;"></span>
+                </button>
+                <button class="ah-icon-btn" id="updatesButton" onclick="if(window.UpdatesSystem) window.UpdatesSystem.toggleUpdates();" title="Updates" style="position:relative;">
                   <svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                   <div id="updatesDropdown" style="display:none;position:absolute;top:52px;right:0;width:min(320px,calc(100vw - 40px));max-height:400px;background:linear-gradient(180deg,#1e293b 0%,#0f172a 100%);border-radius:16px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow-y:auto;z-index:10000;opacity:0;transform:translateY(-10px);transition:all 0.2s;"><div style="padding:16px;"><div style="color:#fff;font-weight:700;font-size:1rem;margin-bottom:12px;">🔔 UPDATES</div><div id="updatesDropdownContent"></div></div></div>
                 </button>`
       },
-      training: {
-        left: `<div class="ah-page-title">Training</div>
-               <div class="ah-page-sub">Verbessere dich. Jeden Schuss.</div>`,
-        right: `<button class="ah-icon-btn" onclick="filterTraining()" title="Filter" style="position:relative;">
-                  <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                  <span id="trainingFilterBadge" style="display:none;position:absolute;top:4px;right:4px;background:var(--accent);color:#000;font-size:0.55rem;font-weight:700;border-radius:8px;padding:1px 4px;line-height:1.4;"></span>
+      freunde: {
+        left: `<div class="ah-page-title" style="display:flex;align-items:center;gap:8px;">Freunde
+                 <svg viewBox="0 0 24 24" style="width:22px;height:22px;stroke:rgba(255,255,255,0.5);fill:none;stroke-width:2;margin-bottom:2px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+               </div>
+               <div class="ah-page-sub">Trainiere zusammen. Fordere Freunde heraus.</div>`,
+        right: `<button class="ah-icon-btn" onclick="if(window.FriendsSystem) window.FriendsSystem.showFriendsOverlay();" title="Freund hinzufügen" aria-label="Freund per Code hinzufügen">
+                  <svg viewBox="0 0 24 24" width="22" height="22" style="width:22px;height:22px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                 </button>
-                <button class="ah-add-btn" onclick="openDuelSetup()" title="Neues Training">
-                  <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <button class="ah-icon-btn" id="friendSearchBtn" onclick="if(window.FriendSearch&&window.FriendSearch.open){window.FriendSearch.open();}" title="Suchen" aria-label="Spieler suchen">
+                  <svg viewBox="0 0 24 24" width="22" height="22" style="width:22px;height:22px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </button>`
+      },
+      aktivitaeten: {
+        left: `<div class="ah-page-title">Aktivitäten</div>
+               <div class="ah-page-sub">Von deinen Freunden · Social Feed</div>`,
+        right: `<button class="ah-icon-btn" onclick="if(window.FriendSearch&&window.FriendSearch.open){window.FriendSearch.open();}else if(window.FriendsSystem){window.FriendsSystem.showFriendsOverlay();}" title="Freund hinzufügen" aria-label="Freund per Code hinzufügen">
+                  <svg viewBox="0 0 24 24" width="22" height="22" style="width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
                 </button>`
       },
       challenges: {
@@ -102,11 +114,11 @@
 
     /* Tab-specific refresh */
     try {
-      if (tabId === 'start')     refreshStartTab();
-      if (tabId === 'training')  refreshTrainingTab();
-      if (tabId === 'challenges') refreshChallengesTab();
-      if (tabId === 'freunde')   refreshFreundeTab();
-      if (tabId === 'profil')    refreshProfilTab();
+      if (tabId === 'start')          refreshStartTab();
+      if (tabId === 'freunde')        refreshFreundeTab();
+      if (tabId === 'aktivitaeten')   refreshAktivitaetenTab();
+      if (tabId === 'challenges')     refreshChallengesTab();
+      if (tabId === 'profil')         refreshProfilTab();
     } catch(e) { /* silently ignore refresh errors */ }
   };
 
@@ -633,6 +645,37 @@
     }).join('');
     feed.innerHTML = `<div class="faf-wrap"><div class="faf-title">Jetzt aktiv</div>${items}</div>`;
   }
+
+  function refreshAktivitaetenTab() {
+    /* Refresh friend avatars in the feed header */
+    const avatarScroll = document.getElementById('aktFriendAvatars');
+    if (avatarScroll && window.FriendsSystem) {
+      const friends = typeof window.FriendsSystem.getSortedFriends === 'function'
+        ? window.FriendsSystem.getSortedFriends()
+        : (window.FriendsSystem.getFriends ? window.FriendsSystem.getFriends() : []);
+      if (friends.length > 0) {
+        const colors = [
+          'rgba(34,197,94,0.25);color:#22c55e',
+          'rgba(255,149,0,0.25);color:#ff9500',
+          'rgba(0,195,255,0.25);color:#00c3ff',
+          'rgba(170,90,255,0.25);color:#aa5aff',
+          'rgba(255,74,74,0.25);color:#ff4a4a'
+        ];
+        avatarScroll.innerHTML = friends.slice(0, 5).map((f, i) => {
+          const letter = (f.username || f.name || '?').charAt(0).toUpperCase();
+          const col = colors[i % colors.length];
+          return `<div class="akt-avatar-chip" style="background:${col.split(';')[0].replace('rgba', 'rgba')};${col.split(';')[1]}">${escapeHtml(letter)}</div>`;
+        }).join('');
+      }
+    }
+    /* Also refresh the friends panel if open */
+    const panel = document.getElementById('aktFriendsPanel');
+    if (panel && panel.classList.contains('open')) {
+      refreshFreundeTab();
+    }
+  }
+  /* Public so other modules can call it */
+  window.refreshAktivitaetenTab = refreshAktivitaetenTab;
 
   function refreshFreundeTab() {
     const container = document.getElementById('inlineFriendsList');

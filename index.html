@@ -472,6 +472,117 @@
         </div><!-- /page-content -->
       </div><!-- /tabTraining -->
 
+      <!-- ════ TAB: AKTIVITÄTEN ════ -->
+      <div class="tab-panel" id="tabAktivitaeten">
+        <div class="page-content">
+
+          <!-- Friend Avatars Row -->
+          <div class="akt-avatars-row">
+            <button class="akt-avatar-add" onclick="if(window.FriendSearch&&window.FriendSearch.open){window.FriendSearch.open();}else if(window.FriendsSystem){window.FriendsSystem.showFriendsOverlay();}" aria-label="Freund hinzufügen">
+              <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:#22c55e;fill:none;stroke-width:2.5;stroke-linecap:round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <div class="akt-avatars-scroll" id="aktFriendAvatars">
+              <!-- Rendered by JS -->
+              <div class="akt-avatar-chip" style="background:rgba(34,197,94,0.25);color:#22c55e;">M</div>
+              <div class="akt-avatar-chip" style="background:rgba(255,149,0,0.25);color:#ff9500;">A</div>
+              <div class="akt-avatar-chip" style="background:rgba(0,195,255,0.25);color:#00c3ff;">K</div>
+              <div class="akt-avatar-chip" style="background:rgba(170,90,255,0.25);color:#aa5aff;">L</div>
+            </div>
+          </div>
+
+          <!-- Activity Feed -->
+          <div class="akt-feed" id="aktFeed">
+
+            <!-- Feed Item: Duel Win -->
+            <div class="akt-item">
+              <div class="akt-item-avatar" style="background:rgba(34,197,94,0.2);color:#22c55e;">M</div>
+              <div class="akt-item-body">
+                <div class="akt-item-meta">
+                  <span class="akt-item-name">Max Muster</span>
+                  <span class="akt-item-action">hat gewonnen</span>
+                  <span class="akt-item-time">3h</span>
+                </div>
+                <div class="akt-item-score">
+                  <span class="akt-score-val">391.4</span>
+                  <span class="akt-score-sep">Ringe · vs. Bot</span>
+                  <span class="akt-score-bot">386.2</span>
+                </div>
+                <div class="akt-item-xp">+20 XP</div>
+                <div class="akt-item-reactions">
+                  <button class="akt-react-btn">🔥 <span>3</span></button>
+                  <button class="akt-react-btn">❤️ <span>1</span></button>
+                  <button class="akt-react-btn">👏 <span>2</span></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Feed Item: Achievement -->
+            <div class="akt-item">
+              <div class="akt-item-avatar" style="background:rgba(255,149,0,0.2);color:#ff9500;">A</div>
+              <div class="akt-item-body">
+                <div class="akt-item-meta">
+                  <span class="akt-item-name">Anna Schmitt</span>
+                  <span class="akt-item-action">hat einen Erfolg freigeschaltet</span>
+                  <span class="akt-item-time">5h</span>
+                </div>
+                <div class="akt-achievement-badge">
+                  <span class="akt-badge-icon">🏆</span>
+                  <div>
+                    <div class="akt-badge-name">Unbesigler</div>
+                    <div class="akt-badge-sub">Erfolg der Saison</div>
+                  </div>
+                </div>
+                <div class="akt-item-reactions">
+                  <button class="akt-react-btn">🔥 <span>5</span></button>
+                  <button class="akt-react-btn">⭐ <span>2</span></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Feed Item: Club Promotion -->
+            <div class="akt-item">
+              <div class="akt-item-avatar" style="background:rgba(0,195,255,0.2);color:#00c3ff;font-size:0.65rem;font-weight:700;">SV</div>
+              <div class="akt-item-body">
+                <div class="akt-item-meta">
+                  <span class="akt-item-name">SV Präzision</span>
+                  <span class="akt-item-action">ist aufgestiegen!</span>
+                  <span class="akt-item-time">1d</span>
+                </div>
+                <div class="akt-club-promo">
+                  <div class="akt-promo-badge">Division 2 → Division 1</div>
+                  <div class="akt-promo-sub">Saison 2026-3 · 7 Siege / Platz #1</div>
+                </div>
+                <div class="akt-item-reactions">
+                  <button class="akt-react-btn">🔥 <span>12</span></button>
+                  <button class="akt-react-btn">👏 <span>8</span></button>
+                  <button class="akt-react-btn">⭐ <span>4</span></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic feed items rendered by JS -->
+            <div id="aktFeedDynamic"></div>
+
+          </div><!-- /akt-feed -->
+
+          <!-- Freunde Management Section (collapsed by default) -->
+          <div class="akt-friends-section">
+            <button class="akt-friends-toggle" onclick="document.getElementById('aktFriendsPanel').classList.toggle('open')">
+              <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Freunde verwalten
+              <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;margin-left:auto"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="aktFriendsPanel" style="display:none;">
+              <button class="fi-add-btn" onclick="switchTab('freunde')" style="margin-top:8px;">
+                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Zum Freunde-Tab →
+              </button>
+            </div>
+          </div>
+
+        </div><!-- /page-content -->
+      </div><!-- /tabAktivitaeten -->
+
       <!-- ════ TAB: CHALLENGES ════ -->
       <div class="tab-panel" id="tabChallenges">
         <div class="page-content">
@@ -694,7 +805,7 @@
               <div class="ph2-info">
                 <div class="ph2-name-row">
                   <span class="ph2-name" id="ptProfileName">Schütze</span>
-                  <span class="plan-badge free" id="ptPlanBadge">Free</span>
+                  <span class="plan-badge free" id="ptPlanBadge" onclick="openPremiumModal()" style="cursor:pointer;" title="Upgrade zu Premium">Free ✨</span>
                 </div>
                 <div class="ph2-club" id="ptClub"></div>
                 <div id="ptFavDisc" style="display:none;margin-top:5px;"></div>
@@ -778,6 +889,15 @@
 
           <!-- Konto panel -->
           <div class="pt-stats-panel" id="ptKontoPanel" style="display:none">
+            <!-- Premium-Upgrade CTA -->
+            <button class="pt-konto-row" onclick="openPremiumModal()" style="background:linear-gradient(135deg,rgba(245,158,11,0.15),rgba(245,158,11,0.08));border:1px solid rgba(245,158,11,0.3);border-radius:var(--r-md);margin-bottom:4px;">
+              <div class="pt-konto-icon" style="background:rgba(245,158,11,0.2);font-size:18px;display:flex;align-items:center;justify-content:center;">✨</div>
+              <div class="pt-konto-text">
+                <div class="pt-konto-label" style="color:#f59e0b;">Premium werden</div>
+                <div class="pt-konto-sub">2,99 € / Monat · Jederzeit kündbar</div>
+              </div>
+              <svg class="pt-konto-chevron" viewBox="0 0 24 24" style="stroke:#f59e0b;"><polyline points="9,18 15,12 9,6"/></svg>
+            </button>
             <!-- Profil bearbeiten -->
             <button class="pt-konto-row" onclick="openAvatarPicker()">
               <div class="pt-konto-icon" style="background:rgba(34,197,94,0.15);">
@@ -2252,23 +2372,24 @@
       </div>
       <span class="bn-label">Start</span>
     </button>
-    <button class="bn-tab" data-tab="training" onclick="switchTab('training')">
+    <button class="bn-tab" data-tab="freunde" onclick="switchTab('freunde')">
       <div class="bn-icon-wrap">
-        <svg class="bn-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <svg class="bn-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       </div>
-      <span class="bn-label">Training</span>
+      <span class="bn-label">Freunde</span>
+    </button>
+    <button class="bn-tab" data-tab="aktivitaeten" onclick="switchTab('aktivitaeten')" style="position:relative;">
+      <div class="bn-icon-wrap">
+        <svg class="bn-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <span class="bn-label">Aktivitäten</span>
+      <span class="bn-badge" id="bnAktBadge" style="display:none;"></span>
     </button>
     <button class="bn-tab" data-tab="challenges" onclick="switchTab('challenges')">
       <div class="bn-icon-wrap">
         <svg class="bn-icon" viewBox="0 0 24 24"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l3.5 3.5"/><path d="M19 21l-3-3"/></svg>
       </div>
       <span class="bn-label">Challenges</span>
-    </button>
-    <button class="bn-tab" data-tab="freunde" onclick="switchTab('freunde')">
-      <div class="bn-icon-wrap">
-        <svg class="bn-icon" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </div>
-      <span class="bn-label">Freunde</span>
     </button>
     <button class="bn-tab" data-tab="profil" onclick="switchTab('profil')">
       <div class="bn-icon-wrap">
@@ -2330,6 +2451,269 @@
       <button class="tff-reset" onclick="resetTrainingFilter()">Filter zurücksetzen</button>
     </div>
   </div>
+
+  <!-- ══════════════════════ V1.0 OVERLAYS ══════════════════════ -->
+
+  <!-- BENACHRICHTIGUNGEN OVERLAY -->
+  <div id="notificationsOverlay" class="v10-overlay" onclick="if(event.target===this)closeNotifications()" style="display:none;">
+    <div class="v10-sheet v10-notifications-sheet">
+      <div class="v10-sheet-handle"></div>
+      <div class="v10-notif-header">
+        <div class="v10-notif-title-row">
+          <span class="v10-notif-title">Benachrichtigungen</span>
+          <span class="v10-notif-dot"></span>
+        </div>
+        <button class="v10-notif-read-all" onclick="markAllNotificationsRead()">Alle gelesen</button>
+      </div>
+      <!-- Filter Tabs -->
+      <div class="v10-notif-tabs">
+        <button class="v10-notif-tab active" data-filter="alle" onclick="filterNotifications(this,'alle')">Alle</button>
+        <button class="v10-notif-tab" data-filter="duelle" onclick="filterNotifications(this,'duelle')">Duelle</button>
+        <button class="v10-notif-tab" data-filter="club" onclick="filterNotifications(this,'club')">Club</button>
+        <button class="v10-notif-tab" data-filter="liga" onclick="filterNotifications(this,'liga')">Liga</button>
+        <button class="v10-notif-tab" data-filter="erfolge" onclick="filterNotifications(this,'erfolge')">Erfolge</button>
+      </div>
+      <!-- Notifications List -->
+      <div class="v10-notif-list">
+        <div class="v10-notif-section-label">HEUTE</div>
+
+        <div class="v10-notif-item" data-type="duelle">
+          <div class="v10-notif-icon v10-notif-icon-duel">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </div>
+          <div class="v10-notif-body">
+            <div class="v10-notif-text">MaxMuster fördert dich heraus</div>
+            <div class="v10-notif-sub">LG40: Schüsse 1 · Läuft noch: 20 Stunden</div>
+          </div>
+          <button class="v10-notif-action-btn" onclick="closeNotifications();switchTab('challenges')">Annehmen</button>
+        </div>
+
+        <div class="v10-notif-item" data-type="club">
+          <div class="v10-notif-icon v10-notif-icon-win">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="v10-notif-body">
+            <div class="v10-notif-text">Club-Match abgeschlossen: SV Präzision gewonnen!</div>
+            <div class="v10-notif-sub">LM40 → LG50: gegen SC Berlin</div>
+          </div>
+        </div>
+
+        <div class="v10-notif-item" data-type="erfolge">
+          <div class="v10-notif-icon v10-notif-icon-achievement">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </div>
+          <div class="v10-notif-body">
+            <div class="v10-notif-text">Erfolg freigeschaltet: Sarien-Meister</div>
+            <div class="v10-notif-sub">50 Siege in Serie → +300 XP</div>
+          </div>
+        </div>
+
+        <div class="v10-notif-item" data-type="liga">
+          <div class="v10-notif-icon v10-notif-icon-timer">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="v10-notif-body">
+            <div class="v10-notif-text">Saison-Ende in 7 Tagen!</div>
+            <div class="v10-notif-sub">Division 1: SV Präzision auf Platz #3</div>
+          </div>
+        </div>
+
+        <div class="v10-notif-section-label">GESTERN</div>
+
+        <div class="v10-notif-item" data-type="duelle">
+          <div class="v10-notif-icon v10-notif-icon-win">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="v10-notif-body">
+            <div class="v10-notif-text">Duel abgeschlossen — Sieg!</div>
+            <div class="v10-notif-sub">356.4 vs. Bot 340.2</div>
+          </div>
+        </div>
+
+        <div id="notifDynamic"></div>
+      </div>
+      <button class="v10-notif-settings-link" onclick="if(window.ProfileSettings&&window.ProfileSettings.open){closeNotifications();window.ProfileSettings.open();}">
+        Benachrichtigungseinstellungen verwalten →
+      </button>
+    </div>
+  </div>
+
+  <!-- PREMIUM MODAL -->
+  <div id="premiumOverlay" class="v10-overlay" onclick="if(event.target===this)closePremiumModal()" style="display:none;">
+    <div class="v10-sheet v10-premium-sheet">
+      <div class="v10-sheet-handle"></div>
+      <button class="v10-sheet-close" onclick="closePremiumModal()" aria-label="Schließen">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <!-- Features List -->
+      <div class="v10-premium-features">
+        <div class="v10-premium-feature">
+          <div class="v10-premium-feature-icon">🎨</div>
+          <div class="v10-premium-feature-text">
+            <div class="v10-premium-feature-name">Saison-Cosmetics</div>
+            <div class="v10-premium-feature-sub">Exklusive Titel, Profilrahmen, Badges</div>
+          </div>
+          <svg class="v10-premium-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="v10-premium-feature">
+          <div class="v10-premium-feature-icon">⚔️</div>
+          <div class="v10-premium-feature-text">
+            <div class="v10-premium-feature-name">Unlimitierte Challenges</div>
+            <div class="v10-premium-feature-sub">Frees max. 3 Challenges, Premium unbegrenzt</div>
+          </div>
+          <svg class="v10-premium-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <div class="v10-premium-feature">
+          <div class="v10-premium-feature-icon">🎯</div>
+          <div class="v10-premium-feature-text">
+            <div class="v10-premium-feature-name">Training &amp; Duells</div>
+            <div class="v10-premium-feature-sub">Immer Spaß für alle</div>
+          </div>
+          <svg class="v10-premium-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+      </div>
+
+      <!-- Social Proof -->
+      <div class="v10-premium-social">
+        <div class="v10-premium-social-avatars">
+          <span class="v10-soc-av" style="background:rgba(34,197,94,0.3);color:#22c55e;">M</span>
+          <span class="v10-soc-av" style="background:rgba(255,149,0,0.3);color:#ff9500;">A</span>
+          <span class="v10-soc-av" style="background:rgba(0,195,255,0.3);color:#00c3ff;">H</span>
+          <span class="v10-soc-av v10-soc-av-more">+</span>
+        </div>
+        <span class="v10-premium-social-text">847 Schützen sind Premium</span>
+      </div>
+
+      <!-- Price -->
+      <div class="v10-premium-price-block">
+        <div class="v10-premium-price">2,99 € <span class="v10-premium-period">/Monat</span></div>
+        <div class="v10-premium-sub">Jederzeit kündbar</div>
+      </div>
+
+      <!-- CTA -->
+      <button class="v10-premium-cta" onclick="handlePremiumUpgrade()">JETZT PREMIUM WERDEN</button>
+      <button class="v10-premium-free-link" onclick="closePremiumModal()">Kostenlos weiterspielen →</button>
+    </div>
+  </div>
+
+  <!-- KI-COACH MODAL -->
+  <div id="kiCoachOverlay" class="v10-overlay" onclick="if(event.target===this)closeKiCoach()" style="display:none;">
+    <div class="v10-sheet v10-kic-sheet">
+      <div class="v10-sheet-handle"></div>
+      <button class="v10-sheet-close" onclick="closeKiCoach()" aria-label="Schließen">
+        <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+
+      <!-- Alert Banners -->
+      <div class="v10-kic-banner v10-kic-banner-warn">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Konzentration lässt nach Schuss 25 nach
+      </div>
+      <div class="v10-kic-banner v10-kic-banner-good">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+        Erste 10 Schüsse konstant stark
+      </div>
+
+      <!-- Coach Header -->
+      <div class="v10-kic-header">
+        <div class="v10-kic-avatar">🤖</div>
+        <div>
+          <div class="v10-kic-title">Dein KI-Coach</div>
+          <div class="v10-kic-subtitle">Personalisierter Trainingsplan</div>
+        </div>
+      </div>
+
+      <!-- Analysis -->
+      <div class="v10-kic-analysis">
+        Ich sehe, dass deine Schüsse 12 und 13 im Schnitt 0,4 Ringe unter deinem Gesamtdurchschnitt liegen. Das ist ein klassisches Zeichen von mentaler Ermüdung.
+      </div>
+      <button class="v10-kic-read-more" id="kicReadMoreBtn" onclick="toggleKicReadMore()">Mehr lesen →</button>
+      <div class="v10-kic-read-more-text" id="kicReadMoreText" style="display:none;">
+        Konzentriere dich bei Schuss 10–15 bewusst auf deinen Abzug und Atemanhalten. Kurze mentale Pausen nach Schuss 10 helfen, die Konzentration zu halten.
+      </div>
+
+      <!-- Wochenplan -->
+      <div class="v10-kic-plan-label">WOCHENPLAN</div>
+      <div class="v10-kic-plan-grid">
+        <div class="v10-kic-plan-tile">
+          <div class="v10-kic-plan-name">Schuss 10–15 Fokus</div>
+          <div class="v10-kic-plan-dur">20 Minuten</div>
+        </div>
+        <div class="v10-kic-plan-tile">
+          <div class="v10-kic-plan-name">Abschlusscheck</div>
+          <div class="v10-kic-plan-dur">15 Minuten</div>
+        </div>
+        <div class="v10-kic-plan-tile">
+          <div class="v10-kic-plan-name">Visualisierung</div>
+          <div class="v10-kic-plan-dur">10 Minuten</div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <button class="v10-kic-cta" onclick="closeKiCoach();openDuelSetup()">Training jetzt starten →</button>
+      <div class="v10-kic-footer">Analyse basierend auf den 20 letzten Trainings</div>
+    </div>
+  </div>
+
+  <!-- V1.0 JS: overlay helpers + notifications logic -->
+  <script>
+    /* ── Notifications ── */
+    window.openNotifications = function() {
+      var ov = document.getElementById('notificationsOverlay');
+      if (ov) { ov.style.display = 'flex'; requestAnimationFrame(function(){ ov.classList.add('v10-overlay-open'); }); }
+    };
+    window.closeNotifications = function() {
+      var ov = document.getElementById('notificationsOverlay');
+      if (ov) { ov.classList.remove('v10-overlay-open'); setTimeout(function(){ ov.style.display = 'none'; }, 280); }
+    };
+    window.markAllNotificationsRead = function() {
+      var dot = document.querySelector('.v10-notif-dot');
+      var badge = document.getElementById('notifBellBadge');
+      if (dot) dot.style.display = 'none';
+      if (badge) badge.style.display = 'none';
+    };
+    window.filterNotifications = function(btn, filter) {
+      document.querySelectorAll('.v10-notif-tab').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.querySelectorAll('.v10-notif-item').forEach(function(item){
+        item.style.display = (filter === 'alle' || item.dataset.type === filter) ? '' : 'none';
+      });
+    };
+
+    /* ── Premium ── */
+    window.openPremiumModal = function() {
+      var ov = document.getElementById('premiumOverlay');
+      if (ov) { ov.style.display = 'flex'; requestAnimationFrame(function(){ ov.classList.add('v10-overlay-open'); }); }
+    };
+    window.closePremiumModal = function() {
+      var ov = document.getElementById('premiumOverlay');
+      if (ov) { ov.classList.remove('v10-overlay-open'); setTimeout(function(){ ov.style.display = 'none'; }, 280); }
+    };
+    window.handlePremiumUpgrade = function() {
+      closePremiumModal();
+      if (typeof window.showToast === 'function') window.showToast('Premium-Anfrage gesendet! Kontakt folgt.');
+      else alert('Premium-Funktion kommt in V1.1 – danke für dein Interesse!');
+    };
+
+    /* ── KI-Coach ── */
+    window.openKiCoach = function() {
+      var ov = document.getElementById('kiCoachOverlay');
+      if (ov) { ov.style.display = 'flex'; requestAnimationFrame(function(){ ov.classList.add('v10-overlay-open'); }); }
+    };
+    window.closeKiCoach = function() {
+      var ov = document.getElementById('kiCoachOverlay');
+      if (ov) { ov.classList.remove('v10-overlay-open'); setTimeout(function(){ ov.style.display = 'none'; }, 280); }
+    };
+    window.toggleKicReadMore = function() {
+      var el = document.getElementById('kicReadMoreText');
+      var btn = document.getElementById('kicReadMoreBtn');
+      if (!el) return;
+      var open = el.style.display !== 'none';
+      el.style.display = open ? 'none' : '';
+      if (btn) btn.textContent = open ? 'Mehr lesen →' : 'Weniger anzeigen ↑';
+    };
+  </script>
 
   <!-- ══════════════════════ CONSENT BANNER (§25 TDDDG) ══════════════════════ -->
   <div id="consentBanner" class="consent-banner" hidden aria-live="polite" role="dialog" aria-label="Datenschutz-Einwilligung">

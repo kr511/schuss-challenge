@@ -63,6 +63,10 @@
 > **B2B Vereinslizenz (50–150€/Jahr/Verein)** statt B2C Freemium (2,99€/Mo/Schütze).
 > Adoptions-Anker: Trainer-Dashboard. Viral-Loop: Club-vs-Club.
 > OCR-Feature erst nach Pilot-Evaluation (nicht in V1.0 versprochen).
+>
+> **Design-Screens (2026-06-25):** Aktivitäten-Tab (Social Feed), Benachrichtigungen-Center,
+> Premium-Modal, KI-Coach-Modal — alle 4 neuen Screens 1:1 nach Handoff implementiert.
+> Bottom Nav: Start | Training | Aktivitäten | Challenges | Profil.
 
 ---
 

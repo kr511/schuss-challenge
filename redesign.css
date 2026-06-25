@@ -3020,3 +3020,436 @@ body.tab-profil #btnOpenDuelSetup { display: none !important; }
   color: #ff4a4a;
   font-weight: 700;
 }
+
+/* ═══════════════════════════════════════════
+   V1.0 — AKTIVITÄTEN TAB (Social Feed)
+═══════════════════════════════════════════ */
+.akt-avatars-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0 12px;
+}
+.akt-avatar-add {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(34,197,94,0.15);
+  border: 1.5px dashed rgba(34,197,94,0.5);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.akt-avatar-add:active { background: rgba(34,197,94,0.25); }
+.akt-avatars-scroll {
+  display: flex; gap: 8px; overflow-x: auto; flex: 1;
+  scrollbar-width: none;
+}
+.akt-avatars-scroll::-webkit-scrollbar { display: none; }
+.akt-avatar-chip {
+  flex-shrink: 0;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 1rem;
+  border: 1.5px solid rgba(255,255,255,0.1);
+}
+
+/* Feed */
+.akt-feed { display: flex; flex-direction: column; gap: 0; }
+.akt-item {
+  display: flex; gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.akt-item:last-child { border-bottom: none; }
+.akt-item-avatar {
+  flex-shrink: 0;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 1rem;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.akt-item-body { flex: 1; min-width: 0; }
+.akt-item-meta {
+  display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.akt-item-name {
+  font-weight: 700; font-size: 0.88rem; color: #fff;
+}
+.akt-item-action {
+  font-size: 0.82rem; color: rgba(255,255,255,0.55);
+}
+.akt-item-time {
+  font-size: 0.72rem; color: rgba(255,255,255,0.3);
+  margin-left: auto;
+}
+.akt-item-score {
+  display: flex; align-items: baseline; gap: 4px;
+  margin-bottom: 6px;
+}
+.akt-score-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.4rem; color: #22c55e; line-height: 1;
+}
+.akt-score-sep { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+.akt-score-bot { font-size: 0.85rem; color: rgba(255,255,255,0.5); font-weight: 600; }
+.akt-item-xp {
+  display: inline-block;
+  background: rgba(34,197,94,0.2);
+  color: #22c55e;
+  font-size: 0.72rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 100px;
+  border: 1px solid rgba(34,197,94,0.3);
+  margin-bottom: 8px;
+}
+.akt-item-reactions {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.akt-react-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 100px;
+  padding: 3px 10px;
+  font-size: 0.78rem; color: rgba(255,255,255,0.6);
+  cursor: pointer; display: flex; align-items: center; gap: 4px;
+  transition: background 0.15s;
+}
+.akt-react-btn:active { background: rgba(255,255,255,0.13); }
+.akt-achievement-badge {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(255,200,64,0.1);
+  border: 1px solid rgba(255,200,64,0.2);
+  border-radius: 12px; padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.akt-badge-icon { font-size: 1.4rem; }
+.akt-badge-name { font-weight: 700; font-size: 0.88rem; color: #ffc840; }
+.akt-badge-sub { font-size: 0.72rem; color: rgba(255,255,255,0.4); margin-top: 2px; }
+.akt-club-promo { margin-bottom: 8px; }
+.akt-promo-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(0,195,255,0.15);
+  border: 1px solid rgba(0,195,255,0.25);
+  border-radius: 100px; padding: 3px 10px;
+  font-size: 0.78rem; font-weight: 700; color: #00c3ff;
+  margin-bottom: 4px;
+}
+.akt-promo-sub { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
+.akt-friends-section { margin-top: 16px; }
+.akt-friends-toggle {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 12px; padding: 12px 14px;
+  color: rgba(255,255,255,0.6); font-size: 0.85rem;
+  cursor: pointer; transition: background 0.2s;
+}
+.akt-friends-toggle:active { background: rgba(255,255,255,0.09); }
+#aktFriendsPanel { padding-top: 12px; }
+#aktFriendsPanel.open { display: block !important; }
+
+/* Bottom nav badge */
+.bn-badge {
+  position: absolute; top: 6px; right: 8px;
+  min-width: 16px; height: 16px;
+  background: #22c55e; color: #000;
+  border-radius: 100px; font-size: 0.6rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 4px; border: 2px solid #0a0a0a;
+}
+
+/* ═══════════════════════════════════════════
+   V1.0 — OVERLAY BASE (Notifications / Premium / KI-Coach)
+═══════════════════════════════════════════ */
+.v10-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,0.72);
+  display: none; align-items: flex-end; justify-content: center;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.v10-overlay.v10-overlay-open { opacity: 1; }
+.v10-sheet {
+  width: 100%; max-width: 480px;
+  background: #111;
+  border-radius: 24px 24px 0 0;
+  border: 1px solid rgba(255,255,255,0.08);
+  max-height: 88vh; overflow-y: auto;
+  padding: 0 20px 40px;
+  transform: translateY(60px);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.v10-overlay.v10-overlay-open .v10-sheet { transform: translateY(0); }
+.v10-sheet-handle {
+  width: 40px; height: 4px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px; margin: 12px auto 20px;
+}
+.v10-sheet-close {
+  position: absolute; top: 16px; right: 20px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.6); cursor: pointer;
+  border: none;
+}
+
+/* ═══════════════════════════════════════════
+   V1.0 — BENACHRICHTIGUNGEN OVERLAY
+═══════════════════════════════════════════ */
+.v10-notifications-sheet { position: relative; }
+.v10-notif-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.v10-notif-title-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.v10-notif-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem; letter-spacing: 0.05em; color: #fff;
+}
+.v10-notif-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34,197,94,0.7);
+}
+.v10-notif-read-all {
+  font-size: 0.78rem; color: rgba(255,255,255,0.45);
+  background: none; border: none; cursor: pointer; padding: 4px 0;
+}
+.v10-notif-tabs {
+  display: flex; gap: 6px; overflow-x: auto;
+  scrollbar-width: none; margin-bottom: 16px;
+}
+.v10-notif-tabs::-webkit-scrollbar { display: none; }
+.v10-notif-tab {
+  flex-shrink: 0;
+  padding: 6px 14px; border-radius: 100px;
+  font-size: 0.78rem; font-weight: 600;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5); cursor: pointer;
+  transition: all 0.15s;
+}
+.v10-notif-tab.active {
+  background: rgba(34,197,94,0.2);
+  border-color: rgba(34,197,94,0.4);
+  color: #22c55e;
+}
+.v10-notif-list { display: flex; flex-direction: column; }
+.v10-notif-section-label {
+  font-size: 0.68rem; font-weight: 700;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 10px 0 6px;
+}
+.v10-notif-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.v10-notif-icon {
+  flex-shrink: 0;
+  width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.v10-notif-icon-duel   { background: rgba(255,74,74,0.15); color: #ff4a4a; border: 1px solid rgba(255,74,74,0.25); }
+.v10-notif-icon-win    { background: rgba(34,197,94,0.15); color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
+.v10-notif-icon-achievement { background: rgba(255,200,64,0.15); color: #ffc840; border: 1px solid rgba(255,200,64,0.25); }
+.v10-notif-icon-timer  { background: rgba(255,149,0,0.15); color: #ff9500; border: 1px solid rgba(255,149,0,0.25); }
+.v10-notif-body { flex: 1; min-width: 0; }
+.v10-notif-text {
+  font-size: 0.86rem; font-weight: 600; color: #fff;
+  line-height: 1.35; margin-bottom: 3px;
+}
+.v10-notif-sub {
+  font-size: 0.76rem; color: rgba(255,255,255,0.45); line-height: 1.3;
+}
+.v10-notif-action-btn {
+  flex-shrink: 0;
+  background: rgba(34,197,94,0.2); color: #22c55e;
+  border: 1px solid rgba(34,197,94,0.35);
+  border-radius: 100px; padding: 5px 12px;
+  font-size: 0.76rem; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+  transition: background 0.15s;
+}
+.v10-notif-action-btn:active { background: rgba(34,197,94,0.35); }
+.v10-notif-settings-link {
+  display: block; width: 100%; text-align: center;
+  margin-top: 16px; padding: 12px;
+  font-size: 0.8rem; color: rgba(255,255,255,0.35);
+  background: none; border: none; cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════
+   V1.0 — PREMIUM MODAL
+═══════════════════════════════════════════ */
+.v10-premium-sheet { position: relative; }
+.v10-premium-features { display: flex; flex-direction: column; gap: 0; margin-bottom: 20px; }
+.v10-premium-feature {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.v10-premium-feature:last-child { border-bottom: none; }
+.v10-premium-feature-icon {
+  font-size: 1.5rem; flex-shrink: 0; width: 40px; text-align: center;
+}
+.v10-premium-feature-text { flex: 1; }
+.v10-premium-feature-name {
+  font-weight: 700; font-size: 0.92rem; color: #fff; margin-bottom: 2px;
+}
+.v10-premium-feature-sub {
+  font-size: 0.76rem; color: rgba(255,255,255,0.45);
+}
+.v10-premium-check {
+  width: 20px; height: 20px; flex-shrink: 0;
+  stroke: #22c55e; fill: none; stroke-width: 2.5;
+}
+.v10-premium-social {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 20px;
+}
+.v10-premium-social-avatars { display: flex; }
+.v10-soc-av {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.78rem;
+  border: 2px solid #111;
+  margin-right: -8px;
+}
+.v10-soc-av-more {
+  background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.6);
+  font-size: 0.7rem;
+}
+.v10-premium-social-text {
+  font-size: 0.8rem; color: rgba(255,255,255,0.5);
+  margin-left: 16px;
+}
+.v10-premium-price-block { text-align: center; margin-bottom: 20px; }
+.v10-premium-price {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 3rem; letter-spacing: 0.04em; color: #fff; line-height: 1;
+}
+.v10-premium-period {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1rem; color: rgba(255,255,255,0.5);
+}
+.v10-premium-sub {
+  font-size: 0.78rem; color: rgba(255,255,255,0.35); margin-top: 4px;
+}
+.v10-premium-cta {
+  width: 100%; padding: 16px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #000; font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.15rem; letter-spacing: 0.1em;
+  border-radius: 100px; border: none; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(245,158,11,0.4);
+  transition: opacity 0.15s;
+  margin-bottom: 12px;
+}
+.v10-premium-cta:active { opacity: 0.85; }
+.v10-premium-free-link {
+  display: block; width: 100%; text-align: center;
+  background: none; border: none;
+  font-size: 0.82rem; color: rgba(255,255,255,0.35);
+  cursor: pointer; padding: 8px;
+}
+
+/* ═══════════════════════════════════════════
+   V1.0 — KI-COACH MODAL
+═══════════════════════════════════════════ */
+.v10-kic-sheet { position: relative; }
+.v10-kic-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: 10px;
+  font-size: 0.82rem; font-weight: 600;
+  margin-bottom: 8px;
+}
+.v10-kic-banner-warn {
+  background: rgba(245,158,11,0.15);
+  border: 1px solid rgba(245,158,11,0.3);
+  color: #f59e0b;
+}
+.v10-kic-banner-good {
+  background: rgba(34,197,94,0.12);
+  border: 1px solid rgba(34,197,94,0.25);
+  color: #22c55e;
+}
+.v10-kic-header {
+  display: flex; align-items: center; gap: 14px;
+  margin: 16px 0 12px;
+}
+.v10-kic-avatar {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: rgba(34,197,94,0.12);
+  border: 1px solid rgba(34,197,94,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; flex-shrink: 0;
+}
+.v10-kic-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.35rem; letter-spacing: 0.05em; color: #fff;
+}
+.v10-kic-subtitle { font-size: 0.78rem; color: rgba(255,255,255,0.45); margin-top: 2px; }
+.v10-kic-analysis {
+  font-size: 0.86rem; line-height: 1.6;
+  color: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.v10-kic-read-more {
+  background: none; border: none;
+  font-size: 0.8rem; color: #22c55e;
+  cursor: pointer; padding: 4px 0;
+  display: block; margin-bottom: 12px;
+}
+.v10-kic-read-more-text {
+  font-size: 0.82rem; color: rgba(255,255,255,0.6);
+  line-height: 1.55; margin-bottom: 12px;
+}
+.v10-kic-plan-label {
+  font-size: 0.68rem; font-weight: 700;
+  color: rgba(255,255,255,0.3); letter-spacing: 0.12em;
+  text-transform: uppercase; margin-bottom: 10px;
+}
+.v10-kic-plan-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin-bottom: 20px;
+}
+.v10-kic-plan-tile {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 12px; padding: 12px 10px;
+  text-align: center;
+}
+.v10-kic-plan-name {
+  font-size: 0.76rem; font-weight: 600; color: #fff;
+  margin-bottom: 4px; line-height: 1.3;
+}
+.v10-kic-plan-dur {
+  font-size: 0.7rem; color: rgba(255,255,255,0.4);
+}
+.v10-kic-cta {
+  width: 100%; padding: 16px;
+  background: rgba(34,197,94,0.15);
+  color: #22c55e; font-weight: 700;
+  border: 1.5px solid rgba(34,197,94,0.35);
+  border-radius: 100px; font-size: 1rem;
+  cursor: pointer; transition: background 0.15s;
+  margin-bottom: 12px;
+}
+.v10-kic-cta:active { background: rgba(34,197,94,0.25); }
+.v10-kic-footer {
+  text-align: center; font-size: 0.72rem;
+  color: rgba(255,255,255,0.25);
+}
+
