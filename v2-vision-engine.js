@@ -1,6 +1,6 @@
 /**
- * V2 Vision Engine - YOLOv8 Live Scanner
- * Lädt das auf Monitore trainierte YOLOv8 Modell und findet Score + Disziplin.
+ * V2 Vision Engine - YOLO11 Live Scanner
+ * Lädt das auf Monitore trainierte YOLO11 Modell und findet Score + Disziplin.
  */
 const V2VisionEngine = (function() {
   'use strict';
@@ -9,6 +9,16 @@ const V2VisionEngine = (function() {
   let _isModelLoading = false;
   let _videoStream = null;
   let _tfLoadingPromise = null;
+
+  // ── Scan-Throttle: OCR braucht kein 60fps, 10fps reichen vollstaendig ────
+  const SCAN_INTERVAL_MS = 100;
+  let _lastScanTime = 0;
+
+  // ── Frame-Stabilitaet: Box muss STABILITY_FRAMES Frames konsistent sein ──
+  // Eliminiert Einzel-Frame-Fehldetektionen ohne echten Delayed-Effekt.
+  const STABILITY_FRAMES = 3;
+  const BOX_TOLERANCE = 0.12; // max. erlaubte Box-Abweichung (0–1) zwischen Frames
+  const _stabBuf = {};        // class -> [{confidence, box}]
 
   // Zentrale Modell-Config aus image-compare-brain.js (mit sicheren Fallbacks).
   // So bringt ein Modell-Tausch keine Code-Aenderung hier mit sich.
@@ -300,6 +310,46 @@ const V2VisionEngine = (function() {
     return results;
   }
 
+  // ── Frame-Stabilitaets-Filter ──────────────────────────────────────────────
+  function _boxesNear(a, b) {
+    if (!a || !b) return false;
+    return Math.abs(a.xMin - b.xMin) <= BOX_TOLERANCE &&
+           Math.abs(a.yMin - b.yMin) <= BOX_TOLERANCE &&
+           Math.abs(a.xMax - b.xMax) <= BOX_TOLERANCE &&
+           Math.abs(a.yMax - b.yMax) <= BOX_TOLERANCE;
+  }
+
+  function _filterStable(results) {
+    // Klassen die dieses Frame NICHT gesehen wurden: Buffer leeren.
+    const seenClasses = new Set((results || []).map(r => r.class));
+    for (const cls of Object.keys(_stabBuf)) {
+      if (!seenClasses.has(cls)) _stabBuf[cls] = [];
+    }
+
+    const stable = [];
+    for (const res of (results || [])) {
+      const cls = res.class;
+      if (!_stabBuf[cls]) _stabBuf[cls] = [];
+
+      // Nur anhaengen wenn Box nah an vorherigem Frame oder Buffer leer.
+      const prev = _stabBuf[cls][_stabBuf[cls].length - 1];
+      if (!prev || _boxesNear(prev.box, res.boxPercent)) {
+        _stabBuf[cls].push({ confidence: res.confidence, box: res.boxPercent });
+      } else {
+        _stabBuf[cls] = [{ confidence: res.confidence, box: res.boxPercent }];
+      }
+
+      // Erst nach STABILITY_FRAMES konsistenten Frames als stabil melden.
+      if (_stabBuf[cls].length >= STABILITY_FRAMES) {
+        const avgConf = _stabBuf[cls].reduce((s, f) => s + f.confidence, 0) / _stabBuf[cls].length;
+        stable.push({ ...res, confidence: avgConf });
+        // Buffer begrenzen (nicht ins Unendliche wachsen lassen).
+        _stabBuf[cls] = _stabBuf[cls].slice(-STABILITY_FRAMES);
+      }
+    }
+    return stable;
+  }
+
   // --- UI & Rendering Loop ---
   let _animationFrameId = null;
   let _isScanningLoop = false;
@@ -348,18 +398,19 @@ const V2VisionEngine = (function() {
   async function _scanLoop() {
     if (!_isScanningLoop) return;
 
-    try {
-      const results = await scanCurrentFrame('v2ScannerVideo');
-      const video = document.getElementById('v2ScannerVideo');
-      
-      if (results && video) {
-        renderBoxes(results, 'v2ScannerCanvas', video);
+    const now = Date.now();
+    if (now - _lastScanTime >= SCAN_INTERVAL_MS) {
+      _lastScanTime = now;
+      try {
+        const raw = await scanCurrentFrame('v2ScannerVideo');
+        const stable = _filterStable(raw);
+        const video = document.getElementById('v2ScannerVideo');
+        if (video) renderBoxes(stable, 'v2ScannerCanvas', video);
+      } catch (err) {
+        console.warn('Fehler im Live-Loop:', err);
       }
-    } catch(err) {
-      console.warn("Fehler im Live-Loop:", err);
     }
 
-    // Nächstes Frame anfordern
     _animationFrameId = requestAnimationFrame(_scanLoop);
   }
 

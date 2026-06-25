@@ -146,13 +146,13 @@
     '0': ['8', '6', '9'],
     '1': ['7'],
     '2': ['7'],
-    '3': ['8', '9'],
+    '3': ['8', '9', '5'],   // 3 und 5 teilen auf 7-Segment das obere Segment; haeufig auf LCD-Monitoren
     '4': ['9'],
-    '5': ['6', '8', '9'],
-    '6': ['8', '5', '0'],
+    '5': ['6', '8', '9', '3'], // symmetrisch zu '3'
+    '6': ['8', '5', '0', '9'], // 6 und 9 sind Rotationen voneinander auf LCD-Anzeigen
     '7': ['1', '2'],
     '8': ['0', '6', '9', '3', '5'],
-    '9': ['8', '4', '0', '5', '3']
+    '9': ['8', '4', '0', '5', '3', '6'] // symmetrisch zu '6'
   };
 
   // "Moeglich" = im realen Wertebereich: nicht unter dem typischen Band und

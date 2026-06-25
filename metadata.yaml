@@ -1,7 +1,7 @@
-description: Ultralytics best model trained on /content/datasets/monitor/data.yaml
+description: Ultralytics YOLO11n model trained on /content/schuss-monitor-clean/data.yaml
 author: Ultralytics
-date: '2026-04-11T10:20:29.378645'
-version: 8.4.37
+date: '2026-06-24T21:40:47.249241'
+version: 8.4.76
 license: AGPL-3.0 License (https://ultralytics.com/license)
 docs: https://docs.ultralytics.com
 stride: 32
@@ -14,7 +14,9 @@ names:
   0: discipline
   1: score
 args:
+  data: null
   batch: 1
+  fraction: 1.0
   half: false
   int8: false
   nms: false

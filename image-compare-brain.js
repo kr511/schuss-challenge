@@ -12,12 +12,12 @@ window.ImageCompareBrain = (function () {
   // v2-vision-engine.js liest alles hier heraus, inkl. der Klassenzahl.
   // Schritt-fuer-Schritt-Anleitung: docs/vision-model-upgrade.md
   const VISION_MODEL = {
-    version: '8.4.37-monitor',         // frei waehlbar; bei jedem Tausch hochzaehlen
+    version: '2026.06.25-monitor',         // frei waehlbar; bei jedem Tausch hochzaehlen
     path: './model.json',              // TFJS graph-model (model.json + *.bin im Repo-Root)
     task: 'detect',                    // 'detect' (Boxen). 'segment' ist vorgesehen, aber noch nicht aktiv.
     inputSize: 640,                    // quadratische Netz-Eingabe, muss zum Export passen
     classes: ['discipline', 'score'],  // Reihenfolge MUSS metadata.yaml "names" entsprechen
-    confThreshold: 0.50,               // minimale Klassen-Konfidenz
+    confThreshold: 0.45,               // minimale Klassen-Konfidenz (YOLO11: hoehere Precision erlaubt niedrigere Schwelle)
     iouThreshold: 0.45,                // NMS-Overlap
     maxDetections: 10,                 // max. Boxen pro Frame
     tfjsBackend: 'auto'                // 'auto' | 'webgl' | 'cpu' (WebGPU/WASM brauchen ein Zusatz-Skript)
@@ -56,6 +56,7 @@ window.ImageCompareBrain = (function () {
         [/[oO]/g, '0'],
         [/[lI|]/g, '1'],
         [/[sS](?=\d)/g, '5'],
+        [/[Bb](?=\d)/g, '8'], // B vor Ziffer → 8 (haeufige Tesseract-Verwechslung auf LCD-Monitoren)
         [/[,]/g, '.'],
     ];
 

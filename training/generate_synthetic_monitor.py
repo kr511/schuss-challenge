@@ -34,14 +34,16 @@ CLASSES = ["discipline", "score"]
 
 # Realistische Wertebereiche je Disziplin (Label-Text, Ringbereich, Ganzzahl?).
 DISCIPLINES = [
-    {"labels": ["LG 40", "LG40", "LG-40"], "lo": 300, "hi": 420, "integer": False},
-    {"labels": ["LG 60", "LG60", "LG-60"], "lo": 480, "hi": 640, "integer": False},
-    {"labels": ["KK 50", "KK50"],          "lo": 400, "hi": 600, "integer": True},
-    {"labels": ["KK 100", "KK100"],        "lo": 400, "hi": 600, "integer": True},
-    {"labels": ["KK 3x20", "KK 3X20"],     "lo": 450, "hi": 600, "integer": True},
+    {"labels": ["LG 40", "LG40", "LG-40", "LG 40 Sch.", "L6 40"], "lo": 300, "hi": 420, "integer": False},
+    {"labels": ["LG 60", "LG60", "LG-60", "L6 60"],               "lo": 480, "hi": 640, "integer": False},
+    {"labels": ["KK 50", "KK50", "KK-50", "KK 50m"],              "lo": 400, "hi": 600, "integer": True},
+    {"labels": ["KK 100", "KK100", "KK-100", "KK 100m"],          "lo": 400, "hi": 600, "integer": True},
+    # KK 3x20: viele Monitor-Varianten (X, ×, K statt X auf LCD)
+    {"labels": ["KK 3x20", "KK 3X20", "KK3X20", "KK 3×20", "KK 3K20", "KK3x20"], "lo": 450, "hi": 600, "integer": True},
 ]
 
-KEYWORDS = ["GESAMT", "TOTAL", "SUMME", "ERGEBNIS", "RINGE", "SERIE", "STAND"]
+KEYWORDS = ["GESAMT", "TOTAL", "SUMME", "ERGEBNIS", "RINGE", "SERIE", "STAND",
+            "SCHIESSEN", "TREFFER", "PUNKTE", "PKT", "RNG"]
 
 
 def load_font(size):
@@ -95,6 +97,35 @@ def draw_glare(img, rng):
     overlay = overlay.filter(ImageFilter.GaussianBlur(r * 0.6))
     white = Image.new("RGB", img.size, (255, 255, 255))
     return Image.composite(white, img, overlay)
+
+
+def draw_scanlines(img, rng):
+    """Horizontale Scan-Linien – typisch fuer LCD/CRT-Trefferanlagen-Monitore."""
+    overlay = img.copy()
+    od = ImageDraw.Draw(overlay)
+    w, h = img.size
+    step = rng.randint(3, 6)          # Zeilenabstand
+    alpha = rng.uniform(0.04, 0.14)   # Staerke: sehr subtil
+    for y in range(0, h, step):
+        od.line([(0, y), (w, y)], fill=(0, 0, 0))
+    return Image.blend(img, overlay, alpha)
+
+
+def draw_segment_dropout(draw, bbox, fg, rng):
+    """Uebermalt einen zufaelligen Teilbereich der Score-Box mit Hintergrundfarbe
+    (simuliert ein ausgefallenes LCD-Segment / partiell unleserliche Ziffer)."""
+    x0, y0, x1, y1 = bbox
+    w, h = x1 - x0, y1 - y0
+    if w < 10 or h < 10:
+        return
+    # Kleines Rechteck irgendwo in der Box
+    rx0 = rng.randint(x0, x0 + w // 2)
+    ry0 = rng.randint(y0, y0 + h // 2)
+    rx1 = min(x1, rx0 + rng.randint(3, max(4, w // 4)))
+    ry1 = min(y1, ry0 + rng.randint(3, max(4, h // 4)))
+    # Hintergrundfarbe annaehernd: Invertierung der Vordergrundfarbe
+    bg_approx = tuple(max(0, min(255, 255 - c)) for c in fg)
+    draw.rectangle([rx0, ry0, rx1, ry1], fill=bg_approx)
 
 
 def generate_one(rng, imgsz):
@@ -156,8 +187,9 @@ def generate_one(rng, imgsz):
     place(score_text, score_font, 1,
           int(W * 0.18), int(W * 0.55), int(H * 0.42), int(H * 0.66), fg)
 
-    # ── Geometrische Augmentierung: kleine Rotation (Boxen mitdrehen) ──
-    angle_deg = rng.uniform(-7, 7)
+    # ── Geometrische Augmentierung: Rotation (Boxen mitdrehen) ──
+    # ±12° statt ±7°: YOLO11 profitiert von haeufigeren Schraeglage-Samples
+    angle_deg = rng.uniform(-12, 12)
     if abs(angle_deg) > 0.3:
         cx, cy = W / 2.0, H / 2.0
         img = img.rotate(angle_deg, resample=Image.BICUBIC, fillcolor=bg)
@@ -173,11 +205,24 @@ def generate_one(rng, imgsz):
     # ── Photometrische Augmentierung (keine Geometrie) ──
     if rng.random() < 0.45:
         img = draw_glare(img, rng)
+    if rng.random() < 0.35:
+        img = draw_scanlines(img, rng)      # LCD-Scan-Linien (neu fuer YOLO11)
     if rng.random() < 0.5:
         img = img.filter(ImageFilter.GaussianBlur(rng.uniform(0.4, 1.6)))
     if rng.random() < 0.4:
         noise = Image.effect_noise((imgsz, imgsz), rng.randint(8, 26)).convert("RGB")
         img = Image.blend(img, noise, rng.uniform(0.04, 0.12))
+    # Partieller Segment-Dropout (20% der Bilder): simuliert ausgefallene LCD-Segmente
+    if rng.random() < 0.20:
+        draw_after = ImageDraw.Draw(img)
+        # Treffe nur die Score-Box (boxes[-1] ist score, boxes[0] ist discipline)
+        score_box = next(
+            ((int(x0 * sx_ratio), int(y0 * sy_ratio), int(x1 * sx_ratio), int(y1 * sy_ratio))
+             for (cls, x0, y0, x1, y1) in boxes if cls == 1),
+            None
+        )
+        if score_box:
+            draw_segment_dropout(draw_after, score_box, fg, rng)
 
     # Pixel-Boxen -> normierte YOLO-Labels, geclippt + gefiltert.
     labels = []
@@ -197,7 +242,7 @@ def generate_one(rng, imgsz):
 def main():
     ap = argparse.ArgumentParser(description="Synthetische Monitor-Trainingsdaten (YOLO).")
     ap.add_argument("--out", default="datasets/monitor", help="Zielordner")
-    ap.add_argument("--count", type=int, default=400, help="Anzahl Bilder gesamt")
+    ap.add_argument("--count", type=int, default=600, help="Anzahl Bilder gesamt")
     ap.add_argument("--val-split", type=float, default=0.15, help="Anteil Validierung")
     ap.add_argument("--imgsz", type=int, default=640, help="Bildgroesse (== VISION_MODEL.inputSize)")
     ap.add_argument("--seed", type=int, default=42, help="Zufalls-Seed (Reproduzierbarkeit)")
@@ -232,7 +277,7 @@ def main():
     print(f"Fertig: {args.count} Bilder ({n_val} val) -> {out}")
     print(f"  Klassen: {', '.join(CLASSES)}")
     print(f"  data.yaml: {os.path.join(out, 'data.yaml')}")
-    print("  Training: yolo detect train model=yolo11n.pt data=" +
+    print("  Training (YOLO11): yolo detect train model=yolo11n.pt data=" +
           os.path.join(out, "data.yaml") + f" imgsz={args.imgsz} epochs=100")
 
 

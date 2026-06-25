@@ -32,12 +32,26 @@ const OCR = new Function('window', confSrc + '\nreturn window.OCRConfidence;')({
 
 // 2) parseDisciplineText aus image-compare.js extrahieren (reine Funktion).
 const icSrc = readFileSync(join(root, 'src/vision/image-compare.js'), 'utf8');
-const dm = icSrc.match(/function parseDisciplineText\(rawText\) \{[\s\S]*?\n {2}\}\n/);
+function extractFunction(src, name) {
+  const start = src.indexOf(`function ${name}(`);
+  if (start < 0) return null;
+  const bodyStart = src.indexOf('{', start);
+  if (bodyStart < 0) return null;
+  let depth = 0;
+  for (let i = bodyStart; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    if (src[i] === '}') depth--;
+    if (depth === 0) return src.slice(start, i + 1);
+  }
+  return null;
+}
+
+const dm = extractFunction(icSrc, 'parseDisciplineText');
 if (!OCR || !dm) {
   console.error('FAIL: konnte Erkennungs-Logik nicht laden (OCRConfidence / parseDisciplineText)');
   process.exit(1);
 }
-const parseDisciplineText = new Function(dm[0] + '\nreturn parseDisciplineText;')();
+const parseDisciplineText = new Function(dm + '\nreturn parseDisciplineText;')();
 
 // ── Datensatz: Disziplin-Erkennung ─────────────────────────────────────────
 // Realistische, verrauschte Trefferanlagen-Beschriftungen -> erwartete Klasse.
@@ -89,6 +103,15 @@ const SCORE_CASES = [
   { read: 982.5, truth: 382.5, discipline: 'lg40',   isKK: false, kind: 'confusion' }, // 9->3
   { read: 698.4, truth: 598.4, discipline: 'lg60',   isKK: false, kind: 'confusion' }, // 6->5
   { read: 988.0, truth: 588.0, discipline: 'lg60',   isKK: false, kind: 'confusion' }, // 9->5
+
+  // 3↔5 Verwechslung (7-Segment: teilen oberes Segment — neu in CONFUSABLE_DIGITS):
+  { read: 389,   truth: 589,   discipline: 'kk50',   isKK: true,  kind: 'confusion' }, // 3->5
+  { read: 384,   truth: 584,   discipline: 'kk100',  isKK: true,  kind: 'confusion' }, // 3->5
+  { read: 392.5, truth: 592.5, discipline: 'lg60',   isKK: false, kind: 'confusion' }, // 3->5 (LG)
+
+  // 6↔9 Verwechslung (LCD-Rotations-Paar — neu in CONFUSABLE_DIGITS):
+  { read: 900,   truth: 600,   discipline: 'kk50',   isKK: true,  kind: 'confusion' }, // 9->6
+  { read: 960,   truth: 560,   discipline: 'kk3x20', isKK: true,  kind: 'confusion' }, // 9->5 (verwandter Fall)
 
   // Ehrliche Obergrenze: aus diesen Lesungen ist die Wahrheit nicht via
   // Einzel-Ziffer/Dezimal-Shift erreichbar.

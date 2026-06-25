@@ -73,9 +73,9 @@ nur diese Config.
 ```bash
 pip install ultralytics
 
-# YOLOv8 ODER neuer (z. B. YOLO11) – beide exportieren nach TFJS
+# YOLO11 (Standard ab 2026) – schneller und genauer als YOLOv8 bei gleichem Gewicht
 yolo detect train \
-  model=yolov8n.pt \           # alternativ: yolo11n.pt
+  model=yolo11n.pt \           # alternativ: yolov8n.pt fuer aeltere Umgebungen
   data=/content/datasets/monitor/data.yaml \
   imgsz=640 epochs=100 batch=16
 
@@ -84,6 +84,7 @@ yolo detect val model=runs/detect/train/weights/best.pt data=.../data.yaml
 ```
 
 Tipp: `imgsz` muss später `VISION_MODEL.inputSize` entsprechen.
+Tipp: Fuer YOLO11 empfiehlt sich `--count 600` im Datengenerator (mehr Samples = stabiler).
 
 ## Schritt 3 – Export nach TensorFlow.js
 
