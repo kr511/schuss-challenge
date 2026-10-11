@@ -3345,16 +3345,13 @@ function botAutoFire() {
     drawTarget(G.targetShots);
     updateBattleUI();
     if (G.botShotsLeft <= 0) {
-      clearBattleTimers();
-      if (G.burst) DOM.battleBurstBtn.disabled = true;
-      else DOM.battleFireBtn.disabled = true;
-      DOM.battleTag.textContent = `◆ ${G.maxShots} SCHUSS ABGEFEUERT ◆`;
+      // Nur der Bot ist fertig: Match läuft weiter, bis der Spieler fertig ist oder die Zeit abläuft
+      if (G._botInterval) { clearTimeout(G._botInterval); G._botInterval = null; }
       if (G.is3x20) {
-        DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
+        DOM.lastShotTxt.innerHTML = `🏁 Bot hat alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b> · Du hast noch Zeit.`;
       } else {
-        DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
+        DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss · Du hast noch Zeit.`;
       }
-      setTimeout(() => goToEntry(), 1400);
     }
   }, 160);
 }
