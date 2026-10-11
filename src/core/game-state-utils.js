@@ -48,8 +48,6 @@
     currentDetectedShots: [],
     _gameStartTime: 0,
     _lastPlayerShotAt: 0,
-    probeActive: false,
-    probeSecsLeft: 0,
     botStarted: false,
     transitionSecsLeft: 0,
     transitionLabel: ''
@@ -134,8 +132,6 @@
       currentDetectedShots: cloneArray(source.currentDetectedShots),
       _gameStartTime: toPositiveInteger(source._gameStartTime),
       _lastPlayerShotAt: toPositiveInteger(source._lastPlayerShotAt),
-      probeActive: Boolean(source.probeActive),
-      probeSecsLeft: toPositiveInteger(source.probeSecsLeft),
       botStarted: Boolean(source.botStarted),
       transitionSecsLeft: toPositiveInteger(source.transitionSecsLeft),
       transitionLabel: String(source.transitionLabel ?? '')
@@ -178,7 +174,6 @@
       xp: state.xp,
       streak: state.streak,
       dnf: state.dnf,
-      probeActive: state.probeActive,
       botStarted: state.botStarted
     };
   }
@@ -205,9 +200,7 @@
       currentDetectedShots: [],
       _gameStartTime: Date.now(),
       _lastPlayerShotAt: 0,
-      probeActive: false,
-      probeSecsLeft: 0,
-      botStarted: false,
+          botStarted: false,
       transitionSecsLeft: 0,
       transitionLabel: '',
       posIdx: 0,
