@@ -3133,11 +3133,12 @@ function clearBattleTimers() {
   if (G._timerInterval) { clearInterval(G._timerInterval); G._timerInterval = null; }
 }
 
-// Optionale Probezeit: wird vor jedem Duell abgefragt (nicht jeder Wettkampf hat noch eine)
+// Optionale Probezeit: wird vor jedem Duell abgefragt (nicht jeder Wettkampf hat noch eine).
+// DSB-Sportordnung (Stand 2026): 15 Min bei allen Gewehr-Freihand-Disziplinen, bei 3x20 vor Kniend.
 const PROBE_SECS_DEFAULT = 15 * 60;
+const PROBE_AUTO_CONFIRM_SECS = 10;
 
 const KK3X20_CFG = {
-  probeSecs: 10 * 60,
   transitionPhases: [
     { secs: 10 * 60, label: 'Uebergang Kniend -> Liegend' }, // fest 10 Min
     { secs: 15 * 60, label: 'Uebergang Liegend -> Stehend' } // ca. 15 Min
@@ -3514,7 +3515,7 @@ function startBattle() {
 
   // Erst fragen, ob es bei diesem Wettkampf (noch) eine Probezeit gibt
   const battleId = G._battleId = (G._battleId || 0) + 1;
-  const probeSecs = G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : PROBE_SECS_DEFAULT;
+  const probeSecs = PROBE_SECS_DEFAULT;
   askForProbezeit(probeSecs).then((withProbe) => {
     // Duell inzwischen verlassen oder neu gestartet → nichts tun
     if (G._battleId !== battleId || !document.getElementById('screenBattle')?.classList.contains('active')) return;
@@ -3527,8 +3528,14 @@ function askForProbezeit(probeSecs) {
   const mins = Math.round(probeSecs / 60);
   const dialog = window.MobileResponsive && typeof window.MobileResponsive.confirmDialog === 'function'
     ? window.MobileResponsive.confirmDialog(
-        `Mit Probezeit laufen erst ${mins} Min Probe, danach startet die Wettkampfzeit und der Bot schießt los.`,
-        { title: 'Gibt es eine Probezeit?', confirmText: `Mit Probezeit (${mins} Min)`, cancelText: 'Ohne, direkt los' }
+        `Mit Probezeit laufen erst ${mins} Min Probe, danach startet die Wettkampfzeit und der Bot schießt los. Ohne Auswahl startet in ${PROBE_AUTO_CONFIRM_SECS} s automatisch die Probezeit.`,
+        {
+          title: 'Gibt es eine Probezeit?',
+          confirmText: `Mit Probezeit (${mins} Min)`,
+          cancelText: 'Ohne, direkt los',
+          dismissible: false,
+          autoConfirmSecs: PROBE_AUTO_CONFIRM_SECS
+        }
       )
     : Promise.resolve(confirm(`Gibt es bei diesem Wettkampf eine Probezeit (${mins} Min)?`));
   return dialog.catch(() => false);
