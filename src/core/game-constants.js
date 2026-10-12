@@ -8,8 +8,8 @@ const DISC = {
   },
   lg60: {
     name: 'LG 60', weapon: 'lg', shots: 60, dist: '10', is3x20: false,
-    timeMins: 70, desc: '60 Schuss · 70 Min', icon: '⭐',
-    info: '<b>LG 60</b> – Erweiterte Luftgewehr-Disziplin. 60 Schuss auf 10 m. Zeitlimit: 70 Minuten.'
+    timeMins: 75, desc: '60 Schuss · 75 Min', icon: '⭐',
+    info: '<b>LG 60</b> – Erweiterte Luftgewehr-Disziplin. 60 Schuss auf 10 m. Zeitlimit: 75 Minuten.'
   },
   // KK
   kk50: {
