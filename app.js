@@ -2514,7 +2514,7 @@ function initDOMCache() {
     'igDisciplineLabel', 'igShotCounter',
     'lsbDec', 'lsbDecBlock', 'lsbDecDivider', 'lsbInt', 'lsbProj',
     'spFill', 'spCount', 'spLbl', 'spPosRow', 'spPosLbl', 'spPosCount', 'spPosFill',
-    'battleTag', 'battleFireBtn', 'battleBurstBtn',
+    'battleTag', 'battleFireBtn', 'battleBurstBtn', 'skipProbeBtn',
     'lastShotTxt', 'shotLog', 'shotLogWrap', 'muzzleFlash',
     'battleBadge', 'battleWeaponBadge',
     'distInfo', 'distCard', 'diffInfoTxt', 'setupTag', 'logoTag',
@@ -3133,7 +3133,11 @@ function clearBattleTimers() {
   if (G._timerInterval) { clearInterval(G._timerInterval); G._timerInterval = null; }
 }
 
+// Optionale Probezeit: wird vor jedem Duell abgefragt (nicht jeder Wettkampf hat noch eine)
+const PROBE_SECS_DEFAULT = 15 * 60;
+
 const KK3X20_CFG = {
+  probeSecs: 10 * 60,
   transitionPhases: [
     { secs: 10 * 60, label: 'Uebergang Kniend -> Liegend' }, // fest 10 Min
     { secs: 15 * 60, label: 'Uebergang Liegend -> Stehend' } // ca. 15 Min
@@ -3504,11 +3508,74 @@ function startBattle() {
   // Reset Bot-Start-Flag
   G.botStarted = false;
 
-  // Match-Timer SOFORT starten
-  const timeMins = dc.timeMins || 50;
-  startMatchTimer(timeMins * 60);
+  G._matchSecs = (dc.timeMins || 50) * 60;
+  G.probeActive = false;
+  DOM.skipProbeBtn.style.display = 'none';
 
-  // Keine Probezeit mehr: Bot startet kurz nach Wettkampfbeginn
+  // Erst fragen, ob es bei diesem Wettkampf (noch) eine Probezeit gibt
+  const battleId = G._battleId = (G._battleId || 0) + 1;
+  const probeSecs = G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : PROBE_SECS_DEFAULT;
+  askForProbezeit(probeSecs).then((withProbe) => {
+    // Duell inzwischen verlassen oder neu gestartet → nichts tun
+    if (G._battleId !== battleId || !document.getElementById('screenBattle')?.classList.contains('active')) return;
+    if (withProbe) startProbePhase(probeSecs);
+    else beginMatch();
+  });
+}
+
+function askForProbezeit(probeSecs) {
+  const mins = Math.round(probeSecs / 60);
+  const dialog = window.MobileResponsive && typeof window.MobileResponsive.confirmDialog === 'function'
+    ? window.MobileResponsive.confirmDialog(
+        `Mit Probezeit laufen erst ${mins} Min Probe, danach startet die Wettkampfzeit und der Bot schießt los.`,
+        { title: 'Gibt es eine Probezeit?', confirmText: `Mit Probezeit (${mins} Min)`, cancelText: 'Ohne, direkt los' }
+      )
+    : Promise.resolve(confirm(`Gibt es bei diesem Wettkampf eine Probezeit (${mins} Min)?`));
+  return dialog.catch(() => false);
+}
+
+// Probezeit: eigener Countdown vor der Wettkampfzeit, Bot wartet
+function startProbePhase(probeSecs) {
+  G.probeActive = true;
+  G.probeSecsLeft = probeSecs;
+  DOM.skipProbeBtn.style.display = '';
+  DOM.lastShotTxt.innerHTML = `🎯 <b>Probezeit läuft</b> – danach startet die Wettkampfzeit. Erster SCHUSS oder „Probezeit überspringen" beendet sie sofort.`;
+  const val = document.getElementById('matchTimerVal');
+  const igTimer = document.getElementById('igTimerDisplay');
+
+  function tick() {
+    const m = Math.floor(G.probeSecsLeft / 60);
+    const s = G.probeSecsLeft % 60;
+    const clock = `${m}:${String(s).padStart(2, '0')}`;
+    if (val) val.textContent = `${clock} (Probe)`;
+    if (igTimer) { igTimer.textContent = `Probe ${clock}`; igTimer.classList.remove('ig-timer-low'); }
+    if (G.probeSecsLeft <= 0) {
+      endProbePhase('✅ <b>Probezeit beendet!</b> – Wettkampfzeit läuft.');
+      return;
+    }
+    G.probeSecsLeft--;
+  }
+  tick();
+  G._timerInterval = setInterval(tick, 1000);
+}
+
+function endProbePhase(message) {
+  if (!G.probeActive) return;
+  G.probeActive = false;
+  G.probeSecsLeft = 0;
+  if (G._timerInterval) { clearInterval(G._timerInterval); G._timerInterval = null; }
+  DOM.skipProbeBtn.style.display = 'none';
+  if (message) DOM.lastShotTxt.innerHTML = message;
+  beginMatch();
+}
+
+function skipProbe() {
+  endProbePhase('⏭️ <b>Probezeit übersprungen!</b> – Wettkampfzeit läuft.');
+}
+
+function beginMatch() {
+  startMatchTimer(G._matchSecs || 50 * 60);
+  // Bot startet kurz nach Wettkampfbeginn (oder sofort beim ersten Schuss)
   G._botStartTimeout = setTimeout(() => {
     if (!G.botStarted) {
       G.botStarted = true;
@@ -3860,6 +3927,8 @@ function doBattleFire() {
     G.transitionLabel = '';
     DOM.lastShotTxt.innerHTML = `▶️ <b>${transitionName}</b> vorzeitig beendet - weiter schießen.`;
   }
+  // Erster Schuss während der Probezeit → Wettkampf beginnt
+  if (G.probeActive) endProbePhase('✅ <b>Probezeit beendet!</b> – Wettkampfzeit läuft.');
   // Erster Schuss vor dem verzögerten Bot-Start → Bot sofort starten
   if (!G.botStarted) {
     if (G._botStartTimeout) {
@@ -5275,6 +5344,7 @@ Object.assign(window, {
   toggleBurst,
   startBattle,
   doBattleFire,
+  skipProbe,
   endBattleEarly,
   calcResult,
   quickResult,
