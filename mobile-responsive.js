@@ -600,7 +600,7 @@
         const cleanup = (result) => {
           if (done) return;
           done = true;
-          if (autoTimer) clearInterval(autoTimer);
+          if (autoTimer) clearTimeout(autoTimer);
           document.removeEventListener('keydown', escHandler);
           overlay.classList.remove('active');
           setTimeout(() => {
@@ -624,14 +624,18 @@
         };
         document.addEventListener('keydown', escHandler);
         if (Number.isFinite(opts.autoConfirmSecs) && opts.autoConfirmSecs > 0) {
-          let left = Math.round(opts.autoConfirmSecs);
-          const render = () => { confirmBtn.textContent = confirmText + ' · ' + left + 's'; };
-          render();
-          autoTimer = setInterval(() => {
-            left -= 1;
-            if (left <= 0) cleanup(true);
-            else render();
-          }, 1000);
+          // Leiste im Button, die bis zur automatischen Bestätigung auf 0 schrumpft
+          const secs = opts.autoConfirmSecs;
+          const bar = document.createElement('span');
+          bar.className = 'mux-confirm-timer';
+          bar.setAttribute('aria-hidden', 'true');
+          bar.style.cssText = 'position:absolute;left:0;bottom:0;height:6px;width:100%;' +
+            'background:rgba(0,0,0,.5);transition:width ' + secs + 's linear;';
+          confirmBtn.style.position = 'relative';
+          confirmBtn.style.overflow = 'hidden';
+          confirmBtn.appendChild(bar);
+          requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = '0%'; }));
+          autoTimer = setTimeout(() => cleanup(true), secs * 1000);
         }
       });
     },
