@@ -50,8 +50,6 @@ const G = (SC_STATE && typeof SC_STATE.createInitialState === 'function')
     currentDetectedShots: [],
     _gameStartTime: 0,
     _lastPlayerShotAt: 0,
-    probeActive: false,
-    probeSecsLeft: 0,
     botStarted: false,
     transitionSecsLeft: 0,
     transitionLabel: ''
@@ -2516,7 +2514,7 @@ function initDOMCache() {
     'igDisciplineLabel', 'igShotCounter',
     'lsbDec', 'lsbDecBlock', 'lsbDecDivider', 'lsbInt', 'lsbProj',
     'spFill', 'spCount', 'spLbl', 'spPosRow', 'spPosLbl', 'spPosCount', 'spPosFill',
-    'battleTag', 'battleFireBtn', 'battleBurstBtn', 'skipProbeBtn',
+    'battleTag', 'battleFireBtn', 'battleBurstBtn',
     'lastShotTxt', 'shotLog', 'shotLogWrap', 'muzzleFlash',
     'battleBadge', 'battleWeaponBadge',
     'distInfo', 'distCard', 'diffInfoTxt', 'setupTag', 'logoTag',
@@ -3136,7 +3134,6 @@ function clearBattleTimers() {
 }
 
 const KK3X20_CFG = {
-  probeSecs: 10 * 60,
   transitionPhases: [
     { secs: 10 * 60, label: 'Uebergang Kniend -> Liegend' }, // fest 10 Min
     { secs: 15 * 60, label: 'Uebergang Liegend -> Stehend' } // ca. 15 Min
@@ -3166,7 +3163,6 @@ function startMatchTimer(totalSecs) {
   const val = document.getElementById('matchTimerVal');
 
   function tick() {
-    // Probezeit-Info
     let timerDisp = '';
     if (G.is3x20 && G.transitionSecsLeft > 0) {
       const tm = Math.floor(G.transitionSecsLeft / 60);
@@ -3184,19 +3180,7 @@ function startMatchTimer(totalSecs) {
         DOM.lastShotTxt.innerHTML = `▶️ <b>${transitionName}</b> beendet - weiter mit <b>${nextPos}</b>.`;
         G.transitionLabel = '';
       }
-    } else if (G.probeActive && G.probeSecsLeft > 0) {
-      const pm = Math.floor(G.probeSecsLeft / 60);
-      const ps = G.probeSecsLeft % 60;
-      timerDisp = `${pm}:${String(ps).padStart(2, '0')} (Probe)`;
-      G.probeSecsLeft--;
-      G._timerSecsLeft--; // BUG-FIX: Gesamtzeit läuft auch während Probezeit ab
     } else {
-      // Probezeit beendet → reguläre Zeit starten
-      if (G.probeActive) {
-        G.probeActive = false;
-        DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit beendet!</b> – Reguläre Zeit gestartet.';
-        DOM.skipProbeBtn.style.display = 'none';
-      }
       const m = Math.floor(G._timerSecsLeft / 60);
       const s = G._timerSecsLeft % 60;
       timerDisp = `${m}:${String(s).padStart(2, '0')}`;
@@ -3215,7 +3199,7 @@ function startMatchTimer(totalSecs) {
     }
 
     if (val) val.textContent = timerDisp;
-    if (box) box.classList.toggle('warning', G._timerSecsLeft <= 300 && !G.probeActive);
+    if (box) box.classList.toggle('warning', G._timerSecsLeft <= 300);
 
     // Neues ig-topbar Timer-Element befüllen (immer sichtbar, zählt vom Start)
     const igTimer = document.getElementById('igTimerDisplay');
@@ -3362,16 +3346,13 @@ function botAutoFire() {
     drawTarget(G.targetShots);
     updateBattleUI();
     if (G.botShotsLeft <= 0) {
-      clearBattleTimers();
-      if (G.burst) DOM.battleBurstBtn.disabled = true;
-      else DOM.battleFireBtn.disabled = true;
-      DOM.battleTag.textContent = `◆ ${G.maxShots} SCHUSS ABGEFEUERT ◆`;
+      // Nur der Bot ist fertig: Match läuft weiter, bis der Spieler fertig ist oder die Zeit abläuft
+      if (G._botInterval) { clearTimeout(G._botInterval); G._botInterval = null; }
       if (G.is3x20) {
-        DOM.lastShotTxt.innerHTML = `🏁 Alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b>`;
+        DOM.lastShotTxt.innerHTML = `🏁 Bot hat alle Positionen abgeschlossen! Bot-Gesamt: <b>${G.botTotalInt} Pkt</b> · Du hast noch Zeit.`;
       } else {
-        DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss.`;
+        DOM.lastShotTxt.innerHTML = `🏁 Bot fertig! Gesamt: <b>${isKK3x20WholeRingsOnly() ? G.botTotalInt : fmtPts(G.botTotal)} Punkte</b> aus ${G.maxShots} Schuss · Du hast noch Zeit.`;
       }
-      setTimeout(() => goToEntry(), 1400);
     }
   }, 160);
 }
@@ -3422,8 +3403,6 @@ function startBattle() {
     HealthyEngagement.onBattleStart();
   }
   G.dnf = false;
-  G.probeActive = true;  // Probezeit ist aktiv
-  G.probeSecsLeft = (G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60);  // disziplinspezifische Probezeit
   G.transitionSecsLeft = 0;
   G.transitionLabel = '';
 
@@ -3481,7 +3460,7 @@ function startBattle() {
 
   const diffCfg = DIFF[G.diff];
   const weapCfg = WEAPON_CFG[G.weapon];
-  const requiredBattleRefs = ['battleBadge', 'battleWeaponBadge', 'entryTag', 'posBar', 'battleFireBtn', 'battleBurstBtn', 'skipProbeBtn'];
+  const requiredBattleRefs = ['battleBadge', 'battleWeaponBadge', 'entryTag', 'posBar', 'battleFireBtn', 'battleBurstBtn'];
   const missingBattleRefs = requiredBattleRefs.filter((key) => !DOM[key]);
   if (missingBattleRefs.length) {
     console.error('[startBattle] Battle-DOM nicht vollstaendig:', missingBattleRefs.join(', '));
@@ -3516,9 +3495,6 @@ function startBattle() {
     DOM.battleBurstBtn.style.display = 'none';
   }
 
-  // Probezeit Button anzeigen
-  DOM.skipProbeBtn.style.display = '';
-
   updateBattleUI();
   showScreen('screenBattle');
 
@@ -3532,14 +3508,13 @@ function startBattle() {
   const timeMins = dc.timeMins || 50;
   startMatchTimer(timeMins * 60);
 
-  // Bot-Auto-Shoot startet NACH Probezeit (15 Min später)
-  const probeDelayMs = ((G.discipline === 'kk3x20' ? KK3X20_CFG.probeSecs : 15 * 60) + 5) * 1000; // Probezeit + 5 Sek Delay
+  // Keine Probezeit mehr: Bot startet kurz nach Wettkampfbeginn
   G._botStartTimeout = setTimeout(() => {
     if (!G.botStarted) {
       G.botStarted = true;
       startBotAutoShoot();
     }
-  }, probeDelayMs);
+  }, 5000);
 }
 
 function updateBattleUI() {
@@ -3877,28 +3852,6 @@ function fireSingleShot(isBot = true) {
   return { ...bRes, dx: bdx, dy: bdy, position: plannedShot?.position || null };
 }
 
-function skipProbe() {
-  if (!G.probeActive) return;
-
-  G.probeActive = false;
-  G.probeSecsLeft = 0;
-  DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit übersprungen!</b> – Bot schießt jetzt!';
-  DOM.skipProbeBtn.style.display = 'none';
-
-  // Abbrechen des verzögerten Bot-Starts vom startBattle()
-  if (G._botStartTimeout) {
-    clearTimeout(G._botStartTimeout);
-    G._botStartTimeout = null;
-  }
-
-  // Starte Bot-Auto-Shoot sofort (falls noch nicht gestartet)
-  if (!G.botStarted) {
-    if (G._botInterval) clearTimeout(G._botInterval);
-    G.botStarted = true;
-    startBotAutoShoot();
-  }
-}
-
 function doBattleFire() {
   if (G.playerShotsLeft <= 0) return;
   if (G.is3x20 && G.transitionSecsLeft > 0) {
@@ -3907,25 +3860,15 @@ function doBattleFire() {
     G.transitionLabel = '';
     DOM.lastShotTxt.innerHTML = `▶️ <b>${transitionName}</b> vorzeitig beendet - weiter schießen.`;
   }
-  // Probezeit beenden und Bot starten, wenn beim Schießen noch Probezeit aktiv ist
-  if (G.probeActive) {
-    G.probeActive = false;
-    G.probeSecsLeft = 0;
-    DOM.lastShotTxt.innerHTML = '✅ <b>Probezeit beendet!</b> – Reguläre Zeit gestartet. Bot schießt jetzt!';
-    DOM.skipProbeBtn.style.display = 'none';
-
-    // Abbrechen des verzögerten Bot-Starts vom startBattle()
+  // Erster Schuss vor dem verzögerten Bot-Start → Bot sofort starten
+  if (!G.botStarted) {
     if (G._botStartTimeout) {
       clearTimeout(G._botStartTimeout);
       G._botStartTimeout = null;
     }
-
-    // Starte Bot-Auto-Shoot sofort (falls noch nicht gestartet)
-    if (!G.botStarted) {
-      if (G._botInterval) clearTimeout(G._botInterval);
-      G.botStarted = true;
-      startBotAutoShoot();
-    }
+    if (G._botInterval) clearTimeout(G._botInterval);
+    G.botStarted = true;
+    startBotAutoShoot();
   }
 
   // ── Spieler schießt in echt → nur Zähler runterzählen ──
@@ -5024,8 +4967,6 @@ function restartGame() {
   G.playerShots = [];
   G.currentDetectedShots = [];
   // BUG-FIX: Spiel-Zustand komplett zurücksetzen
-  G.probeActive = false;
-  G.probeSecsLeft = 0;
   G.botStarted = false;
   G.transitionSecsLeft = 0;
   G.transitionLabel = '';
@@ -5053,8 +4994,6 @@ function restartSameSettings() {
   G._lastPlayerShotAt = 0;
   G.playerShots = [];
   G.currentDetectedShots = [];
-  G.probeActive = false;
-  G.probeSecsLeft = 0;
   G.botStarted = false;
   G.transitionSecsLeft = 0;
   G.transitionLabel = '';
@@ -5336,7 +5275,6 @@ Object.assign(window, {
   toggleBurst,
   startBattle,
   doBattleFire,
-  skipProbe,
   endBattleEarly,
   calcResult,
   quickResult,

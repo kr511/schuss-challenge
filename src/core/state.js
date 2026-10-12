@@ -46,8 +46,6 @@ export function createInitialState({ storageManager } = {}) {
     currentDetectedShots: [],
     _gameStartTime: 0,
     _lastPlayerShotAt: 0,
-    probeActive: false,
-    probeSecsLeft: 0,
     botStarted: false,
     transitionSecsLeft: 0,
     transitionLabel: ''
