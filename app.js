@@ -3227,7 +3227,7 @@ function startBotAutoShoot() {
     // Basiert auf echten Sportschießen-Normen
     const DISCIPLINE_TIMINGS = {
       lg40: { baseSecs: 35, min: 25, max: 50 },        // Luftgewehr 40: 50min für 40 Schuss → 75s/Schuss, aber konzentriert
-      lg60: { baseSecs: 42, min: 30, max: 60 },        // Luftgewehr 60: 70min für 60 Schuss → 70s/Schuss
+      lg60: { baseSecs: 42, min: 30, max: 60 },        // Luftgewehr 60: 75min für 60 Schuss → 75s/Schuss
       kk50: { baseSecs: 50, min: 35, max: 70 },        // KK 50m: 50min für 60 Schuss → 50s/Schuss durchschnitt
       kk100: { baseSecs: 65, min: 45, max: 90 },       // KK 100m: 70min für 60 Schuss → 70s/Schuss, aber extremer konzentriert
       kk3x20: { baseSecs: 85, min: 60, max: 120 }      // KK 3×20: 105min für 60 Schuss inkl. Wechsel → längere Mittel je Schuss
