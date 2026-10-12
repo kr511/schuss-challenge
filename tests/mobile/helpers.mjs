@@ -1,7 +1,7 @@
 import { expect } from '@playwright/test';
 
-/** Bottom-navigation tab ids, in order. */
-export const TABS = ['start', 'training', 'challenges', 'freunde', 'profil'];
+/** Bottom-navigation tab ids im Lite-Modus (Standard), in order. */
+export const TABS = ['start', 'freunde', 'profil'];
 
 // Runs in the page BEFORE any app script. Enables the offline "local play"
 // mode so the Supabase auth gate is bypassed and we land on the dashboard.
@@ -11,6 +11,8 @@ export function enableLocalMode() {
     localStorage.setItem('sd_local_mode', '1');
     localStorage.setItem('username', 'TestGast');
     localStorage.setItem('sd_username', 'TestGast');
+    // Onboarding als erledigt markieren, sonst blockiert .ob-overlay die Bottom-Nav
+    localStorage.setItem('sd_onboarded', '1');
     // Consent vorbelegen (kein Analytics), damit der Banner den UI-Test nicht blockiert
     localStorage.setItem('sd_consent', JSON.stringify({ v: 1, analytics: false, ts: Date.now() }));
   } catch (e) { /* ignore */ }

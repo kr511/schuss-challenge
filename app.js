@@ -2150,6 +2150,7 @@ function renderPerformanceChart() {
   });
 
   // Gradient-Fill — feste Höhe 160 damit er auch vor erstem Paint funktioniert
+  if (typeof Chart === 'undefined') return; // Chart.js im Lite-Modus nicht geladen
   const ctx2d = canvas.getContext('2d');
   const boxH = canvas.parentElement?.offsetHeight || 160;
   const grad = ctx2d.createLinearGradient(0, 0, 0, boxH);
