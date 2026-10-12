@@ -77,7 +77,7 @@
 
   <!-- HAUPT-APP (MUSS VOR ALLEN ABHÄNGIGEN MODulen LADEN) -->
   <script type="module" src="src/main.js?v=1.0"></script>
-  <script src="app.js?v=4.0" defer></script>
+  <script src="app.js?v=4.1" defer></script>
   <script src="leaderboard-modern.js?v=1.1" defer></script>
   <script src="duel-setup-runtime.js?v=4.8" defer></script>
   <script src="duel-scroll-lock.js?v=5.0" defer></script>
@@ -1628,9 +1628,6 @@
       <button class="btn-fire" id="battleFireBtn" onclick="doBattleFire()">SCHUSS</button>
       <button class="btn-burst" id="battleBurstBtn" onclick="doBattleFire()" style="display:none;">⚡ &nbsp;5 SCHUSS AUF
         EINMAL</button>
-      <button class="btn-sec" id="skipProbeBtn" onclick="skipProbe()"
-        style="display:none;background:rgba(255,150,50,.1);border-color:rgba(255,150,50,.3);color:rgba(255,180,80,.7);">⏭️
-        &nbsp;Probezeit überspringen</button>
       <button class="btn-sec" onclick="endBattleEarly()">✕ &nbsp;Alle Schüsse abgegeben – Ergebnis eingeben</button>
     </div>
   </div>

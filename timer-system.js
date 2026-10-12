@@ -138,17 +138,6 @@
           onDone
         });
       },
-      startProbeTimer(seconds, onDone) {
-        state.probeActive = true;
-        return startCountdown('probeTimer', {
-          seconds,
-          onTick: ({ remaining }) => { state.probeSecsLeft = remaining; },
-          onDone: (...args) => {
-            state.probeActive = false;
-            if (typeof onDone === 'function') onDone(...args);
-          }
-        });
-      },
       startTransitionTimer(seconds, label, onDone) {
         state.transitionLabel = String(label || '');
         return startCountdown('transitionTimer', {
