@@ -591,7 +591,17 @@
         document.body.appendChild(overlay);
         requestAnimationFrame(() => overlay.classList.add('active'));
 
+        // Optionen: dismissible=false → Tippen daneben / Escape tun nichts;
+        // autoConfirmSecs → bestätigt nach Ablauf automatisch (Countdown auf dem Button)
+        const dismissible = opts.dismissible !== false;
+        const confirmBtn = overlay.querySelector('[data-mux-confirm]');
+        let autoTimer = null;
+        let done = false;
         const cleanup = (result) => {
+          if (done) return;
+          done = true;
+          if (autoTimer) clearTimeout(autoTimer);
+          document.removeEventListener('keydown', escHandler);
           overlay.classList.remove('active');
           setTimeout(() => {
             if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -602,20 +612,31 @@
           this.triggerHaptic('light');
           cleanup(false);
         });
-        overlay.querySelector('[data-mux-confirm]').addEventListener('click', () => {
+        confirmBtn.addEventListener('click', () => {
           this.triggerHaptic(danger ? 'medium' : 'light');
           cleanup(true);
         });
         overlay.addEventListener('click', (event) => {
-          if (event.target === overlay) cleanup(false);
+          if (event.target === overlay && dismissible) cleanup(false);
         });
         const escHandler = (event) => {
-          if (event.key === 'Escape') {
-            document.removeEventListener('keydown', escHandler);
-            cleanup(false);
-          }
+          if (event.key === 'Escape' && dismissible) cleanup(false);
         };
         document.addEventListener('keydown', escHandler);
+        if (Number.isFinite(opts.autoConfirmSecs) && opts.autoConfirmSecs > 0) {
+          // Leiste im Button, die bis zur automatischen Bestätigung auf 0 schrumpft
+          const secs = opts.autoConfirmSecs;
+          const bar = document.createElement('span');
+          bar.className = 'mux-confirm-timer';
+          bar.setAttribute('aria-hidden', 'true');
+          bar.style.cssText = 'position:absolute;left:0;bottom:0;height:6px;width:100%;' +
+            'background:rgba(0,0,0,.5);transition:width ' + secs + 's linear;';
+          confirmBtn.style.position = 'relative';
+          confirmBtn.style.overflow = 'hidden';
+          confirmBtn.appendChild(bar);
+          requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = '0%'; }));
+          autoTimer = setTimeout(() => cleanup(true), secs * 1000);
+        }
       });
     },
 
