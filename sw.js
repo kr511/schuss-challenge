@@ -7,7 +7,7 @@
 //   • Bei Aktivierung werden alte Caches mit anderem Versionsnamen gelöscht.
 // Hinweis: Bei Releases CACHE_VERSION erhöhen UND ?v=X.X in index.html bumpen.
 
-const CACHE_VERSION = 'sc-shell-v23';
+const CACHE_VERSION = 'sc-shell-v25';
 const OFFLINE_URL = './offline.html';
 const PRECACHE_URLS = [
   OFFLINE_URL,

@@ -1,0 +1,34 @@
+/* Lite-Modus: nur Bot-Duell + Freunde/Challenges. Aktiv über .sc-lite auf <html> (siehe lite-mode.js). */
+
+/* Bottom-Nav: nur Start, Freunde, Profil */
+.sc-lite #bottomNav .bn-tab[data-tab="aktivitaeten"],
+.sc-lite #bottomNav .bn-tab[data-tab="challenges"] { display: none !important; }
+.sc-lite #tabAktivitaeten,
+.sc-lite #tabChallenges,
+.sc-lite #tabTraining { display: none !important; }
+
+/* Start: Tagesziel, Übersicht und Tages-Challenges raus */
+.sc-lite #tabStart .goal-card,
+.sc-lite #tabStart .page-content > div:has(> .section-hdr .section-link[onclick*="'training'"]),
+.sc-lite #tabStart .page-content > div:has(> #activeChallengesStart) { display: none !important; }
+
+/* Profil: nur Name/Avatar + Konto */
+.sc-lite #tabProfil .ph2-xp,
+.sc-lite #tabProfil #ptPlanBadge,
+.sc-lite #tabProfil #ptClub,
+.sc-lite #tabProfil #profileClubMount,
+.sc-lite #tabProfil #profileInnerTabs,
+.sc-lite #tabProfil #ptStatsPanel,
+.sc-lite #tabProfil #ptErfolgePanel,
+.sc-lite #tabProfil #ptVerlaufPanel,
+.sc-lite #tabProfil .pt-konto-row[onclick*="openPremiumModal"],
+.sc-lite #tabProfil .pt-konto-row[onclick="window.ProfileSettings && window.ProfileSettings.open()"],
+.sc-lite #tabProfil .pt-konto-info-row:has(.pt-konto-level-display) { display: none !important; }
+.sc-lite #tabProfil #ptKontoPanel { display: block !important; margin-top: 16px; }
+
+/* Ergebnis-Screen: Foto-Vergleich (OCR) ist im Lite-Modus nicht geladen */
+.sc-lite .ic-go-upload-btn,
+.sc-lite [onclick*="ImageCompare"] { display: none !important; }
+
+/* Freundesprofil: Chat (chat-view.js) ist im Lite-Modus nicht geladen */
+.sc-lite [data-fp-action="message"] { display: none !important; }

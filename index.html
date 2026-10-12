@@ -31,6 +31,7 @@
     rel="stylesheet">
   <!-- Globaler Error-Guard: muss als erstes Script laden, um Boot-Fehler zu erfassen -->
   <script src="error-guard.js?v=1.0"></script>
+  <script src="lite-mode.js?v=1.0"></script>
   <!-- Consent Manager: §25 TDDDG – lädt Analytics nur nach Einwilligung -->
   <script src="consent.js?v=1.0"></script>
   <!-- Supabase JS (muss vor auth-gate.js geladen sein) -->
@@ -45,63 +46,63 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
   <!-- Chart.js -->
-  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script>scOptionalScript('https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js', true)</script>
   <!-- Experience-Erweiterungen -->
   <script src="src/core/html-escape.js?v=1.0"></script>
   <script src="src/core/audio-engine.js?v=1.0"></script>
   <script src="src/core/game-constants.js?v=1.0"></script>
   <script src="src/game/xp-system.js?v=1.0"></script>
-  <script src="src/features/daily-login-rewards.js?v=1.0"></script>
+  <script>scOptionalScript('src/features/daily-login-rewards.js?v=1.0')</script>
   <script src="src/ui/effects.js?v=1.0"></script>
   <script src="src/core/supabase-helpers.js?v=1.0"></script>
   <script src="src/storage/stats-storage.js?v=1.0"></script>
   <script src="haptics.js?v=3.0"></script>
   <script src="sounds.js?v=3.0"></script>
-  <script src="tutorial.js?v=3.0"></script>
+  <script>scOptionalScript('tutorial.js?v=3.0')</script>
   <script src="onboarding.js?v=1.0"></script>
-  <script src="image-compare-brain.js?v=3.3"></script>
-  <script src="gemini-ai.js?v=3.0" defer></script>
-  <script src="src/vision/image-quality-analyzer.js?v=1.0" defer></script>
-  <script src="src/vision/image-preprocessor.js?v=1.0" defer></script>
-  <script src="src/vision/ocr-feedback.js?v=1.0" defer></script>
-  <script src="src/vision/ocr-confidence.js?v=1.0" defer></script>
-  <script src="src/vision/image-compare.js?v=3.6" defer></script>
-  <script src="src/vision/batch-processor.js?v=1.0" defer></script>
-  <script src="v2-vision-engine.js?v=1.3" defer></script>
+  <script>scOptionalScript('image-compare-brain.js?v=3.3')</script>
+  <script>scOptionalScript('gemini-ai.js?v=3.0', true)</script>
+  <script>scOptionalScript('src/vision/image-quality-analyzer.js?v=1.0', true)</script>
+  <script>scOptionalScript('src/vision/image-preprocessor.js?v=1.0', true)</script>
+  <script>scOptionalScript('src/vision/ocr-feedback.js?v=1.0', true)</script>
+  <script>scOptionalScript('src/vision/ocr-confidence.js?v=1.0', true)</script>
+  <script>scOptionalScript('src/vision/image-compare.js?v=3.6', true)</script>
+  <script>scOptionalScript('src/vision/batch-processor.js?v=1.0', true)</script>
+  <script>scOptionalScript('v2-vision-engine.js?v=1.3', true)</script>
 
   <!-- NEUE FEATURES: Adaptive Bot-KI und erweiterte OCR -->
   <script src="feature-fallback.js?v=3.0" defer></script>
   <script src="src/bot/adaptive-bot.js?v=3.0" defer></script>
-  <script src="src/vision/contextual-ocr.js?v=3.0" defer></script>
-  <script src="src/vision/multi-score-detection.js?v=3.0" defer></script>
+  <script>scOptionalScript('src/vision/contextual-ocr.js?v=3.0', true)</script>
+  <script>scOptionalScript('src/vision/multi-score-detection.js?v=3.0', true)</script>
 
   <!-- HAUPT-APP (MUSS VOR ALLEN ABHÄNGIGEN MODulen LADEN) -->
   <script type="module" src="src/main.js?v=1.0"></script>
-  <script src="app.js?v=4.0" defer></script>
-  <script src="leaderboard-modern.js?v=1.1" defer></script>
+  <script src="app.js?v=4.2" defer></script>
+  <script>scOptionalScript('leaderboard-modern.js?v=1.1', true)</script>
   <script src="duel-setup-runtime.js?v=4.8" defer></script>
   <script src="duel-scroll-lock.js?v=5.0" defer></script>
   <script src="profile-scroll-fix.js?v=1.0" defer></script>
   
   <!-- ERWEITERTE FEATURES: Achievements, Analytics, Training, Mobile -->
-  <script src="src/game/daily-challenge.js?v=3.6" defer></script>
-  <script src="streak-tracker.js?v=3.0" defer></script>
-  <script src="src/features/enhanced-achievements.js?v=3.0" defer></script>
-  <script src="src/features/enhanced-analytics.js?v=3.0" defer></script>
+  <script>scOptionalScript('src/game/daily-challenge.js?v=3.6', true)</script>
+  <script>scOptionalScript('streak-tracker.js?v=3.0', true)</script>
+  <script>scOptionalScript('src/features/enhanced-achievements.js?v=3.0', true)</script>
+  <script>scOptionalScript('src/features/enhanced-analytics.js?v=3.0', true)</script>
   <script src="ProfileView.js?v=1.0" defer></script>
-  <script src="src/game/training-modes.js?v=3.0" defer></script>
+  <script>scOptionalScript('src/game/training-modes.js?v=3.0', true)</script>
   <script src="mobile-features.js?v=3.1" defer></script>
   <script src="mobile-responsive.js?v=1.2" defer></script>
   <script src="friends.js?v=1.2" defer></script>
   <script src="friend-search.js?v=1.0" defer></script>
   <script src="friend-profile-view.js?v=2.0" defer></script>
-  <script src="chat-view.js?v=2.1" defer></script>
-  <script src="chat-badge.js?v=1.0" defer></script>
-  <script src="chat-notifications.js?v=1.0" defer></script>
-  <script src="friend-photo-duel.js?v=1.5" defer></script>
+  <script>scOptionalScript('chat-view.js?v=2.1', true)</script>
+  <script>scOptionalScript('chat-badge.js?v=1.0', true)</script>
+  <script>scOptionalScript('chat-notifications.js?v=1.0', true)</script>
+  <script>scOptionalScript('friend-photo-duel.js?v=1.5', true)</script>
   <script src="src/features/async-challenge.js?v=1.5" defer></script>
   <script src="multiplayer-flow.js?v=1.0" defer></script>
-  <script src="updates.js?v=1.2" defer></script>
+  <script>scOptionalScript('updates.js?v=1.2', true)</script>
   <link rel="stylesheet" href="styles.css?v=3.5">
   <link rel="stylesheet" href="src/features/clubs-system.css?v=1.2">
   <link rel="stylesheet" href="modern-animations.css?v=1.0">
@@ -109,21 +110,22 @@
   <link rel="stylesheet" href="friend-profile.css?v=1.3">
   <link rel="stylesheet" href="chat-view.css?v=2.2">
   <link rel="stylesheet" href="image-compare.css?v=3.5">
+  <link rel="stylesheet" href="lite-mode.css?v=1.0">
   <script src="modern-ux.js?v=1.0" defer></script>
-  <script src="reward-system.js?v=1.0" defer></script>
+  <script>scOptionalScript('reward-system.js?v=1.0', true)</script>
   <script src="src/storage/storage-manager.js?v=3.0"></script>
-  <script src="src/features/clubs-system.js?v=1.2" defer></script>
-  <script src="profile-club.js?v=1.0" defer></script>
+  <script>scOptionalScript('src/features/clubs-system.js?v=1.2', true)</script>
+  <script>scOptionalScript('profile-club.js?v=1.0', true)</script>
   <script src="src/features/online-status.js?v=1.2" defer></script>
   <script src="performance-config.js"></script>
   <script src="src/bot/battle-balance.js" defer></script>
-  <script src="rival-system.js" defer></script>
-  <script src="visitenkarte-share.js" defer></script>
-  <script src="tab-navigation.js?v=1.3" defer></script>
-  <script src="training-heatmap.js?v=1.0" defer></script>
+  <script>scOptionalScript('rival-system.js', true)</script>
+  <script>scOptionalScript('visitenkarte-share.js', true)</script>
+  <script src="tab-navigation.js?v=1.4" defer></script>
+  <script>scOptionalScript('training-heatmap.js?v=1.0', true)</script>
   <script src="screen-wake-lock.js?v=1.0" defer></script>
-  <script src="push-notifications.js?v=1.0" defer></script>
-  <script src="streak-reminder.js?v=1.0" defer></script>
+  <script>scOptionalScript('push-notifications.js?v=1.0', true)</script>
+  <script>scOptionalScript('streak-reminder.js?v=1.0', true)</script>
 </head>
 
 <body>
@@ -896,7 +898,6 @@
       style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9000;opacity:0;transition:opacity 0.3s ease;">
       <div id="duelSetupSheet"
         style="position:absolute;bottom:-100%;left:0;width:100%;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;background:rgba(18,18,20,0.97);border-top:1px solid rgba(255,255,255,0.1);border-radius:24px 24px 0 0;padding:20px 25px 35px 25px;transition:bottom 0.4s cubic-bezier(0.175,0.885,0.32,1);box-shadow:0 -10px 40px rgba(0,0,0,0.5);">
-        <div style="width:40px;height:5px;background:rgba(255,255,255,0.2);border-radius:5px;margin:0 auto 20px auto;"></div>
         <div id="gameModeSelection">
           <h3 style="color:#fff;margin:0 0 8px 0;font-weight:700;font-size:1.3rem;text-align:center;">SPIELMODUS</h3>
           <p style="color:rgba(255,255,255,0.5);margin:0 0 24px 0;font-size:0.9rem;text-align:center;">Wähle deinen Gegner</p>

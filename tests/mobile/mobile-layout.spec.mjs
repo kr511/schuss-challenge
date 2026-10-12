@@ -46,7 +46,7 @@ test.describe('mobile dashboard', () => {
 
   test('bottom-nav tap targets are at least 44px tall', async ({ page, baseURL }) => {
     await bootLocalApp(page, baseURL);
-    const tabs = page.locator('#bottomNav .bn-tab');
+    const tabs = page.locator('#bottomNav .bn-tab:visible');
     const count = await tabs.count();
     expect(count).toBeGreaterThan(0);
     for (let i = 0; i < count; i++) {

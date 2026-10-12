@@ -833,3 +833,9 @@ body.duel-scroll-lock-active [data-profile-trigger] {
     font-size: 1.1rem;
   }
 }
+
+/* Mobile-Fixes: Haken darf den Text nicht überdecken, Bottom-Nav nicht über dem Sheet */
+#duelSetupSheet .duel-card,
+#duelSetupSheet .duel-discipline,
+#duelSetupSheet .duel-pill { padding-right: 40px !important; } /* mobile-responsive.js setzt Inline-Padding */
+body:has(#duelSetupSheet.is-open) #bottomNav { display: none !important; }

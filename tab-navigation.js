@@ -73,6 +73,12 @@
       }
     };
 
+    // Lite-Modus: Benachrichtigungen (updates.js) nicht geladen → keine Glocke; Profil ohne Statistiken
+    if (window.SC_LITE) {
+      configs.start.right = '';
+      configs.profil.left = `<div class="ah-page-title">Profil</div>
+               <div class="ah-page-sub">Konto &amp; Einstellungen</div>`;
+    }
     const cfg = configs[tabId] || configs.start;
     left.innerHTML = cfg.left;
     actions.innerHTML = cfg.right;
@@ -84,6 +90,8 @@
 
   /* ── Tab switching ── */
   window.switchTab = function (tabId) {
+    // Lite-Modus: ausgeblendete Tabs landen auf Start
+    if (window.SC_LITE && (tabId === 'aktivitaeten' || tabId === 'challenges')) tabId = 'start';
     if (!TABS.includes(tabId)) return;
     if (tabId === currentTab && initialized) return;
     currentTab = tabId;

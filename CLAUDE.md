@@ -44,6 +44,8 @@ The Worker (`worker/index.ts`) routes `/api/*` to `worker/api.ts` and everything
 
 **Root-level files that are intentionally NOT moved to `/src/`:** `app.js` (global orchestration, many `window.*` dependencies), `sw.js` (Service Worker scope), `auth-gate.js`, `supabase-client.js`, and all other root JS files listed in `docs/architecture.md`.
 
+**Lite-Modus (Standard):** `lite-mode.js` setzt `window.SC_LITE` und die Klasse `sc-lite` auf `<html>`. Im Lite-Modus gibt es nur Bot-Duell, Freunde/Challenges und ein schlankes Profil (Konto). Optionale Feature-Scripts werden in `index.html` über `scOptionalScript(src, defer)` eingebunden und im Lite-Modus nicht geladen; ausgeblendete UI steht in `lite-mode.css`. `?full=1` schaltet die volle App ein (gemerkt in `sd_full_app`), `?full=0` zurück. Neuer Code darf optionale Globals (z. B. `DailyChallenge`, `ClubsSystem`, `Chart`) nur mit `typeof`-Guard nutzen.
+
 **Local-first data model:** All features work without login. Local data uses `StorageManager`/`localStorage` with the `sd_` prefix. Supabase is additive; if unavailable the app continues locally and does not sync.
 
 **Frontend config priority:** `window.SCHUETZEN_CHALLENGE_CONFIG` → `<meta>` tags → `import.meta.env` → public defaults. Only the `anon` key and Supabase URL belong in frontend code. The `service_role` key lives exclusively in Wrangler secrets.
